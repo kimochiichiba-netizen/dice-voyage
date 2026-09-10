@@ -101,7 +101,6 @@
       <button data-e="😱">😱</button><button data-e="🤑">🤑</button><button data-e="👏">👏</button>
     </div>
     <button id="emotebtn">😆</button>
-    <button id="sound">🔊</button>
     <button id="menu">⏸</button>
 
     <!-- ═══ モーダル ═══ -->
@@ -109,6 +108,17 @@
 
     <!-- ═══ VS マッチング ═══ -->
     <div id="vs"></div>
+
+    <!-- ═══ 音量 ═══ -->
+    <div id="audiobar">
+      <button id="bgmBtn" title="音楽">🎵</button>
+      <input type="range" id="bgmVol" min="0" max="100" value="55" aria-label="音楽の大きさ">
+      <button id="sfxBtn" title="効果音">🔊</button>
+      <input type="range" id="sfxVol" min="0" max="100" value="70" aria-label="効果音の大きさ">
+    </div>
+
+    <!-- ═══ 画面の切り替え（ワイプ） ═══ -->
+    <div id="wipe"><i></i><i></i></div>
 
     <!-- ═══════════ タイトル ═══════════ -->
     <div class="screen on" id="title">

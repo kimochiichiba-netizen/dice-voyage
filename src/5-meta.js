@@ -10,57 +10,42 @@ const RAR = {
   SS: {nm:'S+', cls:'rSS', mul:1.32, w: 6, gold:600}
 };
 
-/* ── カード図鑑（12枚。artは描画の元になる4体） ───────────── */
+/* ── カード図鑑（8人。art が肖像・コマの絵、kind が能力の型） ───────────── */
+/* kind: 0=通行料を無効化 1=出目を選ぶ 2=好きなマスへ移動 3=総資産の一部を現金化 */
 const CARDPOOL = [
-  {id:'c01', art:0, col:'#4C9BE8', nm:'ミナ',    role:'氷の魔法使い', rar:'A',
-   line:'凍らせてあげる。動かないでね。',
-   st:{toll:62,mini:44,special:50,fortune:52,build:74,gauge:54,buyout:40},
-   sk:{nm:'アイスウォール', ds:'次に払う通行料が0になる', uses:2}},
-  {id:'c02', art:1, col:'#E14A5A', nm:'ガル',    role:'紅蓮の剣士',   rar:'A',
-   line:'細かい話は苦手だ。ぶつかるぞ。',
-   st:{toll:74,mini:60,special:40,fortune:36,build:46,gauge:64,buyout:56},
-   sk:{nm:'突撃', ds:'次のサイコロの出目を自分で選べる', uses:2}},
-  {id:'c03', art:2, col:'#54C06A', nm:'リノ',    role:'風の弓使い',   rar:'A',
-   line:'当てるのは得意なんだ。',
-   st:{toll:50,mini:78,special:54,fortune:62,build:50,gauge:80,buyout:44},
-   sk:{nm:'風読み', ds:'好きなマスへ移動する', uses:2}},
-  {id:'c04', art:3, col:'#E0A73C', nm:'ゼニ',    role:'黄金の商人',   rar:'A',
-   line:'商売は数字だよ、お客さん。',
-   st:{toll:44,mini:48,special:76,fortune:78,build:60,gauge:42,buyout:80},
-   sk:{nm:'金策', ds:'総資産の8%を現金で受け取る', uses:2}},
+  {id:'c01', art:1, kind:1, col:'#3E8FE0', nm:'レン',   role:'蒼銀の騎士', sex:'男', rar:'A',
+   line:'守るために、前へ出る。',
+   st:{toll:70,mini:52,special:46,fortune:40,build:54,gauge:62,buyout:50},
+   sk:{nm:'ヴァンガード', ds:'次のサイコロの出目を自分で選べる', uses:2}},
+  {id:'c02', art:5, kind:2, col:'#6FCF6F', nm:'ソラ',   role:'翠風の狩人', sex:'男', rar:'A',
+   line:'風の通り道は、見えてるよ。',
+   st:{toll:48,mini:76,special:52,fortune:60,build:48,gauge:78,buyout:44},
+   sk:{nm:'追い風', ds:'好きなマスへ移動する', uses:2}},
+  {id:'c03', art:3, kind:1, col:'#E14A5A', nm:'カイ',   role:'紅蓮の傭兵', sex:'男', rar:'A',
+   line:'細けえ話はナシだ。行くぞ。',
+   st:{toll:78,mini:58,special:38,fortune:36,build:44,gauge:66,buyout:58},
+   sk:{nm:'蛮勇', ds:'次のサイコロの出目を自分で選べる', uses:2}},
 
-  {id:'c05', art:0, col:'#8E6BE0', nm:'ヴェル',  role:'紫電の賢者',   rar:'S',
-   line:'計算どおり、ですね。',
-   st:{toll:70,mini:56,special:66,fortune:70,build:84,gauge:62,buyout:52},
-   sk:{nm:'雷の理', ds:'次の建設が無料になる', uses:2}},
-  {id:'c06', art:1, col:'#E8743C', nm:'バーン',  role:'業火の闘士',   rar:'S',
-   line:'燃やし尽くす！',
-   st:{toll:86,mini:66,special:44,fortune:44,build:56,gauge:76,buyout:70},
-   sk:{nm:'業火', ds:'次のサイコロの出目を自分で選べる', uses:3}},
-  {id:'c07', art:2, col:'#3FC0B0', nm:'セイル',  role:'蒼海の斥候',   rar:'S',
-   line:'風向きが変わったよ。',
-   st:{toll:58,mini:88,special:60,fortune:72,build:54,gauge:90,buyout:50},
-   sk:{nm:'追い風', ds:'好きなマスへ移動する', uses:3}},
-  {id:'c08', art:3, col:'#D8B44A', nm:'コイン',  role:'両替商',       rar:'S',
-   line:'手数料はいただきますよ。',
-   st:{toll:50,mini:54,special:86,fortune:84,build:66,gauge:48,buyout:90},
-   sk:{nm:'両替', ds:'総資産の12%を現金で受け取る', uses:2}},
+  {id:'c04', art:0, kind:0, col:'#8FD8E8', nm:'ユキ',   role:'氷の姫巫女', sex:'女', rar:'S',
+   line:'そっと、凍らせてあげる。',
+   st:{toll:76,mini:56,special:66,fortune:64,build:86,gauge:60,buyout:52},
+   sk:{nm:'氷結の祈り', ds:'次に払う通行料が0になる', uses:2}},
+  {id:'c05', art:2, kind:2, col:'#A87BE0', nm:'ルナ',   role:'星読みの魔女', sex:'女', rar:'S',
+   line:'星が、そう言ってるの。',
+   st:{toll:58,mini:84,special:64,fortune:88,build:56,gauge:86,buyout:50},
+   sk:{nm:'星辰の導き', ds:'好きなマスへ移動する', uses:3}},
+  {id:'c06', art:6, kind:1, col:'#F09AB8', nm:'サクラ', role:'桜花の剣姫', sex:'女', rar:'S',
+   line:'一太刀で、終わらせます。',
+   st:{toll:88,mini:68,special:48,fortune:46,build:58,gauge:82,buyout:66},
+   sk:{nm:'桜花一閃', ds:'次のサイコロの出目を自分で選べる', uses:3}},
 
-  {id:'c09', art:0, col:'#7FE6FF', nm:'アルカ',  role:'原初の氷姫',   rar:'SS',
-   line:'この盤は、わたしのもの。',
-   st:{toll:80,mini:62,special:72,fortune:74,build:96,gauge:70,buyout:60},
-   sk:{nm:'絶対零度', ds:'相手の街を2ターン凍らせ、次の通行料も0にする', uses:2}},
-  {id:'c10', art:1, col:'#FF5A44', nm:'グラム',  role:'覇竜の剣聖',   rar:'SS',
-   line:'退がるという言葉はない。',
-   st:{toll:96,mini:72,special:52,fortune:52,build:64,gauge:86,buyout:78},
-   sk:{nm:'覇断', ds:'出目を選び、さらにもう一度振れる', uses:2}},
-  {id:'c11', art:2, col:'#7DE08A', nm:'ノワ',    role:'翠嵐の狩人',   rar:'SS',
-   line:'外したことは、ない。',
-   st:{toll:64,mini:96,special:68,fortune:82,build:60,gauge:98,buyout:56},
-   sk:{nm:'千里眼', ds:'好きなマスへ移動し、通行料を1回無効化する', uses:2}},
-  {id:'c12', art:3, col:'#FFD24D', nm:'ミダス',  role:'黄金王',       rar:'SS',
-   line:'触れたものは、すべて金になる。',
-   st:{toll:56,mini:60,special:94,fortune:96,build:78,gauge:54,buyout:98},
+  {id:'c07', art:4, kind:3, col:'#E8C34A', nm:'ミオ',   role:'商会のお嬢様', sex:'女', rar:'SS',
+   line:'わたくしに、任せてくださる？',
+   st:{toll:62,mini:66,special:92,fortune:94,build:80,gauge:58,buyout:96},
+   sk:{nm:'商会の威光', ds:'総資産の18%を現金で受け取る', uses:2}},
+  {id:'c08', art:7, kind:3, col:'#D8B44A', nm:'ジン',   role:'黄金の両替商', sex:'男', rar:'SS',
+   line:'手数料は、いただきますよ。',
+   st:{toll:70,mini:62,special:96,fortune:86,build:88,gauge:64,buyout:98},
    sk:{nm:'黄金律', ds:'総資産の18%を現金で受け取る', uses:2}}
 ];
 const cardById = id => CARDPOOL.find(c=>c.id===id);
@@ -121,9 +106,34 @@ function playerLvNeed(lv){ return 60 + lv*40; }
 /* ── 画面を作る ─────────────────────────────────────── */
 function mkScreen(id, innerHTML){
   let el = document.getElementById(id);
-  if(!el){ el = document.createElement('div'); el.className='screen'; el.id=id; $('#stage').appendChild(el); }
+  if(!el){ el = document.createElement('div'); el.id=id; $('#stage').appendChild(el); }
+  el.className = 'screen meta' + (el.classList.contains('on') ? ' on' : '');
   el.innerHTML = innerHTML;
   return el;
+}
+/* 上部タブ：どの画面からでも1タップで行き来できる */
+const META_TABS = [
+  {id:'home',  ic:'🏠', nm:'ホーム',     go:()=>showHome()},
+  {id:'cards', ic:'🎴', nm:'カード',     go:()=>showCards()},
+  {id:'gacha', ic:'✨', nm:'ガチャ',     go:()=>showGacha()},
+  {id:'pend',  ic:'📿', nm:'ペンダント', go:()=>showPend()}
+];
+function tabsHTML(active){
+  return '<div class="tabs">'
+    + META_TABS.map(t=>'<div class="tab'+(t.id===active?' on':'')+'" data-tab="'+t.id+'">'
+        + '<span class="ic">'+t.ic+'</span>'+t.nm+'</div>').join('')
+    + '<button class="btn ghost back" data-tab="title" style="font-size:15px;padding:8px 18px">'
+    + 'タイトル</button></div>';
+}
+function wireTabs(root){
+  root.querySelectorAll('[data-tab]').forEach(el=>{
+    el.onclick = ()=>{
+      SFX.click();
+      if(el.dataset.tab==='title'){ screenTo('title'); return; }
+      const t = META_TABS.find(x=>x.id===el.dataset.tab);
+      if(t) t.go();
+    };
+  });
 }
 function walletHTML(){
   const need = playerLvNeed(SV.lv);
@@ -139,14 +149,9 @@ function walletHTML(){
 function statRows(st, cmp){
   return STAT_LABELS.map(([k,l])=>{
     const v = st[k], d = cmp ? v - cmp[k] : 0;
-    return '<div style="display:flex;align-items:center;gap:6px;margin:2px 0">'
-      + '<span style="flex:0 0 96px;font-size:11px;color:#9FB6CC">'+l+'</span>'
-      + '<span style="flex:1;height:8px;border-radius:4px;background:#0a1420;overflow:hidden;display:block">'
-      +   '<i style="display:block;height:100%;width:'+Math.min(100,v)+'%;'
-      +     'background:linear-gradient(90deg,#E08A1A,#FFD24D)"></i></span>'
-      + '<span style="flex:0 0 44px;text-align:right;font-family:var(--pop);font-size:12px;color:#FFE9B5">'
-      +   v + (d>0?'<span style="color:#7DE08A;font-size:10px"> +'+d+'</span>':'') + '</span>'
-      + '</div>';
+    return '<div class="strow"><span class="l">'+l+'</span>'
+      + '<span class="bar"><i style="width:'+Math.min(100,v)+'%"></i></span>'
+      + '<span class="v">'+v+(d>0?'<em> +'+d+'</em>':'')+'</span></div>';
   }).join('');
 }
 
@@ -154,36 +159,35 @@ function statRows(st, cmp){
 function showHome(){
   const c = equippedCard(), own = SV.cards[c.id]||{lv:1};
   const st = myStats();
-  mkScreen('home',
-    '<div class="inner">'
+  const el = mkScreen('home',
+    tabsHTML('home')
+    + '<div class="inner">'
     + '<div class="hero">'
     +   '<div class="heroPic"><span class="rk">'+RAR[c.rar].nm+' CLASS</span>'
-    +     '<canvas id="homePic" width="330" height="420"></canvas></div>'
+    +     '<canvas id="homePic" width="320" height="450"></canvas></div>'
     +   '<div class="heroInfo">'
     +     '<h1>ダイスボヤージュ</h1><div class="cap">DICE VOYAGE</div>'
-    +     '<div class="line"><b style="color:#FFE9B5">'+esc(c.nm)+'</b>（'+esc(c.role)+'） Lv.'+own.lv
+    +     '<div class="who"><b>'+esc(c.nm)+'</b>（'+esc(c.role)+'） Lv.'+own.lv
     +       '　「'+esc(c.line)+'」</div>'
-    +     '<div class="stats">'+statRows(st, cardStats(c.id, own.lv, []))+'</div>'
+    +     '<div class="stats dark-st">'+statRows(st, cardStats(c.id, own.lv, []))+'</div>'
+    +     '<div class="modes">'
+    +       '<div class="modebtn big" id="mPlay"><div class="ic">🎲</div><div class="nm">ゲーム開始</div>'
+    +         '<div class="ds">CPU・ともだちと 最大4人で対戦</div></div>'
+    +       '<div class="modebtn" id="mGacha"><div class="ic">✨</div><div class="nm">ガチャ</div>'
+    +         '<div class="ds">新しいキャラを<br>引き当てる</div>'
+    +         (SV.gold>=800?'<span class="badge">引ける</span>':'')+'</div>'
+    +       '<div class="modebtn" id="mCards"><div class="ic">🎴</div><div class="nm">カード強化</div>'
+    +         '<div class="ds">ステータスを<br>上げる</div></div>'
+    +     '</div>'
     +   '</div>'
-    + '</div>'
-    + '<div class="modes">'
-    +   '<div class="modebtn big" id="mPlay"><div class="ic">🎲</div><div class="nm">ゲーム開始</div>'
-    +     '<div class="ds">CPU・ともだちと<br>最大4人で対戦</div></div>'
-    +   '<div class="modebtn" id="mCards"><div class="ic">🎴</div><div class="nm">カード</div>'
-    +     '<div class="ds">強化してステータスを<br>上げる</div></div>'
-    +   '<div class="modebtn gold" id="mGacha"><div class="ic">✨</div><div class="nm">ガチャ</div>'
-    +     '<div class="ds">新しいキャラを<br>引き当てる</div>'
-    +     (SV.gold>=800?'<span class="badge">引ける</span>':'')+'</div>'
-    +   '<div class="modebtn" id="mPend"><div class="ic">📿</div><div class="nm">ペンダント</div>'
-    +     '<div class="ds">4枠に装備して<br>能力を底上げ</div></div>'
     + '</div>'
     + weekBannerHTML()
     + '</div>' + walletHTML());
   regPortrait($('#homePic'), c.art, c.col);
+  wireTabs(el);
   $('#mPlay').onclick  = ()=>{ SFX.click(); screenTo('setup'); };
   $('#mCards').onclick = ()=>{ SFX.click(); showCards(); };
   $('#mGacha').onclick = ()=>{ SFX.click(); showGacha(); };
-  $('#mPend').onclick  = ()=>{ SFX.click(); showPend(); };
   screenTo('home');
 }
 
@@ -191,15 +195,15 @@ function showHome(){
 let cardSel = null;
 function showCards(){
   cardSel = cardSel && SV.cards[cardSel] ? cardSel : SV.equip;
-  mkScreen('cards',
-    '<div class="inner">'
+  const el = mkScreen('cards',
+    tabsHTML('cards')
+    + '<div class="inner">'
     + '<div class="metahd"><h2>カード</h2>'
-    +   '<span style="font-size:13px;color:#9FB6CC">同じカードが重なると強化に使えます</span>'
-    +   '<span class="sp"><button class="btn ghost" id="cBack">ホームへ</button></span></div>'
+    +   '<span class="note">同じカードが重なると強化に使えます</span></div>'
     + '<div class="cardwrap"><div id="cardDetail"></div>'
     +   '<div class="cardgrid" id="cardGrid"></div></div>'
     + '</div>' + walletHTML());
-  $('#cBack').onclick = ()=>{ SFX.click(); showHome(); };
+  wireTabs(el);
   drawCardGrid(); drawCardDetail();
   screenTo('cards');
 }
@@ -278,11 +282,11 @@ function grant(c){
   }
 }
 function showGacha(){
-  mkScreen('gacha',
-    '<div class="inner">'
+  const el = mkScreen('gacha',
+    tabsHTML('gacha')
+    + '<div class="inner">'
     + '<div class="metahd"><h2>ガチャ</h2>'
-    +   '<span style="font-size:13px;color:#9FB6CC">ペンダントも一定確率で手に入ります</span>'
-    +   '<span class="sp"><button class="btn ghost" id="gBack">ホームへ</button></span></div>'
+    +   '<span class="note">ペンダントも一定確率で手に入ります</span></div>'
     + '<div class="stage" id="gStage"><div class="orb"></div></div>'
     + '<div class="btns">'
     +   '<button class="btn ghost" id="g1" style="font-size:20px;padding:12px 34px">1回 🪙800</button>'
@@ -291,7 +295,7 @@ function showGacha(){
     + '<div class="rates">出現率　S+ 6%　／　S 26%　／　A 68%　'
     +   '<br>すでに持っているカードは「重なり」になり、カードの強化に使えます。</div>'
     + '</div>' + walletHTML());
-  $('#gBack').onclick = ()=>{ SFX.click(); showHome(); };
+  wireTabs(el);
   $('#g1').onclick  = ()=>doGacha(1);
   $('#g10').onclick = ()=>doGacha(10);
   screenTo('gacha');
@@ -326,18 +330,18 @@ async function doGacha(n){
 
 /* ── ペンダント ─────────────────────────────────────── */
 function showPend(){
-  mkScreen('pend',
-    '<div class="inner">'
+  const el = mkScreen('pend',
+    tabsHTML('pend')
+    + '<div class="inner">'
     + '<div class="metahd"><h2>ペンダント</h2>'
-    +   '<span style="font-size:13px;color:#9FB6CC">4つまで装備できます</span>'
-    +   '<span class="sp"><button class="btn ghost" id="pBack">ホームへ</button></span></div>'
+    +   '<span class="note">4つまで装備できます</span></div>'
     + '<div class="pendwrap">'
     +   '<div><div class="slots" id="pSlots"></div>'
     +     '<div style="margin-top:14px" id="pStats"></div></div>'
     +   '<div class="pendgrid" id="pGrid"></div>'
     + '</div>'
     + '</div>' + walletHTML());
-  $('#pBack').onclick = ()=>{ SFX.click(); showHome(); };
+  wireTabs(el);
   drawPend();
   screenTo('pend');
 }
@@ -368,11 +372,9 @@ function drawPend(){
     g.appendChild(d);
   });
   const c = equippedCard(), o = SV.cards[c.id]||{lv:1};
-  $('#pStats').innerHTML = '<div style="background:rgba(8,18,32,.7);border:1px solid #2F4A6D;'
-    + 'border-radius:12px;padding:11px 12px">'
-    + '<div style="font-size:12px;font-weight:900;color:#FFD24D;margin-bottom:6px">'
-    +   esc(c.nm)+' の合計ステータス</div>'
-    + statRows(cardStats(c.id,o.lv,SV.slots), cardStats(c.id,o.lv,[])) + '</div>';
+  $('#pStats').innerHTML = '<div class="pan"><div class="in">'
+    + '<h3>'+esc(c.nm)+' の合計ステータス</h3>'
+    + statRows(cardStats(c.id,o.lv,SV.slots), cardStats(c.id,o.lv,[])) + '</div></div>';
 }
 
 /* ── VS 画面 ─────────────────────────────────────────── */

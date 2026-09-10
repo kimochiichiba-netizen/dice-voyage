@@ -28,41 +28,39 @@ addEventListener('orientationchange', ()=>setTimeout(fitStage,120));
 $('#playPortrait').onclick  = ()=>{ forcePortrait = true; portraitDir =  90; fitStage(); };
 $('#playPortrait2').onclick = ()=>{ forcePortrait = true; portraitDir = -90; fitStage(); };
 
-/* ══════════ サウンド ══════════ */
-let AC = null, soundOn = true;
-function ac(){ if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return AC; }
-function beep(f, dur, type, vol, slide){
-  if(!soundOn) return; const a = ac(); if(!a) return;
-  if(a.state==='suspended') a.resume();
-  const o = a.createOscillator(), g = a.createGain();
-  o.type = type||'sine'; o.frequency.setValueAtTime(f, a.currentTime);
-  if(slide) o.frequency.exponentialRampToValueAtTime(Math.max(40,slide), a.currentTime+dur);
-  g.gain.setValueAtTime(0.0001, a.currentTime);
-  g.gain.exponentialRampToValueAtTime(vol||0.14, a.currentTime+0.012);
-  g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime+dur);
-  o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime+dur+0.02);
+/* ══════════ サウンド ══════════
+   効果音は dvSfx（1音を2〜4層重ねた合成音）、音楽は dvMusic（4曲・ベース＋パッド＋
+   メロディ＋ドラム＋リバーブ）。どちらも音源ファイルを使わず Web Audio で作っている。
+   ブラウザの自動再生制限があるので、最初のクリックまで AudioContext は作らない。
+   ══════════════════════════════════════════ */
+let AC = null, soundOn = true, SFXE = null, MUSIC = null, audioReady = false;
+let bgmOn = true, bgmVol = 0.55, sfxVol = 0.70;
+function ac(){
+  if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+  if(AC && AC.state === 'suspended'){ try{ AC.resume(); }catch(e){} }
+  if(AC && !audioReady){
+    audioReady = true;
+    try{ SFXE = dvSfx(AC); }catch(e){ SFXE = null; }
+    try{ MUSIC = dvMusic(AC); }catch(e){ MUSIC = null; }
+    try{ applyAudioPrefs(); }catch(e){}
+    try{ if(MUSIC) MUSIC.play('lobby'); }catch(e){}
+  }
+  return AC;
 }
-function noise(dur, vol){
-  if(!soundOn) return; const a = ac(); if(!a) return;
-  const n = a.sampleRate*dur, buf = a.createBuffer(1, n, a.sampleRate), d = buf.getChannelData(0);
-  for(let i=0;i<n;i++) d[i] = (Math.random()*2-1)*Math.pow(1-i/n, 2.2);
-  const src = a.createBufferSource(); src.buffer = buf;
-  const g = a.createGain(); g.gain.value = vol||0.12;
-  src.connect(g); g.connect(a.destination); src.start();
-}
-const SFX = {
-  hop:   ()=>beep(520,.06,'square',.055,700),
-  land:  ()=>{ noise(.14,.16); beep(160,.12,'sine',.12,90); },
-  dice:  ()=>noise(.05,.08),
-  coin:  ()=>{ beep(880,.09,'triangle',.11); setTimeout(()=>beep(1320,.13,'triangle',.1),70); },
-  pay:   ()=>beep(300,.16,'sawtooth',.09,140),
-  build: ()=>{ [420,630,840].forEach((f,i)=>setTimeout(()=>beep(f,.14,'triangle',.11),i*95)); },
-  bad:   ()=>beep(200,.28,'sawtooth',.11,90),
-  win:   ()=>{ [523,659,784,1047,1319].forEach((f,i)=>setTimeout(()=>beep(f,.4,'triangle',.13),i*120)); },
-  skill: ()=>{ [660,880,1180].forEach((f,i)=>setTimeout(()=>beep(f,.22,'sine',.12),i*70)); noise(.3,.06); },
-  click: ()=>beep(700,.04,'square',.05),
-  tick:  ()=>beep(1200,.03,'square',.035)
-};
+const SFX = (function(){
+  const names = ['click','hover','diceShake','diceThrow','diceLand','diceDouble','step','land',
+    'coin','pay','build','landmark','buy','skill','gachaRoll','gachaRare','win','lose','tick','warn'];
+  const o = {};
+  names.forEach(n=>{ o[n] = function(v){
+    if(!soundOn) return;
+    const a = ac(); if(!a || !SFXE || typeof SFXE[n] !== 'function') return;
+    try{ SFXE[n](v); }catch(e){}
+  }; });
+  o.hop = o.step; o.dice = o.diceShake; o.bad = o.lose;   // 旧名の互換
+  return o;
+})();
+/* 場面に合わせて曲を切り替える */
+function bgm(name){ try{ if(MUSIC && bgmOn) MUSIC.play(name); }catch(e){} }
 
 /* ══════════ 設定と状態 ══════════ */
 let G = null;
@@ -88,7 +86,7 @@ function newGame(){
       return {
         name:s.name, kind:s.kind, ch: card.art, card: card.id,
         stats: cardStats(card.id, lv, slots), cardLv: lv,
-        skill: card.sk, skillKind: card.art,
+        skill: card.sk, skillKind: (card.kind===undefined ? 0 : card.kind),
         skillPow: card.rar==='SS' ? 0.18 : card.rar==='S' ? 0.12 : 0.08,
         cash:cfg.cash, pos:0, laps:0, jail:0, out:false, dblRun:0,
         odd:2, even:2, items:pickItems(),
@@ -182,7 +180,20 @@ function frame(now){
     drawFx(ctx, dt);
   }
   ctx.restore();
-  if(diceAnim){ diceAnim.t += dt; if(diceAnim.t > diceAnim.dur + 500) diceAnim = null; }
+  if(diceAnim){
+    diceAnim.t += dt / SPEED;
+    const th = diceAnim.th;
+    if(th){
+      const st = th.at(Math.max(0, Math.min(diceAnim.t, th.dur)));
+      // バウンドの瞬間に画面を揺らして音を鳴らす（手応えの正体）
+      if(st && st.shake > 0.30 && (diceAnim.lastShake || 0) <= 0.30){
+        camShake(7 + st.shake*16);
+        SFX.diceLand(st.shake);
+      }
+      diceAnim.lastShake = st ? st.shake : 0;
+      if(diceAnim.t > th.dur + 460) diceAnim = null;
+    } else if(diceAnim.t > 1600) diceAnim = null;
+  }
   drawGauge(now);
   paintPortraits(now);
   tickClock(dt);
@@ -218,10 +229,10 @@ function paintPortraits(T){
     const W = o.el.width, H = o.el.height;
     c.clearRect(0,0,W,H);
     c.save();
-    c.translate(W*0.5, H*0.94);
-    const s = H/86;
+    const s = Math.min(W/240, H/340);
+    c.translate((W - 240*s)/2, (H - 340*s)/2);
     c.scale(s, s);
-    dvChar(c, o.chId, o.col, T + o.chId*500, 1);
+    dvPort(o.chId, c, T + o.chId*430);
     c.restore();
   }
 }
@@ -437,7 +448,8 @@ async function turnBig(pi){
   const p = G.players[pi];
   $('#turnbigT').textContent = p.name;
   $('#turnbigT').style.color = PCOL[pi];
-  $('#turnbigS').textContent = CHARS[p.ch].role + ' — のこり '+G.turnsLeft+' ターン';
+  const _c = cardById(p.card);
+  $('#turnbigS').textContent = (_c ? _c.role : '') + ' — のこり '+G.turnsLeft+' ターン';
   const el = $('#turnbig'); el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
   await wait(900);
   el.classList.remove('on');
@@ -528,17 +540,17 @@ async function doRoll(pi, force, impact, fixedTotal){
       toast('R','🎯','ゲージインパクト成功！','出目をコントロールしました',1800);
     }
   }
-  diceAnim = {t:0, dur:820, a, b};
-  const tick = setInterval(()=>SFX.dice(), 70);
-  await wait(880);
-  clearInterval(tick);
-  addFx('land', BCX, BCY+40, 340);
-  addFx('spark', BCX, BCY+30, 900, '#FFD24D');
-  camShake(6);
-  SFX.land();
+  const seed = (pi*7919 + G.turnsLeft*131 + a*13 + b*7 + G.players[pi].pos) % 100000;
+  const th = dvThrow(seed, a, b);
+  diceAnim = {t:0, th, lastShake:0};
+  SFX.diceShake();
+  setTimeout(()=>SFX.diceThrow(), 200*SPEED);
+  await wait(th.dur);
+  addFx('spark', BCX, DICE_Y-10, 900, '#FFD24D');
   const total = a+b, isDbl = a===b;
+  if(isDbl){ SFX.diceDouble(); camShake(12); }
   showChip(total, isDbl);
-  await wait(isDbl ? 800 : 540);
+  await wait(isDbl ? 900 : 560);
   hideChip();
   return {a,b,total,isDbl};
 }
@@ -713,7 +725,7 @@ async function maybeBuyout(pi, i){
   if(!yes) return;
   give(pi, -cost); give(t.owner, cost);
   t.owner = pi;
-  SFX.build();
+  SFX.buy();
   addFx('pillar', tileCenter(i).x, tileCenter(i).y, 900, PCOL[pi]);
   addFx('spark', tileCenter(i).x, tileCenter(i).y-30, 900, '#FFD24D');
   toast('R','📜','買収成立', t.name+' を手に入れました',2100);
@@ -845,6 +857,7 @@ async function growAnim(i){
   const t = G.tiles[i]; t.grow = 0;
   SFX.build();
   const c = tileCenter(i);
+  if(t.landmark) SFX.landmark();
   addFx('pillar', c.x, c.y, 950, t.landmark ? '#7FE6FF' : PCOL[t.owner]);
   addFx('ring', c.x, c.y, 700, '#FFD24D');
   addFx('spark', c.x, c.y-26, 900, '#FFF3C0');
@@ -1061,6 +1074,7 @@ async function bankrupt(pi, toPi){
   checkWin();
 }
 function finish(pi, reason, col){
+  bgm('win');
   G.over = true; G.winner = pi; G.winReason = reason; G.running = false;
   celebrate(pi, reason, col);
   return true;
@@ -1097,11 +1111,12 @@ function showResult(){
     G.tiles.forEach(t=>{ if(t.type==='city' && t.owner===r.i) est += cityValue(t); });
     const tr = document.createElement('tr');
     tr.innerHTML = '<td style="color:'+PCOL[r.i]+'">'+(k+1)+'</td>'
-      + '<td>'+esc(p.name)+' <small style="color:#8fa6c0">'+esc(CHARS[p.ch].name)+'</small>'
+      + '<td>'+esc(p.name)+' <small style="color:#8fa6c0">'+esc((cardById(p.card)||{nm:''}).nm)+'</small>'
       + (p.out?' <small style="color:#E8747E">破産</small>':'')+'</td>'
       + '<td>'+yen(p.cash)+'</td><td>'+yen(est)+'</td><td><em>'+yen(Math.max(0,r.a))+'</em></td>';
     tb.appendChild(tr);
   });
+  bgm('lobby');
   screenTo('result');
   const meSeat = G.players.findIndex(p=>p.kind!=='cpu');
   grantRewards(meSeat>=0 && G.winner===meSeat);
@@ -1149,6 +1164,7 @@ async function turnLoop(){
     if(G.over) break;
     nextTurn();
     if(G.turnsLeft <= 0){ timeUp(); break; }
+    if(G.turnsLeft === 8) bgm('tense');
     await wait(240);
   }
   G.running = false;
@@ -1356,8 +1372,27 @@ function aiPickTravel(pi){
 }
 
 /* ══════════ 画面 ══════════ */
-function screenTo(id){ $$('.screen').forEach(s=>s.classList.toggle('on', s.id===id)); }
-function hideAllScreens(){ $$('.screen').forEach(s=>s.classList.remove('on')); }
+/* 切り替えは一瞬で入れ替えず、金色のワイプを1枚はさむ。
+   これがあるだけで「間」ができて安っぽさが消える。 */
+let wiping = false;
+function screenTo(id){
+  if(wiping){ $$('.screen').forEach(s=>s.classList.toggle('on', s.id===id)); return; }
+  const w = $('#wipe');
+  const cur = $$('.screen').find(s=>s.classList.contains('on'));
+  if(!cur || cur.id===id){ $$('.screen').forEach(s=>s.classList.toggle('on', s.id===id)); return; }
+  wiping = true;
+  w.classList.add('on','go');
+  setTimeout(()=>{ $$('.screen').forEach(s=>s.classList.toggle('on', s.id===id)); }, 250);
+  setTimeout(()=>{ w.classList.remove('on','go'); wiping = false; }, 620);
+}
+function hideAllScreens(){
+  const w = $('#wipe');
+  w.classList.add('on','go');
+  return new Promise(res=>{
+    setTimeout(()=>{ $$('.screen').forEach(s=>s.classList.remove('on')); res(); }, 300);
+    setTimeout(()=>{ w.classList.remove('on','go'); }, 640);
+  });
+}
 
 function renderMaps(){
   const box = $('#mapList'); box.innerHTML = '';
@@ -1416,13 +1451,13 @@ async function pickPhase(){
       const st = cardStats(c.id, o.lv, SV.equip===c.id ? SV.slots : []);
       const d = document.createElement('div');
       d.className = 'chcard' + (taken.has(c.id) ? ' taken' : '');
-      d.innerHTML = '<canvas width="220" height="336"></canvas>'
-        + '<div class="tag">'+RAR[c.rar].nm+' ／ Lv.'+o.lv+'</div>'
+      d.innerHTML = '<div class="tag">'+RAR[c.rar].nm+' ／ Lv.'+o.lv+'</div>'
+        + '<div class="body">'
+        + '<canvas width="240" height="340"></canvas>'
         + '<div class="nm">'+esc(c.nm)+'</div>'
         + '<div class="role">'+esc(c.role)+'　「'+esc(c.line)+'」</div>'
         + '<div class="ab"><b>'+esc(c.sk.nm)+'（'+c.sk.uses+'回）</b>'+esc(c.sk.ds)+'</div>'
-        + '<div style="margin:0 8px 10px">'
-        +   STAT_LABELS.map(([k,l])=>statBar(st[k], l)).join('')
+        + '<div class="stw">'+statRows(st)+'</div>'
         + '</div>';
       regPortrait(d.querySelector('canvas'), c.art, c.col);
       d.onclick = ()=>{ if(taken.has(c.id)) return; SFX.click(); pickOne(activeSeat, c.id); };
@@ -1545,9 +1580,10 @@ async function launch(){
   await vsScreen();
   await loadingPhase();
   await orderPhase();
-  hideAllScreens();
+  await hideAllScreens();
   newGame();
   camReset(); updHUD();
+  bgm('game');
   const w = thisWeek();
   await band('ゲームスタート！', G.map.name + ' — のこり ' + cfg.turns + ' ターン', 1400);
   await cutIn('THIS WEEK', w.ic + ' ' + w.nm, w.ds);
@@ -1555,12 +1591,31 @@ async function launch(){
 }
 $('#startGame').onclick = ()=>{ SFX.click(); ac(); launch(); };
 $('#againSame').onclick = async ()=>{
-  SFX.click(); hideAllScreens(); newGame(); camReset(); updHUD();
+  SFX.click(); await hideAllScreens(); newGame(); camReset(); updHUD();
   await band('もう一回！', G.map.name, 1200); turnLoop();
 };
 $('#againSetup').onclick = ()=>{ SFX.click(); screenTo('setup'); };
 
-$('#sound').onclick = ()=>{ soundOn = !soundOn; $('#sound').textContent = soundOn?'🔊':'🔇'; SFX.click(); };
+/* ── 音量バー（音楽と効果音を別々に） ── */
+function applyAudioPrefs(){
+  soundOn = sfxVol > 0.001;
+  $('#sfxBtn').classList.toggle('off', !soundOn);
+  $('#bgmBtn').classList.toggle('off', !bgmOn || bgmVol < 0.001);
+  if(MUSIC) MUSIC.setVolume(bgmOn ? bgmVol : 0);
+  if(SFXE && SFXE.setVolume) SFXE.setVolume(sfxVol);
+  try{ localStorage.setItem('dv_audio', JSON.stringify({bgmOn,bgmVol,sfxVol})); }catch(e){}
+}
+try{
+  const a = JSON.parse(localStorage.getItem('dv_audio')||'null');
+  if(a){ bgmOn=!!a.bgmOn; bgmVol=+a.bgmVol||0; sfxVol=+a.sfxVol||0;
+    $('#bgmVol').value = Math.round(bgmVol*100); $('#sfxVol').value = Math.round(sfxVol*100); }
+}catch(e){}
+$('#bgmBtn').onclick = ()=>{ bgmOn = !bgmOn; applyAudioPrefs(); SFX.click(); };
+$('#sfxBtn').onclick = ()=>{ sfxVol = sfxVol>0.001 ? 0 : 0.7; $('#sfxVol').value = sfxVol*100;
+  applyAudioPrefs(); SFX.click(); };
+$('#bgmVol').oninput = e => { bgmVol = e.target.value/100; bgmOn = bgmVol>0.001; applyAudioPrefs(); };
+$('#sfxVol').oninput = e => { sfxVol = e.target.value/100; applyAudioPrefs(); };
+applyAudioPrefs();
 $('#menu').onclick = async ()=>{
   if(!G) return;
   const r = await modal('<div class="modal"><div class="dark"><h3>⏸ メニュー</h3>'

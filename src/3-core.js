@@ -176,7 +176,7 @@ const STAT_LABELS = [
 /* ステータス → 実際の倍率。p.stats（カード＋ペンダント合成後）を優先して読む */
 function statOf(p, key){
   if(p && p.stats && typeof p.stats[key]==='number') return Math.max(0, Math.min(120, p.stats[key]));
-  return (CHARS[p.ch] && CHARS[p.ch].stats[key]) || 50;
+  return 50;   // p.stats が無い時の既定値（カードは必ず stats を持つ）
 }
 function statMul(p, key, maxCut){          // 割引系：0..maxCut の割引
   return 1 - (statOf(p,key)/100) * maxCut;
@@ -539,24 +539,74 @@ function drawDestPin(ctx, T){
   ctx.save(); ctx.translate(c.x, c.y-6); dvPin(ctx, '#7DE08A', T); ctx.restore();
 }
 
-/* サイコロ */
+/* サイコロ：dvThrow が計算した「溜め→放り投げ→転がり→2回バウンド→静止」を描く */
 let diceAnim = null;
+const DICE_X = BCX, DICE_Y = BCY + 34;
 function drawDice(ctx, T){
-  if(!diceAnim) return;
-  const k = Math.min(1, diceAnim.t/diceAnim.dur);
-  const ease = 1-Math.pow(1-k,3);
-  const cy = BCY - 150 + ease*180;
-  for(let d=0; d<2; d++){
-    const sp = d? -1: 1;
-    const x = BCX + sp*(52 + (1-ease)*80);
-    const y = cy + (1-ease)*(-190) + Math.sin(k*9+d)*(1-ease)*46;
-    const face = k<1 ? 1+((Math.floor(T/70)+d*2)%6) : (d? diceAnim.b : diceAnim.a);
-    const spin = (1-ease)*(0.9 + 0.4*sp);
-    ctx.save(); ctx.translate(x,y);
-    const s = 1 + (1-ease)*0.22;
-    ctx.scale(s,s);
-    dvDie(ctx, face, spin, 54);
+  if(!diceAnim || !diceAnim.th) return;
+  const th = diceAnim.th;
+  const st = th.at(Math.max(0, Math.min(diceAnim.t, th.dur)));
+  if(!st || !st.d) return;
+  // 影（高いほど小さく薄く）
+  st.d.forEach(d=>{
+    const k = Math.max(0.12, 1 - (d.z||0)/260);
+    ctx.save();
+    ctx.globalAlpha = 0.34*k;
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.ellipse(DICE_X + d.x, DICE_Y + d.y, 30*k, 14*k, 0, 0, 6.283);
+    ctx.fill();
     ctx.restore();
+  });
+  // 粉じん
+  if(st.dust > 0.03){
+    st.d.forEach((d,i)=>{
+      ctx.save(); ctx.globalAlpha = 0.30*st.dust;
+      ctx.fillStyle = '#DCEAF6';
+      for(let k=0;k<7;k++){
+        const a = k/7*6.283 + i*1.1;
+        const r = 16 + st.dust*38;
+        ctx.beginPath();
+        ctx.ellipse(DICE_X+d.x+Math.cos(a)*r, DICE_Y+d.y+Math.sin(a)*r*0.42,
+                    4+st.dust*5, 2.4+st.dust*3, 0, 0, 6.283);
+        ctx.fill();
+      }
+      ctx.restore();
+    });
+  }
+  // 本体（回転が速いときは残像を重ねる）
+  st.d.forEach(d=>{
+    ctx.save();
+    ctx.translate(DICE_X + d.x, DICE_Y + d.y - (d.z||0));
+    ctx.rotate(d.rot || 0);
+    const sc = d.scale || 1;
+    ctx.scale(sc, sc);
+    const bl = d.blur || 0;
+    if(bl > 0.06){
+      ctx.save(); ctx.globalAlpha = 0.26*bl; ctx.rotate(-0.30*bl);
+      dvDie(ctx, ((d.face)%6)+1, d.spin||0, 56); ctx.restore();
+      ctx.save(); ctx.globalAlpha = 0.14*bl; ctx.rotate(0.26*bl);
+      dvDie(ctx, ((d.face+2)%6)+1, d.spin||0, 56); ctx.restore();
+    }
+    dvDie(ctx, d.face, d.spin||0, 56);
+    ctx.restore();
+  });
+  // 着地の閃光
+  if(st.flash > 0.02){
+    st.d.forEach(d=>{
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = st.flash;
+      const R = 30 + st.flash*90;
+      const g = ctx.createRadialGradient(DICE_X+d.x, DICE_Y+d.y, 2, DICE_X+d.x, DICE_Y+d.y, R);
+      g.addColorStop(0,'rgba(255,255,255,.95)');
+      g.addColorStop(.45,'rgba(190,235,255,.45)');
+      g.addColorStop(1,'rgba(190,235,255,0)');
+      ctx.fillStyle = g;
+      ctx.save(); ctx.translate(DICE_X+d.x, DICE_Y+d.y); ctx.scale(1,.5);
+      ctx.beginPath(); ctx.arc(0,0,R,0,6.283); ctx.fill(); ctx.restore();
+      ctx.restore();
+    });
   }
 }
 

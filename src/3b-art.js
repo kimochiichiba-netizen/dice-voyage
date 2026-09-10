@@ -2278,7 +2278,7 @@ function dvBackdrop(ctx, theme, T, SW, SH, cx, cy){
 /* ───── ad4d16a6a3fe86c17 ───── */
 /* ダイスボヤージュ 駒キャラ（2頭身・4種）
    dvChar(ctx,id,col,T,facing): (0,0)が接地点・上方向へ約64px */
-function dvChar(ctx, id, col, T, facing){
+function dvCharLegacy(ctx, id, col, T, facing){
   var i = (((id|0)%4)+4)%4;
   var f = facing < 0 ? -1 : 1;
   var bob  = Math.sin(T*0.0031416)*1.5;            // 呼吸（周期2秒・±1.5px）

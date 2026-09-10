@@ -1,169 +1,288 @@
 <style>
 /* ══════════════════════════════════════════════════════════════
-   ダイスボヤージュ — ホーム／カード／ガチャ／ペンダント
+   ダイスボヤージュ — メタ画面（ホーム／カード／ガチャ／ペンダント）
+   本家ロビーに合わせた「木目＋羊皮紙＋金」の暖色。上部タブで行き来する。
    ══════════════════════════════════════════════════════════════ */
+:root{
+  --wood:#3B2A18; --wood-d:#241708; --wood-l:#5E452A;
+  --parch:#F6E9CC; --parch-d:#E4D0A6; --ink:#3E2C15;
+  --brz:#8B5A2B; --brz-d:#5A3618;
+  --org:#F5A623; --org-d:#DE7A0C;
+  --rose:#D8467E;
+}
 
-/* ── 通貨バー ─────────────────────────────────────────── */
-.wallet{position:absolute;left:0;right:0;bottom:0;height:54px;z-index:5;display:flex;align-items:center;
-  gap:10px;padding:0 16px;
-  background:linear-gradient(180deg,rgba(12,20,34,.5),rgba(6,12,22,.94));
-  border-top:2px solid #3D5578}
+/* ── 共通の背景 ─────────────────────────────────────── */
+.meta{background:
+    radial-gradient(120% 90% at 50% -10%, #6B4E28 0%, #34240F 46%, #150D04 100%)}
+.meta::before{content:"";position:absolute;inset:0;opacity:.16;pointer-events:none;
+  background:repeating-linear-gradient(96deg,rgba(0,0,0,.5) 0 2px,transparent 2px 9px)}
+
+/* ── 上部タブ ───────────────────────────────────────── */
+.tabs{position:absolute;left:0;right:0;top:0;height:64px;z-index:8;display:flex;align-items:flex-end;
+  gap:5px;padding:0 18px;
+  background:linear-gradient(180deg,#4A3418,#2A1C0A);
+  border-bottom:3px solid var(--org)}
+.tab{position:relative;min-width:134px;padding:9px 20px 10px;border-radius:12px 12px 0 0;cursor:pointer;
+  text-align:center;font-family:var(--pop);font-size:18px;color:#C9A96E;
+  background:linear-gradient(#4E3A1E,#2E200C);border:2px solid #6B4E28;border-bottom:none;
+  transition:transform .12s,color .12s}
+.tab:hover{transform:translateY(-3px)}
+.tab.on{color:#3E2C15;background:linear-gradient(#FFE9A8,#F2C230);border-color:#8A6314;
+  box-shadow:0 -3px 12px rgba(242,194,48,.45)}
+.tab .ic{font-size:16px;margin-right:5px}
+.tabs .back{margin-left:auto;align-self:center;margin-bottom:8px}
+
+/* ── 通貨バー ───────────────────────────────────────── */
+.wallet{position:absolute;left:0;right:0;bottom:0;height:56px;z-index:8;display:flex;align-items:center;
+  gap:10px;padding:0 18px;
+  background:linear-gradient(180deg,#4A3418,#201506);border-top:3px solid var(--org)}
 .wallet .cur{display:flex;align-items:center;gap:7px;padding:5px 14px 6px;border-radius:11px;
-  background:linear-gradient(#1B2C46,#0C1626);border:2px solid #3D5578}
-.wallet .cur span{font-size:20px}
-.wallet .cur b{font-family:var(--pop);font-size:17px;color:#FFE9B5;letter-spacing:.02em}
-.wallet .lvl{margin-left:auto;display:flex;align-items:center;gap:9px}
-.wallet .xp{width:190px;height:12px;border-radius:7px;background:#0a1420;border:1px solid #3D5578;
+  background:linear-gradient(#F6E9CC,#DCC39A);border:2px solid var(--brz-d)}
+.wallet .cur span{font-size:19px}
+.wallet .cur b{font-family:var(--pop);font-size:17px;color:#3E2C15}
+.wallet .lvl{margin-left:auto;display:flex;align-items:center;gap:9px;color:#F0DCA8}
+.wallet .xp{width:190px;height:13px;border-radius:7px;background:#231705;border:2px solid #6B4E28;
   overflow:hidden}
-.wallet .xp i{display:block;height:100%;background:linear-gradient(90deg,#3FA9F5,#8FD8E8)}
+.wallet .xp i{display:block;height:100%;background:linear-gradient(90deg,#F5A623,#FFE9A8)}
 
-/* ── ホーム ─────────────────────────────────────────── */
-#home .inner{position:relative;margin:auto;width:1360px;max-width:95%;padding-bottom:64px}
-#home .hero{display:grid;grid-template-columns:340px 1fr;gap:24px;align-items:center}
-#home .heroPic{border-radius:20px;padding:4px;position:relative;
-  background:linear-gradient(160deg,#F7E3A0,#D3A22C 42%,#8A6314 64%,#FFF0BE);
-  box-shadow:0 18px 44px rgba(0,0,0,.6)}
-#home .heroPic canvas{display:block;width:100%;height:330px;border-radius:16px;
-  background:radial-gradient(110% 90% at 50% 20%,#456C9E,#0C1728)}
-#home .heroPic .rk{position:absolute;left:-6px;top:-8px;font-family:var(--caps);font-size:16px;
-  padding:3px 12px 4px;border-radius:9px;border:2px solid #6B4A08;color:#3A2A10;
+/* ── 羊皮紙パネル ───────────────────────────────────── */
+.pan{border-radius:16px;padding:4px;
+  background:linear-gradient(160deg,#C79A57,#8B5A2B 45%,#5A3618 66%,#C79A57);
+  box-shadow:0 12px 30px rgba(0,0,0,.6)}
+.pan > .in{background:linear-gradient(#F8EED6,#E7D3AC);border-radius:12px;color:var(--ink);
+  padding:14px 16px;position:relative}
+.pan > .in::before,.pan > .in::after{content:"";position:absolute;width:7px;height:7px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#9A7C4A,#4A3418)}
+.pan > .in::before{left:7px;top:7px}
+.pan > .in::after{right:7px;top:7px}
+.pan h3{font-family:var(--pop);font-size:20px;color:#7A4A12;margin-bottom:8px}
+
+/* ── 見出し ─────────────────────────────────────────── */
+.metahd{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.metahd h2{font-family:var(--pop);font-size:30px;
+  background:linear-gradient(#FFF6D8,#F2C230 55%,#B87F12);-webkit-background-clip:text;
+  background-clip:text;color:transparent;-webkit-text-stroke:4px #3A2405;paint-order:stroke fill}
+.metahd .sp{margin-left:auto;display:flex;gap:10px}
+.metahd .note{font-size:13px;color:#E0C795}
+
+/* ── 画面の器 ───────────────────────────────────────── */
+#home .inner,#cards .inner,#gacha .inner,#pend .inner{position:relative;margin:auto;
+  width:1400px;max-width:96%;padding:72px 0 62px}
+
+/* ══════════ ホーム ══════════ */
+#home .hero{display:grid;grid-template-columns:340px 1fr;gap:24px;align-items:stretch}
+#home .heroPic{border-radius:18px;padding:5px;position:relative;
+  background:linear-gradient(160deg,#FFE9A8,#D3A22C 40%,#8A6314 62%,#FFF0BE);
+  box-shadow:0 14px 34px rgba(0,0,0,.6)}
+#home .heroPic canvas{display:block;width:100%;height:430px;border-radius:14px;
+  background:radial-gradient(115% 90% at 50% 18%,#7A5F35,#2A1C0A)}
+#home .heroPic .rk{position:absolute;left:-7px;top:-9px;font-family:var(--caps);font-size:15px;
+  padding:3px 13px 4px;border-radius:9px;border:2px solid #5A3618;color:#3A2A10;
   background:linear-gradient(#FFF0BE,#E0A11A);box-shadow:0 3px 0 rgba(0,0,0,.5)}
 #home .heroInfo h1{font-family:var(--pop);font-size:58px;line-height:1.05;
-  background:linear-gradient(#FFF3C4,#F2C230 52%,#C98A12);-webkit-background-clip:text;
-  background-clip:text;color:transparent;-webkit-text-stroke:4.5px #2b1c00;paint-order:stroke fill;
-  filter:drop-shadow(0 5px 0 rgba(0,0,0,.35))}
-#home .heroInfo .cap{font-family:var(--caps);font-size:15px;letter-spacing:.4em;color:#8FD8E8;
-  text-indent:.4em;margin-top:2px}
-#home .heroInfo .line{margin-top:10px;font-size:15px;color:#B9CEE4}
-#home .heroInfo .stats{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:2px 18px;max-width:560px}
-#home .modes{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:20px}
-.modebtn{border-radius:16px;padding:16px 12px 15px;cursor:pointer;text-align:center;position:relative;
-  border:3px solid #2F4A6D;background:linear-gradient(#1B2C46,#0C1626);transition:transform .14s,border-color .14s}
-.modebtn:hover{transform:translateY(-5px);border-color:var(--gold)}
-.modebtn .ic{font-size:40px;line-height:1}
-.modebtn .nm{font-family:var(--pop);font-size:20px;color:#FFE9B5;margin-top:5px}
-.modebtn .ds{font-size:11.5px;color:#8FA9C4;margin-top:3px;line-height:1.5}
-.modebtn.big{background:linear-gradient(#2C4E7C,#12233C);border-color:#5A83B8}
-.modebtn.gold{background:linear-gradient(#6B4E12,#3A2A08);border-color:#D3A22C}
+  background:linear-gradient(#FFF6D8,#F2C230 52%,#B87F12);-webkit-background-clip:text;
+  background-clip:text;color:transparent;-webkit-text-stroke:4.5px #3A2405;paint-order:stroke fill;
+  filter:drop-shadow(0 5px 0 rgba(0,0,0,.4))}
+#home .heroInfo .cap{font-family:var(--caps);font-size:14px;letter-spacing:.4em;color:#F0C878;
+  text-indent:.4em;margin-top:1px}
+#home .heroInfo .who{margin-top:9px;font-size:15px;color:#F3E3C2}
+#home .heroInfo .who b{color:#FFE9A8}
+#home .heroInfo .stats{margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:1px 20px}
+#home .modes{display:grid;grid-template-columns:1.35fr 1fr 1fr;gap:14px;margin-top:22px}
+.modebtn{border-radius:16px;padding:16px 14px 15px;cursor:pointer;text-align:center;position:relative;
+  border:3px solid #6B4E28;background:linear-gradient(#5E4526,#31210D);
+  transition:transform .14s,border-color .14s,box-shadow .14s}
+.modebtn:hover{transform:translateY(-5px);border-color:var(--org);box-shadow:0 10px 22px rgba(0,0,0,.5)}
+.modebtn .ic{font-size:38px;line-height:1}
+.modebtn .nm{font-family:var(--pop);font-size:21px;color:#FFE9B5;margin-top:5px}
+.modebtn .ds{font-size:12px;color:#D9C09A;margin-top:3px;line-height:1.55}
+.modebtn.big{background:linear-gradient(#F5A623,#C25E06);border-color:#FFE9A8}
+.modebtn.big .nm{color:#FFFDF0;-webkit-text-stroke:3px #8A3E02;paint-order:stroke fill;font-size:25px}
+.modebtn.big .ds{color:#FFEFD0}
 .modebtn .badge{position:absolute;right:8px;top:8px;font-size:10.5px;font-weight:900;padding:2px 8px;
-  border-radius:8px;background:#E14A5A;color:#fff;border:2px solid #7A1420}
+  border-radius:8px;background:var(--rose);color:#fff;border:2px solid #7A1440}
 
-/* ── カード一覧 ─────────────────────────────────────── */
-.metahd{display:flex;align-items:center;gap:12px;margin-bottom:14px}
-.metahd h2{font-family:var(--pop);font-size:30px;color:#FFE08A;
-  -webkit-text-stroke:4px #2a1d06;paint-order:stroke fill}
-.metahd .sp{margin-left:auto;display:flex;gap:10px}
-#cards .inner,#gacha .inner,#pend .inner{position:relative;margin:auto;width:1380px;max-width:96%;
-  padding-bottom:64px}
-.cardwrap{display:grid;grid-template-columns:360px 1fr;gap:20px;align-items:start}
-.cardgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;max-height:520px;overflow-y:auto;
-  padding:4px}
+/* 今週のイベント帯 */
+.weekbar{display:flex;align-items:center;gap:14px;margin-top:14px;padding:10px 16px;border-radius:14px;
+  border:3px solid var(--org);
+  background:linear-gradient(90deg,rgba(245,166,35,.22),rgba(58,36,5,.85))}
+.weekbar .ic{font-size:32px}
+.weekbar b{display:block;font-size:16px;color:#FFE9B5}
+.weekbar i{display:block;font-style:normal;font-size:12.5px;color:#E7D3AC;margin-top:1px}
+.weekbar .feat{text-align:center;padding:5px 13px;border-radius:10px;
+  background:linear-gradient(#F6E9CC,#DCC39A);border:2px solid var(--brz-d)}
+.weekbar .feat b{font-size:11px;color:#7A4A12}
+.weekbar .feat i{font-size:15px;font-weight:900;color:#B2411C}
+
+/* ══════════ カード ══════════ */
+.cardwrap{display:grid;grid-template-columns:352px 1fr;gap:18px;align-items:start}
+.cardgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;max-height:474px;overflow-y:auto;
+  padding:5px;border-radius:14px;background:rgba(20,12,4,.42);border:2px solid #6B4E28}
 .minicard{border-radius:12px;padding:3px;cursor:pointer;position:relative;transition:transform .14s;
-  background:linear-gradient(160deg,#7B8AA6,#39455C)}
-.minicard.rA{background:linear-gradient(160deg,#8FB2D8,#33526F)}
-.minicard.rS{background:linear-gradient(160deg,#D8B6F0,#5A3A78)}
-.minicard.rSS{background:linear-gradient(160deg,#FFF0BE,#D3A22C 45%,#8A6314)}
+  background:linear-gradient(160deg,#B49A72,#4A3418)}
+.minicard.rA{background:linear-gradient(160deg,#9FC4E8,#33526F)}
+.minicard.rS{background:linear-gradient(160deg,#E0BCF4,#5A3A78)}
+.minicard.rSS{background:linear-gradient(160deg,#FFF6D8,#F2C230 42%,#8A6314)}
 .minicard:hover{transform:translateY(-4px)}
-.minicard.sel{box-shadow:0 0 0 3px var(--gold),0 10px 24px rgba(0,0,0,.6)}
-.minicard.locked{filter:grayscale(1) brightness(.42)}
-.minicard canvas{display:block;width:100%;height:104px;border-radius:9px 9px 0 0;
-  background:radial-gradient(110% 90% at 50% 20%,#3E5D86,#0E1A2C)}
-.minicard .b{background:#0C1626;border-radius:0 0 9px 9px;padding:4px 5px 5px;text-align:center}
-.minicard .b .n{font-size:11.5px;font-weight:900;color:#E4EEF8;white-space:nowrap;overflow:hidden;
+.minicard.sel{box-shadow:0 0 0 3px #FFF0BE,0 10px 24px rgba(0,0,0,.6)}
+.minicard.locked{filter:grayscale(1) brightness(.4)}
+.minicard canvas{display:block;width:100%;height:112px;border-radius:9px 9px 0 0;
+  background:radial-gradient(115% 90% at 50% 16%,#7A5F35,#241708)}
+.minicard .b{background:#2A1C0A;border-radius:0 0 9px 9px;padding:4px 5px 5px;text-align:center}
+.minicard .b .n{font-size:11.5px;font-weight:900;color:#F3E3C2;white-space:nowrap;overflow:hidden;
   text-overflow:ellipsis}
 .minicard .b .l{font-family:var(--pop);font-size:11px;color:#FFD24D}
 .minicard .rr{position:absolute;left:-3px;top:-4px;font-family:var(--caps);font-size:10px;
   padding:1px 6px 2px;border-radius:6px;border:2px solid #4A3206;color:#3A2A10;
   background:linear-gradient(#FFF0BE,#E0A11A)}
 .minicard .eq{position:absolute;right:-3px;top:-4px;font-size:10px;font-weight:900;padding:1px 6px 2px;
-  border-radius:6px;background:#3FA9F5;color:#04101F;border:2px solid #10405F}
+  border-radius:6px;background:var(--rose);color:#fff;border:2px solid #7A1440}
 
-.cardDetail{border-radius:18px;padding:4px;
-  background:linear-gradient(160deg,#F7E3A0,#D3A22C 42%,#8A6314 64%,#FFF0BE);
-  box-shadow:0 16px 40px rgba(0,0,0,.6)}
-.cardDetail .in{background:linear-gradient(#16263F,#0A1424);border-radius:14px;padding:14px}
-.cardDetail canvas{display:block;width:100%;height:230px;border-radius:12px;
-  background:radial-gradient(110% 90% at 50% 20%,#456C9E,#0C1728)}
-.cardDetail h3{font-family:var(--pop);font-size:26px;color:#FFE9B5;text-align:center;margin-top:8px}
-.cardDetail .role{text-align:center;font-size:12px;color:#8FA9C4}
-.cardDetail .skill{margin-top:9px;background:rgba(6,14,26,.7);border:1px solid #2F4A6D;border-radius:10px;
-  padding:9px 10px;font-size:12.4px;line-height:1.65;color:#CBDCEE}
-.cardDetail .skill b{color:#FFD24D;display:block;margin-bottom:2px}
+.cardDetail{border-radius:18px;padding:5px;
+  background:linear-gradient(160deg,#FFE9A8,#D3A22C 40%,#8A6314 62%,#FFF0BE);
+  box-shadow:0 14px 34px rgba(0,0,0,.6)}
+.cardDetail .in{background:linear-gradient(#F8EED6,#E7D3AC);border-radius:13px;padding:12px;color:var(--ink)}
+.cardDetail canvas{display:block;width:100%;height:250px;border-radius:11px;
+  background:radial-gradient(115% 90% at 50% 16%,#7A5F35,#241708)}
+.cardDetail h3{font-family:var(--pop);font-size:25px;color:#7A4A12;text-align:center;margin-top:7px}
+.cardDetail .role{text-align:center;font-size:12px;color:#8A6A3C}
+.cardDetail .skill{margin-top:8px;background:rgba(255,255,255,.62);border:2px solid #C9A961;
+  border-radius:10px;padding:8px 10px;font-size:12.4px;line-height:1.6;color:#4A3418}
+.cardDetail .skill b{color:#B2411C;display:block;margin-bottom:2px}
 
-/* ── ガチャ ─────────────────────────────────────────── */
-#gacha .stage{position:relative;height:330px;border-radius:18px;overflow:hidden;
-  background:radial-gradient(90% 100% at 50% 20%,#2E4E86,#0A1424 70%);
-  border:3px solid #3D5578;display:grid;place-items:center}
-#gacha .orb{width:170px;height:170px;border-radius:50%;
-  background:radial-gradient(circle at 34% 28%,#FFF6C8,#F2C230 45%,#8A6314);
-  box-shadow:0 0 60px rgba(242,194,48,.8),inset 0 -14px 26px rgba(0,0,0,.35);
+/* ── ステータス行（羊皮紙の上） ─────────────────────── */
+.strow{display:flex;align-items:center;gap:6px;margin:2px 0}
+.strow .l{flex:0 0 96px;font-size:11px;color:#7A5F35}
+.strow .bar{flex:1;height:9px;border-radius:5px;background:#CDB68B;overflow:hidden;display:block;
+  border:1px solid #A88B56}
+.strow .bar i{display:block;height:100%;background:linear-gradient(90deg,#E07010,#F5A623)}
+.strow .v{flex:0 0 46px;text-align:right;font-family:var(--pop);font-size:12px;color:#7A4A12}
+.strow .v em{font-style:normal;color:#2F7A38;font-size:10px}
+/* 暗い背景の上（ホーム）で使うとき */
+.dark-st .strow .l{color:#D9C09A}
+.dark-st .strow .bar{background:#231705;border-color:#6B4E28}
+.dark-st .strow .v{color:#FFE9B5}
+
+/* ══════════ ガチャ ══════════ */
+#gacha .stage{position:relative;height:322px;border-radius:18px;overflow:hidden;
+  background:radial-gradient(95% 100% at 50% 16%,#8A6A2A,#2A1C0A 72%);
+  border:3px solid #8A6314;display:grid;place-items:center}
+#gacha .orb{width:168px;height:168px;border-radius:50%;
+  background:radial-gradient(circle at 34% 26%,#FFF9DC,#F2C230 44%,#8A6314);
+  box-shadow:0 0 64px rgba(242,194,48,.85),inset 0 -14px 26px rgba(0,0,0,.35);
   animation:orbFloat 2.6s ease-in-out infinite alternate}
 @keyframes orbFloat{from{transform:translateY(-8px) scale(1)}to{transform:translateY(8px) scale(1.04)}}
-#gacha .pulls{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;padding:16px}
-.pullcard{border-radius:12px;padding:3px;background:linear-gradient(160deg,#8FB2D8,#33526F);
+#gacha .pulls{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;padding:14px}
+.pullcard{border-radius:12px;padding:3px;background:linear-gradient(160deg,#9FC4E8,#33526F);
   animation:pullIn .45s cubic-bezier(.2,1.5,.4,1) both}
-.pullcard.rS{background:linear-gradient(160deg,#D8B6F0,#5A3A78)}
-.pullcard.rSS{background:linear-gradient(160deg,#FFF0BE,#D3A22C 45%,#8A6314);
-  box-shadow:0 0 26px rgba(255,214,80,.75)}
-@keyframes pullIn{from{opacity:0;transform:scale(.4) rotate(-12deg)}to{opacity:1;transform:none}}
-.pullcard canvas{display:block;width:100%;height:120px;border-radius:9px 9px 0 0;
-  background:radial-gradient(110% 90% at 50% 20%,#3E5D86,#0E1A2C)}
-.pullcard .b{background:#0C1626;border-radius:0 0 9px 9px;padding:5px;text-align:center;font-size:12px;
-  font-weight:900;color:#E4EEF8}
+.pullcard.rS{background:linear-gradient(160deg,#E0BCF4,#5A3A78)}
+.pullcard.rSS{background:linear-gradient(160deg,#FFF6D8,#F2C230 42%,#8A6314);
+  box-shadow:0 0 26px rgba(255,214,80,.8)}
+@keyframes pullIn{from{transform:scale(.45) rotate(-10deg)}to{transform:none}}
+.pullcard canvas{display:block;width:100%;height:126px;border-radius:9px 9px 0 0;
+  background:radial-gradient(115% 90% at 50% 16%,#7A5F35,#241708)}
+.pullcard .b{background:#2A1C0A;border-radius:0 0 9px 9px;padding:5px;text-align:center;font-size:12px;
+  font-weight:900;color:#F3E3C2}
 .pullcard .b i{display:block;font-style:normal;font-family:var(--pop);font-size:11px;color:#FFD24D}
-#gacha .rates{margin-top:12px;font-size:12.5px;color:#9FB6CC;text-align:center;line-height:1.8}
-#gacha .btns{display:flex;gap:14px;justify-content:center;margin-top:16px}
+#gacha .rates{margin-top:11px;font-size:12.5px;color:#E0C795;text-align:center;line-height:1.8}
+#gacha .btns{display:flex;gap:14px;justify-content:center;margin-top:14px}
 
-/* ── ペンダント ─────────────────────────────────────── */
-.pendwrap{display:grid;grid-template-columns:330px 1fr;gap:20px;align-items:start}
+/* ══════════ ペンダント ══════════ */
+.pendwrap{display:grid;grid-template-columns:344px 1fr;gap:18px;align-items:start}
 .slots{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-.slot{aspect-ratio:1/1;border-radius:14px;border:3px dashed #3D5578;display:grid;place-items:center;
-  background:rgba(8,18,32,.6);cursor:pointer;font-size:40px;position:relative;transition:border-color .14s}
-.slot.on{border-style:solid;border-color:var(--gold);
-  background:linear-gradient(160deg,#33445F,#12203A)}
-.slot .nm{position:absolute;left:0;right:0;bottom:5px;font-size:10.5px;font-weight:900;color:#CBDCEE;
+.slot{aspect-ratio:1/1;border-radius:14px;border:3px dashed #8A6A3C;display:grid;place-items:center;
+  background:rgba(20,12,4,.5);cursor:pointer;font-size:40px;position:relative;transition:border-color .14s}
+.slot.on{border-style:solid;border-color:var(--org);
+  background:linear-gradient(160deg,#5E4526,#2A1C0A)}
+.slot .nm{position:absolute;left:0;right:0;bottom:5px;font-size:10.5px;font-weight:900;color:#F0DCA8;
   text-align:center}
-.pendgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
-.pend{border-radius:12px;padding:9px 6px 10px;text-align:center;cursor:pointer;position:relative;
-  border:2px solid #3D5578;background:linear-gradient(#1B2C46,#0C1626);transition:transform .14s}
+.pendgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:11px}
+.pend{border-radius:12px;padding:10px 7px 11px;text-align:center;cursor:pointer;position:relative;
+  border:2px solid #6B4E28;background:linear-gradient(#5E4526,#31210D);transition:transform .14s}
 .pend:hover{transform:translateY(-4px)}
-.pend.eq{border-color:var(--gold);box-shadow:0 0 0 2px rgba(242,194,48,.3)}
-.pend.no{opacity:.32;filter:grayscale(1)}
+.pend.eq{border-color:var(--org);box-shadow:0 0 0 2px rgba(245,166,35,.35)}
+.pend.no{opacity:.3;filter:grayscale(1)}
 .pend .ic{font-size:34px;line-height:1}
-.pend .nm{font-size:11.5px;font-weight:900;color:#E4EEF8;margin-top:4px}
+.pend .nm{font-size:11.5px;font-weight:900;color:#F3E3C2;margin-top:4px}
 .pend .ef{font-size:10.5px;color:#FFD24D;margin-top:2px}
 
-/* ── VS 画面 ─────────────────────────────────────────── */
+/* ══════════ キャラ選択（対戦前） ══════════ */
+#pick{background:radial-gradient(120% 90% at 50% -6%,#6B4E28 0%,#34240F 48%,#150D04 100%)}
+#pick .inner{position:relative;margin:auto;width:1400px;max-width:96%;text-align:center}
+#pick h2{font-family:var(--pop);font-size:32px;
+  background:linear-gradient(#FFF6D8,#F2C230 55%,#B87F12);-webkit-background-clip:text;
+  background-clip:text;color:transparent;-webkit-text-stroke:4px #3A2405;paint-order:stroke fill}
+#pick .who{margin-top:4px;font-size:15px;color:#E7D3AC}
+#pick .grid{display:grid;gap:14px;margin-top:16px}
+.chcard{border-radius:16px;padding:4px;cursor:pointer;position:relative;
+  background:linear-gradient(160deg,#C79A57,#5A3618);
+  transition:transform .16s,box-shadow .16s}
+.chcard:hover{transform:translateY(-7px);box-shadow:0 14px 30px rgba(0,0,0,.6)}
+.chcard.sel{background:linear-gradient(160deg,#FFF0BE,#D3A22C 45%,#8A6314)}
+.chcard.taken{opacity:.3;pointer-events:none;filter:grayscale(.85)}
+.chcard .body{background:linear-gradient(#F8EED6,#E7D3AC);border-radius:12px;overflow:hidden;
+  color:var(--ink)}
+.chcard canvas{display:block;width:100%;height:212px;
+  background:radial-gradient(115% 90% at 50% 16%,#7A5F35,#241708)}
+.chcard .nm{font-family:var(--pop);font-size:19px;padding:7px 8px 1px;color:#7A4A12}
+.chcard .role{font-size:11.5px;color:#8A6A3C;padding:0 8px 6px}
+.chcard .ab{margin:0 8px 8px;background:rgba(255,255,255,.62);border:2px solid #C9A961;border-radius:9px;
+  padding:7px 8px;font-size:11.8px;line-height:1.55;color:#4A3418;text-align:left;min-height:66px}
+.chcard .ab b{color:#B2411C;display:block;font-size:12.2px;margin-bottom:2px}
+.chcard .tag{position:absolute;right:7px;top:7px;font-size:11px;font-weight:900;padding:2px 9px;
+  border-radius:8px;background:linear-gradient(#FFF0BE,#E0A11A);color:#3A2A10;border:2px solid #5A3618}
+.chcard .stw{margin:0 8px 9px}
+
+/* ══════════ ローディング ══════════ */
+#loading{background:radial-gradient(120% 90% at 50% 10%,#5E4526,#150D04)}
+#loading .inner{position:relative;margin:auto;text-align:center;width:760px;max-width:92%}
+#loading .art{font-size:74px;line-height:1}
+#loading .bar{height:17px;border-radius:9px;background:#231705;border:3px solid #8A6314;
+  overflow:hidden;margin-top:18px;position:relative}
+#loading .bar i{display:block;height:100%;width:0%;
+  background:linear-gradient(90deg,#E07010,#F5A623 55%,#FFF6D8);
+  box-shadow:0 0 14px rgba(245,166,35,.9);transition:width .18s linear}
+#loading .pct{margin-top:6px;font-family:var(--pop);font-size:17px;color:#FFE9B5}
+#loading .tip{margin-top:20px;background:linear-gradient(#F8EED6,#E7D3AC);border:3px solid #8B5A2B;
+  border-radius:12px;padding:13px 18px;font-size:14.5px;line-height:1.8;color:var(--ink);text-align:left}
+#loading .tip b{color:#B2411C;display:block;margin-bottom:3px;font-size:12px;letter-spacing:.12em}
+
+/* ══════════ VS 画面 ══════════ */
 #vs{position:absolute;inset:0;z-index:210;display:none;flex-direction:column;
-  background:radial-gradient(100% 90% at 50% 40%,#20324F,#050A14)}
+  background:radial-gradient(100% 90% at 50% 40%,#4A3418,#0C0703)}
 #vs.on{display:flex}
-#vs .row{flex:1;display:flex;align-items:center;justify-content:center;gap:40px;position:relative}
+#vs .row{flex:1;display:flex;align-items:center;justify-content:center;gap:36px;position:relative}
 #vs .side{width:300px;text-align:center;animation:vsIn .5s cubic-bezier(.2,1.3,.35,1) both}
 #vs .side.r{animation-name:vsInR}
-@keyframes vsIn{from{opacity:0;transform:translateX(-140px)}to{opacity:1;transform:none}}
-@keyframes vsInR{from{opacity:0;transform:translateX(140px)}to{opacity:1;transform:none}}
-#vs .side canvas{display:block;width:100%;height:250px}
-#vs .side .nm{font-family:var(--pop);font-size:26px;color:#FFE9B5;margin-top:4px}
-#vs .side .rl{font-size:12.5px;color:#9FB6CC}
+@keyframes vsIn{from{transform:translateX(-140px)}to{transform:none}}
+@keyframes vsInR{from{transform:translateX(140px)}to{transform:none}}
+#vs .side canvas{display:block;width:100%;height:290px}
+#vs .side .nm{font-family:var(--pop);font-size:26px;color:#FFE9B5;margin-top:2px}
+#vs .side .rl{font-size:12.5px;color:#D9C09A}
 #vs .vsmark{font-family:var(--caps);font-size:82px;line-height:1;
-  background:linear-gradient(#FFF3C4,#F2C230 50%,#C0261A);-webkit-background-clip:text;
-  background-clip:text;color:transparent;-webkit-text-stroke:9px #2b1c00;paint-order:stroke fill;
+  background:linear-gradient(#FFF6D8,#F2C230 50%,#C0261A);-webkit-background-clip:text;
+  background-clip:text;color:transparent;-webkit-text-stroke:8px #3A1004;paint-order:stroke fill;
   animation:vsPop .6s cubic-bezier(.2,1.6,.4,1) .25s both}
-@keyframes vsPop{from{opacity:0;transform:scale(2.4) rotate(-14deg)}to{opacity:1;transform:none}}
-#vs .tip{padding:16px 24px 28px;text-align:center;font-size:14.5px;color:#CBDCEE;line-height:1.8}
-#vs .tip b{color:#FFD24D;display:block;font-size:12px;letter-spacing:.14em;margin-bottom:4px}
+@keyframes vsPop{from{transform:scale(2.4) rotate(-14deg)}to{transform:none}}
+#vs .tip{padding:14px 24px 26px;text-align:center;font-size:14.5px;color:#E7D3AC;line-height:1.75}
+#vs .tip b{color:#FFD24D;display:block;font-size:12px;letter-spacing:.14em;margin-bottom:3px}
 
-/* ── 報酬モーダル ───────────────────────────────────── */
-.reward{width:520px;text-align:center;border-radius:18px;padding:4px;
-  background:linear-gradient(160deg,#F7E3A0,#D3A22C 42%,#8A6314 64%,#FFF0BE);
-  box-shadow:0 24px 60px rgba(0,0,0,.72)}
-.reward .in{background:linear-gradient(#16263F,#0A1424);border-radius:14px;padding:22px}
-.reward h3{font-family:var(--pop);font-size:30px;color:#FFE08A;
-  -webkit-text-stroke:4px #2a1d06;paint-order:stroke fill}
-.reward .items{display:flex;gap:14px;justify-content:center;margin:16px 0 6px;flex-wrap:wrap}
-.reward .it{min-width:120px;padding:12px 14px;border-radius:12px;border:2px solid #3D5578;
-  background:linear-gradient(#1B2C46,#0C1626)}
-.reward .it .ic{font-size:32px}
-.reward .it .v{font-family:var(--pop);font-size:22px;color:#FFE9B5;margin-top:2px}
-.reward .it .l{font-size:11px;color:#8FA9C4}
+/* ══════════ 報酬 ══════════ */
+.reward{width:520px;text-align:center;border-radius:18px;padding:5px;
+  background:linear-gradient(160deg,#FFE9A8,#D3A22C 40%,#8A6314 62%,#FFF0BE);
+  box-shadow:0 24px 60px rgba(0,0,0,.75)}
+.reward .in{background:linear-gradient(#F8EED6,#E7D3AC);border-radius:13px;padding:20px;color:var(--ink)}
+.reward h3{font-family:var(--pop);font-size:29px;color:#B2411C}
+.reward .items{display:flex;gap:13px;justify-content:center;margin:14px 0 4px;flex-wrap:wrap}
+.reward .it{min-width:118px;padding:11px 13px;border-radius:12px;border:2px solid #C9A961;
+  background:rgba(255,255,255,.6)}
+.reward .it .ic{font-size:31px}
+.reward .it .v{font-family:var(--pop);font-size:21px;color:#7A4A12;margin-top:2px}
+.reward .it .l{font-size:11px;color:#8A6A3C}
+
+/* ══════════ タイトル（暖色に合わせ直す） ══════════ */
+#title{background:radial-gradient(120% 100% at 50% 8%,#6B4E28 0%,#34240F 46%,#0E0803 100%)}
+#title .sub{color:#F0C878}
+#title .lead{color:#E7D3AC}
+#title .credit{color:#9A7C4A}
 </style>
