@@ -111,7 +111,7 @@ function newGame(){
         pboost: {}
       };
     }),
-    turn:0, turnsLeft:cfg.turns, over:false, winner:-1, winReason:'', alarm:null, infl:1,
+    turn:0, turnsLeft:cfg.turns, over:false, winner:-1, winReason:'', alarm:null, infl:1, reach:-1, winX:1,
     clock: cfg.timeLimit, lastTick: 0, ev:{}
   };
   thisWeek().apply(G);          // 今週のイベントを反映（毎週月曜6時に自動で変わる）
@@ -701,11 +701,55 @@ async function resolveInner(pi){
   await wait(160);
 
   if(t.type === 'start'){
-    give(pi, 3000000); await band('スタートにぴったり！','給料が2倍になりました',1300);
+    // 本家は「スタートにピタリ到着すると好きな所有地に建物を1つ追加建設できる」
+    await band('スタートにぴったり！','好きな自分の街を1段そだてられます',1400);
+    const mine0 = [];
+    for(let z=0; z<32; z++){ const tz = G.tiles[z];
+      if(tz.type==='city' && tz.owner===pi && !tz.landmark) mine0.push(z); }
+    if(mine0.length){
+      const d0 = (p.kind==='cpu')
+        ? mine0.reduce((a,b)=> tollOf(G.tiles[b],G) > tollOf(G.tiles[a],G) ? b : a)
+        : await pickTile(pi,'そだてる街を選んでください',
+            z=>G.tiles[z].type==='city' && G.tiles[z].owner===pi && !G.tiles[z].landmark);
+      if(d0>=0){ const tz = G.tiles[d0];
+        if(tz.lv>=3) tz.landmark = true; else tz.lv = Math.min(3, tz.lv+1);
+        await growAnim(d0); }
+    } else { give(pi, 2000000); toast('R','💴','街がまだありません','かわりに 200万 を受け取りました',2000); }
   }
   else if(t.type === 'jail'){
     p.jail = 3; p.dblRun = 0; SFX.bad(); camShake(10);
     await band(G.map.corners[1]+'に閉じ込められました！','3ターンのあいだ移動できません（ゾロ目で脱出）',1800);
+  }
+  else if(t.type === 'olympic'){
+    // オリンピック開催：費用を払って自分の街の通行料を上げる。
+    // 重ねるほど倍率が上がり最大5倍（本家の一番わかりやすい逆転手段）。
+    const mine = [];
+    for(let z=0; z<32; z++){ const tz=G.tiles[z];
+      if(tz.type==='city' && tz.owner===pi && tz.olym < 5) mine.push(z); }
+    if(!mine.length){
+      await band('オリンピック開催地','開催できる自分の街がありません',1500);
+    } else {
+      const cost = Math.round(Math.max(600000, assetOf(G,pi)*0.05) * statMul(p,'special',0.4));
+      if(p.cash < cost){
+        await band('オリンピック開催','費用 '+yen(cost)+' が足りません',1600);
+      } else {
+        await band('オリンピック開催！','費用 '+yen(cost)+' で自分の街の通行料を上げられます',1600);
+        const d = (p.kind==='cpu')
+          ? mine.reduce((a,b)=> tollOf(G.tiles[b],G) > tollOf(G.tiles[a],G) ? b : a)
+          : await pickTile(pi,'開催する街を選んでください',
+              z=>G.tiles[z].type==='city' && G.tiles[z].owner===pi && G.tiles[z].olym < 5);
+        if(d>=0){
+          give(pi, -cost);
+          const tz = G.tiles[d];
+          tz.olym = Math.min(5, tz.olym + 1);
+          boardChanged(); SFX.landmark(); camShake(10);
+          addFx('pillar', tileCenter(d).x, tileCenter(d).y, 1000, '#FFD24D');
+          raiseBanner('通行料 ×' + tz.olym + '！');
+          toast('R','🏟','オリンピック開催', tz.name+' の通行料が ×'+tz.olym+' になりました', 2400);
+          news('🏟 '+p.name+' が '+tz.name+' でオリンピックを開催！ 通行料 ×'+tz.olym);
+        }
+      }
+    }
   }
   else if(t.type === 'travel'){
     await band(G.map.corners[2]+'に到着','行きたいマスを1つ選べます',1200);
@@ -718,9 +762,8 @@ async function resolveInner(pi){
     await miniGame(pi);
   }
   else if(t.type === 'bonus'){
-    give(pi, t.amount);
-    addFx('pillar', c.x, c.y, 900, '#FFD24D');
-    toast('R','💰','ボーナス', yen(t.amount)+' を受け取りました',1900);
+    // 本家のボーナスゲームは「賭けて2倍→4倍→8倍、1回でも外すと全没収」
+    await miniGame(pi);
   }
   else if(t.type === 'tax'){
     const amt = Math.round(assetOf(G,pi) * t.rate * statMul(p,'special',0.4));
@@ -799,6 +842,13 @@ function parchHTML(t, cost, ownerName){
     + '</div></div>';
 }
 
+/* 何段目まで建てられるか。スタートを1周するごとに1段ずつ解放される */
+function maxLvOf(p){ return Math.max(1, Math.min(3, (p.laps||0) + 1)); }
+function lvLockNote(p){
+  const m = maxLvOf(p);
+  if(m >= 3) return '';
+  return '　🔒 いまは「'+BUILD[m].nm+'」まで（スタートを通るたびに1段ずつ増えます）';
+}
 /* ══════════ 購入・建設 ══════════ */
 function buildHTML(i, pi){
   const t = G.tiles[i], p = G.players[pi];
@@ -810,9 +860,10 @@ function buildHTML(i, pi){
     + '<div class="buildgrid">';
   const steps = [];
   steps.push({k:0, nm:'土地', ic:'🏳️', cost:Math.round(t.base*disc), have:own, can:!own});
+  const mx = maxLvOf(p);
   for(let k=1;k<=3;k++)
     steps.push({k, nm:BUILD[k].nm, ic:BUILD[k].ic, cost:Math.round(BUILD[k].cost(t.base)*disc),
-      have: own && t.lv>=k, can:true});
+      have: own && t.lv>=k, can: k <= mx});
   steps.push({k:4, nm:'ランドマーク', ic:'🗼', cost:Math.round(BUILD[4].cost(t.base)*disc),
     have:t.landmark, can: own && t.lv>=3 && !t.landmark});
   steps.forEach(s=>{
@@ -826,7 +877,8 @@ function buildHTML(i, pi){
     + '<div class="sums"><span>選んだぶんの合計</span><em id="bSum">0</em></div>'
     + '<div style="font-size:12.5px;color:#6b5a3c;margin-top:6px">'
     + '同じ色を3つ（トリプル独占）・1辺の街ぜんぶ（ライン独占）・ランドマーク3つ（観光地独占）の'
-    + 'どれかを<b>次の自分の手番まで守り切る</b>と勝ち。'
+    + 'どれかが成立した瞬間に勝ちです。'
+    + lvLockNote(p)
     + (p.halfBuild>0 ? '　🏗 建設割引券 適用中（半額）' : '') + '</div>'
     + '<div class="btnrow"><button class="btn ghost" data-act="no">やめる</button>'
     + '<button class="btn gold" data-act="ok" id="bOk">建てる</button></div>'
@@ -1149,17 +1201,22 @@ function checkWin(){
   if(G.over) return false;
   const alive = G.players.filter(p=>!p.out);
   if(alive.length === 1) return finish(G.players.indexOf(alive[0]),'独り勝ち');
-  // 独占は「その場で勝ち」ではなく、1巡もちこたえたら勝ち（＝崩す猶予を全員に与える）
-  // 開始5ラウンドは独占が偶然そろっても決着させない（あっけない試合をなくす）
+  // 開始5ラウンドは事故決着させない（3色独占が偶然そろうことはまず無いが保険）
   if(G.turnsLeft > cfg.turns - 5) return false;
-  if(!G.alarm){
-    for(let pi=0; pi<G.players.length; pi++){
-      if(G.players[pi].out) continue;
-      const m = monoOf(G, pi);
-      if(m){ raiseAlarm(pi, m); break; }
+  for(let pi=0; pi<G.players.length; pi++){
+    if(G.players[pi].out) continue;
+    const m = monoOf(G, pi);
+    if(m){ G.winX = m.x; return finish(pi, m.label, m.col); }
+  }
+  // 「あと1色で独占」を全員に知らせる。ここからが本番になる
+  for(let pi=0; pi<G.players.length; pi++){
+    if(G.players[pi].out) continue;
+    if(colorMono(G,pi) === 2 && G.reach !== pi){
+      G.reach = pi;
+      SFX.warn(); camShake(10);
+      alarmBand(G.players[pi].name+' 独占リーチ！', 'あと1色そろえられたら負け。買収して崩せ！');
+      news('🚨 '+G.players[pi].name+' がカラー独占2色。あと1色で勝たれます');
     }
-  } else if(!sameMono(G.alarm)){
-    dropAlarm();
   }
   return false;
 }
@@ -1270,7 +1327,6 @@ async function turnLoop(){
   while(!G.over){
     const pi = G.turn, p = G.players[pi];
     if(p.out){ nextTurn(); continue; }
-    if(alarmTick(pi)) break;          // 独占を1巡守り切ったら勝ち
     // 凍結の解除
     G.tiles.forEach(t=>{ if(t.frozen>0) t.frozen--; });
     if(p.tollUp > 0) p.tollUp--;   // 地価高騰の期限
@@ -1313,8 +1369,8 @@ async function turnLoop(){
   }
   G.running = false;
 }
-const INFL_FROM = 6;      // 残りこのターン数を切ったらインフレ開始
-const INFL_STEP = 1.5;    // 1ターンごとの倍率
+const INFL_FROM = 5;      // 残りこのターン数を切ったらインフレ開始
+const INFL_STEP = 1.32;   // 1ターンごとの倍率（1.5だと4人中2.5人が破産して荒れすぎた）
 function nextTurn(){
   const n = G.players.length;
   const before = G.turnsLeft;
@@ -1638,7 +1694,8 @@ async function aiBuy(pi, i){
   const block = G.players.some((q,qi)=> qi!==pi && !q.out &&
     CITY_SLOTS[t.g].filter(j=>G.tiles[j].owner===qi).length >= 2);
   const aggr = (near>=1 || block) ? 1 : 0;
-  for(let k = (own? t.lv+1 : 1); k<=3; k++){
+  const mxAi = maxLvOf(p);
+  for(let k = (own? t.lv+1 : 1); k<=mxAi; k++){
     const c = Math.round(BUILD[k].cost(t.base)*disc);
     if(p.cash - spend - c < reserve - aggr*1500000) break;
     if(lvl===0 && k>1) break;

@@ -39,21 +39,23 @@ function tileQuad(i){ const r=RECTS[i];
 
 /* ══════════ マップ ══════════ */
 /* 本家の実測色。彩度25〜55%・明度55〜80%の淡い色で、ネオンや原色は1つも無い */
-const GCOL = ['#79CDBD','#6BB2D2','#6DA83F','#EFAAA0','#D389C4','#D2913A','#8F6BC8'];
+const GCOL = ['#79CDBD','#6BB2D2','#6DA83F','#EFAAA0','#D389C4','#D2913A','#8F6BC8','#C0564B'];
 const TILE_FACE = '#E3EBEC';             // 金額を書く氷色の淡い面
 const TILE_INK  = '#5E6B72';             // 金額の文字色（縁取り無し）
-const GBASE= [500000, 800000, 1100000, 1500000, 1900000, 2300000, 2800000];
-const CITY_SLOTS = [[1,2,4],[5,6,9],[10,12,13],[14,17,18],[20,21,22],[25,26,28],[29,30,31]];
-const SPECIAL = {3:'card', 7:'tax', 11:'card', 15:'bonus', 19:'card', 23:'tax', 27:'card'};
+const GBASE= [400000, 600000, 850000, 1100000, 1450000, 1800000, 2250000, 2800000];
+/* 色グループは2マスが3組・3マスが5組。本家も2〜3マス混在で、
+   全部3マスだと「3色ぶん独占」が現実的に起きなくなる。 */
+const CITY_SLOTS = [[1,3],[4,5],[7,9],[10,12,13],[14,17,18],[20,21,22],[25,26,28],[29,30,31]];
+const SPECIAL = {2:'bonus', 6:'card', 11:'card', 15:'card', 19:'tax', 23:'card', 27:'card'};
 
 const MAPS = [
 { id:'ice', name:'氷の洞窟', sub:'ICE CAVERN', emoji:'❄️',
   lake:['#9FE3F0','#6FC3D8','#35708A'],
   slab:{top:'#C2B8E2', side:'#6A5F96', rim:'#E6ECF6'},
   deco:'ice',
-  corners:['スタート','氷の監獄','水晶の遺跡','悪夢の洞窟'],
+  corners:['スタート','氷の監獄','氷雪の祭典','水晶の転移門'],
   cities:[
-    ['氷結の泉','霜の小屋','凍り村'], ['雪見の丘','氷柱回廊','白銀通り'],
+    ['氷結の泉','霜の小屋'], ['凍り村','雪見の丘'], ['氷柱回廊','白銀通り'],
     ['銀嶺市場','蒼氷広場','凍湖港'], ['水晶坑道','極光台','氷紋宮'],
     ['氷刃城塞','静寂の樹海','蒼玉神殿'], ['極夜宮殿','永久氷河','白帝の塔'],
     ['氷王の玉座','天空氷城','原初の氷核']] },
@@ -61,9 +63,9 @@ const MAPS = [
   lake:['#63CBDE','#2E8CA6','#0D4A5C'],
   slab:{top:'#E8D9B0', side:'#8A7448', rim:'#F8F0DC'},
   deco:'world',
-  corners:['スタート','乗り継ぎ待ち','世界旅行','秘境探検'],
+  corners:['スタート','乗り継ぎ待ち','オリンピック開催','世界旅行'],
   cities:[
-    ['バリ','セブ','プーケット'], ['台北','ソウル','香港'],
+    ['バリ','セブ'], ['プーケット','台北'], ['ソウル','香港'],
     ['シンガポール','ドバイ','イスタンブール'], ['カイロ','ケープタウン','リオ'],
     ['シドニー','バンクーバー','ロサンゼルス'], ['ローマ','バルセロナ','ベルリン'],
     ['ロンドン','パリ','ニューヨーク']] },
@@ -71,9 +73,9 @@ const MAPS = [
   lake:['#A8EADA','#48AE9A','#1E6459'],
   slab:{top:'#E4D3B4', side:'#8E7A57', rim:'#F8F0DC'},
   deco:'onsen',
-  corners:['スタート','大分IC 渋滞','高速フェリー','地獄めぐり'],
+  corners:['スタート','大分IC 渋滞','おんせん祭り','高速フェリー'],
   cities:[
-    ['佐賀関','佐伯','蒲江'], ['臼杵','津久見','豊後大野'],
+    ['佐賀関','佐伯'], ['蒲江','臼杵'], ['津久見','豊後大野'],
     ['竹田','日田','玖珠'], ['国東','杵築','日出'],
     ['中津','宇佐','豊後高田'], ['大分駅前','大分港','高崎山'],
     ['別府温泉','由布院','鉄輪地獄']] }];
@@ -82,8 +84,8 @@ function buildTiles(map){
   const t = new Array(32).fill(null);
   t[0]  = {type:'start',    name:map.corners[0]};
   t[8]  = {type:'jail',     name:map.corners[1]};
-  t[16] = {type:'travel',   name:map.corners[2]};
-  t[24] = {type:'minigame', name:map.corners[3]};
+  t[16] = {type:'olympic',  name:map.corners[2]};
+  t[24] = {type:'travel',   name:map.corners[3]};
   for(const k in SPECIAL){
     const i = +k, v = SPECIAL[k];
     if(v==='card')  t[i] = {type:'card',  name:'チャンス'};
@@ -94,7 +96,7 @@ function buildTiles(map){
     slots.forEach((idx,j)=>{
       const base = Math.round(GBASE[g] * (1 + j*0.13));
       t[idx] = { type:'city', name:map.cities[g][j], g, base,
-                 owner:-1, lv:0, landmark:false, x2:false, frozen:0, grow:1, bind:0 };
+                 owner:-1, lv:0, landmark:false, x2:false, frozen:0, grow:1, bind:0, olym:1 };
     });
   });
   // 通行料2倍マスを2つ置く（本家の ×2 マス）
@@ -124,7 +126,8 @@ function tollOf(tile, G){
   for(let i=1;i<=tile.lv;i++) v += BUILD[i].toll(tile.base);
   if(tile.landmark) v += BUILD[4].toll(tile.base);
   let m = 1;
-  if(tile.x2) m *= 2;
+  if(tile.x2) m *= 2;                              // 祭り都市
+  if(tile.olym > 1) m *= tile.olym;                // オリンピック開催（最大5倍）
   if(G){
     const i = G.tiles.indexOf(tile);
     if(hasTriple(G, tile.owner, tile.g)) m *= 2 * ((G.ev && G.ev.monoX) || 1);
@@ -136,14 +139,20 @@ function tollOf(tile, G){
   }
   return Math.round(v*m);
 }
-/* 独占の種類をひとつ返す（無ければ null）。即勝ちではなく「警報」の材料にする */
+/* いま何色ぶんカラー独占しているか */
+function colorMono(G, pi){
+  let c = 0; for(let g=0; g<7; g++) if(hasTriple(G,pi,g)) c++;
+  return c;
+}
+/* 成立している独占をひとつ返す（無ければ null）。x は報酬倍率。
+   同時に成立したときは倍率の高いほうを名乗る、が本家の決まり。 */
 function monoOf(G, pi){
-  for(let g=0; g<7; g++) if(hasTriple(G,pi,g))
-    return { kind:'triple', label:'トリプル独占', col:GCOL[g], key:'t'+g };
-  for(let s=0; s<4; s++) if(hasLine(G,pi,s))
-    return { kind:'line', label:'ライン独占', col:'#FFD24D', key:'l'+s };
   const lm = G.tiles.filter(t=>t.landmark && t.owner===pi).length;
-  if(lm >= 4) return { kind:'land', label:'観光地独占', col:'#7FE6FF', key:'m' };
+  if(lm >= 6) return { kind:'land',  label:'観光地独占', col:'#7FE6FF', key:'m', x:5 };
+  for(let s=0; s<4; s++) if(hasLine(G,pi,s))
+    return { kind:'line',  label:'ライン独占', col:'#FFD24D', key:'l'+s, x:3 };
+  if(colorMono(G,pi) >= 3)
+    return { kind:'triple', label:'トリプル独占', col:'#FFD24D', key:'t', x:2 };
   return null;
 }
 function cityValue(t){
@@ -397,7 +406,8 @@ function drawTile(ctx, G, i, T){
     top  = GCOL[t.g];
     side = mixHex(GCOL[t.g], '#6E8494', 0.34);
     band = TILE_FACE;
-    sub  = (t.owner>=0 ? yenShort(tollOf(t,G)) : yenShort(t.base)) + (t.x2 ? ' X2' : '');
+    const mulx = (t.x2 ? 2 : 1) * (t.olym > 1 ? t.olym : 1);
+    sub  = (t.owner>=0 ? yenShort(tollOf(t,G)) : yenShort(t.base)) + (mulx > 1 ? ' X'+mulx : '');
     if(t.landmark) glow = '#7FE6FF';
   }
   else if(t.type==='card'){ top='#EAF0F8'; side=mixHex('#EAF0F8','#6E8494',0.30); }
@@ -443,10 +453,10 @@ function drawTile(ctx, G, i, T){
   const c = centroid(q);
   if(t.corner){
     ctx.save(); ctx.translate(c.x, c.y+6);
-    if(t.type==='minigame') dvChest(ctx, T);
+    if(t.type==='olympic') dvChest(ctx, T);
     else {
       ctx.font='40px serif'; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
-      ctx.fillText(t.type==='jail'?'🧊':t.type==='travel'?'🌀':'🚩', 0, -4);
+      ctx.fillText(t.type==='jail'?'🏝️':t.type==='travel'?'✈️':'🚩', 0, -4);
     }
     ctx.restore();
   }
