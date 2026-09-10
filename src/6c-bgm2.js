@@ -978,6 +978,19 @@ function dvMusic2(ac){
         master.gain.linearRampToValueAtTime(MASTER_BASE*vol, now+0.08);
       }catch(e){ master.gain.value = MASTER_BASE*vol; }
     },
+    /* ジングルの間だけ music を下げる（amt=倍率・-9dB なら 0.355、sec=下げたままの秒数）
+       曲は止めずにマスターだけ動かすので、戻したときに演奏がずれない。         */
+    duck: function(amt, sec){
+      var a = Math.max(0.02, Math.min(1, amt || 1)), hold = Math.max(0, sec || 0),
+          now = ac.currentTime, base = MASTER_BASE*vol, g = master.gain;
+      try{
+        g.cancelScheduledValues(now);
+        g.setValueAtTime(g.value, now);
+        g.linearRampToValueAtTime(base*a, now+0.06);              // 60ms で下げる
+        g.setValueAtTime(base*a, now+0.06+hold);
+        g.linearRampToValueAtTime(base, now+0.06+hold+0.35);      // 350ms で戻す
+      }catch(e){ g.value = base; }
+    },
     get volume(){ return vol; },
     get current(){ return curName; }
   };

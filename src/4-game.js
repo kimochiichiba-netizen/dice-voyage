@@ -34,7 +34,7 @@ $('#playPortrait2').onclick = ()=>{ forcePortrait = true; portraitDir = -90; fit
    どちらも音源ファイルを使わず Web Audio で作っている。
    ブラウザの自動再生制限があるので、最初のクリックまで AudioContext は作らない。
    ══════════════════════════════════════════ */
-let AC = null, soundOn = true, SFXE = null, MUSIC = null, audioReady = false;
+let AC = null, soundOn = true, SFXE = null, MUSIC = null, JING = null, audioReady = false;
 let bgmOn = true, bgmVol = 0.55, sfxVol = 0.70;
 function ac(){
   if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
@@ -42,6 +42,7 @@ function ac(){
   if(AC && !audioReady){
     audioReady = true;
     try{ SFXE = dvSfx(AC); }catch(e){ SFXE = null; }
+    try{ JING = dvJingle(AC); }catch(e){ JING = null; }    // 短い曲（建設・独占など6本）
     try{
       MUSIC = dvMusicFiles(AC, (window.DV_BGM || null));   // 音楽ファイルがあれば本物を鳴らす
       if(!MUSIC) MUSIC = dvMusic2(AC);                     // 無ければ厚みのある合成音（v2）
@@ -57,22 +58,31 @@ function ac(){
 }
 const SFX = (function(){
   const names = ['click','hover','diceShake','diceThrow','diceLand','diceDouble','step','land',
-    'coin','pay','build','landmark','buy','skill','gachaRoll','gachaRare','win','lose','tick','warn'];
+    'coin','pay','build','landmark','buy','skill','gachaRoll','gachaRare','win','lose','tick','warn',
+    /* 追加ぶん：札束・金貨・紙吹雪・衝撃波・ゲージ3種・カード出現 */
+    'bill','coinBurst','confetti','shock','gaugeCharge','gaugeOk','gaugeNg','cardIn'];
   const o = {};
   names.forEach(n=>{ o[n] = function(v){
     if(!soundOn) return;
     const a = ac(); if(!a || !SFXE || typeof SFXE[n] !== 'function') return;
-    try{ SFXE[n](v); }catch(e){}
+    try{ return SFXE[n](v); }catch(e){}      // gaugeCharge は {level,end} を返すので通す
   }; });
   o.hop = o.step; o.dice = o.diceShake; o.bad = o.lose; o.good = o.win;   // 旧名の互換
   return o;
 })();
 /* 場面に合わせて曲を切り替える */
 function bgm(name){ try{ if(MUSIC && bgmOn) MUSIC.play(name); }catch(e){} }
+/* ジングル（短い曲）を鳴らす。鳴っている間だけ BGM が -9dB に下がる
+   name: 'build'|'landmark'|'buyout'|'bankrupt'|'mono'|'levelup'                */
+function jingle(name){
+  if(!soundOn) return 0;
+  const a = ac(); if(!a || !JING) return 0;
+  try{ return JING.play(name, bgmOn ? MUSIC : null); }catch(e){ return 0; }
+}
 
 /* ══════════ 設定と状態 ══════════ */
 let G = null;
-let cfg = { mapId:'ice', turns:30, timeLimit:1500, cash:5000000, ai:1, speed:1, n:4,
+let cfg = { mapId:'ice', turns:12, timeLimit:1200, cash:10000000, ai:1, speed:1, n:4,
   seats:[{name:'あなた',kind:'you',ch:-1},{name:'CPU ガル',kind:'cpu',ch:-1},
          {name:'CPU リノ',kind:'cpu',ch:-1},{name:'CPU ゼニ',kind:'cpu',ch:-1}] };
 
@@ -690,7 +700,7 @@ async function moveSteps(pi, n){
 }
 function salary(pi){
   const p = G.players[pi];
-  let amt = Math.round((1500000 + p.laps*400000) * ((G.ev && G.ev.salaryX) || 1));
+  let amt = Math.round((600000 + p.laps*200000) * ((G.ev && G.ev.salaryX) || 1));
   if(p.salaryX2>0){ amt *= 2; p.salaryX2--; toast('R','💴','給料2倍券','給料が2倍になりました',1900); }
   give(pi, amt);
   toast('R','🚩','スタート通過','給料 '+yen(amt)+' を受け取りました',1800);
@@ -732,7 +742,7 @@ async function resolveInner(pi){
       if(d0>=0){ const tz = G.tiles[d0];
         if(tz.lv>=3) tz.landmark = true; else tz.lv = Math.min(3, tz.lv+1);
         await growAnim(d0); }
-    } else { give(pi, 2000000); toast('R','💴','街がまだありません','かわりに 200万 を受け取りました',2000); }
+    } else { give(pi, 600000); toast('R','💴','街がまだありません','かわりに 60万 を受け取りました',2000); }
   }
   else if(t.type === 'jail'){
     p.jail = 3; p.dblRun = 0; SFX.bad(); camShake(10);
@@ -747,7 +757,7 @@ async function resolveInner(pi){
     if(!mine.length){
       await band('オリンピック開催地','開催できる自分の街がありません',1500);
     } else {
-      const cost = Math.round(Math.max(600000, assetOf(G,pi)*0.05) * statMul(p,'special',0.4));
+      const cost = Math.round(Math.max(150000, assetOf(G,pi)*0.05) * statMul(p,'special',0.4));
       if(p.cash < cost){
         await band('オリンピック開催','費用 '+yen(cost)+' が足りません',1600);
       } else {
@@ -1220,7 +1230,7 @@ function checkWin(){
   const alive = G.players.filter(p=>!p.out);
   if(alive.length === 1) return finish(G.players.indexOf(alive[0]),'独り勝ち');
   // 開始5ラウンドは事故決着させない（3色独占が偶然そろうことはまず無いが保険）
-  if(G.turnsLeft > cfg.turns - 5) return false;
+  if(G.turnsLeft > cfg.turns - 2) return false;
   for(let pi=0; pi<G.players.length; pi++){
     if(G.players[pi].out) continue;
     const m = monoOf(G, pi);
@@ -1387,8 +1397,8 @@ async function turnLoop(){
   }
   G.running = false;
 }
-const INFL_FROM = 5;      // 残りこのターン数を切ったらインフレ開始
-const INFL_STEP = 1.32;   // 1ターンごとの倍率（1.5だと4人中2.5人が破産して荒れすぎた）
+const INFL_FROM = 6;      // 残りこのターン数を切ったらインフレ開始（韓国版の公式値）
+const INFL_STEP = 1.5;    // 1ターンごとの倍率（韓国版の公式値）
 function nextTurn(){
   const n = G.players.length;
   const before = G.turnsLeft;
@@ -1615,7 +1625,7 @@ async function useSkill(pi){
   }
   if(k===6){
     // 給料：その場で給料を受け取り、次の給料も2倍になる
-    const amt = Math.round(1500000 + p.laps*400000);
+    const amt = Math.round(600000 + p.laps*200000);
     give(pi, amt); p.salaryX2++;
     SFX.coin(); toast('R','💴','臨時収入', yen(amt)+'／次の給料も2倍', 2200);
   }
@@ -1641,7 +1651,7 @@ async function useSkill(pi){
   }
   if(k===10){
     // 宝箱：金額は運。当たれば一気に逆転する
-    const base = Math.max(1200000, Math.round(assetOf(G,pi)*0.10));
+    const base = Math.max(400000, Math.round(assetOf(G,pi)*0.10));
     const mul = [0.6, 1, 1, 1.6, 2.6][(Math.random()*5)|0];
     const amt = Math.round(base*mul);
     give(pi, amt); SFX.gachaRare();
@@ -1698,12 +1708,13 @@ async function aiBuy(pi, i){
   const t = G.tiles[i], p = G.players[pi], lvl = cfg.ai;
   const own = t.owner === pi;
   const disc = statMul(p,'build',0.3) * (p.halfBuild>0 ? 0.5 : 1) * ((G.ev && G.ev.buildX) || 1);
-  const reserve = [1500000, 900000, 450000][lvl];
+  const reserve = [300000, 180000, 90000][lvl];
   let spend = 0, lvTarget = t.lv, land = false, lm = false;
   if(!own){
     const price = Math.round(t.base*disc);
-    const urgent = G.players.some((q,qi)=> qi!==pi && !q.out &&
-      CITY_SLOTS[t.g].filter(j=>G.tiles[j].owner===qi).length >= 2);
+    const mineG  = CITY_SLOTS[t.g].filter(j=>G.tiles[j].owner===pi).length;
+    const urgent = mineG >= 1 || G.players.some(function(q,qi){ return qi!==pi && !q.out &&
+      CITY_SLOTS[t.g].filter(function(j){ return G.tiles[j].owner===qi; }).length >= 2; });
     if(p.cash - price < (urgent ? 0 : reserve)) return;   // 独占阻止なら全財産を使ってでも買う
     land = true; spend += price;
   }
@@ -1748,15 +1759,14 @@ async function aiBuy(pi, i){
 function aiBuyout(pi, i, cost){
   const t = G.tiles[i], p = G.players[pi], lvl = cfg.ai;
   if(lvl===0) return false;
-  // 独占警報が出ている相手の街なら、無理をしてでも買収して崩す
-  if(G.alarm && G.alarm.pi === t.owner && t.owner !== pi && p.cash >= cost) return true;
+  // 相手が2マス持っている色は、独占される前に奪って崩す
   const dangerG = CITY_SLOTS[t.g].filter(j=>G.tiles[j].owner===t.owner).length >= 2;
   if(dangerG && t.owner !== pi && p.cash >= cost) return true;
   const near = CITY_SLOTS[t.g].filter(j=>G.tiles[j].owner===pi).length;
-  const reserve = [1500000, 900000, 450000][lvl];
+  const reserve = [300000, 180000, 90000][lvl];
   if(p.cash - cost < reserve) return false;
-  if(near >= 2) return true;
-  return lvl===2 && near>=1 && Math.random()<0.6;
+  if(near >= 1) return true;                      // 同じ色を持っているなら揃えに行く
+  return lvl>=1 && Math.random()<0.35;            // それ以外もときどき奪う
 }
 function aiPickTravel(pi){
   let best = -1, bs = -1e9;
@@ -2020,6 +2030,7 @@ function applyAudioPrefs(){
   $('#bgmBtn').classList.toggle('off', !bgmOn || bgmVol < 0.001);
   if(MUSIC) MUSIC.setVolume(bgmOn ? bgmVol : 0);
   if(SFXE && SFXE.setVolume) SFXE.setVolume(sfxVol);
+  if(JING && JING.setVolume) JING.setVolume(sfxVol);   // ジングルは効果音側の音量に従う
   try{ localStorage.setItem('dv_audio', JSON.stringify({bgmOn,bgmVol,sfxVol})); }catch(e){}
 }
 try{

@@ -4,7 +4,7 @@ $d = Split-Path -Parent $MyInvocation.MyCommand.Path
 $enc = New-Object System.Text.UTF8Encoding($false)
 $parts = @("1-style.html","1b-ui.html","1c-meta.html","1d-polish.html","2-body.html",
            "3-core.js","3b-art.js","3c-chars.js","3d-gems.js","3e-style.js","3f-anime.js",
-           "6-audio.js","6b-bgm.js","6c-bgm2.js","4-game.js","5-meta.js")
+           "6-audio.js","6b-bgm.js","6c-bgm2.js","6d-jingle.js","4-game.js","5-meta.js")
 $sb = New-Object System.Text.StringBuilder
 foreach($p in $parts){
   $f = Join-Path "$d\src" $p
@@ -15,7 +15,7 @@ $body = $sb.ToString()
 
 # ── BGM：assets/bgm/ にファイルがあれば自動で組み込む ──
 #   index.html は相対パス、game.html(Artifact) は外部ファイルを読めないので data URI
-$names = @("lobby","game","tense","win")
+$names = @("lobby","game","tense","win","room","gacha","boss","result")
 $exts  = @("mp3","ogg","m4a","wav")
 $rel = @{}; $dat = @{}; $total = 0
 foreach($n in $names){

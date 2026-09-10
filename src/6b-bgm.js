@@ -6,7 +6,7 @@
    ══════════════════════════════════════════════════════════════ */
 function dvMusicFiles(ac, srcMap){
   const src = srcMap || {};
-  const names = ['lobby','game','tense','win'];
+  const names = ['lobby','game','tense','win','room','gacha','boss','result'];
   if(!names.some(n => src[n])) return null;          // 1曲も無ければ使わない
 
   const el = {}, node = {}, gain = {};
@@ -72,6 +72,19 @@ function dvMusicFiles(ac, srcMap){
       try{ master.gain.setTargetAtTime(vol, ac.currentTime, 0.05); }
       catch(e){ master.gain.value = vol; }
     },
+    /* ジングルの間だけ下げる（dvJingle が呼ぶ。合成音版 dvMusic2 と同じ形）*/
+    duck(amt, sec){
+      const a = Math.max(0.02, Math.min(1, amt || 1)), hold = Math.max(0, sec || 0);
+      const now = ac.currentTime, g = master.gain;
+      try{
+        g.cancelScheduledValues(now);
+        g.setValueAtTime(g.value, now);
+        g.linearRampToValueAtTime(vol*a, now + 0.06);
+        g.setValueAtTime(vol*a, now + 0.06 + hold);
+        g.linearRampToValueAtTime(vol, now + 0.06 + hold + 0.35);
+      }catch(e){ g.value = vol; }
+    },
+    get volume(){ return vol; },
     get current(){ return cur; }
   };
 }

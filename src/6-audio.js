@@ -589,6 +589,148 @@ function dvSfx(ac){
       }
     },
 
+    /* ══════════ ここから追加ぶん（乱数を使わず毎回同じ音になるよう表を固定）══════════ */
+
+    /* bill：札束が飛ぶ／紙のバサバサ4連（900→2800→1400Hzのスイープ）＋舞う風220→130Hz／全体約0.55秒 */
+    bill: function(){
+      if(!_dvOn) return; var t = _dvT();
+      var at = [0, 0.075, 0.145, 0.205], vv = [0.090, 0.078, 0.066, 0.054],
+          rt = [1.00, 1.07, 0.94, 1.03], i;
+      for(i=0;i<at.length;i++){
+        _dvNz({ t:t+at[i], dur:0.115, type:'bandpass', Q:0.9, v:vv[i], a:0.012, rate:rt[i],
+                fSeq:[[0,900],[0.05,2800],[0.115,1400]] });
+      }
+      _dvNz ({ t:t,      dur:0.34, type:'lowpass', f:1200, f2:400, Q:0.7, v:0.045, a:0.05 });
+      _dvOsc({ t:t+0.02, dur:0.30, type:'sine',    f:220,  f2:130, v:0.045, a:0.03, rev:0.10 });
+    },
+
+    /* coinBurst：金貨が散る／ベル12粒（1046〜2637Hz・各3層）＋擦れ3粒／全体約0.75秒 */
+    coinBurst: function(){
+      if(!_dvOn) return; var t = _dvT();
+      var fs = [1046,1318,1568,2093,1318,1760,2637,1568,2093,1046,2349,1760],
+          ts = [0,0.035,0.062,0.100,0.135,0.175,0.210,0.255,0.300,0.350,0.410,0.470],
+          vs = [0.085,0.080,0.075,0.070,0.070,0.065,0.060,0.060,0.055,0.050,0.045,0.040], i;
+      for(i=0;i<fs.length;i++) _dvBell(t+ts[i], fs[i], 0.26, vs[i], 0.20);
+      var nt = [0.02, 0.19, 0.36];
+      for(i=0;i<nt.length;i++)
+        _dvNz({ t:t+nt[i], dur:0.030, type:'bandpass', f:3000, f2:1800, Q:8, v:0.045, a:0.001 });
+      _dvOsc({ t:t, dur:0.18, type:'sine', f:180, f2:90, v:0.06, a:0.004 });   // 落ちた床の芯
+    },
+
+    /* confetti：紙吹雪／広がるノイズ（2000→6500Hz）＋舞う粒12個＋ふわっと上がる風／全体約1.1秒 */
+    confetti: function(){
+      if(!_dvOn) return; var t = _dvT();
+      _dvNz({ t:t, dur:0.55, type:'highpass', Q:0.6, v:0.070, a:0.030,
+              fSeq:[[0,2000],[0.20,6500],[0.55,3200]] });
+      var ts = [0.06,0.12,0.19,0.25,0.33,0.40,0.48,0.56,0.65,0.74,0.84,0.95],
+          fs = [2600,3400,2200,4200,2900,3800,2400,4600,3100,2700,3600,2300],
+          vs = [0.040,0.036,0.038,0.032,0.034,0.030,0.032,0.026,0.028,0.024,0.022,0.018], i;
+      for(i=0;i<ts.length;i++)
+        _dvNz({ t:t+ts[i], dur:0.045, type:'bandpass', f:fs[i], f2:fs[i]*0.55, Q:6,
+                v:vs[i], a:0.002, rev:0.14 });
+      _dvOsc({ t:t, dur:0.60, type:'sine', f:520, f2:1400, v:0.030, a:0.10, rev:0.18 });
+    },
+
+    /* shock：衝撃波／爆ぜ（4000→180Hzの下降ノイズ）＋サブ90→32Hz＋余波の唸り／全体約0.9秒 */
+    shock: function(){
+      if(!_dvOn) return; var t = _dvT();
+      _dvNz ({ t:t, dur:0.055, type:'bandpass', f:2600, f2:900, Q:0.8, v:0.130, a:0.001 });
+      _dvNz ({ t:t, dur:0.70,  type:'lowpass',  Q:1.1, v:0.095, a:0.006, rev:0.28,
+               fSeq:[[0,4000],[0.12,1400],[0.70,180]] });
+      _dvOsc({ t:t, dur:0.60,  type:'sine',     f:90,  f2:32,  v:0.190, a:0.005, rev:0.20 });
+      _dvOsc({ t:t, dur:0.34,  type:'sawtooth', f:150, f2:48,  v:0.070, a:0.004,
+               drive:1, lp:1400, lpTo:220 });
+      _dvOsc({ t:t+0.10, dur:0.55, type:'triangle', f:74, f2:44, v:0.055, a:0.02 });
+    },
+
+    /* gaugeCharge：ゲージ溜め（長押し中ずっと鳴る）
+       level(0〜1) で 180→545Hz へ音程が上がり、震え（トレモロ）も 7→20Hz へ速くなる。
+       戻り値 {level,end}。end() を呼び忘れても 8秒で自動的に止まって解放される。 */
+    gaugeCharge: function(){
+      if(!_dvOn) return { level:function(){}, end:function(){} };
+      var t = _dvT(), MAXS = 8;
+      var o1 = ac.createOscillator(), o2 = ac.createOscillator(),
+          lfo = ac.createOscillator(), lg = ac.createGain(), amp = ac.createGain(),
+          lp = ac.createBiquadFilter(), g = ac.createGain(), sg = null, done = false;
+      o1.type = 'sawtooth'; o1.frequency.setValueAtTime(180, t);
+      o2.type = 'square';   o2.frequency.setValueAtTime(90, t); o2.detune.setValueAtTime(7, t);
+      lp.type = 'lowpass';  lp.Q.value = 6; lp.frequency.setValueAtTime(700, t);
+      lfo.type = 'sine';    lfo.frequency.setValueAtTime(7, t);
+      lg.gain.setValueAtTime(0.25, t);                    // 1 ± 0.25 で震える
+      amp.gain.setValueAtTime(1, t);
+      g.gain.setValueAtTime(_dvEPS, t);
+      g.gain.exponentialRampToValueAtTime(0.060, t + 0.06);
+      lfo.connect(lg); lg.connect(amp.gain);
+      o1.connect(lp); o2.connect(lp); lp.connect(amp); amp.connect(g); g.connect(_dvOut);
+      sg = _dvSend(g, 0.12, false);
+      o1.start(t); o2.start(t); lfo.start(t);
+      o1.stop(t + MAXS); o2.stop(t + MAXS); lfo.stop(t + MAXS);
+      o1.onended = function(){
+        try{ o1.disconnect(); o2.disconnect(); lfo.disconnect(); lg.disconnect();
+             amp.disconnect(); lp.disconnect(); g.disconnect(); if(sg) sg.disconnect(); }catch(e){}
+      };
+      return {
+        level: function(p){
+          var k = Math.max(0, Math.min(1, p == null ? 0 : p)), n = ac.currentTime + 0.01;
+          try{
+            o1.frequency.setTargetAtTime(180*Math.pow(2, k*1.6), n, 0.04);   // 180→545Hz
+            o2.frequency.setTargetAtTime(90 *Math.pow(2, k*1.6), n, 0.04);
+            lp.frequency.setTargetAtTime(700 + 2600*k, n, 0.05);
+            lfo.frequency.setTargetAtTime(7 + 13*k, n, 0.05);
+            g.gain.setTargetAtTime(0.055 + 0.050*k, n, 0.05);
+          }catch(e){}
+        },
+        end: function(){
+          if(done) return; done = true;
+          var n = ac.currentTime;
+          try{
+            g.gain.cancelScheduledValues(n);
+            g.gain.setValueAtTime(Math.max(_dvEPS, g.gain.value), n);
+            g.gain.exponentialRampToValueAtTime(_dvEPS, n + 0.07);
+          }catch(e){}
+          try{ o1.stop(n + 0.09); o2.stop(n + 0.09); lfo.stop(n + 0.09); }catch(e){}
+        }
+      };
+    },
+
+    /* gaugeOk：ゲージ成功／784→1046Hz の2段上げ（各2層）＋ベル1568Hz＋抜けのノイズ／全体約0.7秒 */
+    gaugeOk: function(){
+      if(!_dvOn) return; var t = _dvT();
+      _dvOsc({ t:t,      dur:0.14, type:'triangle', f:784,  v:0.140, a:0.004, rev:0.14 });
+      _dvOsc({ t:t,      dur:0.10, type:'sine',     f:1568, v:0.045, a:0.004 });
+      _dvOsc({ t:t+0.11, dur:0.34, type:'triangle', f:1046, v:0.150, a:0.004, hold:0.06, rev:0.22 });
+      _dvOsc({ t:t+0.11, dur:0.24, type:'sine',     f:2093, v:0.050, a:0.004 });
+      _dvBell(t+0.16, 1568, 0.55, 0.085, 0.28);
+      _dvNz ({ t:t, dur:0.18, type:'bandpass', Q:1.4, v:0.045, a:0.010,
+               fSeq:[[0,800],[0.14,3600]] });
+      _dvOsc({ t:t+0.11, dur:0.26, type:'sine', f:131, v:0.075, a:0.006 });
+    },
+
+    /* gaugeNg：ゲージ失敗／415→294Hz の下降（濁った矩形）＋ブザー2連＋沈むサブ／全体約0.6秒 */
+    gaugeNg: function(){
+      if(!_dvOn) return; var t = _dvT();
+      _dvOsc({ t:t,      dur:0.16, type:'square', f:415, f2:392, v:0.100, a:0.006,
+               lp:1100, lpTo:600 });
+      _dvOsc({ t:t+0.13, dur:0.34, type:'square', f:294, f2:262, v:0.100, a:0.006,
+               lp:900,  lpTo:420, rev:0.14 });
+      _dvOsc({ t:t,      dur:0.16, type:'sawtooth', f:208, v:0.055, a:0.006, drive:1, lp:800 });
+      _dvOsc({ t:t+0.13, dur:0.30, type:'sawtooth', f:147, v:0.055, a:0.006, drive:1, lp:700 });
+      _dvOsc({ t:t,      dur:0.50, type:'sine',   f:110, f2:55, v:0.090, a:0.010 });
+      _dvNz ({ t:t, dur:0.05, type:'bandpass', f:600, f2:260, Q:1.0, v:0.055, a:0.002 });
+    },
+
+    /* cardIn：カード出現／シュッ（400→3600Hzの上昇ノイズ）＋ポン（ベル1318Hz）＋紙の腰／全体約0.5秒 */
+    cardIn: function(){
+      if(!_dvOn) return; var t = _dvT();
+      _dvNz ({ t:t, dur:0.20, type:'bandpass', Q:1.1, v:0.080, a:0.030,
+               fSeq:[[0,400],[0.16,3600],[0.20,2200]] });
+      _dvOsc({ t:t, dur:0.20, type:'sine', f:300, f2:900, v:0.045, a:0.030 });   // 引き抜く風
+      var s = t + 0.17;                                                          // 置いた瞬間
+      _dvNz ({ t:s, dur:0.030, type:'bandpass', f:1700, f2:700, Q:1.2, v:0.075, a:0.001 });
+      _dvBell(s, 1318, 0.42, 0.095, 0.24);
+      _dvOsc({ t:s, dur:0.14, type:'triangle', f:262, f2:196, v:0.060, a:0.003, rev:0.12 });
+    },
+
     /* ── 補助 ── */
     setVolume: function(v){ _dvOut.gain.value = Math.max(0, Math.min(1, v)); },
     setEnabled: function(on){ _dvOn = !!on; },
