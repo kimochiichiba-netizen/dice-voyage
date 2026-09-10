@@ -4,8 +4,9 @@
    ══════════════════════════════════════════════════════════════ */
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
-let SPEED = 1;                       // アニメ速度倍率（大きいほど遅い）
+let SPEED = 1;
 const wait = ms => new Promise(r => setTimeout(r, Math.max(0, ms*SPEED)));
+const esc = s => String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 /* ══════════ ステージのフィット（横画面バグ対策の要） ══════════ */
 let forcePortrait = false, portraitDir = 90;
@@ -13,31 +14,21 @@ function fitStage(){
   const vw = window.innerWidth, vh = window.innerHeight;
   const stage = $('#stage');
   const portrait = vh > vw * 1.02;
-  if(portrait && !forcePortrait){
-    $('#rotate').classList.add('on');
-  } else {
-    $('#rotate').classList.remove('on');
-  }
+  $('#rotate').classList.toggle('on', portrait && !forcePortrait);
   let s, rot = '';
-  if(portrait && forcePortrait){
-    s = Math.min(vh/SW, vw/SH);          // 90°回して詰める
-    rot = ' rotate('+portraitDir+'deg)';
-  } else {
-    s = Math.min(vw/SW, vh/SH);
-  }
+  if(portrait && forcePortrait){ s = Math.min(vh/SW, vw/SH); rot = ' rotate('+portraitDir+'deg)'; }
+  else { s = Math.min(vw/SW, vh/SH); }
   stage.style.transform = 'translate(-50%,-50%)'+rot+' scale('+s+')';
   const c = $('#world');
   const dpr = Math.min(2, window.devicePixelRatio||1);
-  if(c.width !== Math.round(SW*dpr)){
-    c.width = Math.round(SW*dpr); c.height = Math.round(SH*dpr);
-  }
+  if(c.width !== Math.round(SW*dpr)){ c.width = Math.round(SW*dpr); c.height = Math.round(SH*dpr); }
 }
 addEventListener('resize', fitStage);
 addEventListener('orientationchange', ()=>setTimeout(fitStage,120));
 $('#playPortrait').onclick  = ()=>{ forcePortrait = true; portraitDir =  90; fitStage(); };
 $('#playPortrait2').onclick = ()=>{ forcePortrait = true; portraitDir = -90; fitStage(); };
 
-/* ══════════ サウンド（合成・外部ファイルなし） ══════════ */
+/* ══════════ サウンド ══════════ */
 let AC = null, soundOn = true;
 function ac(){ if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return AC; }
 function beep(f, dur, type, vol, slide){
@@ -60,38 +51,104 @@ function noise(dur, vol){
   src.connect(g); g.connect(a.destination); src.start();
 }
 const SFX = {
-  hop:   ()=>beep(520, .06, 'square', .06, 700),
-  land:  ()=>{ noise(.13,.16); beep(160,.12,'sine',.12,90); },
-  dice:  ()=>{ noise(.05,.09); },
-  coin:  ()=>{ beep(880,.09,'triangle',.11); setTimeout(()=>beep(1320,.13,'triangle',.10),70); },
-  pay:   ()=>{ beep(300,.16,'sawtooth',.09,140); },
-  build: ()=>{ beep(420,.1,'triangle',.11); setTimeout(()=>beep(630,.12,'triangle',.11),90);
-               setTimeout(()=>beep(840,.18,'triangle',.10),190); },
-  bad:   ()=>{ beep(200,.28,'sawtooth',.11,90); },
-  win:   ()=>{ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.4,'triangle',.13),i*130)); },
-  click: ()=>beep(700,.04,'square',.05)
+  hop:   ()=>beep(520,.06,'square',.055,700),
+  land:  ()=>{ noise(.14,.16); beep(160,.12,'sine',.12,90); },
+  dice:  ()=>noise(.05,.08),
+  coin:  ()=>{ beep(880,.09,'triangle',.11); setTimeout(()=>beep(1320,.13,'triangle',.1),70); },
+  pay:   ()=>beep(300,.16,'sawtooth',.09,140),
+  build: ()=>{ [420,630,840].forEach((f,i)=>setTimeout(()=>beep(f,.14,'triangle',.11),i*95)); },
+  bad:   ()=>beep(200,.28,'sawtooth',.11,90),
+  win:   ()=>{ [523,659,784,1047,1319].forEach((f,i)=>setTimeout(()=>beep(f,.4,'triangle',.13),i*120)); },
+  skill: ()=>{ [660,880,1180].forEach((f,i)=>setTimeout(()=>beep(f,.22,'sine',.12),i*70)); noise(.3,.06); },
+  click: ()=>beep(700,.04,'square',.05),
+  tick:  ()=>beep(1200,.03,'square',.035)
 };
 
-/* ══════════ 状態 ══════════ */
-let G = null, cfg = { mapId:'ice', turns:30, cash:20000000, ai:1, speed:1,
-  seats:[{name:'あなた',kind:'you'},{name:'CPU アオ',kind:'cpu'},
-         {name:'CPU ミドリ',kind:'cpu'},{name:'CPU キイロ',kind:'cpu'}], n:4 };
+/* ══════════ 設定と状態 ══════════ */
+let G = null;
+let cfg = { mapId:'ice', turns:30, timeLimit:1500, cash:20000000, ai:1, speed:1, n:4,
+  seats:[{name:'あなた',kind:'you',ch:-1},{name:'CPU ガル',kind:'cpu',ch:-1},
+         {name:'CPU リノ',kind:'cpu',ch:-1},{name:'CPU ゼニ',kind:'cpu',ch:-1}] };
 
 function newGame(){
   const map = MAPS.find(m=>m.id===cfg.mapId) || MAPS[0];
+  const pickItems = ()=>{
+    const pool = ITEMS.slice();
+    const out = [];
+    for(let k=0;k<2;k++) out.push(pool.splice((Math.random()*pool.length)|0,1)[0].id);
+    return out;
+  };
   G = {
     map, tiles: buildTiles(map),
-    players: cfg.seats.slice(0,cfg.n).map((s,i)=>({
-      name:s.name, kind:s.kind, cash:cfg.cash, pos:0, laps:0, jail:0, out:false,
-      dblRun:0, odd:2, even:2, freeToll:0, bonusBuild:0,
-      render:tileCenter(0), hopY:0, squash:1, offx:0, offy:0
-    })),
-    turn:0, turnsLeft:cfg.turns, phase:'idle', over:false, winner:-1, winReason:''
+    players: cfg.seats.slice(0,cfg.n).map((s,i)=>{
+      const card = cardById(s.cardId) || CARDPOOL[i % CARDPOOL.length];
+      const lv = (s.kind!=='cpu' && SV.cards[card.id]) ? SV.cards[card.id].lv
+               : (cfg.ai===2 ? 12 : cfg.ai===1 ? 6 : 1);
+      const slots = (s.kind!=='cpu' && SV.equip===card.id) ? SV.slots : [];
+      return {
+        name:s.name, kind:s.kind, ch: card.art, card: card.id,
+        stats: cardStats(card.id, lv, slots), cardLv: lv,
+        skill: card.sk, skillKind: card.art,
+        skillPow: card.rar==='SS' ? 0.18 : card.rar==='S' ? 0.12 : 0.08,
+        cash:cfg.cash, pos:0, laps:0, jail:0, out:false, dblRun:0,
+        odd:2, even:2, items:pickItems(),
+        skillLeft: card.sk.uses, mana:0,
+        freeToll:0, halfBuild:0, salaryX2:0, forceDouble:0, chooseEye:0,
+        render:tileCenter(0), hopY:0, squash:1, offx:0, offy:0, face:1
+      };
+    }),
+    turn:0, turnsLeft:cfg.turns, over:false, winner:-1, winReason:'',
+    clock: cfg.timeLimit, lastTick: 0, ev:{}
   };
+  thisWeek().apply(G);          // 今週のイベントを反映（毎週月曜6時に自動で変わる）
+  destPin = null; stepPreview = null; diceAnim = null; fxList.length = 0;
 }
 
-/* ══════════ 描画ループ ══════════ */
+/* ══════════ 描画ループ ══════════
+   背景と盤は毎フレーム描き直すと重いので、オフスクリーンにキャッシュして貼る。
+   背景＝約5fpsで更新（ゆっくりした環境アニメだけなので気づかない）
+   盤　＝所有・建物・凍結・所持金が変わった時だけ再描画
+   ══════════════════════════════════════════ */
 const cv = $('#world'); const ctx = cv.getContext('2d');
+
+const BG_W = 2200, BG_H = 1320, BG_OX = -300, BG_OY = -210;
+const BD_X = 140, BD_Y = 24, BD_W = 1330, BD_H = 880, BD_S = 1.5;
+function mkLayer(w,h,s){
+  const c = document.createElement('canvas');
+  c.width = Math.round(w*s); c.height = Math.round(h*s);
+  return c;
+}
+const bgL = mkLayer(BG_W, BG_H, 1), bgC = bgL.getContext('2d');
+const bdL = mkLayer(BD_W, BD_H, BD_S), bdC = bdL.getContext('2d');
+let bgAt = -1e9, bgKey = '', bdKey = '';
+
+function boardSig(){
+  let s = G.map.id+'|';
+  for(let i=0;i<32;i++){ const t=G.tiles[i];
+    s += (t.owner===undefined?'-':t.owner)+','+(t.lv||0)+(t.landmark?'L':'')+(t.frozen||0)+';'; }
+  for(const p of G.players) s += (p.out?'x':Math.min(12,Math.round(p.cash/2500000)))+',';
+  return s;
+}
+function refreshBg(map, now){
+  bgC.setTransform(1,0,0,1,0,0);
+  bgC.clearRect(0,0,bgL.width,bgL.height);
+  bgC.setTransform(1,0,0,1,-BG_OX,-BG_OY);
+  drawBackdrop(bgC, map, now);
+  bgAt = now; bgKey = map.id;
+}
+function refreshBoard(now){
+  bdC.setTransform(1,0,0,1,0,0);
+  bdC.clearRect(0,0,bdL.width,bdL.height);
+  bdC.setTransform(BD_S,0,0,BD_S,-BD_X*BD_S,-BD_Y*BD_S);
+  drawStacks(bdC, G, now);
+  drawLake(bdC, G.map, now);
+  drawSlab(bdC, G.map, now);
+  const list = [];
+  for(let i=0;i<32;i++) list.push({y:tileCenter(i).y, i});
+  list.sort((a,b)=>a.y-b.y).forEach(o=>drawTile(bdC, G, o.i, now));
+  bdKey = boardSig();
+}
+
 let last = 0;
 function frame(now){
   const dt = Math.min(50, now - last); last = now;
@@ -99,53 +156,79 @@ function frame(now){
   const dpr = cv.width / SW;
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,SW,SH);
+  const sh = cam.shake;
+  const ox = sh ? (Math.sin(now*0.09)*sh) : 0, oy = sh ? (Math.cos(now*0.13)*sh) : 0;
+  const map = G ? G.map : (MAPS.find(m=>m.id===cfg.mapId)||MAPS[0]);
+
+  if(now - bgAt > 220 || bgKey !== map.id) refreshBg(map, now);
+
+  ctx.save();
+  ctx.translate(SW/2+ox, SH/2+oy); ctx.scale(cam.z, cam.z); ctx.translate(-cam.x, -cam.y);
+  ctx.drawImage(bgL, BG_OX, BG_OY, BG_W, BG_H);
   if(G){
-    ctx.save();
-    ctx.translate(SW/2, SH/2); ctx.scale(cam.z, cam.z); ctx.translate(-cam.x, -cam.y);
-    drawBackdrop(ctx, G.map, now);
-    drawLake(ctx, G.map, now);
-    drawSlab(ctx, G.map);
+    const sig = boardSig();
+    if(sig !== bdKey) refreshBoard(now);
+    ctx.drawImage(bdL, BD_X, BD_Y, BD_W, BD_H);
     layoutTokens();
     const list = [];
-    for(let i=0;i<32;i++) list.push({y:tileCenter(i).y, f:()=>drawTile(ctx,G,i,now)});
     for(let i=0;i<32;i++) if(G.tiles[i].type==='city' && G.tiles[i].owner>=0)
       list.push({y:tileCenter(i).y+0.4, f:()=>drawBuilding(ctx,G,i,now)});
     G.players.forEach((p,i)=>{ if(!p.out)
       list.push({y:(p.render?p.render.y:tileCenter(p.pos).y)+0.8, f:()=>drawToken(ctx,G,i,now)}); });
     list.sort((a,b)=>a.y-b.y).forEach(o=>o.f());
     drawSteps(ctx, G);
+    drawDestPin(ctx, now);
     drawDice(ctx, now);
-    drawFlashes(ctx, dt); drawParts(ctx, dt); drawFloats(ctx, dt);
-    ctx.restore();
-  } else {
-    ctx.save();
-    ctx.translate(SW/2, SH/2); ctx.scale(cam.z, cam.z); ctx.translate(-cam.x, -cam.y);
-    drawBackdrop(ctx, MAPS[0], now);
-    ctx.restore();
+    drawFx(ctx, dt);
   }
-  if(diceAnim){ diceAnim.t += dt; if(diceAnim.t > diceAnim.dur + 420) diceAnim = null; }
+  ctx.restore();
+  if(diceAnim){ diceAnim.t += dt; if(diceAnim.t > diceAnim.dur + 500) diceAnim = null; }
   drawGauge(now);
+  paintPortraits(now);
+  tickClock(dt);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+function boardChanged(){ bdKey = ''; }
 
-/* 同じマスに重なったコマをずらす */
 function layoutTokens(){
   const by = {};
   G.players.forEach((p,i)=>{ if(p.out) return; (by[p.pos] = by[p.pos]||[]).push(i); });
-  Object.values(by).forEach(arr=>{
-    arr.forEach((pi,k)=>{
+  Object.keys(by).forEach(k=>{
+    const arr = by[k];
+    arr.forEach((pi,j)=>{
       const p = G.players[pi];
       if(arr.length===1){ p.offx=0; p.offy=0; }
-      else { p.offx = (k - (arr.length-1)/2) * 22; p.offy = (k%2)*7; }
+      else { p.offx = (j - (arr.length-1)/2) * 26; p.offy = (j%2)*8; }
       if(!p.moving) p.render = tileCenter(p.pos);
     });
   });
 }
 
+/* ══════════ 肖像キャンバス ══════════ */
+const portraits = [];
+function regPortrait(el, chId, col){ if(el) portraits.push({el, chId, col}); }
+let portAt = -1e9;
+function paintPortraits(T){
+  if(T - portAt < 70) return;      // 肖像は約14fpsで十分（重い描画なので間引く）
+  portAt = T;
+  for(const o of portraits){
+    if(!o.el.isConnected || !o.el.offsetParent) continue;
+    const c = o.el.getContext('2d');
+    const W = o.el.width, H = o.el.height;
+    c.clearRect(0,0,W,H);
+    c.save();
+    c.translate(W*0.5, H*0.94);
+    const s = H/86;
+    c.scale(s, s);
+    dvChar(c, o.chId, o.col, T + o.chId*500, 1);
+    c.restore();
+  }
+}
+
 /* ══════════ パワーゲージ ══════════ */
 const gcv = $('#gauge'), gctx = gcv.getContext('2d');
-let gaugeOn = false, gaugeSweet = 0.5, gaugePhase = 0;
+let gaugeOn = false, gaugeSweet = 0.5, gaugePhase = 0, gaugeHalf = 0.085;
 function drawGauge(T){
   if(!gaugeOn){ gctx.clearRect(0,0,gcv.width,gcv.height); return; }
   gaugePhase = (Math.sin(T*0.0034) + 1) / 2;
@@ -153,28 +236,41 @@ function drawGauge(T){
   gctx.clearRect(0,0,W,H);
   const cx = W/2, cy = H*0.97, RX = W*0.45, RY = H*0.82;
   const A0 = Math.PI*1.06, A1 = Math.PI*1.94;
-  gctx.lineCap = 'round';
-  gctx.lineWidth = 22;
-  gctx.strokeStyle = 'rgba(74,90,100,.62)';
+  gctx.lineCap = 'round'; gctx.lineWidth = 22;
+  gctx.strokeStyle = 'rgba(30,44,62,.78)';
   gctx.beginPath(); gctx.ellipse(cx,cy,RX,RY,0,A0,A1); gctx.stroke();
-  // スイートスポット
-  const sA = A0 + (A1-A0)*(gaugeSweet-0.075), eA = A0 + (A1-A0)*(gaugeSweet+0.075);
-  gctx.strokeStyle = 'rgba(243,114,221,.95)';
+  gctx.lineWidth = 16;
+  gctx.strokeStyle = 'rgba(120,150,180,.5)';
+  gctx.beginPath(); gctx.ellipse(cx,cy,RX,RY,0,A0,A1); gctx.stroke();
+  const sA = A0 + (A1-A0)*(gaugeSweet-gaugeHalf), eA = A0 + (A1-A0)*(gaugeSweet+gaugeHalf);
+  const gg = gctx.createLinearGradient(cx-RX,0,cx+RX,0);
+  gg.addColorStop(0,'#FF8AE0'); gg.addColorStop(1,'#F2C230');
+  gctx.strokeStyle = gg; gctx.lineWidth = 18;
   gctx.beginPath(); gctx.ellipse(cx,cy,RX,RY,0,sA,eA); gctx.stroke();
-  // ヘッド
   const hA = A0 + (A1-A0)*gaugePhase;
   const hx = cx + Math.cos(hA)*RX, hy = cy + Math.sin(hA)*RY;
-  const g = gctx.createRadialGradient(hx,hy,1,hx,hy,26);
-  g.addColorStop(0,'rgba(255,255,220,1)'); g.addColorStop(.4,'rgba(255,246,192,.9)');
+  const g = gctx.createRadialGradient(hx,hy,1,hx,hy,30);
+  g.addColorStop(0,'rgba(255,255,225,1)'); g.addColorStop(.4,'rgba(255,246,192,.85)');
   g.addColorStop(1,'rgba(255,240,150,0)');
-  gctx.fillStyle=g; gctx.beginPath(); gctx.arc(hx,hy,26,0,6.283); gctx.fill();
-  gctx.fillStyle='#fff'; gctx.beginPath(); gctx.arc(hx,hy,7,0,6.283); gctx.fill();
+  gctx.fillStyle=g; gctx.beginPath(); gctx.arc(hx,hy,30,0,6.283); gctx.fill();
+  gctx.fillStyle='#fff'; gctx.beginPath(); gctx.arc(hx,hy,7.5,0,6.283); gctx.fill();
+}
+
+/* ══════════ 時間 ══════════ */
+function tickClock(dt){
+  if(!G || G.over || !cfg.timeLimit) return;
+  if(!G.running) return;
+  G.clock -= dt/1000;
+  if(G.clock <= 0){ G.clock = 0; if(!G.over) timeUp(); }
+  const m = Math.floor(G.clock/60), s = Math.floor(G.clock%60);
+  const el = $('#pClock');
+  const txt = m+':'+String(s).padStart(2,'0');
+  if(el.textContent !== txt){ el.textContent = txt; if(G.clock<60) el.classList.add('warn'); }
 }
 
 /* ══════════ HUD ══════════ */
 function rank(){
-  return G.players.map((p,i)=>({i, a: p.out ? -1 : assetOf(G,i)}))
-    .sort((x,y)=>y.a-x.a);
+  return G.players.map((p,i)=>({i, a: p.out ? -1 : assetOf(G,i)})).sort((x,y)=>y.a-x.a);
 }
 function updHUD(){
   if(!G) return;
@@ -182,8 +278,8 @@ function updHUD(){
   const rankOf = pi => rk.findIndex(r=>r.i===pi)+1;
   const cur = G.turn;
   const lead = rk[0].i === cur ? (rk[1] ? rk[1].i : cur) : rk[0].i;
-  fillHUD('Top', lead, rankOf(lead), 'top');
-  fillHUD('Bot', cur,  rankOf(cur),  'bot');
+  fillHUD('Top', lead, 'top');
+  fillHUD('Bot', cur,  'bot');
   $('#rTop').innerHTML = rankOf(lead)+'<span>位</span>';
   $('#rBot').innerHTML = rankOf(cur)+'<span>位</span>';
   $('#rTop').className = 'rankbadge' + (rankOf(lead)===1 ? ' red' : '');
@@ -191,22 +287,23 @@ function updHUD(){
   $('#pTurn').textContent = G.turnsLeft;
   $('#pGoal').textContent = yen(rk[0].a);
   $('#pGoalL').textContent = G.players[rk[0].i].name;
-  // サイド一覧
+  if(!cfg.timeLimit) $('#pClock').textContent = '--:--';
+
   const sh = $('#sideHud'); sh.innerHTML = '';
   rk.forEach((r,k)=>{
     const p = G.players[r.i];
     const d = document.createElement('div');
-    d.style.cssText = 'display:flex;align-items:center;gap:7px;background:rgba(10,20,34,.72);'
+    d.style.cssText = 'display:flex;align-items:center;gap:7px;background:rgba(10,20,34,.78);'
       +'border:1px solid #2f4a6d;border-left:5px solid '+PCOL[r.i]+';border-radius:9px;padding:5px 9px;'
-      +'font-size:13px;font-weight:900;min-width:212px;'+(p.out?'opacity:.4;':'')
+      +'font-size:13px;font-weight:900;min-width:224px;'+(p.out?'opacity:.4;':'')
       +(G.turn===r.i?'box-shadow:0 0 0 2px rgba(255,224,138,.75);':'');
     d.innerHTML = '<span style="font-family:var(--pop);font-size:15px;color:#FFE08A">'+(k+1)+'</span>'
-      + '<span style="font-size:17px">'+PICO[r.i]+'</span>'
+      + '<span style="width:11px;height:11px;border-radius:50%;background:'+PCOL[r.i]+'"></span>'
       + '<span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'+esc(p.name)+'</span>'
       + '<span style="font-family:var(--pop);font-size:14px;color:#9FD8F8">'+(p.out?'破産':yen(r.a))+'</span>';
     sh.appendChild(d);
   });
-  // 凡例（グループの持ち主）
+
   const lg = $('#legend'); lg.innerHTML = '';
   CITY_SLOTS.forEach((slots,g)=>{
     const owners = slots.map(i=>G.tiles[i].owner);
@@ -217,34 +314,98 @@ function updHUD(){
       + '<span style="color:'+(uni>=0?PCOL[uni]:'#CBDCEE')+'">'+got+'/3</span>';
     lg.appendChild(d);
   });
+  renderItems();
 }
-function fillHUD(sfx, pi, rk, cls){
-  const p = G.players[pi];
+function fillHUD(sfx, pi, cls){
+  const p = G.players[pi], ch = { skill: p.skill };
   $('#f'+sfx+'Name').textContent = p.name;
-  $('#f'+sfx+'Name').style.background = 'linear-gradient(90deg,'+PCOL[pi]+','+shade(PCOL[pi],-.4)+')';
-  $('#f'+sfx+'Face').style.borderColor = PCOL[pi];
-  $('#f'+sfx+'Face').lastChild.nodeValue = PICO[pi];
+  $('#f'+sfx+'Name').style.background = 'linear-gradient(90deg,'+PCOL[pi]+','+shade(PCOL[pi],-.45)+')';
   $('#f'+sfx+'Cls').textContent = cls==='bot' ? '手番' : (p.kind==='cpu' ? 'CPU' : 'P'+(pi+1));
+  $('#f'+sfx+'Lvl').textContent = (p.laps+1);
+  const pic = $('#f'+sfx+'Pic');
+  if(pic.dataset.ch !== String(p.ch) || pic.dataset.col !== PCOL[pi]){
+    pic.dataset.ch = p.ch; pic.dataset.col = PCOL[pi];
+    const ex = portraits.find(o=>o.el===pic);
+    if(ex){ ex.chId = p.ch; ex.col = PCOL[pi]; } else regPortrait(pic, p.ch, PCOL[pi]);
+  }
   rollNum($('#f'+sfx+'Cash'), p.cash);
   rollNum($('#f'+sfx+'Asset'), assetOf(G,pi));
-  const cities = G.tiles.filter(t=>t.type==='city' && t.owner===pi).length;
-  $('#f'+sfx+'Gauge').style.width = Math.min(100, cities/21*100)+'%';
+  const mana = Math.min(100, p.mana);
+  $('#f'+sfx+'Gauge').style.width = mana+'%';
+  $('#f'+sfx+'Gtx').textContent = ch.skill.nm+' '+mana+'%';
+  if(cls==='bot'){
+    const b = $('#skillBtn');
+    const ready = mana>=100 && p.skillLeft>0 && p.kind!=='cpu' && G.phase==='wait';
+    b.disabled = !ready;
+    b.classList.toggle('ready', ready);
+    b.textContent = '能力 ×'+p.skillLeft;
+  }
 }
-/* 数字のローリング表示 */
 function rollNum(el, to){
   const from = +(el.dataset.v||0);
   if(from === to){ el.textContent = yen(to); return; }
   el.dataset.v = to;
   let t0 = null; const D = 700*SPEED;
-  function step(now){
-    if(t0 === null) t0 = now;                 // 最初のフレームを基準にする（時計の混在を避ける）
+  requestAnimationFrame(function step(now){
+    if(t0 === null) t0 = now;
     const k = Math.max(0, Math.min(1,(now-t0)/D)), e = 1-Math.pow(1-k,3);
     el.textContent = yen(from + (to-from)*e);
     if(k<1) requestAnimationFrame(step); else el.textContent = yen(to);
-  }
-  requestAnimationFrame(step);
+  });
 }
-function esc(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ══════════ アイテムバー ══════════ */
+let itemBar = null;
+function renderItems(){
+  if(!itemBar){
+    itemBar = document.createElement('div');
+    itemBar.id = 'itembar';
+    itemBar.style.cssText = 'position:absolute;right:1%;bottom:31%;z-index:84;display:flex;'
+      + 'flex-direction:column;gap:6px;align-items:flex-end';
+    $('#stage').appendChild(itemBar);
+  }
+  const p = G.players[G.turn];
+  itemBar.innerHTML = '';
+  if(!p || p.kind==='cpu' || p.out){ return; }
+  p.items.forEach((id, k)=>{
+    const it = itemById(id); if(!it) return;
+    const b = document.createElement('button');
+    b.style.cssText = 'display:flex;align-items:center;gap:8px;border:2px solid #E0AE33;border-radius:11px;'
+      + 'background:linear-gradient(#33445f,#16233a);color:#fff;font-family:var(--jp);font-weight:900;'
+      + 'font-size:12.5px;padding:6px 11px 6px 8px;cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.45);'
+      + 'white-space:nowrap';
+    b.innerHTML = '<span style="font-size:21px">'+it.ic+'</span><span>'+esc(it.nm)+'</span>';
+    b.title = it.desc;
+    b.onclick = ()=>useItem(G.turn, k);
+    itemBar.appendChild(b);
+  });
+}
+async function useItem(pi, k){
+  const p = G.players[pi];
+  if(G.phase!=='wait') { toast('R','⏳','いまは使えません','サイコロを振る前に使ってください',1600); return; }
+  const it = itemById(p.items[k]); if(!it) return;
+  SFX.skill();
+  p.items.splice(k,1);
+  renderItems();
+  await cutIn('ITEM', it.nm, it.desc);
+  if(it.id==='angel')  p.freeToll++;
+  if(it.id==='half')   p.halfBuild++;
+  if(it.id==='salary') p.salaryX2++;
+  if(it.id==='double') p.forceDouble++;
+  if(it.id==='dice')   p.chooseEye++;
+  if(it.id==='warp'){
+    const d = await pickTile(pi,'ワープ先を選んでください');
+    if(d>=0){ await jumpTo(pi,d); await resolve(pi); }
+  }
+  if(it.id==='freeze'){
+    const d = await pickTile(pi,'凍らせる街を選んでください',
+      i=>G.tiles[i].type==='city' && G.tiles[i].owner>=0 && G.tiles[i].owner!==pi);
+    if(d>=0){ G.tiles[d].frozen = 2;
+      addFx('ring', tileCenter(d).x, tileCenter(d).y, 700, '#8FE8FF');
+      toast('R','🧊','凍結', G.tiles[d].name+' の通行料が2ターン0になります',2200); }
+  }
+  updHUD();
+}
 
 /* ══════════ 演出ヘルパ ══════════ */
 function toast(side, icon, title, sub, ms){
@@ -261,8 +422,7 @@ function pill(pi, amount){
   const d = document.createElement('div');
   d.className = 'pill ' + (up?'up':'dn');
   d.innerHTML = '<span class="ar">'+(up?'▲':'▼')+'</span><em>'+yen(Math.abs(amount))+'</em>';
-  const bottom = (pi === G.turn);
-  d.style.cssText += bottom ? 'right:2%;bottom:13%;' : 'left:2%;top:14%;';
+  d.style.cssText += (pi === G.turn) ? 'right:2%;bottom:13%;' : 'left:2%;top:14%;';
   $('#stage').appendChild(d);
   setTimeout(()=>{ d.classList.add('fade'); setTimeout(()=>d.remove(), 480); }, 900*SPEED);
 }
@@ -273,9 +433,25 @@ async function band(title, sub, ms){
   await wait(ms||1500);
   $('#band').classList.remove('on');
 }
+async function turnBig(pi){
+  const p = G.players[pi];
+  $('#turnbigT').textContent = p.name;
+  $('#turnbigT').style.color = PCOL[pi];
+  $('#turnbigS').textContent = CHARS[p.ch].role + ' — のこり '+G.turnsLeft+' ターン';
+  const el = $('#turnbig'); el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+  await wait(900);
+  el.classList.remove('on');
+}
+async function cutIn(t1, t2, t3){
+  $('#scT1').textContent = t1; $('#scT2').textContent = t2; $('#scT3').textContent = t3||'';
+  const el = $('#skillcut'); el.classList.add('on');
+  const b = el.querySelector('.band'); b.style.animation='none'; void b.offsetWidth; b.style.animation='';
+  await wait(1300);
+  el.classList.remove('on');
+}
 function showChip(n, isDouble){
   const c = $('#chip');
-  c.textContent = n; c.classList.remove('hide'); c.classList.remove('pop');
+  c.textContent = n; c.classList.remove('hide','pop');
   void c.offsetWidth; c.classList.add('pop');
   if(isDouble){ const d=$('#dbl'); d.classList.remove('pop'); void d.offsetWidth; d.classList.add('pop'); }
 }
@@ -291,21 +467,18 @@ function modal(html){
     body.querySelectorAll('[data-act]').forEach(b=>{
       b.onclick = ()=>{ SFX.click(); wrap.classList.remove('on'); res(b.dataset.act); };
     });
-    wrap._res = res;
   });
 }
-function closeModal(){ $('#modalWrap').classList.remove('on'); }
 
 /* ══════════ お金 ══════════ */
-function give(pi, amount, why){
+function give(pi, amount){
   G.players[pi].cash += amount;
   pill(pi, amount);
   const c = G.players[pi].render || tileCenter(G.players[pi].pos);
-  addFloat(c.x, c.y-70, (amount>=0?'+':'')+yen(amount), amount>=0?'#FFD24D':'#FFFFFF', true);
+  addFloat(c.x, c.y-84, (amount>=0?'+':'')+yen(amount), amount>=0?null:'#CFE0F0', true);
   if(amount>=0) SFX.coin(); else SFX.pay();
   updHUD();
 }
-/* 支払えない時：建物を売って現金化 → それでも無理なら破産 */
 function raiseCash(pi, need){
   const p = G.players[pi];
   const mine = G.tiles.map((t,i)=>({t,i})).filter(o=>o.t.type==='city'&&o.t.owner===pi);
@@ -323,44 +496,52 @@ function raiseCash(pi, need){
   }
   return p.cash >= need;
 }
+function payFrom(pi, amt){ const p=G.players[pi]; return p.cash>=amt ? true : raiseCash(pi, amt); }
 
 /* ══════════ サイコロ ══════════ */
-function rollPair(force){
-  let a = 1+Math.floor(Math.random()*6), b = 1+Math.floor(Math.random()*6);
+function rollPair(force, forceDouble){
+  let a,b;
+  if(forceDouble){ a = 1+((Math.random()*6)|0); b = a; return [a,b]; }
+  a = 1+((Math.random()*6)|0); b = 1+((Math.random()*6)|0);
   if(force){
-    let guard = 0;
-    while(((a+b)%2 === 0 ? 'even':'odd') !== force && guard++ < 60){
-      a = 1+Math.floor(Math.random()*6); b = 1+Math.floor(Math.random()*6);
+    let guard=0;
+    while(((a+b)%2===0?'even':'odd') !== force && guard++<80){
+      a = 1+((Math.random()*6)|0); b = 1+((Math.random()*6)|0);
     }
   }
   return [a,b];
 }
-async function doRoll(pi, force, impact){
-  gaugeOn = false; $('#diceui').classList.remove('on');
-  stepPreview = null;
-  let [a,b] = rollPair(force);
-  if(impact){
-    // ゲージインパクト：2回振って有利な方を採用
-    const c = rollPair(force);
-    const s1 = scoreLanding(pi, a+b), s2 = scoreLanding(pi, c[0]+c[1]);
-    if(s2 > s1){ a=c[0]; b=c[1]; }
-    toast('R','🎯','ゲージインパクト成功！','出目をコントロールしました',1800);
+async function doRoll(pi, force, impact, fixedTotal){
+  const p = G.players[pi];
+  gaugeOn = false; $('#diceui').classList.remove('on'); stepPreview = null;
+  let a,b;
+  if(fixedTotal){
+    a = Math.max(1, Math.min(6, Math.floor(fixedTotal/2)));
+    b = fixedTotal - a;
+    if(b>6){ b=6; a=fixedTotal-6; }
+  } else {
+    [a,b] = rollPair(force, p.forceDouble>0);
+    if(p.forceDouble>0) p.forceDouble--;
+    if(impact){
+      const c = rollPair(force, false);
+      if(scoreLanding(pi, c[0]+c[1]) > scoreLanding(pi, a+b)){ a=c[0]; b=c[1]; }
+      toast('R','🎯','ゲージインパクト成功！','出目をコントロールしました',1800);
+    }
   }
   diceAnim = {t:0, dur:820, a, b};
   const tick = setInterval(()=>SFX.dice(), 70);
   await wait(880);
   clearInterval(tick);
-  const cc = tileCenter(G.players[pi].pos);
-  addFlash(BCX, BCY+30);
-  burst(BCX, BCY+30, 46, ['#FFD24D','#FFF3C0','#7FD9F0','#F372DD','#FFFFFF']);
+  addFx('land', BCX, BCY+40, 340);
+  addFx('spark', BCX, BCY+30, 900, '#FFD24D');
+  camShake(6);
   SFX.land();
   const total = a+b, isDbl = a===b;
   showChip(total, isDbl);
-  await wait(isDbl ? 780 : 520);
+  await wait(isDbl ? 800 : 540);
   hideChip();
   return {a,b,total,isDbl};
 }
-/* CPU / インパクト判定用：その出目で進んだ結果の良さ */
 function scoreLanding(pi, n){
   const to = (G.players[pi].pos + n) % 32;
   const t = G.tiles[to];
@@ -372,22 +553,36 @@ function scoreLanding(pi, n){
   if(t.type==='jail') return -70;
   if(t.type==='tax') return -25;
   if(t.type==='bonus') return 50;
-  if(t.type==='card') return 20;
+  if(t.type==='card') return 22;
   if(t.type==='travel') return 45;
-  if(t.type==='adventure') return 45;
+  if(t.type==='minigame') return 48;
   return 10;
+}
+/* 出目えらび（能力・アイテム用） */
+function chooseEye(){
+  return new Promise(res=>{
+    const box = $('#pickeye');
+    box.innerHTML = '<div class="cap">出したい目を選んでください</div>';
+    for(let n=2;n<=12;n++){
+      const b = document.createElement('button');
+      b.textContent = n;
+      b.onclick = ()=>{ SFX.click(); box.classList.remove('on'); res(n); };
+      box.appendChild(b);
+    }
+    box.classList.add('on');
+  });
 }
 
 /* ══════════ 移動 ══════════ */
 function hop(p, from, to, dur){
   return new Promise(res=>{
-    p.moving = true;
+    p.moving = true; p.face = (to.x >= from.x) ? 1 : -1;
     let t0 = null; const D = dur*SPEED;
     requestAnimationFrame(function step(now){
       if(t0 === null) t0 = now;
       const k = Math.max(0, Math.min(1,(now-t0)/D));
       p.render = { x: from.x+(to.x-from.x)*k, y: from.y+(to.y-from.y)*k };
-      p.hopY = Math.sin(k*Math.PI)*36;
+      p.hopY = Math.sin(k*Math.PI)*38;
       if(k<1) requestAnimationFrame(step);
       else {
         p.render = to; p.hopY = 0; p.moving = false; p.squash = 1.22;
@@ -406,13 +601,13 @@ function hop(p, from, to, dur){
 }
 async function moveSteps(pi, n){
   const p = G.players[pi];
-  camTo(tileCenter(p.pos).x, tileCenter(p.pos).y, 1.42);
+  camTo(tileCenter(p.pos).x, tileCenter(p.pos).y, 1.45);
   for(let k=0;k<n;k++){
     const from = tileCenter(p.pos);
     const np = (p.pos+1) % 32;
     p.pos = np;
     const to = tileCenter(np);
-    camTo(to.x, to.y, 1.42);
+    camTo(to.x, to.y, 1.45);
     if(np===0) p.laps++;
     await hop(p, from, to, 158);
     if(np===0 && k < n-1) salary(pi);
@@ -420,69 +615,64 @@ async function moveSteps(pi, n){
   await wait(180);
 }
 function salary(pi){
-  const amt = 2000000 + G.players[pi].laps*500000;
-  give(pi, amt, 'salary');
+  const p = G.players[pi];
+  let amt = Math.round((2000000 + p.laps*500000) * ((G.ev && G.ev.salaryX) || 1));
+  if(p.salaryX2>0){ amt *= 2; p.salaryX2--; toast('R','💴','給料2倍券','給料が2倍になりました',1900); }
+  give(pi, amt);
   toast('R','🚩','スタート通過','給料 '+yen(amt)+' を受け取りました',1800);
 }
 async function jumpTo(pi, idx){
   const p = G.players[pi];
   const from = tileCenter(p.pos); p.pos = idx;
   const to = tileCenter(idx);
-  camTo(to.x, to.y, 1.42);
-  burst(from.x, from.y, 26, ['#7FD9F0','#FFFFFF','#F372DD']);
-  await hop(p, from, to, 520);
+  camTo(to.x, to.y, 1.45);
+  addFx('ring', from.x, from.y, 600, '#B58CFF');
+  await hop(p, from, to, 540);
+  addFx('land', to.x, to.y, 320);
 }
 
 /* ══════════ マスの解決 ══════════ */
 let resolveDepth = 0;
 async function resolve(pi){
-  if(resolveDepth > 3) return;            // ワープの連鎖を止める安全弁
+  if(resolveDepth > 3) return;
   resolveDepth++;
   try { await resolveInner(pi); } finally { resolveDepth--; }
 }
 async function resolveInner(pi){
   const p = G.players[pi], i = p.pos, t = G.tiles[i];
   const c = tileCenter(i);
-  camTo(c.x, c.y, 1.5);
+  camTo(c.x, c.y, 1.55);
   await wait(160);
 
   if(t.type === 'start'){
-    const amt = 4000000;
-    give(pi, amt); await band('スタートにぴったり！','給料が2倍になりました', 1300);
+    give(pi, 4000000); await band('スタートにぴったり！','給料が2倍になりました',1300);
   }
   else if(t.type === 'jail'){
-    p.jail = 3; p.dblRun = 0;
-    SFX.bad();
-    await band(G.map.corners[1]+'に閉じ込められました！','3ターンのあいだ移動できません（ゾロ目で脱出）', 1800);
+    p.jail = 3; p.dblRun = 0; SFX.bad(); camShake(10);
+    await band(G.map.corners[1]+'に閉じ込められました！','3ターンのあいだ移動できません（ゾロ目で脱出）',1800);
   }
   else if(t.type === 'travel'){
-    await band(G.map.corners[2]+'に到着','行きたいマスを1つ選べます', 1200);
-    const dest = (p.kind==='cpu') ? aiPickTravel(pi) : await pickTile(pi, '行き先を選んでください');
+    await band(G.map.corners[2]+'に到着','行きたいマスを1つ選べます',1200);
+    const dest = (p.kind==='cpu') ? aiPickTravel(pi) : await pickTile(pi,'行き先を選んでください');
     if(dest>=0 && dest!==i){ await jumpTo(pi, dest); await resolve(pi); return; }
   }
-  else if(t.type === 'adventure'){
-    p.bonusBuild++;
-    const amt = 1000000 + Math.floor(Math.random()*3)*500000;
-    give(pi, amt);
-    await band(G.map.corners[3]+'に到着','建設1回ぶんが無料になります（次の建設で使用）', 1500);
+  else if(t.type === 'minigame'){
+    await miniGame(pi);
   }
   else if(t.type === 'bonus'){
     give(pi, t.amount);
-    toast('R','💰','ボーナス', yen(t.amount)+' を受け取りました', 1900);
+    addFx('pillar', c.x, c.y, 900, '#FFD24D');
+    toast('R','💰','ボーナス', yen(t.amount)+' を受け取りました',1900);
   }
   else if(t.type === 'tax'){
-    const amt = Math.round(assetOf(G,pi) * t.rate);
+    const amt = Math.round(assetOf(G,pi) * t.rate * statMul(p,'special',0.4));
     if(!payFrom(pi, amt)) { await bankrupt(pi, -1); return; }
     give(pi, -amt);
-    toast('L','🧾','税金', '総資産の10%（'+yen(amt)+'）を納めました', 1900);
+    toast('L','🧾','税金','総資産に応じて '+yen(amt)+' を納めました',1900);
   }
-  else if(t.type === 'card'){
-    await chanceCard(pi);
-  }
+  else if(t.type === 'card'){ await chanceCard(pi); }
   else if(t.type === 'city'){
-    if(t.owner < 0){
-      if(p.kind==='cpu') await aiBuy(pi, i); else await buyUI(pi, i);
-    } else if(t.owner === pi){
+    if(t.owner < 0 || t.owner === pi){
       if(p.kind==='cpu') await aiBuy(pi, i); else await buyUI(pi, i);
     } else {
       await payToll(pi, i);
@@ -493,93 +683,84 @@ async function resolveInner(pi){
   if(checkWin()) return;
   camReset();
 }
-function payFrom(pi, amt){
-  const p = G.players[pi];
-  if(p.cash >= amt) return true;
-  return raiseCash(pi, amt);
-}
 async function payToll(pi, i){
-  const t = G.tiles[i], owner = t.owner;
-  let amt = tollOf(t, G);
-  const p = G.players[pi];
+  const t = G.tiles[i], owner = t.owner, p = G.players[pi];
+  if(t.frozen>0){ toast('R','🧊','凍結中', t.name+' の通行料は0です',1800); await wait(700); return; }
+  let amt = Math.round(tollOf(t, G) * statMul(p,'toll',0.35));
   if(p.freeToll > 0){
     p.freeToll--;
-    toast('R','🪽','天使カードを使用','通行料 '+yen(amt)+' → 無料', 2000);
-    await wait(900); return;
+    await cutIn('ITEM','天使カード','通行料 '+yen(amt)+' → 無料');
+    return;
   }
   const extra = [];
+  if(t.x2) extra.push('×2マス');
   if(hasTriple(G, owner, t.g)) extra.push('トリプル独占 ×2');
   if(hasLine(G, owner, Math.floor(i/8))) extra.push('ライン独占 ×2');
   await band('通行料 '+yen(amt), extra.length ? extra.join(' / ') : (G.players[owner].name+' に支払います'), 1400);
   if(!payFrom(pi, amt)){ await bankrupt(pi, owner); return; }
   give(pi, -amt); give(owner, amt);
+  camShake(8);
   await wait(500);
 }
 async function maybeBuyout(pi, i){
   const t = G.tiles[i], p = G.players[pi];
   if(t.landmark) return;
-  const cost = Math.round(cityValue(t) * 2);
+  const cost = Math.round(cityValue(t) * 2 * statMul(p,'buyout',0.3));
   if(p.cash < cost) return;
   let yes;
   if(p.kind==='cpu') yes = aiBuyout(pi, i, cost);
-  else yes = (await modal(deedHTML(i, '買収', cost,
-      G.players[t.owner].name+' の街を2倍の値段で買い取れます。'))) === 'ok';
+  else yes = (await modal(parchHTML(t, cost, G.players[t.owner].name))) === 'ok';
   if(!yes) return;
   give(pi, -cost); give(t.owner, cost);
   t.owner = pi;
   SFX.build();
-  burst(tileCenter(i).x, tileCenter(i).y, 40, ['#FFD24D','#FFFFFF','#F372DD']);
-  toast('R','📜','買収成立', t.name+' を手に入れました', 2100);
+  addFx('pillar', tileCenter(i).x, tileCenter(i).y, 900, PCOL[pi]);
+  addFx('spark', tileCenter(i).x, tileCenter(i).y-30, 900, '#FFD24D');
+  toast('R','📜','買収成立', t.name+' を手に入れました',2100);
   checkWin();
 }
-function cityValue(t){
-  let v = t.base;
-  for(let k=1;k<=t.lv;k++) v += BUILD[k].cost(t.base);
-  if(t.landmark) v += BUILD[4].cost(t.base);
-  return v;
+function parchHTML(t, cost, ownerName){
+  return '<div class="modal"><div class="parch">'
+    + '<h3>買 収 証 書</h3>'
+    + '<p>下記の物件を <b>'+esc(ownerName)+'</b> より譲り受けるものとする。<br>'
+    + '対価は評価額の2倍とする。</p>'
+    + '<div class="amt">'+esc(t.name)+'</div>'
+    + '<p style="margin-top:0">買収額 <b style="font-size:20px">'+yen(cost)+'</b></p>'
+    + '<div class="sign">Dice Voyage 商工会</div>'
+    + '<div class="btnrow" style="justify-content:center">'
+    + '<button class="btn ghost" data-act="no">やめる</button>'
+    + '<button class="btn gold" data-act="ok">買収する</button></div>'
+    + '</div></div>';
 }
 
-/* ══════════ 購入・建設 UI ══════════ */
-function deedHTML(i, actLabel, price, note){
-  const t = G.tiles[i];
-  return '<div class="modal"><div class="deed">'
-    + '<div class="dhd"><span class="sw" style="background:'+GCOL[t.g]+'"></span>'
-    + '<b>'+esc(t.name)+'</b><span>通行料 '+yen(tollOf(t,G))+'</span></div>'
-    + '<div class="dbd"><p style="font-size:15px;line-height:1.7">'+esc(note||'')+'</p>'
-    + '<div class="sums"><span>'+actLabel+'費用</span><em>'+yen(price)+'</em></div>'
-    + '<div class="btnrow"><button class="btn ghost" data-act="no">やめる</button>'
-    + '<button class="btn gold" data-act="ok">'+actLabel+'する</button></div>'
-    + '</div></div></div>';
-}
+/* ══════════ 購入・建設 ══════════ */
 function buildHTML(i, pi){
   const t = G.tiles[i], p = G.players[pi];
   const own = t.owner === pi;
+  const disc = statMul(p,'build',0.3) * (p.halfBuild>0 ? 0.5 : 1) * ((G.ev && G.ev.buildX) || 1);
   let html = '<div class="modal"><div class="deed">'
     + '<div class="dhd"><span class="sw" style="background:'+GCOL[t.g]+'"></span><b>'+esc(t.name)+'</b>'
     + '<span>いまの通行料 '+yen(tollOf(t,G))+'</span></div><div class="dbd">'
     + '<div class="buildgrid">';
   const steps = [];
-  if(!own) steps.push({k:0, nm:'土地', ic:'🏳️', cost:priceOf(t), have:false, can:true});
-  else steps.push({k:0, nm:'土地', ic:'🏳️', cost:0, have:true, can:false});
-  for(let k=1;k<=3;k++){
-    steps.push({k, nm:BUILD[k].nm, ic:BUILD[k].ic, cost:BUILD[k].cost(t.base),
-      have: own && t.lv>=k, can: true});
-  }
-  steps.push({k:4, nm:'ランドマーク', ic:'🗼', cost:BUILD[4].cost(t.base),
-    have: t.landmark, can: own && t.lv>=3 && !t.landmark});
+  steps.push({k:0, nm:'土地', ic:'🏳️', cost:Math.round(t.base*disc), have:own, can:!own});
+  for(let k=1;k<=3;k++)
+    steps.push({k, nm:BUILD[k].nm, ic:BUILD[k].ic, cost:Math.round(BUILD[k].cost(t.base)*disc),
+      have: own && t.lv>=k, can:true});
+  steps.push({k:4, nm:'ランドマーク', ic:'🗼', cost:Math.round(BUILD[4].cost(t.base)*disc),
+    have:t.landmark, can: own && t.lv>=3 && !t.landmark});
   steps.forEach(s=>{
     const cls = 'bcard' + (s.have?' own':'') + (!s.can?' dis':'');
-    const toll = s.k===0 ? BUILD[0].toll(t.base) : BUILD[s.k].toll(t.base);
-    html += '<div class="'+cls+'" data-k="'+s.k+'"><div class="ico">'+s.ic+'</div>'
+    html += '<div class="'+cls+'" data-k="'+s.k+'" data-c="'+s.cost+'"><div class="ico">'+s.ic+'</div>'
       + '<div class="nm">'+s.nm+'</div>'
       + '<div class="pr">'+(s.have?'所有ずみ':yen(s.cost))+'</div>'
-      + '<div class="tl">通行料 +'+yen(toll)+'</div></div>';
+      + '<div class="tl">通行料 +'+yen(BUILD[s.k].toll(t.base))+'</div></div>';
   });
   html += '</div>'
     + '<div class="sums"><span>選んだぶんの合計</span><em id="bSum">0</em></div>'
     + '<div style="font-size:12.5px;color:#6b5a3c;margin-top:6px">'
     + '同じ色を3つそろえる（トリプル独占）か、1辺の街をぜんぶ持つ（ライン独占）と<b>その場で勝ち</b>。'
-    + (p.bonusBuild>0 ? '　🎁 建設1回ぶん無料券あり' : '') + '</div>'
+    + (p.halfBuild>0 ? '　🏗 建設割引券 適用中（半額）' : '') + '</div>'
     + '<div class="btnrow"><button class="btn ghost" data-act="no">やめる</button>'
     + '<button class="btn gold" data-act="ok" id="bOk">建てる</button></div>'
     + '</div></div></div>';
@@ -589,7 +770,7 @@ async function buyUI(pi, i){
   const t = G.tiles[i], p = G.players[pi];
   const own = t.owner === pi;
   if(!own && t.owner>=0) return;
-  if(own && t.landmark){ toast('R','🗼','ランドマーク完成済み', t.name+'はこれ以上建てられません',1800); return; }
+  if(own && t.landmark){ toast('R','🗼','ランドマーク完成済み', t.name+' はこれ以上建てられません',1800); return; }
   return new Promise(res=>{
     const wrap = $('#modalWrap'), body = $('#modalBody');
     body.innerHTML = buildHTML(i, pi);
@@ -597,27 +778,22 @@ async function buyUI(pi, i){
     const sel = new Set();
     const sumEl = body.querySelector('#bSum');
     const cards = Array.from(body.querySelectorAll('.bcard'));
-    function cost(k){ return k===0 ? priceOf(t) : BUILD[k].cost(t.base); }
+    const costOf = k => +cards.find(c=>+c.dataset.k===k).dataset.c;
     function recalc(){
-      let s = 0; sel.forEach(k=>s += cost(k));
-      if(p.bonusBuild>0 && sel.size>0){
-        const mx = Math.max(...Array.from(sel).map(k=>cost(k)));
-        s -= mx;
-      }
+      let s = 0; sel.forEach(k=>s += costOf(k));
       sumEl.textContent = yen(s);
       body.querySelector('#bOk').disabled = (sel.size===0 || s > p.cash);
       sumEl.style.color = s > p.cash ? '#C0261A' : '#B2411C';
     }
     cards.forEach(cd=>{
       const k = +cd.dataset.k;
-      const have = cd.classList.contains('own');
-      if(have){ cd.classList.add('dis'); return; }
-      if(!own && k>0){ /* 土地を買わないと建てられない */ }
+      if(cd.classList.contains('dis') || cd.classList.contains('own')) return;
       cd.onclick = ()=>{
-        if(k>0 && !own && !sel.has(0)){ sel.add(0); cards.find(c=>+c.dataset.k===0)?.classList.add('sel'); }
-        if(k>0 && t.lv < k-1 && !sel.has(k-1) && k<4){
+        if(k>0 && !own && !sel.has(0)){ sel.add(0); cards.find(c=>+c.dataset.k===0).classList.add('sel'); }
+        if(k>0 && k<4){
           for(let j=(own?t.lv+1:1); j<k; j++){
-            sel.add(j); cards.find(c=>+c.dataset.k===j)?.classList.add('sel');
+            const cc = cards.find(c=>+c.dataset.k===j);
+            if(cc && !cc.classList.contains('own')){ sel.add(j); cc.classList.add('sel'); }
           }
         }
         if(sel.has(k)){ sel.delete(k); cd.classList.remove('sel'); }
@@ -630,13 +806,14 @@ async function buyUI(pi, i){
       b.onclick = async ()=>{
         SFX.click(); wrap.classList.remove('on');
         if(b.dataset.act==='ok' && sel.size){
-          let s = 0; sel.forEach(k=>s += cost(k));
-          if(p.bonusBuild>0){ s -= Math.max(...Array.from(sel).map(k=>cost(k))); p.bonusBuild--; }
+          let s = 0; sel.forEach(k=>s += costOf(k));
+          if(p.halfBuild>0) p.halfBuild--;
           give(pi, -s);
           if(sel.has(0) || own) t.owner = pi;
           [1,2,3].forEach(k=>{ if(sel.has(k)) t.lv = Math.max(t.lv, k); });
           if(sel.has(4)) t.landmark = true;
           await growAnim(i);
+          await deedCard(i, s);
           checkWin();
         }
         res();
@@ -644,80 +821,215 @@ async function buyUI(pi, i){
     });
   });
 }
+/* 権利証カード（傾いた紙を差し出す本家の演出） */
+async function deedCard(i, paid){
+  const t = G.tiles[i];
+  const lvNm = t.landmark ? 'ランドマーク' : t.lv>0 ? BUILD[t.lv].nm : '土地';
+  await modal('<div class="modal"><div class="deedcard">'
+    + '<div class="body">'
+    + '<div class="cap" style="background:linear-gradient(90deg,'+GCOL[t.g]+','+shade(GCOL[t.g],-.45)+')">'
+    +   'TITLE DEED ／ 権利証</div>'
+    + '<h4>'+esc(t.name)+'</h4>'
+    + '<div class="rows">'
+    +   '<div><span>いまの建物</span><b>'+esc(lvNm)+'</b></div>'
+    +   '<div><span>支払った額</span><b>'+yen(paid)+'</b></div>'
+    +   '<div><span>これからの通行料</span><b>'+yen(tollOf(t,G))+'</b></div>'
+    +   '<div><span>同じ色の所有</span><b>'
+    +     CITY_SLOTS[t.g].filter(j=>G.tiles[j].owner===t.owner).length+' / 3</b></div>'
+    + '</div>'
+    + '<div class="btnrow" style="justify-content:center;padding:4px 16px 16px">'
+    + '<button class="btn gold" data-act="ok">受け取る</button></div>'
+    + '</div><div class="seal">📜</div></div></div>');
+}
 async function growAnim(i){
   const t = G.tiles[i]; t.grow = 0;
   SFX.build();
   const c = tileCenter(i);
-  burst(c.x, c.y-30, 30, ['#FFD24D','#FFFFFF','#7FD9F0']);
-  let t0 = null; const D = 380*SPEED;
+  addFx('pillar', c.x, c.y, 950, t.landmark ? '#7FE6FF' : PCOL[t.owner]);
+  addFx('ring', c.x, c.y, 700, '#FFD24D');
+  addFx('spark', c.x, c.y-26, 900, '#FFF3C0');
+  camShake(5);
+  let t0 = null; const D = 400*SPEED;
   await new Promise(res=>{
     requestAnimationFrame(function step(now){
       if(t0 === null) t0 = now;
       const k = Math.max(0, Math.min(1,(now-t0)/D));
-      t.grow = k<0.7 ? (k/0.7)*1.16 : 1.16 + (1-1.16)*((k-0.7)/0.3);
+      t.grow = k<0.7 ? (k/0.7)*1.18 : 1.18 + (1-1.18)*((k-0.7)/0.3);
       if(k<1) requestAnimationFrame(step); else { t.grow = 1; res(); }
     });
   });
   updHUD();
 }
-/* 盤上のマスを選ばせる */
 function pickTile(pi, msg, filter){
   return new Promise(res=>{
-    toast('R','🌀', msg, 'マスをタップしてください', 6000);
+    toast('R','🌀', msg, 'マスをタップしてください', 8000);
     camReset();
     const c = $('#world');
+    const done = (v)=>{ c.removeEventListener('pointerdown', onClick); destPin=null; res(v); };
     function onClick(ev){
-      // offsetX/Y は要素のローカル座標（回転・拡大を考慮）なので縦画面回転でも正しい
       const sx = (ev.offsetX / c.clientWidth) * SW;
       const sy = (ev.offsetY / c.clientHeight) * SH;
-      // カメラ逆変換
       const wx = (sx - SW/2)/cam.z + cam.x, wy = (sy - SH/2)/cam.z + cam.y;
       let best = -1, bd = 1e9;
       for(let i=0;i<32;i++){
-        const t = tileCenter(i), d = (t.x-wx)**2 + (t.y-wy)**2;
+        const t = tileCenter(i), d = (t.x-wx)*(t.x-wx) + (t.y-wy)*(t.y-wy);
         if(d < bd){ bd = d; best = i; }
       }
-      if(bd > 90*90) return;
+      if(bd > 92*92) return;
       if(filter && !filter(best)) return;
-      c.removeEventListener('pointerdown', onClick);
-      SFX.click(); res(best);
+      SFX.click(); done(best);
     }
     c.addEventListener('pointerdown', onClick);
-    setTimeout(()=>{ c.removeEventListener('pointerdown', onClick); res(-1); }, 12000*SPEED);
+    setTimeout(()=>done(-1), 14000*SPEED);
   });
+}
+
+/* ══════════ ミニゲーム「悪夢の洞窟脱出」 ══════════ */
+function miniHTML(stake, round, mult, hist, win){
+  const cells = hist.map(h=>'<div style="padding:3px 0;font-family:var(--pop);font-size:15px;color:'
+    +(h==='L'?'#8FD8E8':'#FFC48A')+'">'+(h==='L'?'左':'右')+'</div>').join('');
+  const stakes = [500000,1000000,1500000].map(v=>
+    '<div class="mgstake'+(v===stake?' on':'')+'" data-v="'+v+'">'+yen(v)+'</div>').join('');
+  return '<div class="modal"><div class="mg">'
+    + '<div class="mghd">悪夢の洞窟脱出</div>'
+    + '<div class="mgbody">'
+    +   '<div class="mgleft">'
+    +     '<div class="mgcap">最近の結果</div><div class="mghist">'+(cells||'<div style="color:#a98">—</div>')+'</div>'
+    +   '</div>'
+    +   '<div class="mgstage" id="mgStage">'
+    +     '<div class="mground">'
+    +       [1,2,3].map(r=>'<span class="'+(r<round?'won':r===round?'now':'')+'">'+r+'<i>GAME</i></span>').join('')
+    +     '</div>'
+    +     '<div class="mgart" id="mgArt">🕯️</div>'
+    +     '<div class="mgmsg" id="mgMsg">どちらの通路に逃げる？</div>'
+    +   '</div>'
+    +   '<div class="mgright">'
+    +     '<div class="mgcap">ゲーム費用</div><div class="mgstakes" id="mgStakes">'+stakes+'</div>'
+    +     '<div class="mgcap">ボーナス倍率</div><div class="mgbig">×'+mult+'</div>'
+    +     '<div class="mgcap">獲得できる金額</div><div class="mgbig gold">'+yen(win)+'</div>'
+    +   '</div>'
+    + '</div>'
+    + '<div class="mgfoot">'
+    +   '<button class="mgarrow" data-act="L">◀</button>'
+    +   '<button class="mgstop" data-act="stop">STOP<i>報酬をもらう</i></button>'
+    +   '<button class="mgarrow" data-act="R">▶</button>'
+    + '</div>'
+    + '</div></div>';
+}
+async function miniGame(pi){
+  const p = G.players[pi];
+  await band('悪夢の洞窟脱出','左右どちらかの通路を選んで逃げきろう！',1500);
+  let stake = 1000000, round = 1, mult = 2 * ((G.ev && G.ev.miniX) || 1), hist = [], banked = 0;
+  const wrap = $('#modalWrap'), body = $('#modalBody');
+  const rate = 0.5 + statRate(p,'mini')*0.22;       // ミニゲーム勝利ステータスが当たりやすさに効く
+  const cpu = p.kind === 'cpu';
+
+  function render(){
+    body.innerHTML = miniHTML(stake, round, mult, hist, stake*mult);
+    wrap.classList.add('on');
+    body.querySelectorAll('.mgstake').forEach(el=>{
+      el.onclick = ()=>{ if(round>1) return; stake = +el.dataset.v; SFX.click(); render(); };
+    });
+  }
+  render();
+
+  while(round <= 3){
+    let choice;
+    if(cpu){ await wait(900); choice = Math.random()<0.5 ? 'L' : 'R'; }
+    else {
+      choice = await new Promise(res=>{
+        body.querySelectorAll('[data-act]').forEach(b=>{
+          b.onclick = ()=>{ SFX.click(); res(b.dataset.act); };
+        });
+      });
+    }
+    if(choice === 'stop'){ break; }
+    // 判定
+    const win = Math.random() < rate;
+    const art = body.querySelector('#mgArt'), msg = body.querySelector('#mgMsg');
+    if(art){ art.textContent = choice==='L' ? '🏃‍♂️💨' : '💨🏃'; }
+    if(msg){ msg.textContent = '……'; }
+    await wait(650);
+    hist.unshift(win ? choice : (choice==='L'?'R':'L'));
+    if(hist.length>6) hist.pop();
+    if(!win){
+      if(art) art.textContent = '💀';
+      if(msg){ msg.textContent = 'つかまった！ 賭け金を失いました'; msg.style.color='#FF8A7A'; }
+      SFX.bad(); camShake(9);
+      await wait(1200);
+      wrap.classList.remove('on');
+      if(payFrom(pi, stake)){ give(pi, -stake); }
+      toast('L','💀','脱出失敗', yen(stake)+' を失いました',2200);
+      return;
+    }
+    if(art) art.textContent = '✨🏃‍♂️';
+    if(msg){ msg.textContent = '逃げきった！ 倍率アップ'; msg.style.color='#7DE08A'; }
+    SFX.coin();
+    banked = stake*mult;
+    await wait(850);
+    round++; mult *= 2;
+    if(round>3) break;
+    render();
+    if(cpu){
+      // CPU は倍率3以上で降りやすい
+      const greedy = cfg.ai===2 ? 0.6 : cfg.ai===1 ? 0.45 : 0.3;
+      if(Math.random() > greedy) break;
+    }
+  }
+  wrap.classList.remove('on');
+  const prize = banked || 0;
+  if(prize>0){
+    give(pi, prize);
+    addFx('pillar', tileCenter(p.pos).x, tileCenter(p.pos).y, 1000, '#FFD24D');
+    await cutIn('MINI GAME','脱出成功！', yen(prize)+' を獲得');
+  } else {
+    toast('L','🕯️','脱出中止','何も得られませんでした',1800);
+  }
 }
 
 /* ══════════ チャンスカード ══════════ */
 const CARDS = [
-  {t:'臨時収入',   d:'思わぬ収入がありました', f:async pi=>{ give(pi, 2000000); }},
-  {t:'大当たり',   d:'大きな配当が入りました', f:async pi=>{ give(pi, 5000000); }},
-  {t:'修繕費',     d:'建物の修理代を払います', f:async pi=>{ const a=1500000;
-      if(!payFrom(pi,a)) return bankrupt(pi,-1); give(pi,-a); }},
-  {t:'スタートへ', d:'スタートまで戻って給料を受け取ります', f:async pi=>{
+  {t:'臨時収入',   ic:'💰', d:'思わぬ収入がありました（+200万）', f:async pi=>give(pi,2000000)},
+  {t:'大当たり',   ic:'🎉', d:'大きな配当が入りました（+500万）', f:async pi=>give(pi,5000000)},
+  {t:'修繕費',     ic:'🔧', d:'建物の修理代を払います（-150万）', f:async pi=>{
+      const a=1500000; if(!payFrom(pi,a)) return bankrupt(pi,-1); give(pi,-a); }},
+  {t:'スタートへ', ic:'🚩', d:'スタートまで戻って給料を受け取ります', f:async pi=>{
       await jumpTo(pi,0); G.players[pi].laps++; salary(pi); }},
-  {t:'天使カード', d:'次の通行料が1回だけ無料になります', f:async pi=>{
-      G.players[pi].freeToll++; }},
-  {t:'ワープ',     d:'好きなマスへ移動できます', f:async pi=>{
-      const p=G.players[pi];
-      const d = p.kind==='cpu' ? aiPickTravel(pi) : await pickTile(pi,'行き先を選んでください');
-      if(d>=0){ await jumpTo(pi,d); await resolve(pi); } }},
-  {t:'監獄行き',   d:'氷の監獄へ送られます', f:async pi=>{
+  {t:'天使カード', ic:'🪽', d:'アイテム「天使カード」を手に入れた', f:async pi=>addItem(pi,'angel')},
+  {t:'ワープ札',   ic:'🌀', d:'アイテム「ワープ札」を手に入れた',   f:async pi=>addItem(pi,'warp')},
+  {t:'凍結ブロック',ic:'🧊', d:'アイテム「凍結ブロック」を手に入れた', f:async pi=>addItem(pi,'freeze')},
+  {t:'サイコロ改造',ic:'🎲', d:'アイテム「サイコロ改造」を手に入れた', f:async pi=>addItem(pi,'dice')},
+  {t:'監獄行き',   ic:'🧊', d:'氷の監獄へ送られます', f:async pi=>{
       await jumpTo(pi,8); G.players[pi].jail=3; SFX.bad(); }},
-  {t:'建設バーゲン',d:'建設1回ぶんが無料になります', f:async pi=>{ G.players[pi].bonusBuild++; }},
-  {t:'みんなから', d:'全員から 100万 ずつ受け取ります', f:async pi=>{
+  {t:'建設バーゲン',ic:'🏗', d:'アイテム「建設割引券」を手に入れた', f:async pi=>addItem(pi,'half')},
+  {t:'みんなから', ic:'🤝', d:'全員から 100万 ずつ受け取ります', f:async pi=>{
       let s=0; G.players.forEach((q,j)=>{ if(j!==pi && !q.out){
-        const a=Math.min(1000000,q.cash); q.cash-=a; s+=a; } });
-      give(pi, s); }},
-  {t:'ダイス追加', d:'奇数・偶数ボタンが1回ずつ増えます', f:async pi=>{
+        const a=Math.min(1000000,q.cash); q.cash-=a; s+=a; } }); give(pi,s); }},
+  {t:'ダイス追加', ic:'✌️', d:'奇数・偶数ボタンが1回ずつ増えます', f:async pi=>{
       G.players[pi].odd++; G.players[pi].even++; }}
 ];
+function addItem(pi, id){
+  const p = G.players[pi];
+  if(p.items.length>=4){ toast('R','🎒','持ち物がいっぱい','アイテムを使ってから拾ってください',1900); return; }
+  p.items.push(id); renderItems();
+}
 async function chanceCard(pi){
-  const c = CARDS[Math.floor(Math.random()*CARDS.length)];
-  if(G.players[pi].kind!=='cpu'){
-    await modal('<div class="modal"><div class="dark"><h3>❓ チャンスカード</h3>'
-      + '<div class="big">'+esc(c.t)+'</div><p>'+esc(c.d)+'</p>'
-      + '<div class="btnrow" style="justify-content:center;margin-top:16px">'
-      + '<button class="btn gold" data-act="ok">OK</button></div></div></div>');
+  const p = G.players[pi];
+  // 黄金フォーチュンが高いほど良いカードを引きやすい
+  const lucky = Math.random() < (statRate(p,'fortune')*0.55 + ((G.ev && G.ev.luck) || 0));
+  let pool = CARDS;
+  if(lucky) pool = CARDS.filter(c=>c.t!=='修繕費' && c.t!=='監獄行き');
+  const c = pool[(Math.random()*pool.length)|0];
+  if(p.kind!=='cpu'){
+    await modal('<div class="modal"><div class="deedcard">'
+      + '<div class="body">'
+      + '<div class="cap" style="background:linear-gradient(90deg,#7A4BC8,#3D2470)">CHANCE CARD</div>'
+      + '<h4>'+c.ic+' '+esc(c.t)+'</h4>'
+      + '<div class="rows"><div><span>効果</span></div></div>'
+      + '<p style="padding:0 16px 14px;font-size:14px;line-height:1.75;text-align:center">'+esc(c.d)+'</p>'
+      + '<div class="btnrow" style="justify-content:center;padding:0 16px 16px">'
+      + '<button class="btn gold" data-act="ok">OK</button></div>'
+      + '</div><div class="seal">'+c.ic+'</div></div></div>');
   } else {
     toast('L','❓','チャンスカード', c.t+' — '+c.d, 2000);
     await wait(900);
@@ -730,11 +1042,11 @@ function checkWin(){
   if(G.over) return false;
   for(let pi=0; pi<G.players.length; pi++){
     if(G.players[pi].out) continue;
-    for(let g=0; g<7; g++) if(hasTriple(G,pi,g)) return finish(pi, 'トリプル独占', GCOL[g]);
-    for(let s=0; s<4; s++) if(hasLine(G,pi,s)) return finish(pi, 'ライン独占');
+    for(let g=0; g<7; g++) if(hasTriple(G,pi,g)) return finish(pi,'トリプル独占', GCOL[g]);
+    for(let s=0; s<4; s++) if(hasLine(G,pi,s)) return finish(pi,'ライン独占');
   }
   const alive = G.players.filter(p=>!p.out);
-  if(alive.length === 1) return finish(G.players.indexOf(alive[0]), '独り勝ち');
+  if(alive.length === 1) return finish(G.players.indexOf(alive[0]),'独り勝ち');
   return false;
 }
 async function bankrupt(pi, toPi){
@@ -743,12 +1055,13 @@ async function bankrupt(pi, toPi){
   G.tiles.forEach(t=>{ if(t.type==='city' && t.owner===pi){
     if(toPi>=0){ t.owner = toPi; } else { t.owner=-1; t.lv=0; t.landmark=false; }
   }});
-  SFX.bad();
-  await band(p.name+' が破産しました', toPi>=0 ? '持っていた街は '+G.players[toPi].name+' のものに' : '街は市場に戻りました', 2000);
+  SFX.bad(); camShake(14);
+  await band(p.name+' が破産しました',
+    toPi>=0 ? '持っていた街は '+G.players[toPi].name+' のものに' : '街は市場に戻りました', 2000);
   checkWin();
 }
 function finish(pi, reason, col){
-  G.over = true; G.winner = pi; G.winReason = reason; G.phase = 'over';
+  G.over = true; G.winner = pi; G.winReason = reason; G.running = false;
   celebrate(pi, reason, col);
   return true;
 }
@@ -759,9 +1072,14 @@ async function celebrate(pi, reason, col){
   $('#cel3').textContent = G.players[pi].name + ' の勝ち！';
   $('#celebrate').classList.add('on');
   const f = $('#flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
-  for(let k=0;k<7;k++){
-    burst(200 + Math.random()*1200, 260 + Math.random()*380, 34,
-      ['#FFD24D','#FFF3C0','#F372DD','#7FD9F0','#FFFFFF', col||'#E23B4A']);
+  camShake(16);
+  // 盤の下辺から噴煙柱が一斉に立ち上がる（本家の独占演出）
+  for(let k=0;k<9;k++) addFx('steam', 210 + k*150, 760, 2000);
+  for(let k=0;k<8;k++){
+    const x = 260 + Math.random()*1080, y = 300 + Math.random()*320;
+    addFx('steam', x, y+150, 1700);
+    addFx('spark', x, y, 1000, col||'#FFD24D');
+    addFx('ring', x, y+60, 800, '#FFF3C0');
     await wait(150);
   }
   await wait(2200);
@@ -779,36 +1097,43 @@ function showResult(){
     G.tiles.forEach(t=>{ if(t.type==='city' && t.owner===r.i) est += cityValue(t); });
     const tr = document.createElement('tr');
     tr.innerHTML = '<td style="color:'+PCOL[r.i]+'">'+(k+1)+'</td>'
-      + '<td>'+PICO[r.i]+' '+esc(p.name)+(p.out?' <small style="color:#E8747E">破産</small>':'')+'</td>'
+      + '<td>'+esc(p.name)+' <small style="color:#8fa6c0">'+esc(CHARS[p.ch].name)+'</small>'
+      + (p.out?' <small style="color:#E8747E">破産</small>':'')+'</td>'
       + '<td>'+yen(p.cash)+'</td><td>'+yen(est)+'</td><td><em>'+yen(Math.max(0,r.a))+'</em></td>';
     tb.appendChild(tr);
   });
   screenTo('result');
+  const meSeat = G.players.findIndex(p=>p.kind!=='cpu');
+  grantRewards(meSeat>=0 && G.winner===meSeat);
 }
 
 /* ══════════ ターン進行 ══════════ */
 async function turnLoop(){
+  G.running = true;
   while(!G.over){
     const pi = G.turn, p = G.players[pi];
     if(p.out){ nextTurn(); continue; }
+    // 凍結の解除
+    G.tiles.forEach(t=>{ if(t.frozen>0) t.frozen--; });
+    p.mana = Math.min(100, p.mana + 34);
     updHUD();
-    toast('R', PICO[pi], p.name + ' のターン', '残り '+G.turnsLeft+' ターン', 1500);
-    await wait(500);
+    await turnBig(pi);
 
-    if(p.jail > 0){
-      const esc2 = await jailTurn(pi);
-      if(!esc2){ nextTurn(); continue; }
-    }
+    if(p.jail > 0){ await jailTurn(pi); nextTurn(); if(G.turnsLeft<=0){ timeUp(); break; } continue; }
+
     let again = true, guard = 0;
     while(again && !G.over && guard++ < 4){
       again = false;
+      G.phase = 'wait';
+      updHUD();
       const r = await takeRoll(pi);
+      G.phase = 'move';
       if(G.over) break;
       if(r.isDbl){
         p.dblRun++;
         if(p.dblRun >= 3){
           await band('ゾロ目 3回！', G.map.corners[1]+'へ送られます', 1700);
-          await jumpTo(pi, 8); G.players[pi].jail = 3; p.dblRun = 0; break;
+          await jumpTo(pi, 8); p.jail = 3; p.dblRun = 0; break;
         }
         await moveSteps(pi, r.total);
         await resolve(pi);
@@ -824,8 +1149,9 @@ async function turnLoop(){
     if(G.over) break;
     nextTurn();
     if(G.turnsLeft <= 0){ timeUp(); break; }
-    await wait(260);
+    await wait(240);
   }
+  G.running = false;
 }
 function nextTurn(){
   const n = G.players.length;
@@ -838,65 +1164,123 @@ function nextTurn(){
   }
   camReset(); updHUD();
 }
-function timeUp(){
-  const rk = rank();
-  finish(rk[0].i, 'ターン終了・総資産1位');
-}
+function timeUp(){ const rk = rank(); finish(rk[0].i, 'ターン終了・総資産1位'); }
 async function jailTurn(pi){
   const p = G.players[pi];
-  camTo(tileCenter(8).x, tileCenter(8).y, 1.5);
-  await band(G.map.corners[1]+' — あと '+p.jail+' ターン', 'ゾロ目が出れば脱出できます', 1400);
+  camTo(tileCenter(8).x, tileCenter(8).y, 1.55);
+  await band(G.map.corners[1]+' — あと '+p.jail+' ターン','ゾロ目が出れば脱出できます',1400);
   const r = await doRoll(pi, null, false);
   if(r.isDbl){
     p.jail = 0;
-    await band('脱出成功！', 'ゾロ目でここから出られます', 1300);
+    await band('脱出成功！','ゾロ目でここから出られます',1300);
     await moveSteps(pi, r.total); await resolve(pi);
-    return false;
+    return;
   }
   p.jail--;
-  if(p.jail<=0) toast('R','🔓','次のターンから動けます','', 1700);
+  if(p.jail<=0) toast('R','🔓','次のターンから動けます','',1700);
   camReset();
-  return false;
 }
-/* 人間 or CPU のサイコロ操作 */
 function takeRoll(pi){
   const p = G.players[pi];
   if(p.kind === 'cpu') return aiRoll(pi);
   return new Promise(res=>{
     stepPreview = {from:p.pos, max:12};
     gaugeSweet = 0.22 + Math.random()*0.56;
+    gaugeHalf = 0.055 + statRate(p,'gauge')*0.075;   // ゲージインパクトのステータスが枠の広さに効く
     gaugeOn = true;
     $('#diceui').classList.add('on');
     $('#oddN').textContent = p.odd; $('#evenN').textContent = p.even;
     $('#odd').classList.toggle('dim', p.odd<=0);
     $('#even').classList.toggle('dim', p.even<=0);
+    const clear = ()=>{ $('#push').onclick=null; $('#odd').onclick=null; $('#even').onclick=null;
+      $('#skillBtn').onclick=null; };
     const done = async (force)=>{
-      $('#push').onclick = null; $('#odd').onclick = null; $('#even').onclick = null;
-      const impact = Math.abs(gaugePhase - gaugeSweet) < 0.085;
+      clear();
+      const impact = Math.abs(gaugePhase - gaugeSweet) < gaugeHalf;
       if(force==='odd') p.odd--; if(force==='even') p.even--;
-      res(await doRoll(pi, force, impact));
+      let fixed = 0;
+      if(p.chooseEye>0){ p.chooseEye--; gaugeOn=false; $('#diceui').classList.remove('on');
+        fixed = await chooseEye(); }
+      res(await doRoll(pi, force, impact, fixed));
     };
     $('#push').onclick = ()=>{ SFX.click(); done(null); };
     $('#odd').onclick  = ()=>{ if(p.odd>0){ SFX.click(); done('odd'); } };
     $('#even').onclick = ()=>{ if(p.even>0){ SFX.click(); done('even'); } };
+    $('#skillBtn').onclick = async ()=>{
+      if($('#skillBtn').disabled) return;
+      clear(); gaugeOn=false; $('#diceui').classList.remove('on');
+      await useSkill(pi);
+      res(await takeRoll(pi));
+    };
   });
+}
+
+/* ══════════ 能力 ══════════ */
+async function useSkill(pi){
+  const p = G.players[pi];
+  const card = cardById(p.card) || CARDPOOL[0];
+  p.skillLeft--; p.mana = 0;
+  SFX.skill(); camShake(9);
+  const c = p.render || tileCenter(p.pos);
+  addFx('pillar', c.x, c.y, 1100, PCOL[pi]);
+  addFx('ring', c.x, c.y, 800, PCOL[pi]);
+  await cutIn(card.role, p.skill.nm, p.skill.ds);
+  const k = p.skillKind;
+  if(k===0){
+    p.freeToll++;
+    if(card.rar==='SS'){
+      const d = (p.kind==='cpu')
+        ? (()=>{ let b=-1,bv=-1; for(let i=0;i<32;i++){ const t=G.tiles[i];
+            if(t.type==='city'&&t.owner>=0&&t.owner!==pi){ const v=tollOf(t,G); if(v>bv){bv=v;b=i;} } } return b; })()
+        : await pickTile(pi,'凍らせる街を選んでください',
+            i=>G.tiles[i].type==='city'&&G.tiles[i].owner>=0&&G.tiles[i].owner!==pi);
+      if(d>=0){ G.tiles[d].frozen = 2;
+        addFx('ring', tileCenter(d).x, tileCenter(d).y, 700, '#8FE8FF');
+        toast('R','🧊','凍結', G.tiles[d].name+' の通行料が2ターン0になります', 2200); }
+    }
+  }
+  if(k===1){ p.chooseEye++; if(card.rar==='SS') p.extraRoll = (p.extraRoll||0)+1; }
+  if(k===2){
+    if(card.rar==='SS') p.freeToll++;
+    const d = (p.kind==='cpu') ? aiPickTravel(pi) : await pickTile(pi,'移動先を選んでください');
+    if(d>=0){ await jumpTo(pi,d); await resolve(pi); }
+  }
+  if(k===3) give(pi, Math.round(assetOf(G,pi)*p.skillPow));
+  updHUD();
 }
 
 /* ══════════ CPU ══════════ */
 async function aiRoll(pi){
   const p = G.players[pi];
   stepPreview = {from:p.pos, max:12};
-  gaugeSweet = 0.5; gaugeOn = true; $('#diceui').classList.add('on');
-  await wait(700);
-  const lvl = cfg.ai;
-  let force = null;
-  if(lvl >= 1 && (p.odd>0 || p.even>0)){
-    const so = bestParity(pi,'odd'), se = bestParity(pi,'even'), sn = avgScore(pi);
-    if(p.odd>0 && so > sn + (lvl===2?6:16) && so >= se) { force='odd'; p.odd--; }
-    else if(p.even>0 && se > sn + (lvl===2?6:16)) { force='even'; p.even--; }
+  gaugeSweet = 0.5; gaugeHalf = 0.055 + statRate(p,'gauge')*0.075;
+  gaugeOn = true; $('#diceui').classList.add('on');
+  await wait(750);
+  // 能力・アイテムを使うか
+  if(p.mana>=100 && p.skillLeft>0 && cfg.ai>=1 && Math.random()<0.7){
+    gaugeOn=false; $('#diceui').classList.remove('on');
+    await useSkill(pi);
+    return aiRoll(pi);
   }
-  const impact = lvl===2 ? Math.random()<0.55 : lvl===1 ? Math.random()<0.3 : Math.random()<0.1;
-  return doRoll(pi, force, impact);
+  if(cfg.ai>=1 && p.items.length && Math.random()<0.25){
+    const k = (Math.random()*p.items.length)|0;
+    const id = p.items[k];
+    if(id==='angel'||id==='half'||id==='salary'||id==='double'){
+      p.items.splice(k,1); renderItems();
+      const it = itemById(id);
+      toast('L', it.ic, 'CPUがアイテム使用', it.nm, 2000);
+      if(id==='angel') p.freeToll++; if(id==='half') p.halfBuild++;
+      if(id==='salary') p.salaryX2++; if(id==='double') p.forceDouble++;
+    }
+  }
+  let force = null;
+  if(cfg.ai>=1 && (p.odd>0 || p.even>0)){
+    const so = bestParity(pi,'odd'), se = bestParity(pi,'even'), sn = avgScore(pi);
+    if(p.odd>0 && so > sn + (cfg.ai===2?6:16) && so >= se) { force='odd'; p.odd--; }
+    else if(p.even>0 && se > sn + (cfg.ai===2?6:16)) { force='even'; p.even--; }
+  }
+  const impact = cfg.ai===2 ? Math.random()<0.55 : cfg.ai===1 ? Math.random()<0.3 : Math.random()<0.1;
+  return doRoll(pi, force, impact, 0);
 }
 function avgScore(pi){ let s=0; for(let n=2;n<=12;n++) s += scoreLanding(pi,n)*(6-Math.abs(7-n))/36; return s; }
 function bestParity(pi, par){
@@ -910,27 +1294,29 @@ function bestParity(pi, par){
 async function aiBuy(pi, i){
   const t = G.tiles[i], p = G.players[pi], lvl = cfg.ai;
   const own = t.owner === pi;
+  const disc = statMul(p,'build',0.3) * (p.halfBuild>0 ? 0.5 : 1) * ((G.ev && G.ev.buildX) || 1);
   const reserve = [6000000, 3500000, 1800000][lvl];
   let spend = 0, lvTarget = t.lv, land = false, lm = false;
   if(!own){
-    if(p.cash - priceOf(t) < reserve) return;
-    land = true; spend += priceOf(t);
+    const price = Math.round(t.base*disc);
+    if(p.cash - price < reserve) return;
+    land = true; spend += price;
   }
-  // 同じ色をそろえられるなら積極的に
   const near = CITY_SLOTS[t.g].filter(j=>G.tiles[j].owner===pi).length;
   const aggr = near>=1 ? 1 : 0;
   for(let k = (own? t.lv+1 : 1); k<=3; k++){
-    const c = BUILD[k].cost(t.base);
+    const c = Math.round(BUILD[k].cost(t.base)*disc);
     if(p.cash - spend - c < reserve - aggr*1500000) break;
     if(lvl===0 && k>1) break;
     if(lvl===1 && k>2 && !aggr) break;
     spend += c; lvTarget = k;
   }
-  if(lvl===2 && lvTarget===3 && p.cash - spend - BUILD[4].cost(t.base) > reserve && near>=1){
-    spend += BUILD[4].cost(t.base); lm = true;
+  if(lvl===2 && lvTarget===3 && near>=1){
+    const c = Math.round(BUILD[4].cost(t.base)*disc);
+    if(p.cash - spend - c > reserve){ spend += c; lm = true; }
   }
   if(spend === 0) return;
-  if(p.bonusBuild>0){ spend = Math.round(spend*0.75); p.bonusBuild--; }
+  if(p.halfBuild>0) p.halfBuild--;
   give(pi, -spend);
   if(land || own) t.owner = pi;
   t.lv = Math.max(t.lv, lvTarget);
@@ -945,7 +1331,7 @@ function aiBuyout(pi, i, cost){
   const near = CITY_SLOTS[t.g].filter(j=>G.tiles[j].owner===pi).length;
   const reserve = [6000000, 3500000, 1800000][lvl];
   if(p.cash - cost < reserve) return false;
-  if(near >= 2) return true;                      // 独占に王手
+  if(near >= 2) return true;
   return lvl===2 && near>=1 && Math.random()<0.6;
 }
 function aiPickTravel(pi){
@@ -959,6 +1345,7 @@ function aiPickTravel(pi){
       else if(t.owner===pi) s = 25 + near*20;
       else s = -tollOf(t,G)/100000 + (G.players[pi].cash > cityValue(t)*2 ? 30+near*30 : 0);
     } else if(t.type==='bonus') s = 40;
+    else if(t.type==='minigame') s = 38;
     else if(t.type==='card') s = 22;
     else if(t.type==='jail') s = -999;
     else if(t.type==='start') s = 35;
@@ -968,21 +1355,18 @@ function aiPickTravel(pi){
   return best;
 }
 
-/* ══════════ 画面遷移 ══════════ */
-function screenTo(id){
-  $$('.screen').forEach(s=>s.classList.toggle('on', s.id===id));
-}
+/* ══════════ 画面 ══════════ */
+function screenTo(id){ $$('.screen').forEach(s=>s.classList.toggle('on', s.id===id)); }
 function hideAllScreens(){ $$('.screen').forEach(s=>s.classList.remove('on')); }
 
-/* マップ選択 */
 function renderMaps(){
   const box = $('#mapList'); box.innerHTML = '';
   MAPS.forEach(m=>{
     const d = document.createElement('div');
     d.className = 'mapcard' + (m.id===cfg.mapId ? ' sel' : '');
     d.innerHTML = '<div class="thumb" style="background:radial-gradient(90% 90% at 50% 30%,'
-      + m.sky[0]+','+m.sky[1]+')">'+m.emoji+'</div>'
-      + '<div class="nm">'+esc(m.name)+'<i>'+esc(m.sub)+'</i></div>';
+      + (m.deco==='ice'?'#173a63,#0B1E3A':m.deco==='world'?'#22417a,#0E1435':'#5b2f52,#2A1533')+')">'
+      + m.emoji+'</div><div class="nm">'+esc(m.name)+'<i>'+esc(m.sub)+'</i></div>';
     d.onclick = ()=>{ cfg.mapId = m.id; SFX.click(); renderMaps(); };
     box.appendChild(d);
   });
@@ -994,7 +1378,6 @@ function renderSeats(){
     const d = document.createElement('div');
     d.className = 'seat' + (i >= cfg.n ? ' off' : '');
     d.innerHTML = '<span class="dot" style="background:'+PCOL[i]+'"></span>'
-      + '<span style="font-size:19px">'+PICO[i]+'</span>'
       + '<input type="text" id="sn'+i+'" value="'+esc(s.name)+'" maxlength="10">'
       + '<select id="sk'+i+'">'
       + '<option value="you"'+(s.kind==='you'?' selected':'')+'>あなた</option>'
@@ -1002,25 +1385,119 @@ function renderSeats(){
       + '<option value="cpu"'+(s.kind==='cpu'?' selected':'')+'>CPU</option></select>';
     box.appendChild(d);
     d.querySelector('#sn'+i).oninput = e => cfg.seats[i].name = e.target.value || ('プレイヤー'+(i+1));
-    d.querySelector('#sk'+i).onchange = e => {
-      cfg.seats[i].kind = e.target.value;
-      if(e.target.value==='cpu' && /^あなた|プレイヤー/.test(cfg.seats[i].name)){
-        cfg.seats[i].name = 'CPU ' + ['アカ','アオ','ミドリ','キイロ'][i];
-        renderSeats();
-      }
-    };
+    d.querySelector('#sk'+i).onchange = e => { cfg.seats[i].kind = e.target.value; };
   }
 }
 
-/* ══════════ 順番決め ══════════ */
+/* キャラクター選択 */
+function statBar(v, hi){
+  return '<div style="display:flex;align-items:center;gap:6px;margin:2px 0">'
+    + '<span style="flex:0 0 88px;font-size:10.5px;color:'+(hi?'#FFD24D':'#9FB6CC')+'">'+hi+'</span>'
+    + '<span style="flex:1;height:7px;border-radius:4px;background:#0a1420;overflow:hidden;display:block">'
+    +   '<i style="display:block;height:100%;width:'+v+'%;background:linear-gradient(90deg,#E08A1A,#FFD24D)"></i>'
+    + '</span>'
+    + '<span style="flex:0 0 24px;text-align:right;font-family:var(--pop);font-size:11px;color:#FFE9B5">'+v+'</span>'
+    + '</div>';
+}
+async function pickPhase(){
+  screenTo('pick');
+  const grid = $('#pickGrid');
+  const taken = new Set();
+  const humans = [];
+  for(let i=0;i<cfg.n;i++) if(cfg.seats[i].kind!=='cpu') humans.push(i);
+
+  function draw(activeSeat){
+    grid.innerHTML = '';
+    const mine = ownedCards();
+    const list = mine.length ? mine : [CARDPOOL[0]];
+    grid.style.gridTemplateColumns = 'repeat('+Math.min(5, Math.max(3, list.length))+',1fr)';
+    list.forEach(c=>{
+      const o = SV.cards[c.id] || {lv:1};
+      const st = cardStats(c.id, o.lv, SV.equip===c.id ? SV.slots : []);
+      const d = document.createElement('div');
+      d.className = 'chcard' + (taken.has(c.id) ? ' taken' : '');
+      d.innerHTML = '<canvas width="220" height="336"></canvas>'
+        + '<div class="tag">'+RAR[c.rar].nm+' ／ Lv.'+o.lv+'</div>'
+        + '<div class="nm">'+esc(c.nm)+'</div>'
+        + '<div class="role">'+esc(c.role)+'　「'+esc(c.line)+'」</div>'
+        + '<div class="ab"><b>'+esc(c.sk.nm)+'（'+c.sk.uses+'回）</b>'+esc(c.sk.ds)+'</div>'
+        + '<div style="margin:0 8px 10px">'
+        +   STAT_LABELS.map(([k,l])=>statBar(st[k], l)).join('')
+        + '</div>';
+      regPortrait(d.querySelector('canvas'), c.art, c.col);
+      d.onclick = ()=>{ if(taken.has(c.id)) return; SFX.click(); pickOne(activeSeat, c.id); };
+      grid.appendChild(d);
+    });
+  }
+  let resolveAll;
+  const done = new Promise(r=>resolveAll=r);
+  let hi = 0;
+  function fillCpus(){
+    for(let i=0;i<cfg.n;i++){
+      if(cfg.seats[i].cardId) continue;
+      const tier = cfg.ai===2 ? ['SS','S'] : cfg.ai===1 ? ['S','A'] : ['A'];
+      let free = CARDPOOL.filter(c=>!taken.has(c.id) && tier.indexOf(c.rar)>=0);
+      if(!free.length) free = CARDPOOL.filter(c=>!taken.has(c.id));
+      const pick = free[(Math.random()*free.length)|0] || CARDPOOL[i%CARDPOOL.length];
+      cfg.seats[i].cardId = pick.id; taken.add(pick.id);
+    }
+  }
+  function nextHuman(){
+    if(hi >= humans.length){ fillCpus(); resolveAll(); return; }
+    const seat = humans[hi];
+    $('#pickWho').innerHTML = '<b style="color:'+PCOL[seat]+'">'+esc(cfg.seats[seat].name)
+      + '</b> さん、カードを選んでください　'
+      + '<span style="color:#8FA9C4;font-size:13px">（ガチャで増やせます）</span>';
+    draw(seat);
+  }
+  function pickOne(seat, cardId){
+    cfg.seats[seat].cardId = cardId; taken.add(cardId);
+    hi++; nextHuman();
+  }
+  for(let i=0;i<cfg.n;i++) cfg.seats[i].cardId = null;
+  if(humans.length===0){ $('#pickWho').textContent='CPU がカードを選んでいます…';
+    fillCpus(); await wait(700); resolveAll(); }
+  else nextHuman();
+  await done;
+}
+
+/* ローディング */
+const TIPS = [
+  '同じ色の街を3つそろえると「トリプル独占」でその場で勝ちです。',
+  '1辺の街をぜんぶ持つと「ライン独占」でその場で勝ちです。',
+  '奇数・偶数ボタンを押すと、かならずその出目が出ます（回数かぎり）。',
+  'ゲージが光っているところで「押す」と、出目をコントロールできます。',
+  'ゾロ目が出たらもう一回。ただし3回続くと監獄行きです。',
+  '相手の街には「買収」で乗り込めます。値段は評価額の2倍です。',
+  'ランドマークを建てると通行料が跳ね上がり、買収されなくなります。',
+  '角の「悪夢の洞窟」ではミニゲームに挑戦できます。当たるたび倍率が2倍に。',
+  'キャラクターの能力は魔力ゲージが満タンになると使えます。',
+  'アイテムはサイコロを振る前に使ってください。'
+];
+async function loadingPhase(){
+  const map = MAPS.find(m=>m.id===cfg.mapId) || MAPS[0];
+  $('#loadArt').textContent = map.emoji;
+  $('#loadTitle').textContent = map.name;
+  $('#loadTip').textContent = TIPS[(Math.random()*TIPS.length)|0];
+  screenTo('loading');
+  const bar = $('#loadBar'), pct = $('#loadPct');
+  for(let v=0; v<=100; v+=4){
+    bar.style.width = v+'%'; pct.textContent = v+'%';
+    if(v%20===0) SFX.tick();
+    await wait(28);
+  }
+  await wait(220);
+}
+
+/* 順番決め */
 async function orderPhase(){
   screenTo('order');
   const box = $('#orderCards'); box.innerHTML = '';
   const n = cfg.n;
   const nums = Array.from({length:n}, (_,i)=>i+1);
-  for(let i=nums.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [nums[i],nums[j]]=[nums[j],nums[i]]; }
+  for(let i=nums.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; const t=nums[i]; nums[i]=nums[j]; nums[j]=t; }
   const picked = new Array(n).fill(null);
-  let humanSeat = cfg.seats.slice(0,n).findIndex(s=>s.kind!=='cpu');
+  const humanSeat = cfg.seats.slice(0,n).findIndex(s=>s.kind!=='cpu');
   $('#orderWho').textContent = humanSeat>=0
     ? cfg.seats[humanSeat].name + ' さん、カードを1枚えらんでください'
     : 'CPU 同士が順番を決めています…';
@@ -1037,18 +1514,17 @@ async function orderPhase(){
       if(cards[idx].classList.contains('flip')) return;
       cards[idx].classList.add('flip'); SFX.click();
       picked[taken] = nums[idx]; taken++;
-      if(taken >= n){ setTimeout(res, 900); }
-      else if(humanSeat<0 || taken > humanSeat){ setTimeout(()=>autoPick(), 520); }
+      if(taken >= n) setTimeout(res, 950);
+      else setTimeout(autoPick, 520);
     };
     const autoPick = ()=>{
       const free = cards.map((c,k)=>k).filter(k=>!cards[k].classList.contains('flip'));
       if(free.length) reveal(free[(Math.random()*free.length)|0]);
     };
-    cards.forEach((c,k)=>c.onclick = ()=>{ if(humanSeat>=0) reveal(k); });
-    if(humanSeat<0) setTimeout(autoPick, 600);
+    cards.forEach((c,k)=>c.onclick = ()=>{ if(humanSeat>=0 && taken===0) reveal(k); });
+    if(humanSeat<0) setTimeout(autoPick, 700);
   });
-  // 引いた番号の小さい順に手番
-  const seatOrder = cfg.seats.slice(0,n).map((s,i)=>({i, v:picked[i] ?? (i+1)}))
+  const seatOrder = cfg.seats.slice(0,n).map((s,i)=>({i, v:picked[i] != null ? picked[i] : (i+1)}))
                       .sort((a,b)=>a.v-b.v).map(o=>o.i);
   cfg.seats = seatOrder.map(i=>cfg.seats[i]).concat(cfg.seats.slice(n));
 }
@@ -1058,20 +1534,26 @@ $('#toSetup').onclick = ()=>{ SFX.click(); ac(); screenTo('setup'); };
 $('#backTitle').onclick = ()=>{ SFX.click(); screenTo('title'); };
 $('#optPlayers').onchange = e => { cfg.n = +e.target.value; renderSeats(); };
 $('#optTurns').onchange   = e => cfg.turns = +e.target.value;
+$('#optTime').onchange    = e => cfg.timeLimit = +e.target.value;
 $('#optCash').onchange    = e => cfg.cash  = +e.target.value;
 $('#optAI').onchange      = e => cfg.ai    = +e.target.value;
 $('#optSpeed').onchange   = e => { cfg.speed = +e.target.value; SPEED = cfg.speed; };
 
-$('#startGame').onclick = async ()=>{
-  SFX.click(); ac();
+async function launch(){
   SPEED = cfg.speed;
+  await pickPhase();
+  await vsScreen();
+  await loadingPhase();
   await orderPhase();
   hideAllScreens();
   newGame();
   camReset(); updHUD();
-  await band('ゲームスタート！', G.map.name + ' — 残り ' + cfg.turns + ' ターン', 1600);
+  const w = thisWeek();
+  await band('ゲームスタート！', G.map.name + ' — のこり ' + cfg.turns + ' ターン', 1400);
+  await cutIn('THIS WEEK', w.ic + ' ' + w.nm, w.ds);
   turnLoop();
-};
+}
+$('#startGame').onclick = ()=>{ SFX.click(); ac(); launch(); };
 $('#againSame').onclick = async ()=>{
   SFX.click(); hideAllScreens(); newGame(); camReset(); updHUD();
   await band('もう一回！', G.map.name, 1200); turnLoop();
@@ -1086,7 +1568,7 @@ $('#menu').onclick = async ()=>{
     + '<div class="btnrow" style="justify-content:center;margin-top:16px">'
     + '<button class="btn ghost" data-act="no">つづける</button>'
     + '<button class="btn red" data-act="ok">タイトルへ</button></div></div></div>');
-  if(r==='ok'){ G.over = true; screenTo('title'); }
+  if(r==='ok'){ G.over = true; G.running=false; screenTo('title'); }
 };
 $('#emotebtn').onclick = ()=>{ $('#emotebar').classList.toggle('on'); SFX.click(); };
 $$('#emotebar button').forEach(b=>b.onclick = ()=>{
@@ -1098,26 +1580,14 @@ $$('#emotebar button').forEach(b=>b.onclick = ()=>{
   $('#emotebar').classList.remove('on'); SFX.click();
 });
 
-/* ティッカー */
-const TIPS = [
-  '同じ色の街を3つそろえると「トリプル独占」でその場で勝ち！',
-  '1辺の街をぜんぶ持つと「ライン独占」でその場で勝ち！',
-  '奇数・偶数ボタンを押すと、かならずその出目が出ます（回数かぎり）',
-  'ゲージが光っているところで「押す」と、出目をコントロールできます',
-  'ゾロ目が出たらもう一回。ただし3回続くと氷の監獄行き',
-  '相手の街には「買収」で乗り込める。値段は2倍です',
-  'ランドマークを建てると通行料が跳ね上がり、買収されなくなります'
-];
 let tipI = 0;
 setInterval(()=>{ tipI = (tipI+1)%TIPS.length; $('#tickerText').textContent = TIPS[tipI]; }, 9000);
 $('#tickerText').textContent = TIPS[0];
 
-/* 初期化 */
 renderMaps(); renderSeats(); fitStage();
 $('#optTurns').value = cfg.turns; $('#optCash').value = cfg.cash;
-$('#optAI').value = cfg.ai; $('#optPlayers').value = cfg.n;
+$('#optAI').value = cfg.ai; $('#optPlayers').value = cfg.n; $('#optTime').value = cfg.timeLimit;
 
-/* Artifact の再公開でも設定を持ち越す */
 try{
   const boot = st => { if(st && st.cfg){ Object.assign(cfg, st.cfg); renderMaps(); renderSeats(); } };
   if(window.claude && window.claude.hot){
@@ -1125,4 +1595,3 @@ try{
     window.claude.hot.ready ? window.claude.hot.ready(boot) : boot(window.claude.hot.data||{});
   }
 }catch(e){}
-</script>

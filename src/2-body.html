@@ -7,45 +7,58 @@
 
     <!-- ═══ 中央インフォプレート ═══ -->
     <div id="plate">
-      <div class="hd"><span>のこり <em id="pTurn">30</em> ターン</span><span>1位 <em id="pGoalL">—</em></span></div>
+      <div class="hd">
+        <span class="timer" id="pClock">25:00</span>
+        <span>のこり <em id="pTurn">30</em></span>
+        <span>1位 <em id="pGoalL">—</em></span>
+      </div>
       <div class="bd" id="pGoal">2000万</div>
     </div>
 
     <!-- ═══ ティッカー ═══ -->
     <div id="ticker"><b id="tickerText">ダイスボヤージュへようこそ！</b></div>
 
-    <!-- ═══ HUD ═══ -->
+    <!-- ═══ HUD（上＝1位／下＝手番） ═══ -->
     <div class="hud top" id="hudTop">
-      <div class="face" id="fTopFace"><span class="cls" id="fTopCls">CPU</span>🦊</div>
+      <div class="portrait gild">
+        <div class="in"><canvas id="fTopPic" width="176" height="176"></canvas></div>
+        <span class="cls" id="fTopCls">CPU</span>
+        <span class="lvl" id="fTopLvl">1</span>
+      </div>
       <div class="col">
         <div class="namebar" id="fTopName">—</div>
-        <div class="row"><span class="lbl">総資産</span><span class="sub" id="fTopAsset">0</span></div>
-        <div class="row"><span class="lbl">所持金</span><span class="big" id="fTopCash">0</span></div>
-        <div class="gauge"><i id="fTopGauge" style="width:0%"></i></div>
+        <div class="statrow"><span class="lbl">総資産</span><span class="sub" id="fTopAsset">0</span></div>
+        <div class="statrow"><span class="lbl">所持金</span><span class="big" id="fTopCash">0</span></div>
+        <div class="gauge"><i id="fTopGauge" style="width:0%"></i><span class="gtxt" id="fTopGtx">魔力 0%</span></div>
       </div>
     </div>
     <div class="rankbadge red" id="rTop" style="left:26.5%;top:1.6%">1<span>位</span></div>
 
     <div class="hud bot" id="hudBot">
-      <div class="face" id="fBotFace"><span class="cls" id="fBotCls">YOU</span>🐧</div>
+      <div class="portrait gild">
+        <div class="in"><canvas id="fBotPic" width="176" height="176"></canvas></div>
+        <span class="cls" id="fBotCls">手番</span>
+        <span class="lvl" id="fBotLvl">1</span>
+        <button class="skillbtn" id="skillBtn" disabled>能力</button>
+      </div>
       <div class="col">
         <div class="namebar" id="fBotName">—</div>
-        <div class="row"><span class="lbl">総資産</span><span class="sub" id="fBotAsset">0</span></div>
-        <div class="row"><span class="lbl">所持金</span><span class="big" id="fBotCash">0</span></div>
-        <div class="gauge"><i id="fBotGauge" style="width:0%"></i></div>
+        <div class="statrow"><span class="lbl">総資産</span><span class="sub" id="fBotAsset">0</span></div>
+        <div class="statrow"><span class="lbl">所持金</span><span class="big" id="fBotCash">0</span></div>
+        <div class="gauge"><i id="fBotGauge" style="width:0%"></i><span class="gtxt" id="fBotGtx">魔力 0%</span></div>
       </div>
     </div>
     <div class="rankbadge" id="rBot" style="right:26.5%;bottom:2%">2<span>位</span></div>
 
-    <!-- 3〜4人目の小型HUD -->
+    <!-- 全員のコンパクト順位表 -->
     <div id="sideHud" class="abs" style="left:1%;top:35%;z-index:80;display:flex;flex-direction:column;gap:6px"></div>
 
-    <!-- ═══ 凡例 ═══ -->
+    <!-- ═══ 独占の進み具合 ═══ -->
     <div id="legend"></div>
 
     <!-- ═══ サイコロ UI ═══ -->
     <div id="diceui">
-      <canvas id="gauge" width="620" height="280"></canvas>
+      <canvas id="gauge" width="620" height="180"></canvas>
       <button class="oddeven" id="odd">奇数<u id="oddN">2</u></button>
       <button class="oddeven" id="even">偶数<u id="evenN">2</u></button>
       <button id="push">押す</button>
@@ -57,8 +70,21 @@
     <div id="toastL"></div>
     <div id="toastR"></div>
 
+    <!-- ═══ 手番の大見出し ═══ -->
+    <div id="turnbig"><b id="turnbigT">—</b><i id="turnbigS">—</i></div>
+
     <!-- ═══ 告知帯 ═══ -->
     <div id="band"><b id="bandT"></b><i id="bandS"></i></div>
+
+    <!-- ═══ 能力カットイン ═══ -->
+    <div id="skillcut"><div class="band">
+      <div class="t1" id="scT1">SKILL</div>
+      <div class="t2" id="scT2">—</div>
+      <div class="t3" id="scT3">—</div>
+    </div></div>
+
+    <!-- ═══ 出目えらび ═══ -->
+    <div id="pickeye"></div>
 
     <!-- ═══ 祝勝 ═══ -->
     <div id="celebrate">
@@ -80,6 +106,9 @@
 
     <!-- ═══ モーダル ═══ -->
     <div id="modalWrap"><div class="backdrop"></div><div id="modalBody"></div></div>
+
+    <!-- ═══ VS マッチング ═══ -->
+    <div id="vs"></div>
 
     <!-- ═══════════ タイトル ═══════════ -->
     <div class="screen on" id="title">
@@ -106,6 +135,9 @@
             <label class="opt">ターン数
               <select id="optTurns"><option value="20">20</option><option value="30" selected>30</option><option value="45">45</option></select>
             </label>
+            <label class="opt">制限時間
+              <select id="optTime"><option value="0">なし</option><option value="900">15分</option><option value="1500" selected>25分</option></select>
+            </label>
             <label class="opt">所持金
               <select id="optCash"><option value="15000000">1500万</option><option value="20000000" selected>2000万</option><option value="30000000">3000万</option></select>
             </label>
@@ -117,9 +149,9 @@
             </label>
           </div>
           <div class="rules" style="margin-top:12px">
-            <b>勝ち方</b>は3つ。<b>①独占</b>＝同じ色の街をぜんぶ持つ／同じ辺の街をぜんぶ持つ＝その場で勝ち。
+            <b>勝ち方</b>は3つ。<b>①独占</b>＝同じ色の街を3つそろえる／1辺の街をぜんぶ持つ＝その場で勝ち。
             <b>②破産</b>＝ほかの人が全員お金を払えなくなる。<b>③ターン切れ</b>＝最後に総資産が一番多い人。<br>
-            ゾロ目が出たらもう一回振れます（3回連続で氷の監獄行き）。
+            ゾロ目が出たらもう一回振れます（3回続くと氷の監獄行き）。
           </div>
         </div>
         <div class="panel">
@@ -136,8 +168,29 @@
         </div>
         <div class="foot">
           <button class="btn ghost" id="backTitle">もどる</button>
-          <button class="btn gold" id="startGame">ゲームスタート</button>
+          <button class="btn gold" id="startGame">つぎへ（キャラを選ぶ）</button>
         </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ キャラクター選択 ═══════════ -->
+    <div class="screen" id="pick">
+      <div class="inner">
+        <h2>キャラクターを選ぶ</h2>
+        <div class="who" id="pickWho">—</div>
+        <div class="grid" id="pickGrid"></div>
+      </div>
+    </div>
+
+    <!-- ═══════════ ローディング ═══════════ -->
+    <div class="screen" id="loading">
+      <div class="inner">
+        <div class="art" id="loadArt">❄️</div>
+        <h2 style="font-family:var(--pop);font-size:30px;color:#FFE08A;margin-top:6px"
+            id="loadTitle">氷の洞窟</h2>
+        <div class="bar"><i id="loadBar"></i></div>
+        <div class="pct" id="loadPct">0%</div>
+        <div class="tip"><b>TIPS</b><span id="loadTip">—</span></div>
       </div>
     </div>
 

@@ -92,12 +92,21 @@ html,body{height:100%;overflow:hidden;background:#04070f;font-family:var(--jp);c
 .rankbadge span{font-size:17px}
 
 /* ══════════ 上部ティッカー ══════════ */
-#ticker{position:absolute;left:31%;top:.9%;width:38%;height:5.4%;z-index:80;
-  background:linear-gradient(#101828e6,#0a1120e6);border:1px solid #2c3d57;border-radius:6px;
-  overflow:hidden;display:flex;align-items:center;box-shadow:0 3px 10px rgba(0,0,0,.5)}
-#ticker b{display:inline-block;white-space:nowrap;font-size:16px;font-weight:900;color:#F5D76E;
-  text-shadow:0 1px 0 #000;padding-left:100%;animation:ticker 17s linear infinite}
-@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-100%)}}
+/* 上部の告知帯：赤〜金のグラデ帯。文字は中央でフェードイン／アウトさせ、
+   端で切れて「バグに見える」のを避ける */
+#ticker{position:absolute;left:29%;top:.9%;width:42%;height:5.6%;z-index:80;
+  background:linear-gradient(90deg,rgba(120,20,24,0),#8E1410 14%,#C0261A 50%,#8E1410 86%,rgba(120,20,24,0));
+  border-radius:6px;overflow:hidden;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 3px 10px rgba(0,0,0,.5)}
+#ticker::before,#ticker::after{content:"";position:absolute;top:0;bottom:0;width:34px;pointer-events:none}
+#ticker::before{left:0;background:linear-gradient(90deg,rgba(20,6,6,.9),transparent)}
+#ticker::after{right:0;background:linear-gradient(270deg,rgba(20,6,6,.9),transparent)}
+#ticker b{display:block;max-width:92%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font-size:16px;font-weight:900;color:#FFE9A8;text-align:center;
+  -webkit-text-stroke:.7px #3A0C08;paint-order:stroke fill;
+  animation:tickFade 9s ease-in-out infinite}
+@keyframes tickFade{0%{opacity:0;transform:translateY(6px)}8%,88%{opacity:1;transform:none}
+  100%{opacity:0;transform:translateY(-6px)}}
 
 /* ══════════ 中央インフォプレート ══════════ */
 #plate{position:absolute;left:50%;top:24.5%;transform:translateX(-50%);z-index:40;min-width:264px;
@@ -157,11 +166,12 @@ html,body{height:100%;overflow:hidden;background:#04070f;font-family:var(--jp);c
 #diceui{position:absolute;left:0;top:0;width:100%;height:100%;z-index:50;display:none;pointer-events:none}
 #diceui.on{display:block}
 #gauge{position:absolute;left:50%;top:44.5%;transform:translateX(-50%);width:40%;height:17%;pointer-events:none}
-#push{position:absolute;left:50%;top:64%;transform:translateX(-50%);width:132px;height:132px;border-radius:50%;
+#push{position:absolute;left:50%;top:64%;transform:translateX(-50%);width:200px;height:118px;
+  border-radius:50%/50%;
   border:6px solid #C9944A;cursor:pointer;pointer-events:auto;
-  background:radial-gradient(circle at 38% 30%,#F79AD8,#C9186E 72%);
-  box-shadow:0 8px 0 #7d0f45,0 14px 26px rgba(0,0,0,.55),inset 0 0 26px rgba(255,255,255,.25);
-  font-family:var(--pop);font-size:38px;color:#fff;-webkit-text-stroke:4px #8d1450;paint-order:stroke fill;
+  background:radial-gradient(ellipse at 38% 28%,#F79AD8,#C9186E 72%);
+  box-shadow:0 9px 0 #7d0f45,0 16px 28px rgba(0,0,0,.55),inset 0 0 30px rgba(255,255,255,.25);
+  font-family:var(--pop);font-size:40px;color:#fff;-webkit-text-stroke:4px #8d1450;paint-order:stroke fill;
   animation:pushPulse .9s ease-in-out infinite alternate;transition:transform .08s}
 #push:active{transform:translateX(-50%) scale(.94);box-shadow:0 3px 0 #7d0f45,0 6px 14px rgba(0,0,0,.5)}
 @keyframes pushPulse{from{transform:translateX(-50%) scale(1)}to{transform:translateX(-50%) scale(1.055)}}
@@ -272,7 +282,8 @@ html,body{height:100%;overflow:hidden;background:#04070f;font-family:var(--jp);c
   animation:cIn .45s cubic-bezier(.2,1.6,.4,1) .12s both}
 #celebrate .l3{font-size:30px;font-weight:900;color:#fff;-webkit-text-stroke:5px #123;paint-order:stroke fill;
   animation:cIn .35s cubic-bezier(.2,1.6,.4,1) .24s both}
-@keyframes cIn{from{opacity:0;transform:scale(1.5)}to{opacity:1;transform:scale(1)}}
+/* 透明から始めると、アニメが走らない環境で文字が消える。拡大だけで見せる */
+@keyframes cIn{from{transform:scale(1.55)}60%{transform:scale(.94)}to{transform:scale(1)}}
 
 /* ══════════ タイトル / セットアップ ══════════ */
 .screen{position:absolute;inset:0;z-index:200;display:none;flex-direction:column;

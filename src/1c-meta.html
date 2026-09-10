@@ -1,0 +1,169 @@
+<style>
+/* ══════════════════════════════════════════════════════════════
+   ダイスボヤージュ — ホーム／カード／ガチャ／ペンダント
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 通貨バー ─────────────────────────────────────────── */
+.wallet{position:absolute;left:0;right:0;bottom:0;height:54px;z-index:5;display:flex;align-items:center;
+  gap:10px;padding:0 16px;
+  background:linear-gradient(180deg,rgba(12,20,34,.5),rgba(6,12,22,.94));
+  border-top:2px solid #3D5578}
+.wallet .cur{display:flex;align-items:center;gap:7px;padding:5px 14px 6px;border-radius:11px;
+  background:linear-gradient(#1B2C46,#0C1626);border:2px solid #3D5578}
+.wallet .cur span{font-size:20px}
+.wallet .cur b{font-family:var(--pop);font-size:17px;color:#FFE9B5;letter-spacing:.02em}
+.wallet .lvl{margin-left:auto;display:flex;align-items:center;gap:9px}
+.wallet .xp{width:190px;height:12px;border-radius:7px;background:#0a1420;border:1px solid #3D5578;
+  overflow:hidden}
+.wallet .xp i{display:block;height:100%;background:linear-gradient(90deg,#3FA9F5,#8FD8E8)}
+
+/* ── ホーム ─────────────────────────────────────────── */
+#home .inner{position:relative;margin:auto;width:1360px;max-width:95%;padding-bottom:64px}
+#home .hero{display:grid;grid-template-columns:340px 1fr;gap:24px;align-items:center}
+#home .heroPic{border-radius:20px;padding:4px;position:relative;
+  background:linear-gradient(160deg,#F7E3A0,#D3A22C 42%,#8A6314 64%,#FFF0BE);
+  box-shadow:0 18px 44px rgba(0,0,0,.6)}
+#home .heroPic canvas{display:block;width:100%;height:330px;border-radius:16px;
+  background:radial-gradient(110% 90% at 50% 20%,#456C9E,#0C1728)}
+#home .heroPic .rk{position:absolute;left:-6px;top:-8px;font-family:var(--caps);font-size:16px;
+  padding:3px 12px 4px;border-radius:9px;border:2px solid #6B4A08;color:#3A2A10;
+  background:linear-gradient(#FFF0BE,#E0A11A);box-shadow:0 3px 0 rgba(0,0,0,.5)}
+#home .heroInfo h1{font-family:var(--pop);font-size:58px;line-height:1.05;
+  background:linear-gradient(#FFF3C4,#F2C230 52%,#C98A12);-webkit-background-clip:text;
+  background-clip:text;color:transparent;-webkit-text-stroke:4.5px #2b1c00;paint-order:stroke fill;
+  filter:drop-shadow(0 5px 0 rgba(0,0,0,.35))}
+#home .heroInfo .cap{font-family:var(--caps);font-size:15px;letter-spacing:.4em;color:#8FD8E8;
+  text-indent:.4em;margin-top:2px}
+#home .heroInfo .line{margin-top:10px;font-size:15px;color:#B9CEE4}
+#home .heroInfo .stats{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:2px 18px;max-width:560px}
+#home .modes{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:20px}
+.modebtn{border-radius:16px;padding:16px 12px 15px;cursor:pointer;text-align:center;position:relative;
+  border:3px solid #2F4A6D;background:linear-gradient(#1B2C46,#0C1626);transition:transform .14s,border-color .14s}
+.modebtn:hover{transform:translateY(-5px);border-color:var(--gold)}
+.modebtn .ic{font-size:40px;line-height:1}
+.modebtn .nm{font-family:var(--pop);font-size:20px;color:#FFE9B5;margin-top:5px}
+.modebtn .ds{font-size:11.5px;color:#8FA9C4;margin-top:3px;line-height:1.5}
+.modebtn.big{background:linear-gradient(#2C4E7C,#12233C);border-color:#5A83B8}
+.modebtn.gold{background:linear-gradient(#6B4E12,#3A2A08);border-color:#D3A22C}
+.modebtn .badge{position:absolute;right:8px;top:8px;font-size:10.5px;font-weight:900;padding:2px 8px;
+  border-radius:8px;background:#E14A5A;color:#fff;border:2px solid #7A1420}
+
+/* ── カード一覧 ─────────────────────────────────────── */
+.metahd{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.metahd h2{font-family:var(--pop);font-size:30px;color:#FFE08A;
+  -webkit-text-stroke:4px #2a1d06;paint-order:stroke fill}
+.metahd .sp{margin-left:auto;display:flex;gap:10px}
+#cards .inner,#gacha .inner,#pend .inner{position:relative;margin:auto;width:1380px;max-width:96%;
+  padding-bottom:64px}
+.cardwrap{display:grid;grid-template-columns:360px 1fr;gap:20px;align-items:start}
+.cardgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;max-height:520px;overflow-y:auto;
+  padding:4px}
+.minicard{border-radius:12px;padding:3px;cursor:pointer;position:relative;transition:transform .14s;
+  background:linear-gradient(160deg,#7B8AA6,#39455C)}
+.minicard.rA{background:linear-gradient(160deg,#8FB2D8,#33526F)}
+.minicard.rS{background:linear-gradient(160deg,#D8B6F0,#5A3A78)}
+.minicard.rSS{background:linear-gradient(160deg,#FFF0BE,#D3A22C 45%,#8A6314)}
+.minicard:hover{transform:translateY(-4px)}
+.minicard.sel{box-shadow:0 0 0 3px var(--gold),0 10px 24px rgba(0,0,0,.6)}
+.minicard.locked{filter:grayscale(1) brightness(.42)}
+.minicard canvas{display:block;width:100%;height:104px;border-radius:9px 9px 0 0;
+  background:radial-gradient(110% 90% at 50% 20%,#3E5D86,#0E1A2C)}
+.minicard .b{background:#0C1626;border-radius:0 0 9px 9px;padding:4px 5px 5px;text-align:center}
+.minicard .b .n{font-size:11.5px;font-weight:900;color:#E4EEF8;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.minicard .b .l{font-family:var(--pop);font-size:11px;color:#FFD24D}
+.minicard .rr{position:absolute;left:-3px;top:-4px;font-family:var(--caps);font-size:10px;
+  padding:1px 6px 2px;border-radius:6px;border:2px solid #4A3206;color:#3A2A10;
+  background:linear-gradient(#FFF0BE,#E0A11A)}
+.minicard .eq{position:absolute;right:-3px;top:-4px;font-size:10px;font-weight:900;padding:1px 6px 2px;
+  border-radius:6px;background:#3FA9F5;color:#04101F;border:2px solid #10405F}
+
+.cardDetail{border-radius:18px;padding:4px;
+  background:linear-gradient(160deg,#F7E3A0,#D3A22C 42%,#8A6314 64%,#FFF0BE);
+  box-shadow:0 16px 40px rgba(0,0,0,.6)}
+.cardDetail .in{background:linear-gradient(#16263F,#0A1424);border-radius:14px;padding:14px}
+.cardDetail canvas{display:block;width:100%;height:230px;border-radius:12px;
+  background:radial-gradient(110% 90% at 50% 20%,#456C9E,#0C1728)}
+.cardDetail h3{font-family:var(--pop);font-size:26px;color:#FFE9B5;text-align:center;margin-top:8px}
+.cardDetail .role{text-align:center;font-size:12px;color:#8FA9C4}
+.cardDetail .skill{margin-top:9px;background:rgba(6,14,26,.7);border:1px solid #2F4A6D;border-radius:10px;
+  padding:9px 10px;font-size:12.4px;line-height:1.65;color:#CBDCEE}
+.cardDetail .skill b{color:#FFD24D;display:block;margin-bottom:2px}
+
+/* ── ガチャ ─────────────────────────────────────────── */
+#gacha .stage{position:relative;height:330px;border-radius:18px;overflow:hidden;
+  background:radial-gradient(90% 100% at 50% 20%,#2E4E86,#0A1424 70%);
+  border:3px solid #3D5578;display:grid;place-items:center}
+#gacha .orb{width:170px;height:170px;border-radius:50%;
+  background:radial-gradient(circle at 34% 28%,#FFF6C8,#F2C230 45%,#8A6314);
+  box-shadow:0 0 60px rgba(242,194,48,.8),inset 0 -14px 26px rgba(0,0,0,.35);
+  animation:orbFloat 2.6s ease-in-out infinite alternate}
+@keyframes orbFloat{from{transform:translateY(-8px) scale(1)}to{transform:translateY(8px) scale(1.04)}}
+#gacha .pulls{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;padding:16px}
+.pullcard{border-radius:12px;padding:3px;background:linear-gradient(160deg,#8FB2D8,#33526F);
+  animation:pullIn .45s cubic-bezier(.2,1.5,.4,1) both}
+.pullcard.rS{background:linear-gradient(160deg,#D8B6F0,#5A3A78)}
+.pullcard.rSS{background:linear-gradient(160deg,#FFF0BE,#D3A22C 45%,#8A6314);
+  box-shadow:0 0 26px rgba(255,214,80,.75)}
+@keyframes pullIn{from{opacity:0;transform:scale(.4) rotate(-12deg)}to{opacity:1;transform:none}}
+.pullcard canvas{display:block;width:100%;height:120px;border-radius:9px 9px 0 0;
+  background:radial-gradient(110% 90% at 50% 20%,#3E5D86,#0E1A2C)}
+.pullcard .b{background:#0C1626;border-radius:0 0 9px 9px;padding:5px;text-align:center;font-size:12px;
+  font-weight:900;color:#E4EEF8}
+.pullcard .b i{display:block;font-style:normal;font-family:var(--pop);font-size:11px;color:#FFD24D}
+#gacha .rates{margin-top:12px;font-size:12.5px;color:#9FB6CC;text-align:center;line-height:1.8}
+#gacha .btns{display:flex;gap:14px;justify-content:center;margin-top:16px}
+
+/* ── ペンダント ─────────────────────────────────────── */
+.pendwrap{display:grid;grid-template-columns:330px 1fr;gap:20px;align-items:start}
+.slots{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.slot{aspect-ratio:1/1;border-radius:14px;border:3px dashed #3D5578;display:grid;place-items:center;
+  background:rgba(8,18,32,.6);cursor:pointer;font-size:40px;position:relative;transition:border-color .14s}
+.slot.on{border-style:solid;border-color:var(--gold);
+  background:linear-gradient(160deg,#33445F,#12203A)}
+.slot .nm{position:absolute;left:0;right:0;bottom:5px;font-size:10.5px;font-weight:900;color:#CBDCEE;
+  text-align:center}
+.pendgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.pend{border-radius:12px;padding:9px 6px 10px;text-align:center;cursor:pointer;position:relative;
+  border:2px solid #3D5578;background:linear-gradient(#1B2C46,#0C1626);transition:transform .14s}
+.pend:hover{transform:translateY(-4px)}
+.pend.eq{border-color:var(--gold);box-shadow:0 0 0 2px rgba(242,194,48,.3)}
+.pend.no{opacity:.32;filter:grayscale(1)}
+.pend .ic{font-size:34px;line-height:1}
+.pend .nm{font-size:11.5px;font-weight:900;color:#E4EEF8;margin-top:4px}
+.pend .ef{font-size:10.5px;color:#FFD24D;margin-top:2px}
+
+/* ── VS 画面 ─────────────────────────────────────────── */
+#vs{position:absolute;inset:0;z-index:210;display:none;flex-direction:column;
+  background:radial-gradient(100% 90% at 50% 40%,#20324F,#050A14)}
+#vs.on{display:flex}
+#vs .row{flex:1;display:flex;align-items:center;justify-content:center;gap:40px;position:relative}
+#vs .side{width:300px;text-align:center;animation:vsIn .5s cubic-bezier(.2,1.3,.35,1) both}
+#vs .side.r{animation-name:vsInR}
+@keyframes vsIn{from{opacity:0;transform:translateX(-140px)}to{opacity:1;transform:none}}
+@keyframes vsInR{from{opacity:0;transform:translateX(140px)}to{opacity:1;transform:none}}
+#vs .side canvas{display:block;width:100%;height:250px}
+#vs .side .nm{font-family:var(--pop);font-size:26px;color:#FFE9B5;margin-top:4px}
+#vs .side .rl{font-size:12.5px;color:#9FB6CC}
+#vs .vsmark{font-family:var(--caps);font-size:82px;line-height:1;
+  background:linear-gradient(#FFF3C4,#F2C230 50%,#C0261A);-webkit-background-clip:text;
+  background-clip:text;color:transparent;-webkit-text-stroke:9px #2b1c00;paint-order:stroke fill;
+  animation:vsPop .6s cubic-bezier(.2,1.6,.4,1) .25s both}
+@keyframes vsPop{from{opacity:0;transform:scale(2.4) rotate(-14deg)}to{opacity:1;transform:none}}
+#vs .tip{padding:16px 24px 28px;text-align:center;font-size:14.5px;color:#CBDCEE;line-height:1.8}
+#vs .tip b{color:#FFD24D;display:block;font-size:12px;letter-spacing:.14em;margin-bottom:4px}
+
+/* ── 報酬モーダル ───────────────────────────────────── */
+.reward{width:520px;text-align:center;border-radius:18px;padding:4px;
+  background:linear-gradient(160deg,#F7E3A0,#D3A22C 42%,#8A6314 64%,#FFF0BE);
+  box-shadow:0 24px 60px rgba(0,0,0,.72)}
+.reward .in{background:linear-gradient(#16263F,#0A1424);border-radius:14px;padding:22px}
+.reward h3{font-family:var(--pop);font-size:30px;color:#FFE08A;
+  -webkit-text-stroke:4px #2a1d06;paint-order:stroke fill}
+.reward .items{display:flex;gap:14px;justify-content:center;margin:16px 0 6px;flex-wrap:wrap}
+.reward .it{min-width:120px;padding:12px 14px;border-radius:12px;border:2px solid #3D5578;
+  background:linear-gradient(#1B2C46,#0C1626)}
+.reward .it .ic{font-size:32px}
+.reward .it .v{font-family:var(--pop);font-size:22px;color:#FFE9B5;margin-top:2px}
+.reward .it .l{font-size:11px;color:#8FA9C4}
+</style>

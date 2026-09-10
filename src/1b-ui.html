@@ -1,0 +1,246 @@
+<style>
+/* ══════════════════════════════════════════════════════════════
+   ダイスボヤージュ — UI装飾レイヤー（v2）
+   本家の「金の装飾枠・肖像・クラスバッジ・分割ゲージ」を再現する
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 金の装飾枠（共通パーツ） ───────────────────────────── */
+.gild{position:relative;
+  background:linear-gradient(160deg,#F7E3A0 0%,#E0AE33 26%,#8A6314 52%,#E5B93F 74%,#FFF0BE 100%);
+  padding:3px;border-radius:12px;
+  box-shadow:0 3px 0 rgba(0,0,0,.55),0 8px 18px rgba(0,0,0,.45),
+             inset 0 1px 0 rgba(255,255,255,.7)}
+.gild > .in{border-radius:9px;overflow:hidden;position:relative}
+.gild::before,.gild::after{content:"";position:absolute;width:9px;height:9px;
+  border:2px solid #FFF0BE;border-radius:2px;opacity:.9;pointer-events:none}
+.gild::before{left:3px;top:3px;border-right:none;border-bottom:none}
+.gild::after{right:3px;bottom:3px;border-left:none;border-top:none}
+
+/* ── HUD 本体（v2） ─────────────────────────────────────── */
+.hud{align-items:flex-end}
+.hud .portrait{position:relative;width:88px;height:88px;flex:0 0 auto}
+.hud .portrait canvas{display:block;width:100%;height:100%}
+.hud .portrait .in{background:radial-gradient(120% 100% at 50% 15%,#54708F,#182740 72%)}
+.hud .cls{position:absolute;left:-5px;top:-6px;z-index:3;font-family:var(--caps);font-size:12px;
+  background:linear-gradient(#FFF0BE,#E0A11A);color:#3A2A10;padding:2px 7px 3px;border-radius:7px;
+  letter-spacing:.02em;border:2px solid #6B4A08;box-shadow:0 2px 0 rgba(0,0,0,.45)}
+.hud .lvl{position:absolute;left:-7px;bottom:-7px;z-index:3;width:30px;height:30px;border-radius:50%;
+  display:grid;place-items:center;font-family:var(--pop);font-size:14px;color:#fff;
+  background:radial-gradient(circle at 34% 28%,#5C7EB8,#1B2E4E 72%);
+  border:2px solid #E0AE33;box-shadow:0 2px 0 rgba(0,0,0,.5)}
+.hud .skillbtn{position:absolute;right:-9px;bottom:-7px;z-index:3;font-size:11px;font-weight:900;
+  padding:3px 8px 4px;border-radius:9px;border:2px solid #205C2A;cursor:pointer;
+  background:linear-gradient(#7DDD84,#31912F);color:#0C2A0E;box-shadow:0 2px 0 rgba(0,0,0,.45);
+  white-space:nowrap;transition:transform .09s,filter .15s}
+.hud .skillbtn:disabled{filter:grayscale(1) brightness(.7);cursor:default}
+.hud .skillbtn.ready{animation:skillReady .8s ease-in-out infinite alternate}
+@keyframes skillReady{from{box-shadow:0 2px 0 rgba(0,0,0,.45),0 0 0 0 rgba(125,221,132,.7)}
+  to{box-shadow:0 2px 0 rgba(0,0,0,.45),0 0 0 7px rgba(125,221,132,0)}}
+.hud .skillbtn:active{transform:translateY(2px)}
+
+.hud .col{min-width:262px;gap:4px}
+.hud .namebar{height:27px;border-radius:6px;position:relative;overflow:hidden;
+  border:1px solid rgba(255,255,255,.28);box-shadow:inset 0 1px 0 rgba(255,255,255,.35)}
+.hud .namebar::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(255,255,255,.28),rgba(255,255,255,0) 55%)}
+.hud .statrow{display:flex;align-items:center;gap:7px;height:27px;
+  background:linear-gradient(#16283Fdd,#0C1728dd);border:1px solid #35506F;border-radius:6px;
+  padding:0 9px}
+.hud.bot .statrow{flex-direction:row-reverse}
+.hud .lbl{font-size:11.5px;padding:2px 6px}
+.hud .gauge{height:11px;border-radius:6px;background:#0a1420;border:1px solid #3A5474;
+  position:relative;overflow:hidden}
+.hud .gauge i{position:relative;z-index:1;
+  background:linear-gradient(90deg,#E08A1A,#F2C230 55%,#FFF7D2);
+  box-shadow:0 0 10px rgba(242,194,48,.9)}
+.hud .gauge::after{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;
+  background:repeating-linear-gradient(90deg,rgba(0,0,0,.55) 0 1px,transparent 1px 12.5%)}
+.hud .gtxt{position:absolute;right:5px;top:-1px;z-index:3;font-size:9px;font-weight:900;
+  color:#FFEFC0;text-shadow:0 1px 2px #000;letter-spacing:.04em}
+
+/* ── ランクバッジ（v2：月桂＋光沢） ─────────────────────── */
+.rankbadge{box-shadow:0 4px 0 rgba(0,0,0,.5),inset 0 0 16px rgba(0,0,0,.65),
+  0 0 18px rgba(242,194,48,.35)}
+.rankbadge::after{content:"";position:absolute;left:14%;top:9%;width:44%;height:30%;
+  border-radius:50%;background:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,0));
+  pointer-events:none}
+
+/* ── 中央プレート（v2：鋲つき羊皮紙） ───────────────────── */
+#plate{border-width:0;padding:3px;border-radius:11px;
+  background:linear-gradient(160deg,#F7E3A0,#C9992B 40%,#7A5A12 62%,#E5B93F 88%,#FFF0BE);
+  box-shadow:0 6px 16px rgba(0,0,0,.6)}
+#plate .hd{border-radius:7px 7px 0 0}
+#plate .bd{position:relative}
+#plate .bd::before,#plate .bd::after{content:"";position:absolute;bottom:5px;width:6px;height:6px;
+  border-radius:50%;background:radial-gradient(circle at 35% 30%,#8B7248,#3A2C12)}
+#plate .bd::before{left:6px}#plate .bd::after{right:6px}
+#plate .timer{font-family:var(--pop);font-size:15px;color:#FFE9A8;letter-spacing:.02em}
+#plate .timer.warn{color:#FF8A6A;animation:tick .6s steps(2) infinite}
+@keyframes tick{50%{opacity:.45}}
+
+/* ── トースト（v2：金枠アイコン） ───────────────────────── */
+.toast{background:linear-gradient(180deg,rgba(32,46,68,.94),rgba(14,24,40,.94));
+  border:1px solid #93A6BE;box-shadow:0 6px 18px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.16)}
+.toast .ic{border:2px solid #E0AE33;
+  background:linear-gradient(155deg,#4A5F82,#16233A);box-shadow:inset 0 0 12px rgba(0,0,0,.6)}
+
+/* ── 権利証カード（傾いた提示） ─────────────────────────── */
+.deedcard{width:320px;border-radius:14px;padding:4px;position:relative;
+  background:linear-gradient(160deg,#F7E3A0,#D3A22C 40%,#8A6314 62%,#E5B93F 88%,#FFF0BE);
+  box-shadow:0 26px 60px rgba(0,0,0,.75);
+  animation:deedIn .5s cubic-bezier(.2,1.3,.35,1) both}
+@keyframes deedIn{
+  0%{opacity:0;transform:rotate(-16deg) scale(.6) translateY(40px)}
+  65%{opacity:1;transform:rotate(-8deg) scale(1.06)}
+  100%{opacity:1;transform:rotate(-6deg) scale(1)}}
+.deedcard .body{background:linear-gradient(#FDF6E6,#E9DCC0);border-radius:10px;overflow:hidden;
+  color:#38291a}
+.deedcard .cap{padding:9px 14px;color:#fff;font-weight:900;font-size:16px;letter-spacing:.04em;
+  text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.deedcard h4{font-family:var(--pop);font-size:26px;text-align:center;padding:12px 10px 4px}
+.deedcard .rows{padding:0 16px 6px;font-size:13.5px}
+.deedcard .rows div{display:flex;justify-content:space-between;padding:4px 0;
+  border-bottom:1px dashed #CBB68E}
+.deedcard .rows b{font-family:var(--pop);font-size:16px;color:#8A4A12}
+.deedcard .seal{position:absolute;right:-14px;bottom:-14px;width:74px;height:74px;border-radius:50%;
+  display:grid;place-items:center;font-size:30px;transform:rotate(-12deg);
+  background:radial-gradient(circle at 34% 28%,#E8564A,#8E1410 72%);
+  border:3px solid #FFD8C8;box-shadow:0 6px 14px rgba(0,0,0,.6)}
+
+/* ── 羊皮紙（買収証書） ─────────────────────────────────── */
+.parch{width:560px;padding:26px 30px 30px;border-radius:6px;position:relative;color:#3B2A16;
+  background:
+    radial-gradient(120% 90% at 20% 10%,rgba(255,255,255,.55),transparent 60%),
+    linear-gradient(#F3E2C1,#E2CDA2);
+  box-shadow:0 24px 60px rgba(0,0,0,.75),inset 0 0 60px rgba(150,110,60,.35);
+  clip-path:polygon(0 2%,3% 0,97% 1%,100% 3%,99% 97%,96% 100%,4% 99%,1% 96%)}
+.parch h3{font-family:"Yu Mincho","Hiragino Mincho ProN",serif;font-size:29px;text-align:center;
+  letter-spacing:.28em;text-indent:.28em;border-bottom:2px solid #9E7A44;padding-bottom:9px}
+.parch p{font-size:14.5px;line-height:2;margin-top:14px;text-align:center}
+.parch .amt{font-family:var(--pop);font-size:38px;text-align:center;color:#8E2A12;margin:6px 0 2px}
+.parch .sign{text-align:right;font-family:"Segoe Script","Brush Script MT",cursive;font-size:21px;
+  margin-top:12px;color:#4A3418}
+
+/* ══════════ キャラクター選択 ══════════ */
+#pick .inner{position:relative;margin:auto;text-align:center;width:1300px;max-width:95%}
+#pick h2{font-family:var(--pop);font-size:34px;color:#FFE08A;
+  -webkit-text-stroke:4px #2a1d06;paint-order:stroke fill}
+#pick .who{margin-top:5px;font-size:16px;color:#B9CEE4}
+#pick .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:20px}
+.chcard{border-radius:16px;padding:3px;cursor:pointer;position:relative;
+  background:linear-gradient(160deg,#3A5170,#16233A);border:2px solid #2F4A6D;
+  transition:transform .16s,box-shadow .16s,border-color .16s}
+.chcard:hover{transform:translateY(-7px)}
+.chcard.sel{border-color:var(--gold);box-shadow:0 0 0 3px rgba(242,194,48,.3),0 14px 30px rgba(0,0,0,.6)}
+.chcard.taken{opacity:.32;pointer-events:none;filter:grayscale(.8)}
+.chcard canvas{display:block;width:100%;height:210px;border-radius:13px 13px 0 0;
+  background:radial-gradient(110% 90% at 50% 22%,#3E5D86,#0E1A2C)}
+.chcard .nm{font-family:var(--pop);font-size:19px;padding:9px 8px 2px;color:#FFE9B5}
+.chcard .role{font-size:12px;color:#8FA9C4;padding-bottom:7px}
+.chcard .ab{margin:0 8px 10px;background:rgba(6,14,26,.75);border:1px solid #2F4A6D;border-radius:9px;
+  padding:8px 9px;font-size:12.2px;line-height:1.65;color:#CBDCEE;text-align:left;min-height:74px}
+.chcard .ab b{color:#FFD24D;display:block;font-size:12.6px;margin-bottom:2px}
+.chcard .tag{position:absolute;right:8px;top:8px;font-size:11px;font-weight:900;padding:2px 8px;
+  border-radius:8px;background:linear-gradient(#FFF0BE,#E0A11A);color:#3A2A10;border:2px solid #6B4A08}
+
+/* ══════════ ローディング ══════════ */
+#loading .inner{position:relative;margin:auto;text-align:center;width:760px;max-width:92%}
+#loading .art{font-size:76px;line-height:1}
+#loading .bar{height:16px;border-radius:9px;background:#0a1420;border:2px solid #3A5474;
+  overflow:hidden;margin-top:20px;position:relative}
+#loading .bar i{display:block;height:100%;width:0%;
+  background:linear-gradient(90deg,#E08A1A,#F2C230 55%,#FFF7D2);
+  box-shadow:0 0 14px rgba(242,194,48,.9);transition:width .18s linear}
+#loading .pct{margin-top:7px;font-family:var(--pop);font-size:17px;color:#FFE08A}
+#loading .tip{margin-top:22px;background:rgba(8,18,32,.8);border:1px solid #2F4A6D;border-radius:12px;
+  padding:14px 18px;font-size:14.5px;line-height:1.85;color:#CBDCEE;text-align:left}
+#loading .tip b{color:#FFD24D;display:block;margin-bottom:4px;font-size:13px;letter-spacing:.1em}
+
+/* ══════════ 能力発動オーバーレイ ══════════ */
+#skillcut{position:absolute;inset:0;z-index:94;display:none;align-items:center;justify-content:center;
+  pointer-events:none}
+#skillcut.on{display:flex}
+#skillcut .band{width:100%;padding:22px 0;text-align:center;
+  background:linear-gradient(90deg,rgba(0,0,0,0),rgba(10,20,36,.92) 18%,rgba(10,20,36,.92) 82%,rgba(0,0,0,0));
+  animation:scIn .45s cubic-bezier(.16,1,.3,1) both}
+@keyframes scIn{from{opacity:0;transform:scaleX(.4)}to{opacity:1;transform:none}}
+#skillcut .t1{font-size:19px;font-weight:900;color:#8FD8E8;letter-spacing:.2em}
+#skillcut .t2{font-family:var(--pop);font-size:52px;line-height:1.1;margin-top:2px;
+  background:linear-gradient(#FFF3C4,#F2C230 55%,#C98A12);-webkit-background-clip:text;
+  background-clip:text;color:transparent;-webkit-text-stroke:7px #2b1c00;paint-order:stroke fill}
+#skillcut .t3{font-size:15px;color:#CBDCEE;margin-top:4px}
+
+/* ══════════ 出目えらび（能力） ══════════ */
+#pickeye{position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);z-index:96;display:none;
+  gap:10px;flex-wrap:wrap;justify-content:center;width:560px}
+#pickeye.on{display:flex}
+#pickeye button{width:62px;height:62px;border-radius:14px;border:3px solid #C9944A;cursor:pointer;
+  font-family:var(--pop);font-size:26px;color:#3A2A10;
+  background:linear-gradient(#FFF3C4,#F2C230);box-shadow:0 5px 0 #8A6314;transition:transform .08s}
+#pickeye button:active{transform:translateY(3px);box-shadow:0 2px 0 #8A6314}
+#pickeye .cap{width:100%;text-align:center;font-size:17px;font-weight:900;color:#FFE08A;
+  -webkit-text-stroke:4px #2a1d06;paint-order:stroke fill;margin-bottom:2px}
+
+/* ══════════ ミニゲーム「悪夢の洞窟脱出」 ══════════ */
+.mg{width:1020px;max-width:94vw;border-radius:26px;padding:16px 18px 14px;position:relative;
+  background:linear-gradient(160deg,#F0B7C6 0%,#D98BA4 24%,#B9647F 52%,#E4A0B6 78%,#F7D0DC 100%);
+  box-shadow:0 26px 70px rgba(0,0,0,.78),inset 0 2px 0 rgba(255,255,255,.55);
+  clip-path:polygon(3% 0,97% 0,100% 12%,100% 88%,97% 100%,3% 100%,0 88%,0 12%)}
+.mghd{text-align:center;font-family:var(--pop);font-size:31px;line-height:1;margin-bottom:12px;
+  background:linear-gradient(#FFF8DC,#F2C230 52%,#B87F12);-webkit-background-clip:text;
+  background-clip:text;color:transparent;-webkit-text-stroke:7px #4A1B2C;paint-order:stroke fill;
+  filter:drop-shadow(0 3px 0 rgba(0,0,0,.45))}
+.mgbody{display:grid;grid-template-columns:150px 1fr 176px;gap:12px;align-items:stretch}
+.mgcap{text-align:center;font-size:12.5px;font-weight:900;color:#5B2B3E;padding:4px 0;
+  background:linear-gradient(#F7DCE5,#E3AFC1);border:2px solid #A8687F;border-radius:9px;
+  margin-bottom:6px}
+.mgleft,.mgright{display:flex;flex-direction:column}
+.mghist{flex:1;background:linear-gradient(#8E4E66,#6B3550);border:2px solid #C98BA1;border-radius:11px;
+  padding:6px 0;text-align:center}
+.mgstage{background:linear-gradient(#FFFDFB,#F0E6E9);border:3px solid #B9647F;border-radius:12px;
+  position:relative;min-height:246px;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:10px;overflow:hidden}
+.mground{position:absolute;left:8px;top:10px;display:flex;flex-direction:column;gap:6px}
+.mground span{width:52px;padding:5px 0 3px;border-radius:8px;text-align:center;
+  font-family:var(--pop);font-size:17px;color:#8A7480;
+  background:linear-gradient(#E6DAE0,#C9B4BE);border:2px solid #A8929C;line-height:1}
+.mground span i{display:block;font-style:normal;font-size:8.5px;letter-spacing:.06em}
+.mground span.now{background:linear-gradient(#FFE9A8,#F2C230);border-color:#8A6314;color:#4A3005;
+  box-shadow:0 0 0 3px rgba(242,194,48,.35)}
+.mground span.won{background:linear-gradient(#B8E9BC,#63BB6C);border-color:#2F7A38;color:#123D18}
+.mgart{font-size:74px;line-height:1}
+.mgmsg{font-size:16px;font-weight:900;color:#5B2B3E;text-align:center;padding:0 14px}
+.mgstakes{display:flex;flex-direction:column;gap:5px;margin-bottom:9px}
+.mgstake{text-align:center;font-family:var(--pop);font-size:19px;padding:5px 0 4px;border-radius:9px;
+  cursor:pointer;color:#8A6E79;background:linear-gradient(#E9D6DD,#CDB2BC);border:2px solid #A8929C}
+.mgstake.on{color:#3A2410;background:linear-gradient(#FFF6D8,#F2C230);border-color:#8A6314;
+  box-shadow:0 0 0 3px rgba(242,194,48,.4)}
+.mgbig{text-align:center;font-family:var(--pop);font-size:30px;line-height:1.15;padding:6px 0 8px;
+  color:#fff;background:linear-gradient(#8E4E66,#5E2B41);border:2px solid #C98BA1;border-radius:11px;
+  margin-bottom:9px;-webkit-text-stroke:3px #46182b;paint-order:stroke fill}
+.mgbig.gold{background:linear-gradient(#7A5A12,#4A3306);
+  color:#FFE08A;-webkit-text-stroke:3px #2A1D06}
+.mgfoot{display:flex;gap:12px;justify-content:center;align-items:center;margin-top:13px}
+.mgarrow{width:150px;height:56px;border-radius:13px;border:3px solid #8A6E79;cursor:pointer;
+  font-size:26px;color:#3A2430;background:linear-gradient(#DCF0E4,#A9CDBA);
+  box-shadow:0 5px 0 rgba(0,0,0,.4);transition:transform .08s}
+.mgarrow:last-child{background:linear-gradient(#E4DCF6,#B0A2D8)}
+.mgarrow:active{transform:translateY(3px);box-shadow:0 2px 0 rgba(0,0,0,.4)}
+.mgstop{width:186px;height:56px;border-radius:13px;border:3px solid #A8929C;cursor:pointer;
+  font-family:var(--pop);font-size:22px;color:#5B2B3E;line-height:1;
+  background:linear-gradient(#FBEEF2,#DCC3CE);box-shadow:0 5px 0 rgba(0,0,0,.4);transition:transform .08s}
+.mgstop i{display:block;font-style:normal;font-family:var(--jp);font-size:11px;font-weight:900;
+  margin-top:3px;color:#7A4C5E}
+.mgstop:active{transform:translateY(3px);box-shadow:0 2px 0 rgba(0,0,0,.4)}
+
+/* ══════════ 手番の大見出し ══════════ */
+#turnbig{position:absolute;left:0;top:36%;width:100%;z-index:93;display:none;text-align:center;
+  pointer-events:none}
+#turnbig.on{display:block;animation:tbIn .3s cubic-bezier(.2,1.5,.4,1) both}
+@keyframes tbIn{from{opacity:0;transform:scale(1.6)}to{opacity:1;transform:scale(1)}}
+#turnbig b{font-family:var(--pop);font-size:58px;
+  -webkit-text-stroke:9px #12203a;paint-order:stroke fill;
+  filter:drop-shadow(0 8px 10px rgba(0,0,0,.6))}
+#turnbig i{display:block;font-style:normal;font-size:17px;font-weight:900;color:#CBDCEE;margin-top:2px;
+  text-shadow:0 2px 6px #000}
+</style>
