@@ -6,10 +6,11 @@
    ══════════════════════════════════════════════════════════════ */
 /* 既定は人物のアニメ立ち絵（dvAnime）。社長の指定は「かわいい女性・いい男性」なので、
    宝石の守護獣は「別の絵柄」として残すだけにする。 */
-let ART_STYLE = 'gem';
-try{ const _a = localStorage.getItem('dv_art'); if(_a==='anime' || _a==='gem') ART_STYLE = _a; }catch(e){}
+/* 既定は人物の立ち絵。画像を assets/chars/ に置けばそちらが優先される */
+let ART_STYLE = 'human';
+try{ const _a = localStorage.getItem('dv_art'); if(_a==='anime'||_a==='gem'||_a==='human') ART_STYLE = _a; }catch(e){}
 function setArtStyle(v){
-  ART_STYLE = (v==='anime') ? 'anime' : 'gem';
+  ART_STYLE = (v==='anime') ? 'anime' : (v==='gem') ? 'gem' : 'human';
   try{ localStorage.setItem('dv_art', ART_STYLE); }catch(e){}
 }
 /* 関数名から実体を引く（未定義でも例外にならない） */
@@ -29,11 +30,97 @@ function _dvSets(){
   _TOK_ANIME  = _dvSet('dvT'); _TOK_GEM  = _dvSet('dvS');
   _setsReady = true;
 }
+/* ══════════════════════════════════════════════════════════════
+   キャラ画像の差しかえ（assets/chars/）
+   ・ビルドが window.DV_CHARIMG に {"c01":"...","t01":"...", ...} を入れる
+     - index.html は "assets/chars/c01.png" のような相対パス
+     - game.html（Artifact）は data URI（外部ファイルを読めないため）
+   ・画像が無いカードは、これまでどおり手続き描画のまま
+   ・読み込みが終わるまでも手続き描画を出すので、絵が消える瞬間は無い
+   ══════════════════════════════════════════════════════════════ */
+const _DV_IMG = Object.create(null);
+function _dvImgSrc(key){
+  try{
+    const g = (typeof globalThis!=='undefined') ? globalThis : window;
+    const m = g && g.DV_CHARIMG;
+    return (m && typeof m[key] === 'string' && m[key]) ? m[key] : '';
+  }catch(e){ return ''; }
+}
+/* 読み込み済みで実際に絵がある時だけ Image を返す。それ以外は null（＝手続き描画） */
+function _dvImg(key){
+  if(!key) return null;
+  let rec = _DV_IMG[key];
+  if(rec === undefined){
+    const src = _dvImgSrc(key);
+    if(!src || typeof Image === 'undefined'){ _DV_IMG[key] = null; return null; }
+    rec = { im:null, ok:false, bad:false };
+    try{
+      const im = new Image();
+      rec.im = im;
+      im.onload  = function(){
+        if(im.naturalWidth > 0 && im.naturalHeight > 0) rec.ok = true; else rec.bad = true;
+        try{ refreshArt(); }catch(e){}
+      };
+      im.onerror = function(){ rec.bad = true; };
+      im.src = src;
+    }catch(e){ rec.bad = true; }
+    _DV_IMG[key] = rec;
+  }
+  if(!rec || rec.bad || !rec.ok) return null;
+  return rec.im;
+}
+/* カードIDから画像の名前を作る。立ち絵は c01、盤のコマは t01 */
+function _dvKeyPort(cardId){
+  const v = (typeof cardId === 'string') ? cardId : '';
+  return /^c\d\d+$/.test(v) ? v : '';
+}
+function _dvKeyTok(cardId){
+  const v = _dvKeyPort(cardId);
+  return v ? ('t' + v.slice(1)) : '';
+}
+/* 箱いっぱいに、縦横比を保って中央でトリミングして描く（CSSの object-fit: cover と同じ） */
+function _dvCover(ctx, im, bx, by, bw, bh){
+  const iw = im.naturalWidth, ih = im.naturalHeight;
+  if(!iw || !ih) return false;
+  const s = Math.max(bw/iw, bh/ih);
+  const dw = iw*s, dh = ih*s;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(bx, by, bw, bh); ctx.clip();
+  try{ ctx.drawImage(im, bx + (bw-dw)/2, by + (bh-dh)/2, dw, dh); }
+  catch(e){ ctx.restore(); return false; }
+  ctx.restore();
+  return true;
+}
+/* 縦横比を保って箱に収める（はみ出さない）。コマ用 */
+function _dvContain(ctx, im, bx, by, bw, bh){
+  const iw = im.naturalWidth, ih = im.naturalHeight;
+  if(!iw || !ih) return false;
+  const s = Math.min(bw/iw, bh/ih);
+  const dw = iw*s, dh = ih*s;
+  try{ ctx.drawImage(im, bx + (bw-dw)/2, by + (bh-dh), dw, dh); }
+  catch(e){ return false; }
+  return true;
+}
+/* 盤のコマの描画枠：接地点が原点（0,0）で、上へ TOK_H px */
+const TOK_W = 104, TOK_H = 92;
+
+/* カードID（c01…c11）から人物の番号（0…10）を出す。無ければ art の番号を使う */
+function _dvHuman(cardId, fallback){
+  const m = /^c(d+)$/.exec(String(cardId||''));
+  if(m){ const k = parseInt(m[1],10) - 1; if(k >= 0) return k % 11; }
+  return ((fallback|0) % 11 + 11) % 11;
+}
 /* 肖像：240x340 の箱に描く（左上原点） */
-function dvPort(id, ctx, T){
+function dvPort(id, ctx, T, cardId){
   _dvSets();
   const i = ((id|0)%8+8)%8;
-  if(ART_STYLE !== 'gem'){
+  const pim = _dvImg(_dvKeyPort(cardId));
+  if(pim && _dvCover(ctx, pim, 0, 0, 240, 340)) return;
+  if(ART_STYLE === 'human'){
+    const h = _dvFn('dvOpm');
+    if(h){ try{ h(ctx, _dvHuman(cardId, i), T||0); return; }catch(e){} }
+  }
+  if(ART_STYLE === 'anime'){
     const a = _dvFn('dvAnime');
     if(a){ try{ a(ctx, i, T||0); return; }catch(e){} }
   }
@@ -42,9 +129,21 @@ function dvPort(id, ctx, T){
   try{ set[i](ctx, T||0); }catch(e){}
 }
 /* 盤の駒：接地点原点・上へ約70px */
-function dvChar(ctx, id, col, T, facing){
+function dvChar(ctx, id, col, T, facing, cardId){
   _dvSets();
   const i = ((id|0)%8+8)%8;
+  const tim = _dvImg(_dvKeyTok(cardId));
+  if(tim){
+    ctx.save();
+    if((facing|0) < 0) ctx.scale(-1, 1);
+    const done = _dvContain(ctx, tim, -TOK_W/2, -TOK_H, TOK_W, TOK_H);
+    ctx.restore();
+    if(done) return;
+  }
+  if(ART_STYLE === 'human'){
+    const h = _dvFn('dvOpmTok');
+    if(h){ try{ h(ctx, _dvHuman(cardId, i), col, T||0, facing||1); return; }catch(e){} }
+  }
   const set = (ART_STYLE==='gem' && _TOK_GEM) ? _TOK_GEM : (_TOK_ANIME || _TOK_GEM);
   if(!set) return;
   try{ set[i](ctx, col, T||0, facing||1); }catch(e){}

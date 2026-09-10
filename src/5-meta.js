@@ -347,7 +347,7 @@ function showHome(){
     + '</div>'
     + weekBannerHTML()
     + '</div>' + walletHTML());
-  regPortrait($('#homePic'), c.art, c.col);
+  regPortrait($('#homePic'), c.art, c.col, c.id);
   wireTabs(el);
   $('#mPlay').onclick  = ()=>{ SFX.click(); screenTo('setup'); };
   $('#mCards').onclick = ()=>{ SFX.click(); showCards(); };
@@ -412,7 +412,7 @@ function drawCardGrid(){
       + '<canvas width="150" height="150"></canvas>'
       + '<div class="b"><div class="n">'+(o?esc(c.nm):'？？？')+'</div>'
       + '<div class="l">'+(o?('Lv.'+o.lv+(o.dup?' ×'+o.dup:'')):'未所持')+'</div></div>';
-    if(o) regPortrait(d.querySelector('canvas'), c.art, c.col);
+    if(o) regPortrait(d.querySelector('canvas'), c.art, c.col, c.id);
     d.onclick = ()=>{ if(!o) return; SFX.click(); cardSel = c.id; drawCardGrid(); drawCardDetail(); };
     g.appendChild(d);
   });
@@ -439,7 +439,7 @@ function drawCardDetail(){
     + '<div style="font-size:11.5px;color:#8FA9C4;margin-top:6px;text-align:center">'
     +   (o.lv>=30 ? 'レベル最大' : (o.dup>0 ? '重なり '+o.dup+' 枚' : 'ガチャで同じカードを引くと強化できます'))+'</div>'
     + '</div></div>';
-  regPortrait($('#cdPic'), c.art, c.col);
+  regPortrait($('#cdPic'), c.art, c.col, c.id);
   $('#cdEquip').onclick = ()=>{ SV.equip = c.id; saveNow(); SFX.click(); drawCardGrid(); drawCardDetail(); };
   $('#cdUp').onclick = ()=>{
     if(!canUp) return;
@@ -577,7 +577,7 @@ async function doGacha(lane, n){
     d.style.animationDelay = (i*70)+'ms';
     d.innerHTML = '<canvas width="150" height="180"></canvas>'
       + '<div class="b">'+esc(c.nm)+'<i>'+RAR[c.rar].nm+'</i></div>';
-    regPortrait(d.querySelector('canvas'), c.art, c.col);
+    regPortrait(d.querySelector('canvas'), c.art, c.col, c.id);
     box.appendChild(d);
     if(c.rar==='SS'){ SFX.gachaRare(); } else SFX.coin();
     await wait(130);
@@ -661,8 +661,8 @@ async function vsScreen(){
     +   '<div class="nm">'+esc(foe.name)+'</div><div class="rl">'+esc(cf.nm)+' ／ '+esc(cf.role)+'</div></div>'
     + '</div>'
     + '<div class="tip"><b>TIP</b>'+esc(VS_TIPS[(Math.random()*VS_TIPS.length)|0])+'</div>';
-  regPortrait($('#vsA'), cm.art, cm.col);
-  regPortrait($('#vsB'), cf.art, cf.col);
+  regPortrait($('#vsA'), cm.art, cm.col, cm.id);
+  regPortrait($('#vsB'), cf.art, cf.col, cf.id);
   el.classList.add('on');
   SFX.skill();
   await wait(2000);
@@ -826,7 +826,7 @@ function roomPhase(){
         const s = cfg.seats[i], cc = cardById(s.cardId) || CARDPOOL[i % CARDPOOL.length];
         const isMe = s.kind !== 'cpu';
         Rr += '<div class="seat' + (isMe?' me':'') + '">'
-          + '<canvas class="sp" data-art="' + cc.art + '" data-col="' + cc.col + '" width="240" height="340"></canvas>'
+          + '<canvas class="sp" data-art="' + cc.art + '" data-col="' + cc.col + '" data-card="' + cc.id + '" width="240" height="340"></canvas>'
           + '<div class="nm">' + esc(s.name) + '</div>'
           + '<div class="cd">' + esc(cc.nm) + '</div>'
           + '<div class="st' + (isMe?'':' cpu') + '">' + (isMe ? '準備OK' : 'CPU') + '</div>'
@@ -873,9 +873,9 @@ function roomPhase(){
         +   '<button class="btn gold" id="roomGo">ゲームスタート</button>'
         + '</div></div>';
 
-      regPortrait(el.querySelector('#roomPic'), c.art, c.col);
+      regPortrait(el.querySelector('#roomPic'), c.art, c.col, c.id);
       el.querySelectorAll('.seat canvas.sp').forEach(cv=>{
-        regPortrait(cv, +cv.dataset.art, cv.dataset.col);
+        regPortrait(cv, +cv.dataset.art, cv.dataset.col, cv.dataset.card);
       });
 
       el.querySelectorAll('.pslot').forEach(b=>{
@@ -1058,7 +1058,7 @@ function drawKrGrid(){
       + '<span class="rr">'+RAR[c.rar].nm+'</span>'
       + '<span class="st">✹</span>'
       + (SV.equip===c.id?'<span class="eq">装備</span>':'');
-    if(o) regPortrait(d.querySelector('canvas'), c.art, c.col);
+    if(o) regPortrait(d.querySelector('canvas'), c.art, c.col, c.id);
     d.onclick = ()=>{ if(!o) return; SFX.click(); krCardSel=c.id; drawKrGrid(); drawKrLeft(); drawKrCard(); };
     g.appendChild(d);
   });
@@ -1076,7 +1076,7 @@ function drawKrLeft(){
   other.innerHTML = rest.map(x=>thumb(x,false)).join('');
   [set,other].forEach(box=>box.querySelectorAll('.kr-thumb').forEach(t=>{
     const id = t.dataset.id;
-    regPortrait(t.querySelector('canvas'), cardById(id).art, cardById(id).col);
+    regPortrait(t.querySelector('canvas'), cardById(id).art, cardById(id).col, id);
     t.onclick = ()=>{ SFX.click(); krCardSel=id; drawKrGrid(); drawKrLeft(); drawKrCard(); };
   }));
 }
@@ -1104,7 +1104,7 @@ function drawKrCard(){
     +   '<b class="gem"  title="'+esc(c.sk.nm)+'">💎</b>'
     + '</div>'
     + '<span class="kr-star">✹</span>';
-  regPortrait(document.getElementById('krPic'), c.art, c.col);
+  regPortrait(document.getElementById('krPic'), c.art, c.col, c.id);
   // 本家（日本版）のカード画面は7つのステータスバーが主役。ここが無いと育てる意味が見えない
   const st = cardStats(c.id, o.lv, SV.equip===c.id ? SV.slots : []);
   bar.innerHTML = '<div class="kr-drop"><span class="no">'+o.lv+'</span>'

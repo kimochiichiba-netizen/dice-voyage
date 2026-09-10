@@ -586,7 +586,7 @@ function drawToken(ctx, G, pi, T){
     ctx.restore();
   }
   ctx.save(); ctx.scale(1/sq, sq);
-  dvChar(ctx, p.ch, PCOL[pi], T + pi*700, p.face||1);
+  dvChar(ctx, p.ch, PCOL[pi], T + pi*700, p.face||1, p.card);
   ctx.restore();
   // 名前ラベル
   ctx.save();

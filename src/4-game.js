@@ -245,7 +245,7 @@ function layoutTokens(){
 
 /* ══════════ 肖像キャンバス ══════════ */
 const portraits = [];
-function regPortrait(el, chId, col){ if(el) portraits.push({el, chId, col}); }
+function regPortrait(el, chId, col, cardId){ if(el) portraits.push({el, chId, col, cardId}); }
 let portAt = -1e9;
 function paintPortraits(T){
   if(T - portAt < 70) return;      // 肖像は約14fpsで十分（重い描画なので間引く）
@@ -259,7 +259,7 @@ function paintPortraits(T){
     const s = Math.min(W/240, H/340);
     c.translate((W - 240*s)/2, (H - 340*s)/2);
     c.scale(s, s);
-    dvPort(o.chId, c, T + o.chId*430);
+    dvPort(o.chId, c, T + o.chId*430, o.cardId);
     c.restore();
   }
 }
@@ -411,10 +411,10 @@ function fillHUD(sfx, pi, cls){
   $('#f'+sfx+'Cls').textContent = cls==='bot' ? '手番' : (p.kind==='cpu' ? 'CPU' : 'P'+(pi+1));
   const lv = $('#f'+sfx+'Lvl'); if(lv) lv.textContent = (p.laps+1);
   const pic = $('#f'+sfx+'Pic');
-  if(pic.dataset.ch !== String(p.ch) || pic.dataset.col !== PCOL[pi]){
-    pic.dataset.ch = p.ch; pic.dataset.col = PCOL[pi];
+  if(pic.dataset.ch !== String(p.ch) || pic.dataset.col !== PCOL[pi] || pic.dataset.card !== String(p.card||'')){
+    pic.dataset.ch = p.ch; pic.dataset.col = PCOL[pi]; pic.dataset.card = p.card||'';
     const ex = portraits.find(o=>o.el===pic);
-    if(ex){ ex.chId = p.ch; ex.col = PCOL[pi]; } else regPortrait(pic, p.ch, PCOL[pi]);
+    if(ex){ ex.chId = p.ch; ex.col = PCOL[pi]; ex.cardId = p.card; } else regPortrait(pic, p.ch, PCOL[pi], p.card);
   }
   rollNum($('#f'+sfx+'Cash'), p.cash);
   rollNum($('#f'+sfx+'Asset'), assetOf(G,pi));
@@ -1924,7 +1924,7 @@ async function pickPhase(){
         + '<div class="ab"><b>'+esc(c.sk.nm)+'（'+c.sk.uses+'回）</b>'+esc(c.sk.ds)+'</div>'
         + '<div class="stw">'+statRows(st)+'</div>'
         + '</div>';
-      regPortrait(d.querySelector('canvas'), c.art, c.col);
+      regPortrait(d.querySelector('canvas'), c.art, c.col, c.id);
       d.onclick = ()=>{ if(taken.has(c.id)) return; SFX.click(); pickOne(activeSeat, c.id); };
       grid.appendChild(d);
     });
