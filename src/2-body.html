@@ -1,0 +1,183 @@
+
+<div id="viewport">
+  <div id="stage">
+
+    <!-- ═══ 世界（盤・コマ・建物）═══ -->
+    <canvas id="world" width="1600" height="900"></canvas>
+
+    <!-- ═══ 中央インフォプレート ═══ -->
+    <div id="plate">
+      <div class="hd"><span>のこり <em id="pTurn">30</em> ターン</span><span>1位 <em id="pGoalL">—</em></span></div>
+      <div class="bd" id="pGoal">2000万</div>
+    </div>
+
+    <!-- ═══ ティッカー ═══ -->
+    <div id="ticker"><b id="tickerText">ダイスボヤージュへようこそ！</b></div>
+
+    <!-- ═══ HUD ═══ -->
+    <div class="hud top" id="hudTop">
+      <div class="face" id="fTopFace"><span class="cls" id="fTopCls">CPU</span>🦊</div>
+      <div class="col">
+        <div class="namebar" id="fTopName">—</div>
+        <div class="row"><span class="lbl">総資産</span><span class="sub" id="fTopAsset">0</span></div>
+        <div class="row"><span class="lbl">所持金</span><span class="big" id="fTopCash">0</span></div>
+        <div class="gauge"><i id="fTopGauge" style="width:0%"></i></div>
+      </div>
+    </div>
+    <div class="rankbadge red" id="rTop" style="left:26.5%;top:1.6%">1<span>位</span></div>
+
+    <div class="hud bot" id="hudBot">
+      <div class="face" id="fBotFace"><span class="cls" id="fBotCls">YOU</span>🐧</div>
+      <div class="col">
+        <div class="namebar" id="fBotName">—</div>
+        <div class="row"><span class="lbl">総資産</span><span class="sub" id="fBotAsset">0</span></div>
+        <div class="row"><span class="lbl">所持金</span><span class="big" id="fBotCash">0</span></div>
+        <div class="gauge"><i id="fBotGauge" style="width:0%"></i></div>
+      </div>
+    </div>
+    <div class="rankbadge" id="rBot" style="right:26.5%;bottom:2%">2<span>位</span></div>
+
+    <!-- 3〜4人目の小型HUD -->
+    <div id="sideHud" class="abs" style="left:1%;top:35%;z-index:80;display:flex;flex-direction:column;gap:6px"></div>
+
+    <!-- ═══ 凡例 ═══ -->
+    <div id="legend"></div>
+
+    <!-- ═══ サイコロ UI ═══ -->
+    <div id="diceui">
+      <canvas id="gauge" width="620" height="280"></canvas>
+      <button class="oddeven" id="odd">奇数<u id="oddN">2</u></button>
+      <button class="oddeven" id="even">偶数<u id="evenN">2</u></button>
+      <button id="push">押す</button>
+    </div>
+    <div id="chip">7</div>
+    <div id="dbl">ゾロ目！</div>
+
+    <!-- ═══ トースト ═══ -->
+    <div id="toastL"></div>
+    <div id="toastR"></div>
+
+    <!-- ═══ 告知帯 ═══ -->
+    <div id="band"><b id="bandT"></b><i id="bandS"></i></div>
+
+    <!-- ═══ 祝勝 ═══ -->
+    <div id="celebrate">
+      <div id="flash"></div>
+      <div class="l1" id="cel1">おめでとうございます！</div>
+      <div class="l2" id="cel2">独占</div>
+      <div class="l3" id="cel3">通行料 ×2倍</div>
+    </div>
+
+    <!-- ═══ エモート・サウンド ═══ -->
+    <div id="emoteflow"></div>
+    <div id="emotebar">
+      <button data-e="😆">😆</button><button data-e="😭">😭</button><button data-e="😡">😡</button>
+      <button data-e="😱">😱</button><button data-e="🤑">🤑</button><button data-e="👏">👏</button>
+    </div>
+    <button id="emotebtn">😆</button>
+    <button id="sound">🔊</button>
+    <button id="menu">⏸</button>
+
+    <!-- ═══ モーダル ═══ -->
+    <div id="modalWrap"><div class="backdrop"></div><div id="modalBody"></div></div>
+
+    <!-- ═══════════ タイトル ═══════════ -->
+    <div class="screen on" id="title">
+      <div class="wrap">
+        <div class="logo">ダイスボヤージュ</div>
+        <div class="sub">DICE VOYAGE</div>
+        <div class="lead">
+          サイコロを振って街を買い、建てて、独占する。<br>
+          <b>横画面</b>で遊ぶボードゲーム。最大4人・CPU対戦つき。
+        </div>
+        <div class="go"><button class="btn gold" id="toSetup">はじめる</button></div>
+      </div>
+      <div class="credit">株式会社気持ち市場 — オリジナルボードゲーム（実在の通貨は一切使いません）</div>
+    </div>
+
+    <!-- ═══════════ セットアップ ═══════════ -->
+    <div class="screen" id="setup">
+      <div class="inner">
+        <div class="panel">
+          <h3>① マップを選ぶ</h3>
+          <div class="maps" id="mapList"></div>
+          <h3 style="margin-top:18px">③ ルール</h3>
+          <div class="optrow">
+            <label class="opt">ターン数
+              <select id="optTurns"><option value="20">20</option><option value="30" selected>30</option><option value="45">45</option></select>
+            </label>
+            <label class="opt">所持金
+              <select id="optCash"><option value="15000000">1500万</option><option value="20000000" selected>2000万</option><option value="30000000">3000万</option></select>
+            </label>
+            <label class="opt">CPUの強さ
+              <select id="optAI"><option value="0">よわい</option><option value="1" selected>ふつう</option><option value="2">つよい</option></select>
+            </label>
+            <label class="opt">アニメ速度
+              <select id="optSpeed"><option value="1.4">ゆっくり</option><option value="1" selected>ふつう</option><option value="0.62">はやい</option></select>
+            </label>
+          </div>
+          <div class="rules" style="margin-top:12px">
+            <b>勝ち方</b>は3つ。<b>①独占</b>＝同じ色の街をぜんぶ持つ／同じ辺の街をぜんぶ持つ＝その場で勝ち。
+            <b>②破産</b>＝ほかの人が全員お金を払えなくなる。<b>③ターン切れ</b>＝最後に総資産が一番多い人。<br>
+            ゾロ目が出たらもう一回振れます（3回連続で氷の監獄行き）。
+          </div>
+        </div>
+        <div class="panel">
+          <h3>② プレイヤー</h3>
+          <div class="optrow" style="margin:0 0 11px">
+            <label class="opt">人数
+              <select id="optPlayers"><option value="2">2人</option><option value="3">3人</option><option value="4" selected>4人</option></select>
+            </label>
+          </div>
+          <div class="seats" id="seatList"></div>
+          <div class="rules" style="margin-top:13px">
+            <b>あなた</b>＝この端末で操作／<b>CPU</b>＝コンピュータ／<b>ともだち</b>＝同じ端末を回して遊ぶ。
+          </div>
+        </div>
+        <div class="foot">
+          <button class="btn ghost" id="backTitle">もどる</button>
+          <button class="btn gold" id="startGame">ゲームスタート</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ 順番決め ═══════════ -->
+    <div class="screen" id="order">
+      <div class="inner">
+        <h2>順番を決める</h2>
+        <p id="orderWho">カードを1枚えらんでください</p>
+        <div class="cards" id="orderCards"></div>
+      </div>
+    </div>
+
+    <!-- ═══════════ リザルト ═══════════ -->
+    <div class="screen" id="result">
+      <div class="inner">
+        <div class="crown">👑</div>
+        <h2>WIN</h2>
+        <div class="win" id="resWin">—</div>
+        <div class="reason" id="resReason">—</div>
+        <table><thead><tr><th></th><th>プレイヤー</th><th>所持金</th><th>不動産</th><th>総資産</th></tr></thead>
+          <tbody id="resRows"></tbody></table>
+        <div class="foot">
+          <button class="btn gold" id="againSame">もう一回（同じ設定）</button>
+          <button class="btn ghost" id="againSetup">設定を変える</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /#stage -->
+</div><!-- /#viewport -->
+
+<!-- ═══════════ 回転ヒント ═══════════ -->
+<div id="rotate">
+  <div class="ph"></div>
+  <b>端末を横にしてください</b>
+  <small>このゲームは横画面（ランドスケープ）で遊ぶ設計です。<br>
+    自動回転がロックされている場合は、下のボタンで縦のまま遊べます。<br>
+    画面が逆さまなら、もう片方のボタンを押してください。</small>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+    <button class="btn gold" id="playPortrait">縦のままプレイ ↻</button>
+    <button class="btn ghost" id="playPortrait2">逆向き ↺</button>
+  </div>
+</div>

@@ -1,0 +1,403 @@
+<title>ダイスボヤージュ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Noto+Sans+JP:wght@500;700;900&family=Bungee&display=swap">
+<style>
+/* ══════════════════════════════════════════════════════════════
+   ダイスボヤージュ — 横画面ボードゲーム
+   設計: 1600x900 の固定ステージを viewport に合わせて拡大縮小する。
+   これにより「縦横比が変わってもレイアウト計算が1つも変わらない」。
+   ══════════════════════════════════════════════════════════════ */
+
+:root{
+  /* 氷の洞窟（既定マップ） */
+  --abyss:#061223; --deep:#0B1E3A; --mid:#12365C;
+  --ice:#6FC3D8; --ice-hi:#8FD8E8; --ice-lo:#3E7C93;
+  --slab:#B8AEDA; --slab-side:#6A5F96; --slab-rim:#D4DCE7;
+
+  /* 共通 UI */
+  --gold:#F2C230; --gold-hi:#FFE08A; --gold-lo:#E8A11A; --gold-ink:#3A2A10;
+  --magenta:#F372DD; --magenta-deep:#C9186E;
+  --danger:#E8341C; --danger-deep:#8E1410;
+  --ok:#4CB050;
+  --navy:#16283F; --navy2:#0F1D30; --chip:#1E2A3C;
+  --seat-a:#E14A5A; --seat-b:#3E8FE0; --seat-c:#54C06A; --seat-d:#E0A73C;
+  --paper:#F0E7D6; --paper-ink:#3A2E1C; --paper-rule:#C9A961;
+
+  --jp:"Noto Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+  --pop:"Mochiy Pop One","Noto Sans JP",sans-serif;
+  --caps:"Bungee","Noto Sans JP",sans-serif;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:#04070f;font-family:var(--jp);color:#fff;
+  overscroll-behavior:none;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+
+#viewport{position:fixed;inset:0;overflow:hidden;background:
+  radial-gradient(120% 90% at 50% 20%,#0d2340 0%,#050b16 60%,#02040a 100%)}
+
+/* ── 固定ステージ ───────────────────────────────────────── */
+#stage{position:absolute;left:50%;top:50%;width:1600px;height:900px;
+  transform-origin:50% 50%;transform:translate(-50%,-50%) scale(1);
+  background:var(--abyss);overflow:hidden;
+  box-shadow:0 0 0 2px rgba(255,255,255,.05),0 30px 90px rgba(0,0,0,.8)}
+#stage.rot{}
+
+/* すべての子は % 座標で置く */
+.abs{position:absolute}
+
+/* ── 世界（Canvas） ────────────────────────────────────── */
+#world{position:absolute;inset:0;width:100%;height:100%;display:block}
+
+/* ══════════ 上段 HUD（相手） / 下段 HUD（自分） ══════════ */
+.hud{position:absolute;display:flex;align-items:center;gap:8px;z-index:80;
+  pointer-events:none;transition:opacity .25s}
+.hud .face{width:82px;height:82px;border-radius:10px;flex:0 0 auto;position:relative;
+  background:linear-gradient(160deg,#5b6b86,#22304a);
+  border:3px solid var(--gold);box-shadow:0 3px 0 rgba(0,0,0,.5),inset 0 0 18px rgba(0,0,0,.5);
+  overflow:hidden;display:grid;place-items:center;font-size:42px;line-height:1}
+.hud .face .cls{position:absolute;left:-2px;top:-2px;font-family:var(--caps);font-size:13px;
+  background:linear-gradient(#FFE08A,#E8A11A);color:#3A2A10;padding:1px 6px 2px;border-radius:8px 0 8px 0;
+  letter-spacing:.02em}
+.hud .col{display:flex;flex-direction:column;gap:3px;min-width:250px}
+.hud .namebar{display:flex;align-items:center;gap:6px;height:26px;padding:0 12px;border-radius:13px;
+  font-weight:900;font-size:15px;letter-spacing:.02em;white-space:nowrap;overflow:hidden;
+  text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.hud .row{display:flex;align-items:center;gap:7px;height:26px}
+.hud .lbl{font-size:12px;font-weight:900;background:var(--chip);color:#D7E2F0;
+  padding:3px 7px;border-radius:5px;letter-spacing:.06em;flex:0 0 auto}
+.hud .big{font-family:var(--pop);font-size:31px;line-height:1;letter-spacing:.01em;
+  background:linear-gradient(#FFE08A 0%,#F2B01E 100%);-webkit-background-clip:text;background-clip:text;
+  color:transparent;-webkit-text-stroke:3px #2A1D06;paint-order:stroke fill;
+  filter:drop-shadow(0 2px 0 rgba(0,0,0,.55))}
+.hud .sub{font-family:var(--pop);font-size:21px;line-height:1;color:#9FD8F8;
+  -webkit-text-stroke:2.5px #0C1B2E;paint-order:stroke fill}
+.hud.top .sub{color:#F79FAE;-webkit-text-stroke-color:#3A0E18}
+.hud .gauge{height:9px;border-radius:5px;background:#0d1826;border:1px solid #33465e;overflow:hidden}
+.hud .gauge i{display:block;height:100%;background:linear-gradient(90deg,#F2C230,#FFF3C0);
+  box-shadow:0 0 8px rgba(242,194,48,.8)}
+
+.hud.top{left:0.6%;top:1.2%}
+.hud.bot{right:0.6%;bottom:1.4%;flex-direction:row-reverse}
+.hud.bot .col{align-items:flex-end}
+.hud.bot .row{flex-direction:row-reverse}
+.hud.bot .namebar{flex-direction:row-reverse}
+
+.rankbadge{position:absolute;z-index:81;width:74px;height:74px;border-radius:50%;
+  display:grid;place-items:center;font-family:var(--pop);font-size:27px;
+  background:radial-gradient(circle at 35% 28%,#4a6ea8,#132D54 70%);
+  border:4px solid var(--gold);box-shadow:0 4px 0 rgba(0,0,0,.5),inset 0 0 14px rgba(0,0,0,.6);
+  color:#FFE08A;-webkit-text-stroke:3px #241a05;paint-order:stroke fill;letter-spacing:-.02em}
+.rankbadge.red{background:radial-gradient(circle at 35% 28%,#e0574a,#9E1710 70%)}
+.rankbadge span{font-size:17px}
+
+/* ══════════ 上部ティッカー ══════════ */
+#ticker{position:absolute;left:31%;top:.9%;width:38%;height:5.4%;z-index:80;
+  background:linear-gradient(#101828e6,#0a1120e6);border:1px solid #2c3d57;border-radius:6px;
+  overflow:hidden;display:flex;align-items:center;box-shadow:0 3px 10px rgba(0,0,0,.5)}
+#ticker b{display:inline-block;white-space:nowrap;font-size:16px;font-weight:900;color:#F5D76E;
+  text-shadow:0 1px 0 #000;padding-left:100%;animation:ticker 17s linear infinite}
+@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-100%)}}
+
+/* ══════════ 中央インフォプレート ══════════ */
+#plate{position:absolute;left:50%;top:24.5%;transform:translateX(-50%);z-index:40;min-width:264px;
+  border-radius:7px;overflow:hidden;border:2px solid var(--paper-rule);
+  box-shadow:0 6px 14px rgba(0,0,0,.55),inset 0 0 0 3px #F7E7DB;text-align:center}
+#plate .hd{background:#7F5F44;color:#EFDCA8;font-size:13px;font-weight:900;padding:3px 12px;
+  display:flex;justify-content:center;gap:14px;letter-spacing:.03em;white-space:nowrap}
+#plate .hd em{font-style:normal;color:#fff;font-family:var(--pop);font-size:15px}
+#plate .bd{background:var(--paper);color:#141414;font-family:var(--pop);font-size:27px;
+  line-height:1.2;padding:2px 14px 5px;white-space:nowrap}
+
+/* ══════════ トースト / 告知 ══════════ */
+.toast{position:relative;z-index:82;display:flex;align-items:center;gap:11px;max-width:100%;
+  background:rgba(24,36,54,.9);border:1px solid #7d8fa6;border-radius:9px;padding:9px 15px;
+  box-shadow:0 6px 18px rgba(0,0,0,.55);animation:toastIn .25s cubic-bezier(.16,1,.3,1) both}
+.toast.out{animation:toastOut .2s ease-in both}
+.toast .ic{width:44px;height:44px;border-radius:8px;flex:0 0 auto;display:grid;place-items:center;
+  font-size:25px;background:linear-gradient(150deg,#3d5170,#1b2740);border:2px solid var(--gold)}
+.toast .tx{min-width:0}
+.toast .tx b{display:block;font-size:17px;font-weight:900;color:#FFD84D;white-space:nowrap;
+  -webkit-text-stroke:.6px #23180a;paint-order:stroke fill}
+.toast .tx i{display:block;font-style:normal;font-size:13.5px;color:#D8E4F2;margin-top:1px;white-space:nowrap}
+@keyframes toastIn{from{opacity:0;transform:translateX(-38px)}to{opacity:1;transform:none}}
+@keyframes toastOut{to{opacity:0;transform:translateX(-24px)}}
+#toastL{position:absolute;left:1.2%;top:18.5%;width:37%;z-index:82;display:flex;flex-direction:column;gap:7px}
+#toastR{position:absolute;right:6.5%;bottom:18.5%;width:33%;z-index:82;display:flex;flex-direction:column;
+  align-items:flex-end;gap:7px}
+#toastR .toast{animation-name:toastInR;flex-direction:row-reverse}
+@keyframes toastInR{from{opacity:0;transform:translateX(38px)}to{opacity:1;transform:none}}
+
+/* 金額ピル */
+.pill{position:absolute;z-index:83;display:flex;align-items:center;gap:10px;padding:5px 22px 8px 14px;
+  border-radius:11px;animation:pillIn .3s cubic-bezier(.2,1.5,.4,1) both}
+.pill.up{background:linear-gradient(#7a6029,#4c3a14)}
+.pill.dn{background:linear-gradient(#465059,#2b3238)}
+.pill .ar{font-size:30px;line-height:1}
+.pill.up .ar{color:#F2A81A}.pill.dn .ar{color:#63B4F2}
+.pill em{font-style:normal;font-family:var(--pop);font-size:56px;line-height:1;letter-spacing:.01em}
+.pill.up em{background:linear-gradient(#FFE79E,#F0A80E);-webkit-background-clip:text;background-clip:text;
+  color:transparent;-webkit-text-stroke:4px #3a2405;paint-order:stroke fill}
+.pill.dn em{background:linear-gradient(#FFFFFF,#BFCBD8);-webkit-background-clip:text;background-clip:text;
+  color:transparent;-webkit-text-stroke:4px #16283F;paint-order:stroke fill}
+.pill.fade{animation:pillOut .45s ease-in both}
+@keyframes pillIn{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
+@keyframes pillOut{to{opacity:0;transform:translateY(-26px)}}
+
+/* 全幅アナウンス帯 */
+#band{position:absolute;left:0;top:41.5%;width:100%;height:16%;z-index:90;display:none;
+  flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.82) 22%,rgba(0,0,0,.82) 78%,rgba(0,0,0,0))}
+#band.on{display:flex;animation:bandIn .25s ease-out both}
+#band b{font-size:44px;font-weight:900;letter-spacing:.03em;text-shadow:0 4px 10px rgba(0,0,0,.8)}
+#band i{font-style:normal;font-size:20px;color:#CBD9EA}
+@keyframes bandIn{from{opacity:0}to{opacity:1}}
+
+/* ══════════ サイコロ UI ══════════ */
+#diceui{position:absolute;left:0;top:0;width:100%;height:100%;z-index:50;display:none;pointer-events:none}
+#diceui.on{display:block}
+#gauge{position:absolute;left:50%;top:44.5%;transform:translateX(-50%);width:40%;height:17%;pointer-events:none}
+#push{position:absolute;left:50%;top:64%;transform:translateX(-50%);width:132px;height:132px;border-radius:50%;
+  border:6px solid #C9944A;cursor:pointer;pointer-events:auto;
+  background:radial-gradient(circle at 38% 30%,#F79AD8,#C9186E 72%);
+  box-shadow:0 8px 0 #7d0f45,0 14px 26px rgba(0,0,0,.55),inset 0 0 26px rgba(255,255,255,.25);
+  font-family:var(--pop);font-size:38px;color:#fff;-webkit-text-stroke:4px #8d1450;paint-order:stroke fill;
+  animation:pushPulse .9s ease-in-out infinite alternate;transition:transform .08s}
+#push:active{transform:translateX(-50%) scale(.94);box-shadow:0 3px 0 #7d0f45,0 6px 14px rgba(0,0,0,.5)}
+@keyframes pushPulse{from{transform:translateX(-50%) scale(1)}to{transform:translateX(-50%) scale(1.055)}}
+.oddeven{position:absolute;top:58.5%;width:108px;height:54px;border-radius:27px;cursor:pointer;
+  pointer-events:auto;font-family:var(--pop);font-size:24px;color:#fff;
+  -webkit-text-stroke:3.5px #12243c;paint-order:stroke fill;
+  background:rgba(24,44,74,.62);border:2px solid rgba(200,225,255,.5);
+  box-shadow:0 5px 0 rgba(0,0,0,.4);transition:transform .08s,background .15s}
+.oddeven:active{transform:scale(.94)}
+.oddeven.dim{opacity:.42;pointer-events:none}
+#odd{left:34.5%}#even{right:34.5%}
+.oddeven u{position:absolute;right:-6px;top:-9px;text-decoration:none;font-family:var(--jp);font-size:12px;
+  font-weight:900;background:var(--gold);color:#3A2A10;border-radius:9px;padding:1px 7px;
+  -webkit-text-stroke:0;border:2px solid #4a3606}
+
+/* 出目チップ */
+#chip{position:absolute;left:50%;top:22%;transform:translate(-50%,-50%) scale(0);z-index:60;
+  width:150px;height:150px;border-radius:50%;display:grid;place-items:center;
+  background:radial-gradient(circle at 40% 32%,#ffffff,#dfe9f4 68%,#b9c9dc);
+  box-shadow:0 0 34px rgba(180,225,255,.9),0 10px 22px rgba(0,0,0,.5),inset 0 -8px 14px rgba(0,0,0,.12);
+  font-family:var(--pop);font-size:78px;color:#2a3340;line-height:1}
+#chip.pop{animation:chipPop .32s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes chipPop{0%{transform:translate(-50%,-50%) scale(.4);opacity:0}
+  60%{transform:translate(-50%,-50%) scale(1.16);opacity:1}
+  100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
+#chip.hide{animation:chipOut .28s ease-in both}
+@keyframes chipOut{to{transform:translate(-50%,-50%) scale(.5);opacity:0}}
+#dbl{position:absolute;left:50%;top:12.4%;transform:translateX(-50%) scale(0);z-index:61;
+  background:linear-gradient(#FFAE3A,#E8730C);border:3px solid #7d3c02;border-radius:9px;
+  padding:3px 16px 5px;font-family:var(--pop);font-size:24px;color:#fff;
+  -webkit-text-stroke:3px #7d3c02;paint-order:stroke fill;box-shadow:0 5px 0 rgba(0,0,0,.4)}
+#dbl.pop{animation:chipPop .3s cubic-bezier(.2,1.6,.4,1) .1s both}
+
+/* ══════════ エモート ══════════ */
+#emotebtn{position:absolute;right:1%;bottom:19%;width:70px;height:70px;border-radius:14px;z-index:84;
+  border:2px solid #6d8098;cursor:pointer;font-size:36px;display:grid;place-items:center;
+  background:linear-gradient(#33445f,#1b2740);box-shadow:0 5px 0 rgba(0,0,0,.45)}
+#emotebar{position:absolute;right:1%;bottom:29%;z-index:84;display:none;gap:6px;
+  background:rgba(16,26,42,.9);border:1px solid #5d708c;border-radius:12px;padding:8px}
+#emotebar.on{display:flex;animation:toastInR .2s ease-out both}
+#emotebar button{width:54px;height:54px;border:none;border-radius:9px;background:#22314a;font-size:29px;
+  cursor:pointer;transition:transform .1s}
+#emotebar button:active{transform:scale(.9)}
+#emoteflow{position:absolute;left:1.2%;bottom:24%;z-index:82;display:flex;gap:5px}
+.emo{font-size:44px;animation:emoPop .3s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes emoPop{from{transform:scale(0)}60%{transform:scale(1.22)}to{transform:scale(1)}}
+
+/* ══════════ モーダル ══════════ */
+#modalWrap{position:absolute;inset:0;z-index:99;display:none;align-items:center;justify-content:center}
+#modalWrap.on{display:flex}
+#modalWrap .backdrop{position:absolute;inset:0;background:rgba(4,10,20,.55);backdrop-filter:blur(2px)}
+.modal{position:relative;animation:modalIn .26s cubic-bezier(.34,1.56,.64,1) both;max-width:88%}
+@keyframes modalIn{0%{opacity:0;transform:scale(.72)}60%{opacity:1;transform:scale(1.04)}100%{opacity:1;transform:scale(1)}}
+
+/* 権利証 / 建設パネル */
+.deed{width:660px;background:linear-gradient(#FBF3E2,#EADFC6);border-radius:14px;
+  border:4px solid var(--paper-rule);color:var(--paper-ink);overflow:hidden;
+  box-shadow:0 24px 60px rgba(0,0,0,.7)}
+.deed .dhd{display:flex;align-items:center;gap:12px;padding:11px 18px;color:#fff;
+  background:linear-gradient(180deg,#2e4a75,#1b2f4e);border-bottom:3px solid var(--paper-rule)}
+.deed .dhd .sw{width:30px;height:30px;border-radius:7px;border:2px solid #fff6}
+.deed .dhd b{font-size:25px;font-weight:900;letter-spacing:.02em}
+.deed .dhd span{margin-left:auto;font-family:var(--pop);font-size:19px;color:#FFE08A}
+.deed .dbd{padding:15px 18px 17px}
+.buildgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.bcard{border:3px solid #CBB68E;border-radius:11px;padding:9px 6px 11px;text-align:center;cursor:pointer;
+  background:linear-gradient(#FFFDF6,#F0E4CA);transition:transform .12s}
+.bcard:hover{transform:translateY(-3px)}
+.bcard.own{background:linear-gradient(#DDF3DC,#BFE3BE);border-color:#5FA95E}
+.bcard.dis{opacity:.4;pointer-events:none;filter:grayscale(1)}
+.bcard .ico{font-size:38px;line-height:1.05}
+.bcard .nm{font-size:14px;font-weight:900;margin-top:3px}
+.bcard .pr{font-family:var(--pop);font-size:17px;color:#8A5A12;margin-top:2px}
+.bcard .tl{font-size:11.5px;color:#6b5a3c;margin-top:2px}
+.bcard.sel{outline:4px solid var(--gold);outline-offset:1px}
+.deed .sums{display:flex;justify-content:space-between;align-items:center;margin-top:13px;
+  border-top:2px dashed #C4AF83;padding-top:11px;font-size:15px;font-weight:900}
+.deed .sums em{font-style:normal;font-family:var(--pop);font-size:30px;color:#B2411C}
+.btnrow{display:flex;gap:11px;margin-top:14px;justify-content:flex-end}
+.btn{border:none;border-radius:10px;padding:11px 26px;font-family:var(--pop);font-size:21px;cursor:pointer;
+  box-shadow:0 5px 0 rgba(0,0,0,.35);transition:transform .08s}
+.btn:active{transform:translateY(3px);box-shadow:0 2px 0 rgba(0,0,0,.35)}
+.btn.gold{background:linear-gradient(#FDCB3E,#E39A18);color:#4A3005;text-shadow:0 1px 0 #ffe9a8}
+.btn.ghost{background:linear-gradient(#98A9BE,#6D7E94);color:#fff}
+.btn.red{background:linear-gradient(#F2604F,#C0261A);color:#fff}
+.btn:disabled{opacity:.4;cursor:default}
+
+/* 汎用ダーク確認 */
+.dark{width:520px;background:linear-gradient(#1d2c44,#111c2e);border:3px solid #6d8098;border-radius:14px;
+  padding:20px 22px;box-shadow:0 24px 60px rgba(0,0,0,.7);text-align:center}
+.dark h3{font-family:var(--pop);font-size:27px;color:#FFE08A;margin-bottom:7px;
+  -webkit-text-stroke:2px #2a1d06;paint-order:stroke fill}
+.dark p{font-size:16px;color:#D5E2F0;line-height:1.65}
+.dark .big{font-family:var(--pop);font-size:42px;color:#fff;margin:7px 0}
+
+/* ══════════ 祝勝カットイン ══════════ */
+#celebrate{position:absolute;inset:0;z-index:95;display:none;flex-direction:column;
+  align-items:center;justify-content:center;gap:4px;pointer-events:none}
+#celebrate.on{display:flex}
+#flash{position:absolute;inset:0;background:#fff;opacity:0}
+#flash.go{animation:flash .6s ease-out both}
+@keyframes flash{0%{opacity:0}22%{opacity:.8}100%{opacity:0}}
+#celebrate .l1{font-size:34px;font-weight:900;color:#FFE08A;-webkit-text-stroke:5px #4a3200;paint-order:stroke fill;
+  animation:cIn .35s cubic-bezier(.2,1.6,.4,1) both}
+#celebrate .l2{font-family:var(--pop);font-size:104px;line-height:1;
+  background:linear-gradient(#FF7A5E,#C81018);-webkit-background-clip:text;background-clip:text;color:transparent;
+  -webkit-text-stroke:9px #fff;paint-order:stroke fill;filter:drop-shadow(0 8px 10px rgba(0,0,0,.6));
+  animation:cIn .45s cubic-bezier(.2,1.6,.4,1) .12s both}
+#celebrate .l3{font-size:30px;font-weight:900;color:#fff;-webkit-text-stroke:5px #123;paint-order:stroke fill;
+  animation:cIn .35s cubic-bezier(.2,1.6,.4,1) .24s both}
+@keyframes cIn{from{opacity:0;transform:scale(1.5)}to{opacity:1;transform:scale(1)}}
+
+/* ══════════ タイトル / セットアップ ══════════ */
+.screen{position:absolute;inset:0;z-index:200;display:none;flex-direction:column;
+  background:radial-gradient(120% 100% at 50% 12%,#173a63 0%,#0a1830 55%,#04080f 100%)}
+.screen.on{display:flex}
+.screen::before{content:"";position:absolute;inset:0;opacity:.5;
+  background:radial-gradient(2px 2px at 20% 30%,#fff,transparent),
+             radial-gradient(2px 2px at 70% 18%,#bfe9ff,transparent),
+             radial-gradient(1.6px 1.6px at 44% 62%,#fff,transparent),
+             radial-gradient(1.6px 1.6px at 86% 72%,#d7f2ff,transparent),
+             radial-gradient(1.4px 1.4px at 12% 78%,#fff,transparent);
+  animation:twinkle 4s ease-in-out infinite alternate}
+@keyframes twinkle{from{opacity:.28}to{opacity:.7}}
+
+#title .wrap{position:relative;margin:auto;text-align:center;padding:0 40px}
+#title .logo{font-family:var(--pop);font-size:104px;line-height:1;letter-spacing:.02em;
+  background:linear-gradient(#FFF3C4 0%,#F2C230 46%,#C98A12 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  -webkit-text-stroke:11px #2b1c00;paint-order:stroke fill;
+  filter:drop-shadow(0 10px 0 rgba(0,0,0,.35))}
+#title .sub{font-family:var(--caps);font-size:20px;letter-spacing:.42em;color:#8FD8E8;margin-top:10px;
+  text-indent:.42em}
+#title .lead{margin-top:16px;font-size:17px;color:#B9CEE4;line-height:1.8}
+#title .go{margin-top:26px}
+#title .go .btn{font-size:27px;padding:15px 54px}
+#title .credit{position:absolute;left:0;right:0;bottom:18px;text-align:center;font-size:12px;color:#607791}
+
+/* セットアップ */
+#setup .inner{position:relative;margin:auto;width:1320px;max-width:94%;
+  display:grid;grid-template-columns:1.15fr 1fr;gap:26px;align-items:start}
+.panel{background:linear-gradient(#152741,#0d1a2d);border:2px solid #33547d;border-radius:16px;padding:18px 20px;
+  box-shadow:0 16px 44px rgba(0,0,0,.55)}
+.panel > h3{font-family:var(--pop);font-size:22px;color:#FFE08A;margin-bottom:12px;
+  -webkit-text-stroke:2px #2a1d06;paint-order:stroke fill}
+.maps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.mapcard{border-radius:13px;overflow:hidden;cursor:pointer;
+  border:3px solid #2f4a6d;transition:transform .14s,border-color .14s;background:#0b1526}
+.mapcard:hover{transform:translateY(-4px)}
+.mapcard.sel{border-color:var(--gold);box-shadow:0 0 0 3px rgba(242,194,48,.28)}
+.mapcard .thumb{height:104px;position:relative;display:grid;place-items:center;font-size:44px}
+.mapcard .nm{padding:8px 10px;font-size:15px;font-weight:900;text-align:center;background:#0f1e33}
+.mapcard .nm i{display:block;font-style:normal;font-size:11.5px;color:#8fa6c0;font-weight:500;margin-top:2px}
+
+.seats{display:flex;flex-direction:column;gap:9px}
+.seat{display:flex;align-items:center;gap:10px;background:#0e1c30;
+  border:2px solid #2b4364;border-radius:11px;padding:8px 11px}
+.seat .dot{width:26px;height:26px;border-radius:50%;flex:0 0 auto;border:2px solid #ffffff33}
+.seat input[type=text]{flex:1;min-width:0;background:#081221;border:1px solid #35507a;border-radius:7px;
+  color:#fff;font-family:var(--jp);font-weight:700;font-size:15px;padding:7px 10px}
+.seat select{background:#081221;border:1px solid #35507a;border-radius:7px;color:#fff;
+  font-family:var(--jp);font-weight:700;font-size:14px;padding:7px 8px}
+.seat.off{opacity:.35}
+.optrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.opt{display:flex;align-items:center;gap:7px;background:#0e1c30;border:2px solid #2b4364;border-radius:10px;
+  padding:8px 12px;font-size:14px;font-weight:700}
+.opt select{background:#081221;border:1px solid #35507a;border-radius:6px;color:#fff;padding:5px 7px;
+  font-family:var(--jp);font-weight:700}
+#setup .foot{grid-column:1/-1;display:flex;justify-content:center;gap:14px;margin-top:4px}
+#setup .foot .btn{font-size:25px;padding:14px 48px}
+.rules{font-size:13.4px;color:#A9C0D8;line-height:1.85}
+.rules b{color:#FFE08A}
+
+/* 順番決め */
+#order .inner{margin:auto;text-align:center;position:relative}
+#order h2{font-family:var(--pop);font-size:38px;color:#FFE08A;-webkit-text-stroke:4px #2a1d06;paint-order:stroke fill}
+#order p{margin-top:6px;color:#B9CEE4;font-size:16px}
+#order .cards{display:flex;gap:18px;justify-content:center;margin-top:26px}
+.ocard{width:132px;height:186px;border-radius:13px;cursor:pointer;position:relative;
+  transform-style:preserve-3d;transition:transform .5s cubic-bezier(.3,1.2,.4,1)}
+.ocard.flip{transform:rotateY(180deg)}
+.ocard .f,.ocard .b{position:absolute;inset:0;border-radius:13px;backface-visibility:hidden;
+  display:grid;place-items:center;border:4px solid var(--gold);box-shadow:0 10px 22px rgba(0,0,0,.6)}
+.ocard .b{background:linear-gradient(150deg,#2c4d86,#14264a);font-size:52px}
+.ocard .f{transform:rotateY(180deg);background:linear-gradient(#FBF3E2,#E6D8B8);color:#2b2113;
+  font-family:var(--pop);font-size:62px;flex-direction:column}
+.ocard:hover:not(.flip){transform:translateY(-8px)}
+
+/* リザルト */
+#result .inner{margin:auto;text-align:center;position:relative;width:820px;max-width:92%}
+#result .crown{font-size:74px}
+#result h2{font-family:var(--caps);font-size:74px;line-height:1;
+  background:linear-gradient(#FFF3C4,#F2C230 55%,#C98A12);-webkit-background-clip:text;background-clip:text;
+  color:transparent;-webkit-text-stroke:8px #2b1c00;paint-order:stroke fill}
+#result .win{font-size:26px;font-weight:900;margin-top:6px;color:#fff}
+#result .reason{font-size:15px;color:#9FBBD6;margin-top:4px}
+#result table{width:100%;margin-top:20px;border-collapse:collapse;font-size:16px}
+#result th{font-size:12.5px;color:#8fa6c0;font-weight:900;padding:5px 10px;text-align:right;letter-spacing:.06em}
+#result th:nth-child(-n+2){text-align:left}
+#result td{padding:9px 10px;background:#0f1e33;border-top:2px solid #04080f;text-align:right}
+#result td:nth-child(-n+2){text-align:left}
+#result tr td:first-child{border-radius:9px 0 0 9px;font-family:var(--pop);font-size:21px;width:58px;text-align:center}
+#result tr td:last-child{border-radius:0 9px 9px 0}
+#result td em{font-style:normal;font-family:var(--pop);font-size:20px;color:#FFE08A}
+#result .foot{margin-top:22px;display:flex;gap:13px;justify-content:center}
+
+/* ══════════ 回転ヒント ══════════ */
+#rotate{position:fixed;inset:0;z-index:900;display:none;flex-direction:column;align-items:center;
+  justify-content:center;gap:18px;background:radial-gradient(90% 70% at 50% 40%,#12294a,#04080f);padding:24px}
+#rotate.on{display:flex}
+#rotate .ph{width:96px;height:160px;border-radius:14px;border:5px solid #9FC7E8;position:relative;
+  animation:tilt 2.2s ease-in-out infinite}
+#rotate .ph::after{content:"";position:absolute;left:50%;bottom:7px;transform:translateX(-50%);
+  width:30px;height:4px;border-radius:2px;background:#9FC7E8}
+@keyframes tilt{0%,25%{transform:rotate(0)}55%,100%{transform:rotate(-90deg)}}
+#rotate b{font-size:23px;font-weight:900;text-align:center}
+#rotate small{font-size:14px;color:#9FBBD6;text-align:center;line-height:1.7;max-width:min(420px,100%)}
+#rotate .btn{font-size:17px;padding:11px 26px}
+
+/* サウンド */
+#sound{position:absolute;left:1%;bottom:19%;width:56px;height:56px;border-radius:12px;z-index:84;
+  background:linear-gradient(#33445f,#1b2740);border:2px solid #6d8098;cursor:pointer;font-size:25px;
+  display:grid;place-items:center;box-shadow:0 4px 0 rgba(0,0,0,.45)}
+#menu{position:absolute;left:1%;bottom:10%;width:56px;height:56px;border-radius:12px;z-index:84;
+  background:linear-gradient(#33445f,#1b2740);border:2px solid #6d8098;cursor:pointer;font-size:23px;
+  display:grid;place-items:center;box-shadow:0 4px 0 rgba(0,0,0,.45)}
+
+/* 所有マーカー凡例 */
+#legend{position:absolute;left:1%;top:63%;z-index:80;display:flex;gap:5px;
+  background:rgba(10,20,34,.7);border:1px solid #2f4a6d;border-radius:10px;padding:6px 8px}
+#legend div{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;
+  font-weight:900;color:#CBDCEE;min-width:26px}
+#legend i{width:20px;height:9px;border-radius:3px;display:block}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;
+    transition-duration:.01ms !important}
+}
+</style>
