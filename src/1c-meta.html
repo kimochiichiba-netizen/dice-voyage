@@ -315,4 +315,192 @@
 .mileage .n{font-family:var(--pop);font-size:12px;color:#CFF0C4}
 .rfoot{font-size:11.5px;color:#E0C795;text-align:center;padding:6px 4px 2px}
 .rfoot b{color:#FFD24D}
+
+/* ── ペンダント（等級つき） ─────────────────────────── */
+.pend{padding-top:16px}
+.pend .pr,.slot .pr{position:absolute;left:-3px;top:-4px;font-family:var(--caps);font-size:10px;
+  padding:1px 7px 2px;border-radius:6px;border:2px solid #4A3206;color:#3A2A10;
+  background:linear-gradient(#FFF0BE,#E0A11A);z-index:2}
+.pend.rS .pr,.slot.rS .pr{background:linear-gradient(#EFD8FF,#9A6BD0);border-color:#4A2A6B}
+.pend.rSS .pr,.slot.rSS .pr{background:linear-gradient(#FFF6D8,#F2C230);border-color:#6B4A08;
+  box-shadow:0 0 10px rgba(255,214,80,.8)}
+.pend.rSS{border-color:#F2C230;box-shadow:0 0 0 2px rgba(242,194,48,.28)}
+.pend.rS{border-color:#9A6BD0}
+.pend .pp,.slot .pp{font-family:var(--pop);font-size:12px;color:#FFD24D;margin-top:1px}
+.pend .ef{font-size:10px;color:#D9C09A;line-height:1.5;margin-top:3px;min-height:44px}
+.slot{padding-top:14px;font-size:34px}
+.slot .pp{position:absolute;right:6px;top:6px;font-size:11px}
+
+/* ── 左右の縦アイコンレール（本家は画面の外周を額縁に使う） ── */
+.tabs{display:none}
+.rail{position:absolute;top:4%;bottom:9%;width:96px;z-index:9;display:flex;flex-direction:column;
+  justify-content:center;gap:8px;padding:8px 6px;
+  background:linear-gradient(180deg,rgba(58,40,18,.94),rgba(24,16,6,.94))}
+.rail.left{left:0;border-right:3px solid var(--org);border-radius:0 14px 14px 0}
+.rail.right{right:0;border-left:3px solid var(--org);border-radius:14px 0 0 14px}
+.rail .rb{position:relative;border-radius:12px;padding:8px 4px 7px;text-align:center;cursor:pointer;
+  background:linear-gradient(#4E3A1E,#2A1C0A);border:2px solid #6B4E28;
+  transition:transform .12s,border-color .12s,background .12s}
+.rail .rb:hover{transform:translateX(3px);border-color:var(--org)}
+.rail.right .rb:hover{transform:translateX(-3px)}
+.rail .rb.on{background:linear-gradient(#FFE9A8,#F2C230);border-color:#8A6314}
+.rail .rb.on .tx,.rail .rb.on .ic{color:#3E2C15}
+.rail .rb .ic{display:block;font-size:26px;line-height:1}
+.rail .rb .tx{display:block;font-size:11px;font-weight:900;color:#E0C795;margin-top:3px}
+.rail .rb .n{position:absolute;right:-4px;top:-5px;width:20px;height:20px;border-radius:50%;
+  background:#D8467E;color:#fff;font-size:12px;font-weight:900;line-height:20px;
+  border:2px solid #7A1440;animation:railPing 1s ease-in-out infinite alternate}
+@keyframes railPing{from{transform:scale(1)}to{transform:scale(1.18)}}
+/* レールぶん中身を内側へ寄せる */
+#home .inner,#cards .inner,#gacha .inner,#pend .inner,#daily .inner,#quest .inner,#news .inner{
+  width:calc(100% - 220px);max-width:1290px;padding:30px 0 66px}
+
+/* ── ガチャ3レーン ─────────────────────────────────── */
+#gacha .stage{height:250px}
+.lanes{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-top:13px}
+.lane{border-radius:15px;padding:11px 12px 12px;text-align:center;
+  border:3px solid #6B4E28;background:linear-gradient(#4E3A1E,#241708)}
+.lane.l-special{border-color:#9A6BD0;background:linear-gradient(#43305C,#1B1028)}
+.lane.l-premium{border-color:#F2C230;background:linear-gradient(#6B4E12,#2A1C05);
+  box-shadow:0 0 22px rgba(242,194,48,.28)}
+.lane .lh{font-family:var(--pop);font-size:21px;color:#FFE9B5}
+.lane .ld{font-size:11.5px;color:#D9C09A;margin-top:2px}
+.lane .lrate{font-size:11px;color:#9FB6CC;margin-top:5px;font-variant-numeric:tabular-nums}
+.lane .lbtns{display:flex;gap:8px;justify-content:center;margin-top:9px}
+.lane .lbtns .btn{font-size:14px;padding:8px 12px;flex:1}
+.lane .lfree{margin-top:7px;font-size:12px;font-weight:900;color:#FFD24D;
+  font-variant-numeric:tabular-nums}
+
+/* ── 出席簿 ─────────────────────────────────────────── */
+.dgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:10px}
+.dcell{border-radius:13px;padding:12px 6px 13px;text-align:center;position:relative;
+  border:3px solid #6B4E28;background:linear-gradient(#4E3A1E,#241708)}
+.dcell.got{opacity:.45;filter:grayscale(.7)}
+.dcell.now{border-color:var(--org);box-shadow:0 0 0 3px rgba(245,166,35,.32);
+  animation:dNow .9s ease-in-out infinite alternate}
+@keyframes dNow{from{transform:translateY(0)}to{transform:translateY(-5px)}}
+.dcell .dd{font-size:11.5px;color:#D9C09A}
+.dcell .di{font-size:38px;line-height:1.1;margin:4px 0 2px}
+.dcell .dn{font-size:11.5px;font-weight:900;color:#FFE9B5}
+.dcell .dchk{position:absolute;left:0;right:0;top:44%;font-size:12px;font-weight:900;color:#7DE08A;
+  background:rgba(6,14,26,.72);padding:3px 0}
+
+/* ── ミッション ─────────────────────────────────────── */
+.qlist{display:flex;flex-direction:column;gap:9px}
+.qrow{display:flex;align-items:center;gap:12px;padding:11px 15px;border-radius:12px;
+  border:2px solid #6B4E28;background:linear-gradient(#4E3A1E,#241708)}
+.qrow.ready{border-color:var(--org);box-shadow:0 0 0 2px rgba(245,166,35,.3)}
+.qrow.done{opacity:.45}
+.qrow .qn{flex:0 0 260px;font-size:14px;font-weight:900;color:#F3E3C2}
+.qrow .qb{flex:1;height:12px;border-radius:7px;background:#231705;border:1px solid #6B4E28;
+  overflow:hidden;display:block}
+.qrow .qb i{display:block;height:100%;background:linear-gradient(90deg,#E07010,#F5A623)}
+.qrow .qc{flex:0 0 74px;text-align:right;font-family:var(--pop);font-size:13px;color:#FFE9B5}
+.qrow .qr{flex:0 0 88px;text-align:right;font-family:var(--pop);font-size:15px;color:#FFD24D}
+.qrow .qbtn{flex:0 0 120px;font-size:14px;padding:8px 0}
+
+/* ══════════ 試合前の待機部屋 ══════════
+   本家は左に自分の装備、右に部屋の顔ぶれとアイテム売り場という見開き。
+   ここで「今日はこの装備で行く」と決める時間が、次の試合の期待になる。 */
+#room{padding:0}
+.roomwrap{position:absolute;inset:0;display:flex;flex-direction:column}
+.roomhd{flex:0 0 auto;display:flex;align-items:center;gap:14px;
+  padding:12px 22px 10px;border-bottom:2px solid rgba(211,162,44,.42);
+  background:linear-gradient(180deg,rgba(46,32,10,.94),rgba(24,16,5,.86))}
+.roomhd h2{margin:0;font-family:var(--pop);font-size:23px;color:#FFE9B5;letter-spacing:.04em;
+  text-shadow:0 2px 0 rgba(0,0,0,.5)}
+.roomhd .mp{font-size:13px;color:#CBB27A}
+.roomhd .sp{flex:1}
+.roombd{flex:1;display:grid;grid-template-columns:452px 1fr;gap:0;min-height:0}
+.roomL{border-right:2px solid rgba(211,162,44,.34);padding:14px 18px;overflow:auto;
+  background:linear-gradient(180deg,rgba(30,21,8,.55),rgba(12,8,3,.5))}
+.roomR{padding:14px 18px;overflow:auto;display:flex;flex-direction:column;gap:12px}
+.rsec{font-family:var(--pop);font-size:13px;color:#D3A22C;letter-spacing:.1em;margin:0 0 7px;
+  display:flex;align-items:center;gap:8px}
+.rsec:after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(211,162,44,.55),transparent)}
+
+/* 左：自分の装備 */
+.meBox{display:flex;gap:13px;align-items:flex-start}
+.meBox canvas{flex:0 0 auto;width:132px;height:187px;border-radius:12px;
+  border:2px solid rgba(211,162,44,.5);background:rgba(6,12,22,.6)}
+.meInfo{flex:1;min-width:0}
+.meInfo .nm{font-family:var(--pop);font-size:19px;color:#FFE9B5;line-height:1.2}
+.meInfo .rl{font-size:12px;color:#CBB27A;margin-bottom:5px}
+.meInfo .lvtag{display:inline-block;font-family:var(--pop);font-size:11px;padding:2px 9px;
+  border-radius:999px;background:linear-gradient(90deg,#8A5B12,#D3A22C);color:#2A1B04}
+.meInfo .sk{margin-top:7px;font-size:11.5px;line-height:1.5;color:#E4D6B4;
+  border-left:3px solid #D3A22C;padding-left:8px}
+.slotrow{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:4px}
+.pslot{aspect-ratio:1/1;border-radius:12px;border:2px dashed rgba(211,162,44,.45);
+  background:rgba(8,14,24,.55);display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:2px;cursor:pointer;transition:.14s}
+.pslot:hover{border-color:#FFD24D;background:rgba(30,22,8,.7);transform:translateY(-2px)}
+.pslot.on{border-style:solid;border-color:#FFD24D;
+  background:linear-gradient(180deg,rgba(58,40,12,.9),rgba(22,15,4,.9))}
+.pslot .ic{font-size:24px;line-height:1}
+.pslot .nm{font-size:9.5px;color:#E4D6B4;text-align:center;line-height:1.25;padding:0 3px}
+.pslot .em{font-size:10px;color:#7C6A45}
+.dicerow{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.dcard{border-radius:11px;border:2px solid rgba(211,162,44,.3);background:rgba(8,14,24,.6);
+  padding:8px 3px 7px;text-align:center;cursor:pointer;transition:.14s;opacity:.55}
+.dcard.have{opacity:1}
+.dcard.have:hover{transform:translateY(-2px);border-color:#FFD24D}
+.dcard.on{border-color:#FFD24D;background:linear-gradient(180deg,rgba(58,40,12,.92),rgba(20,14,4,.92));
+  box-shadow:0 0 0 2px rgba(255,210,77,.28)}
+.dcard .ic{font-size:23px;line-height:1.1}
+.dcard .nm{font-size:10px;color:#E4D6B4;line-height:1.25;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dcard .rr{font-family:var(--pop);font-size:9px;color:#FFD24D}
+.dds{margin-top:7px;font-size:11.5px;color:#CBB27A;min-height:2.6em;line-height:1.35}
+
+/* 右：部屋の4スロット */
+.seats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.seat{border-radius:14px;border:2px solid rgba(211,162,44,.34);overflow:hidden;
+  background:linear-gradient(180deg,rgba(20,30,46,.9),rgba(8,13,22,.9));
+  display:flex;flex-direction:column;align-items:center;padding:9px 6px 8px;gap:4px}
+.seat.me{border-color:#FFD24D;box-shadow:0 0 0 2px rgba(255,210,77,.25)}
+.seat canvas{width:96px;height:136px;border-radius:9px;background:rgba(4,9,16,.55)}
+.seat .nm{font-family:var(--pop);font-size:14px;color:#FFE9B5;line-height:1.2;text-align:center}
+.seat .cd{font-size:10.5px;color:#8FA9C4;text-align:center;line-height:1.25}
+.seat .st{font-family:var(--pop);font-size:10px;padding:2px 10px;border-radius:999px;
+  background:rgba(60,200,120,.2);border:1px solid rgba(90,230,150,.5);color:#8FF0BC}
+.seat .st.cpu{background:rgba(120,140,180,.16);border-color:rgba(150,175,210,.45);color:#B6C8DE}
+
+/* 右：アイテム売り場 */
+.shop{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.sitem{border-radius:12px;border:2px solid rgba(211,162,44,.3);padding:9px 8px 8px;
+  background:linear-gradient(180deg,rgba(30,22,9,.8),rgba(14,10,4,.8));cursor:pointer;transition:.14s;
+  display:flex;flex-direction:column;gap:3px}
+.sitem:hover{transform:translateY(-2px);border-color:#FFD24D}
+.sitem.no{opacity:.42;cursor:not-allowed;transform:none}
+.sitem .t{display:flex;align-items:center;gap:6px}
+.sitem .t .ic{font-size:19px}
+.sitem .t b{font-size:12px;color:#FFE9B5}
+.sitem .d{font-size:10.5px;color:#A79470;line-height:1.35;min-height:2.7em}
+.sitem .p{font-family:var(--pop);font-size:12px;color:#FFD24D;text-align:right}
+.bagrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:38px;
+  padding:7px 11px;border-radius:11px;background:rgba(8,14,24,.55);
+  border:1px dashed rgba(211,162,44,.4)}
+.bagrow .lb{font-size:11px;color:#8FA9C4}
+.bagchip{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;
+  background:linear-gradient(90deg,#6B4E12,#3A2A08);border:1px solid rgba(211,162,44,.6);
+  font-size:11.5px;color:#FFE9B5;cursor:pointer}
+.bagchip:hover{background:linear-gradient(90deg,#8A5B12,#4A3609)}
+.roomft{flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:10px 22px 12px;
+  border-top:2px solid rgba(211,162,44,.42);background:linear-gradient(0deg,rgba(46,32,10,.94),rgba(24,16,5,.7))}
+.roomft .hint{flex:1;font-size:11.5px;color:#A79470}
+
+
+/* 部屋のマップ選択 */
+.maprow{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.mcard{position:relative;border-radius:13px;border:2px solid rgba(211,162,44,.3);cursor:pointer;
+  padding:13px 12px 12px;transition:.15s;overflow:hidden;
+  background:linear-gradient(140deg,rgba(24,38,58,.92),rgba(8,14,24,.92));
+  display:flex;flex-direction:column;gap:2px}
+.mcard:hover{transform:translateY(-2px);border-color:#FFD24D}
+.mcard.on{border-color:#FFD24D;box-shadow:0 0 0 2px rgba(255,210,77,.26);
+  background:linear-gradient(140deg,rgba(58,44,14,.94),rgba(20,14,4,.94))}
+.mcard .em{position:absolute;right:8px;top:6px;font-size:34px;opacity:.28}
+.mcard b{font-family:var(--pop);font-size:15px;color:#FFE9B5}
+.mcard i{font-style:normal;font-size:10px;letter-spacing:.12em;color:#8FA9C4}
+
 </style>

@@ -29,8 +29,9 @@ $('#playPortrait').onclick  = ()=>{ forcePortrait = true; portraitDir =  90; fit
 $('#playPortrait2').onclick = ()=>{ forcePortrait = true; portraitDir = -90; fitStage(); };
 
 /* ══════════ サウンド ══════════
-   効果音は dvSfx（1音を2〜4層重ねた合成音）、音楽は dvMusic（4曲・ベース＋パッド＋
-   メロディ＋ドラム＋リバーブ）。どちらも音源ファイルを使わず Web Audio で作っている。
+   効果音は dvSfx（1音を2〜4層重ねた合成音）、音楽は dvMusic2（4曲・各16小節。1音を
+   2〜3オシレータで重ね、フィルタ開閉・コーラス・キック連動のダッキングで厚みを出す）。
+   どちらも音源ファイルを使わず Web Audio で作っている。
    ブラウザの自動再生制限があるので、最初のクリックまで AudioContext は作らない。
    ══════════════════════════════════════════ */
 let AC = null, soundOn = true, SFXE = null, MUSIC = null, audioReady = false;
@@ -43,8 +44,12 @@ function ac(){
     try{ SFXE = dvSfx(AC); }catch(e){ SFXE = null; }
     try{
       MUSIC = dvMusicFiles(AC, (window.DV_BGM || null));   // 音楽ファイルがあれば本物を鳴らす
-      if(!MUSIC) MUSIC = dvMusic(AC);                      // 無ければ合成音
-    }catch(e){ try{ MUSIC = dvMusic(AC); }catch(e2){ MUSIC = null; } }
+      if(!MUSIC) MUSIC = dvMusic2(AC);                     // 無ければ厚みのある合成音（v2）
+      if(!MUSIC) MUSIC = dvMusic(AC);                      // それも駄目なら旧エンジン
+    }catch(e){
+      try{ MUSIC = dvMusic2(AC); }
+      catch(e2){ try{ MUSIC = dvMusic(AC); }catch(e3){ MUSIC = null; } }
+    }
     try{ applyAudioPrefs(); }catch(e){}
     try{ if(MUSIC) MUSIC.play('lobby'); }catch(e){}
   }
@@ -59,7 +64,7 @@ const SFX = (function(){
     const a = ac(); if(!a || !SFXE || typeof SFXE[n] !== 'function') return;
     try{ SFXE[n](v); }catch(e){}
   }; });
-  o.hop = o.step; o.dice = o.diceShake; o.bad = o.lose;   // 旧名の互換
+  o.hop = o.step; o.dice = o.diceShake; o.bad = o.lose; o.good = o.win;   // 旧名の互換
   return o;
 })();
 /* 場面に合わせて曲を切り替える */
@@ -67,16 +72,18 @@ function bgm(name){ try{ if(MUSIC && bgmOn) MUSIC.play(name); }catch(e){} }
 
 /* ══════════ 設定と状態 ══════════ */
 let G = null;
-let cfg = { mapId:'ice', turns:30, timeLimit:1500, cash:20000000, ai:1, speed:1, n:4,
+let cfg = { mapId:'ice', turns:30, timeLimit:1500, cash:5000000, ai:1, speed:1, n:4,
   seats:[{name:'あなた',kind:'you',ch:-1},{name:'CPU ガル',kind:'cpu',ch:-1},
          {name:'CPU リノ',kind:'cpu',ch:-1},{name:'CPU ゼニ',kind:'cpu',ch:-1}] };
 
 function newGame(){
   const map = MAPS.find(m=>m.id===cfg.mapId) || MAPS[0];
-  const pickItems = ()=>{
+  const pickItems = (isMe)=>{
     const pool = ITEMS.slice();
     const out = [];
-    for(let k=0;k<2;k++) out.push(pool.splice((Math.random()*pool.length)|0,1)[0].id);
+    // 自分は待機部屋で買った分を持ち込む（本家の「おすすめアイテム」）
+    if(isMe && SV.bag && SV.bag.length) out.push.apply(out, SV.bag.slice(0,3));
+    for(let k=out.length;k<2;k++) out.push(pool.splice((Math.random()*pool.length)|0,1)[0].id);
     return out;
   };
   G = {
@@ -92,13 +99,19 @@ function newGame(){
         skill: card.sk, skillKind: (card.kind===undefined ? 0 : card.kind),
         skillPow: card.rar==='SS' ? 0.18 : card.rar==='S' ? 0.12 : 0.08,
         cash:cfg.cash, pos:0, laps:0, jail:0, out:false, dblRun:0,
-        odd:2, even:2, items:pickItems(),
+        odd:2, even:2, items:pickItems(s.kind!=='cpu'),
         skillLeft: card.sk.uses, mana:0,
         freeToll:0, halfBuild:0, salaryX2:0, forceDouble:0, chooseEye:0,
-        render:tileCenter(0), hopY:0, squash:1, offx:0, offy:0, face:1, jam:3
+        render:tileCenter(0), hopY:0, squash:1, offx:0, offy:0, face:1, jam:3,
+        pend: (s.kind!=='cpu')
+          ? SV.slots.map(pendById).filter(Boolean)
+          : (function(){ const n = cfg.ai===2 ? 3 : cfg.ai===1 ? 2 : 1, pool = PENDANTS.slice(), out=[];
+              for(let k=0;k<n && pool.length;k++) out.push(pool.splice((Math.random()*pool.length)|0,1)[0]);
+              return out; })(),
+        pboost: {}
       };
     }),
-    turn:0, turnsLeft:cfg.turns, over:false, winner:-1, winReason:'',
+    turn:0, turnsLeft:cfg.turns, over:false, winner:-1, winReason:'', alarm:null,
     clock: cfg.timeLimit, lastTick: 0, ev:{}
   };
   thisWeek().apply(G);          // 今週のイベントを反映（毎週月曜6時に自動で変わる）
@@ -515,10 +528,25 @@ function raiseCash(pi, need){
 function payFrom(pi, amt){ const p=G.players[pi]; return p.cash>=amt ? true : raiseCash(pi, amt); }
 
 /* ══════════ サイコロ ══════════ */
-function rollPair(force, forceDouble){
+/* 装備しているサイコロ（人間だけ。CPUはふつうのサイコロ） */
+function dieOf(pi){
+  const p = G && G.players[pi];
+  if(!p || p.kind==="cpu") return DICE[0];
+  return dieById(SV.die);
+}
+function rollPair(force, forceDouble, die){
   let a,b;
+  const D = die || DICE[0];
   if(forceDouble){ a = 1+((Math.random()*6)|0); b = a; return [a,b]; }
-  a = 1+((Math.random()*6)|0); b = 1+((Math.random()*6)|0);
+  const eye = ()=>{
+    let v = 1+((Math.random()*6)|0);
+    // 大きい目が出やすいサイコロは、2回振って大きいほうを一定確率で採る
+    if(D.big > 0 && Math.random() < D.big*0.55) v = Math.max(v, 1+((Math.random()*6)|0));
+    return v;
+  };
+  a = eye(); b = eye();
+  if(D.dbl > 0 && a !== b && Math.random() < D.dbl) b = a;   // ゾロ目補正
+
   if(force){
     let guard=0;
     while(((a+b)%2===0?'even':'odd') !== force && guard++<80){
@@ -536,7 +564,7 @@ async function doRoll(pi, force, impact, fixedTotal){
     b = fixedTotal - a;
     if(b>6){ b=6; a=fixedTotal-6; }
   } else {
-    [a,b] = rollPair(force, p.forceDouble>0);
+    [a,b] = rollPair(force, p.forceDouble>0, dieOf(pi));
     if(p.forceDouble>0) p.forceDouble--;
     if(impact){
       const c = rollPair(force, false);
@@ -545,6 +573,10 @@ async function doRoll(pi, force, impact, fixedTotal){
     }
   }
   const seed = (pi*7919 + G.turnsLeft*131 + a*13 + b*7 + G.players[pi].pos) % 100000;
+  // 栄光の光：振る瞬間に判定してゾロ目にする
+  if(!fixedTotal && a!==b && pendOf(pi,'onRoll')){
+    if(await pendFire(pi,'onRoll')){ b = a; }
+  }
   const th = dvThrow(seed, a, b);
   diceAnim = {t:0, th, lastShake:0};
   SFX.diceShake();
@@ -628,11 +660,13 @@ async function moveSteps(pi, n){
     await hop(p, from, to, 158);
     if(np===0 && k < n-1) salary(pi);
   }
+  // 催眠の香水：同じマスに相手がいたら
+  if(G.players.some((q,j)=>j!==pi && !q.out && q.pos===p.pos)) await pendFire(pi,'onSameTile');
   await wait(180);
 }
 function salary(pi){
   const p = G.players[pi];
-  let amt = Math.round((2000000 + p.laps*500000) * ((G.ev && G.ev.salaryX) || 1));
+  let amt = Math.round((1500000 + p.laps*400000) * ((G.ev && G.ev.salaryX) || 1));
   if(p.salaryX2>0){ amt *= 2; p.salaryX2--; toast('R','💴','給料2倍券','給料が2倍になりました',1900); }
   give(pi, amt);
   toast('R','🚩','スタート通過','給料 '+yen(amt)+' を受け取りました',1800);
@@ -661,7 +695,7 @@ async function resolveInner(pi){
   await wait(160);
 
   if(t.type === 'start'){
-    give(pi, 4000000); await band('スタートにぴったり！','給料が2倍になりました',1300);
+    give(pi, 3000000); await band('スタートにぴったり！','給料が2倍になりました',1300);
   }
   else if(t.type === 'jail'){
     p.jail = 3; p.dblRun = 0; SFX.bad(); camShake(10);
@@ -669,6 +703,8 @@ async function resolveInner(pi){
   }
   else if(t.type === 'travel'){
     await band(G.map.corners[2]+'に到着','行きたいマスを1つ選べます',1200);
+    // 黄金フリーパス：選ばずに最適マスへ跳ぶ
+    if(await pendFire(pi,'onTravel',{pick:true}) === 'jumped'){ await resolve(pi); return; }
     const dest = (p.kind==='cpu') ? aiPickTravel(pi) : await pickTile(pi,'行き先を選んでください');
     if(dest>=0 && dest!==i){ await jumpTo(pi, dest); await resolve(pi); return; }
   }
@@ -688,11 +724,15 @@ async function resolveInner(pi){
   }
   else if(t.type === 'card'){ await chanceCard(pi); }
   else if(t.type === 'city'){
+    // 幸運のトランポリン：自分の街に止まったとき同じ辺の別の街へ跳ぶ
+    if(t.owner === pi && (await pendFire(pi,'onOwnLand')) === 'jumped'){ await resolve(pi); return; }
     if(t.owner < 0 || t.owner === pi){
       if(p.kind==='cpu') await aiBuy(pi, i); else await buyUI(pi, i);
     } else {
       await payToll(pi, i);
       if(G.over || G.players[pi].out) return;
+      // シュプリューデル：ランドマークの持ち主が束縛を仕掛ける
+      if(t.landmark) await pendFire(t.owner, 'onTollGet', {tile:i});
       await maybeBuyout(pi, i);
     }
   }
@@ -703,6 +743,8 @@ async function payToll(pi, i){
   const t = G.tiles[i], owner = t.owner, p = G.players[pi];
   if(t.frozen>0){ toast('R','🧊','凍結中', t.name+' の通行料は0です',1800); await wait(700); return; }
   let amt = Math.round(tollOf(t, G) * statMul(p,'toll',0.35));
+  if(t.bind){ amt = Math.round(amt * 2); t.bind = 0;
+    toast('L','💧','束縛','シュプリューデルで通行料が2倍になりました', 2200); }
   if(p.freeToll > 0){
     p.freeToll--;
     await cutIn('ITEM','天使カード','通行料 '+yen(amt)+' → 無料');
@@ -777,7 +819,8 @@ function buildHTML(i, pi){
   html += '</div>'
     + '<div class="sums"><span>選んだぶんの合計</span><em id="bSum">0</em></div>'
     + '<div style="font-size:12.5px;color:#6b5a3c;margin-top:6px">'
-    + '同じ色を3つそろえる（トリプル独占）か、1辺の街をぜんぶ持つ（ライン独占）と<b>その場で勝ち</b>。'
+    + '同じ色を3つ（トリプル独占）・1辺の街ぜんぶ（ライン独占）・ランドマーク3つ（観光地独占）の'
+    + 'どれかを<b>次の自分の手番まで守り切る</b>と勝ち。'
     + (p.halfBuild>0 ? '　🏗 建設割引券 適用中（半額）' : '') + '</div>'
     + '<div class="btnrow"><button class="btn ghost" data-act="no">やめる</button>'
     + '<button class="btn gold" data-act="ok" id="bOk">建てる</button></div>'
@@ -886,6 +929,14 @@ async function growAnim(i){
     });
   });
   updHUD();
+  // ペンダントの判定（建設したとき／ランドマークが建ったとき）
+  if(t.owner>=0 && !growAnim._busy){
+    growAnim._busy = true;
+    try{
+      await pendFire(t.owner, 'onBuild', {tile:i});
+      if(t.landmark) await pendFire(t.owner, 'onLandmark', {tile:i});
+    } finally { growAnim._busy = false; }
+  }
 }
 function pickTile(pi, msg, filter){
   return new Promise(res=>{
@@ -1090,14 +1141,58 @@ async function chanceCard(pi){
 /* ══════════ 勝敗 ══════════ */
 function checkWin(){
   if(G.over) return false;
-  for(let pi=0; pi<G.players.length; pi++){
-    if(G.players[pi].out) continue;
-    for(let g=0; g<7; g++) if(hasTriple(G,pi,g)) return finish(pi,'トリプル独占', GCOL[g]);
-    for(let s=0; s<4; s++) if(hasLine(G,pi,s)) return finish(pi,'ライン独占');
-  }
   const alive = G.players.filter(p=>!p.out);
   if(alive.length === 1) return finish(G.players.indexOf(alive[0]),'独り勝ち');
+  // 独占は「その場で勝ち」ではなく、1巡もちこたえたら勝ち（＝崩す猶予を全員に与える）
+  // 開始5ラウンドは独占が偶然そろっても決着させない（あっけない試合をなくす）
+  if(G.turnsLeft > cfg.turns - 5) return false;
+  if(!G.alarm){
+    for(let pi=0; pi<G.players.length; pi++){
+      if(G.players[pi].out) continue;
+      const m = monoOf(G, pi);
+      if(m){ raiseAlarm(pi, m); break; }
+    }
+  } else if(!sameMono(G.alarm)){
+    dropAlarm();
+  }
   return false;
+}
+/* 独占が今もその形のまま続いているか */
+function sameMono(al){
+  if(G.players[al.pi].out) return false;
+  const m = monoOf(G, al.pi);
+  return !!m && m.key === al.key;
+}
+function raiseAlarm(pi, m){
+  G.alarm = { pi, kind:m.kind, label:m.label, col:m.col, key:m.key };
+  const nm = G.players[pi].name;
+  SFX.bad(); camShake(13);
+  news('🚨 '+nm+' が「'+m.label+'」に到達！ 次の '+nm+' の手番までに崩さないと敗北！');
+  alarmBand(nm+' 「'+m.label+'」', 'その街を買収して崩せ！ 崩せなければ '+nm+' の勝ち');
+  updHUD();
+}
+function dropAlarm(){
+  if(!G.alarm) return;
+  const nm = G.players[G.alarm.pi].name, lb = G.alarm.label;
+  G.alarm = null;
+  SFX.good();
+  news('✋ '+nm+' の「'+lb+'」を阻止！ 勝負はまだ続く');
+  alarmBand('独占を阻止！', lb+' は崩れました');
+  updHUD();
+}
+/* 独占者の手番が回ってきた時に呼ぶ。維持されていたらそこで決着 */
+function alarmTick(pi){
+  if(!G.alarm || G.alarm.pi !== pi) return false;
+  if(!sameMono(G.alarm)){ dropAlarm(); return false; }
+  const al = G.alarm; G.alarm = null;
+  return finish(pi, al.label, al.col);
+}
+function alarmBand(a, b){
+  const el = $('#alarm'); if(!el) return;
+  el.querySelector('.a').textContent = a;
+  el.querySelector('.b').textContent = b;
+  el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+  setTimeout(()=>el.classList.remove('on'), 2600*SPEED);
 }
 async function bankrupt(pi, toPi){
   const p = G.players[pi];
@@ -1141,6 +1236,7 @@ async function celebrate(pi, reason, col){
   showResult();
 }
 function showResult(){
+  if(!G || G.winner < 0 || !G.players[G.winner]) return;
   const rk = rank();
   $('#resWin').textContent = G.players[G.winner].name + ' の勝利！';
   $('#resReason').textContent = '勝ち方：' + G.winReason;
@@ -1168,6 +1264,7 @@ async function turnLoop(){
   while(!G.over){
     const pi = G.turn, p = G.players[pi];
     if(p.out){ nextTurn(); continue; }
+    if(alarmTick(pi)) break;          // 独占を1巡守り切ったら勝ち
     // 凍結の解除
     G.tiles.forEach(t=>{ if(t.frozen>0) t.frozen--; });
     p.mana = Math.min(100, p.mana + 34);
@@ -1242,7 +1339,7 @@ function takeRoll(pi){
   return new Promise(res=>{
     stepPreview = {from:p.pos, max:12};
     gaugeSweet = 0.22 + Math.random()*0.56;
-    gaugeHalf = 0.055 + statRate(p,'gauge')*0.075;   // ゲージインパクトのステータスが枠の広さに効く
+    gaugeHalf = 0.055 + (statOf(p,'gauge') + dieOf(pi).gauge)/100*0.075;   // ステータス＋サイコロが枠の広さに効く
     gaugeOn = true;
     $('#diceui').classList.add('on');
     $('#oddN').textContent = p.odd; $('#evenN').textContent = p.even;
@@ -1269,6 +1366,93 @@ function takeRoll(pi){
       res(await takeRoll(pi));
     };
   });
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ペンダントの発動
+   本家と同じく「毎回判定して、発動したかどうかを必ず見せる」。
+   外れ続けると確率が少しずつ積み上がる（救済）。
+   ══════════════════════════════════════════════════════════════ */
+function pendOf(pi, trg){
+  const p = G.players[pi];
+  if(!p || !p.pend) return null;
+  return p.pend.find(x => x && x.trg === trg) || null;
+}
+async function pendFire(pi, trg, arg){
+  const p = G.players[pi];
+  const it = pendOf(pi, trg);
+  if(!it) return false;
+  p.pboost = p.pboost || {};
+  const boost = p.pboost[it.id] || 0;
+  const rate = Math.min(0.95, it.p + boost);
+  const hit = Math.random() < rate;
+  const pct = Math.round(rate*100), add = Math.round(boost*100);
+  if(!hit){
+    p.pboost[it.id] = boost + 0.02;
+    if(p.kind !== 'cpu')
+      toast('R', it.ic, 'スキル未発動', it.nm+'　次は +2% 成長します（'+pct+'%）', 1800);
+    return false;
+  }
+  p.pboost[it.id] = 0;
+  SFX.skill(); camShake(7);
+  toast('R', it.ic, PEND_RAR[it.rar].nm+'ペンダント発動！',
+        it.nm+'　'+pct+'%'+(add?'（+'+add+'%）':''), 2400);
+  const c = p.render || tileCenter(p.pos);
+  addFx('ring', c.x, c.y, 700, PEND_RAR[it.rar].c);
+  addFx('spark', c.x, c.y-30, 900, PEND_RAR[it.rar].c);
+
+  /* ── 効果 ── */
+  if(it.id==='p1'){                       // 稲妻放電器：同じ辺の相手を引き寄せる
+    const side = Math.floor(p.pos/8);
+    for(let j=0;j<G.players.length;j++){
+      const q = G.players[j];
+      if(j===pi || q.out) continue;
+      if(Math.floor(q.pos/8) === side){
+        await band('稲妻放電器！', G.players[j].name+' を引き寄せました', 1300);
+        await jumpTo(j, p.pos);
+        break;
+      }
+    }
+  }
+  if(it.id==='p2' && arg && arg.tile!==undefined){   // シュプリューデル：束縛
+    const t = G.tiles[arg.tile];
+    if(t) t.bind = 1;
+    await band('シュプリューデル！', '次の移動でもう一度 通行料を取ります', 1300);
+  }
+  if(it.id==='p3'){                       // 概要設計図面：別の街がもう1段
+    const mine = G.tiles.map((t,i)=>({t,i}))
+      .filter(o=>o.t.type==='city' && o.t.owner===pi && o.t.lv<3 && o.i!==(arg&&arg.tile));
+    if(mine.length){
+      const o = mine[(Math.random()*mine.length)|0];
+      o.t.lv++;
+      await growAnim(o.i);
+      toast('R','📐','設計図面','　'+o.t.name+' が1段育ちました', 2200);
+    }
+  }
+  if(it.id==='p4'){                       // 大家の建物基礎：スタートへ
+    const n = G.tiles.filter(t=>t.type==='city'&&t.owner===pi&&t.lv>0).length;
+    if(n>=3){ await jumpTo(pi, 0); p.laps++; salary(pi); }
+  }
+  if(it.id==='p5' && arg && arg.pick){    // 黄金フリーパス：即座に最適マスへ
+    const d = aiPickTravel(pi);
+    if(d>=0){ await jumpTo(pi, d); return 'jumped'; }
+  }
+  if(it.id==='p6'){                       // 幸運のトランポリン：同じ辺の自分の街へ
+    const side = Math.floor(p.pos/8);
+    const same = [];
+    for(let k=0;k<8;k++){ const i=side*8+k;
+      if(i!==p.pos && G.tiles[i].type==='city' && G.tiles[i].owner===pi) same.push(i); }
+    if(same.length){ await jumpTo(pi, same[(Math.random()*same.length)|0]); return 'jumped'; }
+  }
+  if(it.id==='p7'){                       // 催眠の香水：所持金を奪う
+    const other = G.players.findIndex((q,j)=>j!==pi && !q.out && q.pos===p.pos);
+    if(other>=0){
+      const amt = Math.round(G.players[other].cash*0.20);
+      if(amt>0){ give(other, -amt); give(pi, amt);
+        await band('催眠の香水！', G.players[other].name+' から '+yen(amt)+' を奪いました', 1400); }
+    }
+  }
+  return true;
 }
 
 /* ══════════ 能力 ══════════ */
@@ -1351,15 +1535,20 @@ async function aiBuy(pi, i){
   const t = G.tiles[i], p = G.players[pi], lvl = cfg.ai;
   const own = t.owner === pi;
   const disc = statMul(p,'build',0.3) * (p.halfBuild>0 ? 0.5 : 1) * ((G.ev && G.ev.buildX) || 1);
-  const reserve = [6000000, 3500000, 1800000][lvl];
+  const reserve = [1500000, 900000, 450000][lvl];
   let spend = 0, lvTarget = t.lv, land = false, lm = false;
   if(!own){
     const price = Math.round(t.base*disc);
-    if(p.cash - price < reserve) return;
+    const urgent = G.players.some((q,qi)=> qi!==pi && !q.out &&
+      CITY_SLOTS[t.g].filter(j=>G.tiles[j].owner===qi).length >= 2);
+    if(p.cash - price < (urgent ? 0 : reserve)) return;   // 独占阻止なら全財産を使ってでも買う
     land = true; spend += price;
   }
   const near = CITY_SLOTS[t.g].filter(j=>G.tiles[j].owner===pi).length;
-  const aggr = near>=1 ? 1 : 0;
+  // 誰かがこの色で2つ持っている＝あと1つで独占。そこは意地でも押さえる
+  const block = G.players.some((q,qi)=> qi!==pi && !q.out &&
+    CITY_SLOTS[t.g].filter(j=>G.tiles[j].owner===qi).length >= 2);
+  const aggr = (near>=1 || block) ? 1 : 0;
   for(let k = (own? t.lv+1 : 1); k<=3; k++){
     const c = Math.round(BUILD[k].cost(t.base)*disc);
     if(p.cash - spend - c < reserve - aggr*1500000) break;
@@ -1395,8 +1584,12 @@ async function aiBuy(pi, i){
 function aiBuyout(pi, i, cost){
   const t = G.tiles[i], p = G.players[pi], lvl = cfg.ai;
   if(lvl===0) return false;
+  // 独占警報が出ている相手の街なら、無理をしてでも買収して崩す
+  if(G.alarm && G.alarm.pi === t.owner && t.owner !== pi && p.cash >= cost) return true;
+  const dangerG = CITY_SLOTS[t.g].filter(j=>G.tiles[j].owner===t.owner).length >= 2;
+  if(dangerG && t.owner !== pi && p.cash >= cost) return true;
   const near = CITY_SLOTS[t.g].filter(j=>G.tiles[j].owner===pi).length;
-  const reserve = [6000000, 3500000, 1800000][lvl];
+  const reserve = [1500000, 900000, 450000][lvl];
   if(p.cash - cost < reserve) return false;
   if(near >= 2) return true;
   return lvl===2 && near>=1 && Math.random()<0.6;
@@ -1549,7 +1742,9 @@ async function pickPhase(){
 
 /* ローディング */
 const TIPS = [
-  '同じ色の街を3つそろえると「トリプル独占」でその場で勝ちです。',
+  '同じ色の街を3つそろえて1巡守り切ると「トリプル独占」で勝ちです。',
+  '独占されたら、その街を買収して崩せば負けを防げます。',
+  'ランドマークを3つ持つと「観光地独占」でも勝てます。',
   '1辺の街をぜんぶ持つと「ライン独占」でその場で勝ちです。',
   '奇数・偶数ボタンを押すと、かならずその出目が出ます（回数かぎり）。',
   'ゲージが光っているところで「押す」と、出目をコントロールできます。',
@@ -1629,6 +1824,7 @@ $('#optArt').onchange     = e => { setArtStyle(e.target.value); refreshArt(); SF
 async function launch(){
   SPEED = cfg.speed;
   await pickPhase();
+  if(!await roomPhase()){ screenTo('setup'); return; }   // 待機部屋でもどるを押したら設定へ
   await vsScreen();
   await loadingPhase();
   await orderPhase();

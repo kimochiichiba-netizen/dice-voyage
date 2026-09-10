@@ -249,6 +249,24 @@
   -webkit-text-stroke:6px #123A10;paint-order:stroke fill;letter-spacing:.14em;
   animation:cIn .35s cubic-bezier(.2,1.6,.4,1) .34s both}
 
+/* ── 独占警報 ───────────────────────────────────────
+   独占が成立した瞬間ではなく「あと1巡耐えられたら負け」を知らせる帯。
+   ここで全員が買収に走るので、試合で一番おいしい局面になる。 */
+#alarm{position:absolute;left:50%;top:30%;transform:translate(-50%,-50%) scale(.7);z-index:96;
+  display:none;flex-direction:column;align-items:center;gap:4px;padding:16px 40px 18px;
+  border-radius:16px;border:3px solid #FF5A4A;opacity:0;
+  background:linear-gradient(180deg,rgba(58,8,10,.96),rgba(20,2,4,.96));
+  box-shadow:0 0 0 3px rgba(255,120,90,.35),0 22px 54px rgba(0,0,0,.7),0 0 60px rgba(255,60,40,.45)}
+#alarm.on{display:flex;animation:alarmIn .42s cubic-bezier(.2,1.7,.4,1) both}
+#alarm .sirene{font-size:30px;line-height:1;animation:sirene .7s linear infinite}
+#alarm .a{font-family:var(--pop);font-size:30px;line-height:1.15;color:#FFD9CE;text-align:center;
+  text-shadow:0 2px 0 rgba(0,0,0,.6),0 0 22px rgba(255,90,60,.8)}
+#alarm .b{font-style:normal;font-size:14.5px;color:#FFB9A8;text-align:center}
+@keyframes alarmIn{0%{opacity:0;transform:translate(-50%,-50%) scale(.6)}
+  60%{opacity:1;transform:translate(-50%,-50%) scale(1.06)}
+  100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes sirene{0%,100%{filter:none;transform:rotate(-9deg)}50%{filter:brightness(1.7);transform:rotate(9deg)}}
+
 /* ── 通行料値上げ！ ─────────────────────────────────── */
 #raise{position:absolute;left:0;right:0;top:9%;z-index:92;text-align:center;display:none;
   font-family:var(--pop);font-size:46px;line-height:1;

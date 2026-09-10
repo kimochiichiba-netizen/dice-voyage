@@ -90,7 +90,7 @@ function buildTiles(map){
     slots.forEach((idx,j)=>{
       const base = Math.round(GBASE[g] * (1 + j*0.13));
       t[idx] = { type:'city', name:map.cities[g][j], g, base,
-                 owner:-1, lv:0, landmark:false, x2:false, frozen:0, grow:1 };
+                 owner:-1, lv:0, landmark:false, x2:false, frozen:0, grow:1, bind:0 };
     });
   });
   // 通行料2倍マスを2つ置く（本家の ×2 マス）
@@ -121,6 +121,16 @@ function tollOf(tile, G){
     if(G.ev && G.ev.tollX) m *= G.ev.tollX;      // 週替わり「通行料値上げ」
   }
   return Math.round(v*m);
+}
+/* 独占の種類をひとつ返す（無ければ null）。即勝ちではなく「警報」の材料にする */
+function monoOf(G, pi){
+  for(let g=0; g<7; g++) if(hasTriple(G,pi,g))
+    return { kind:'triple', label:'トリプル独占', col:GCOL[g], key:'t'+g };
+  for(let s=0; s<4; s++) if(hasLine(G,pi,s))
+    return { kind:'line', label:'ライン独占', col:'#FFD24D', key:'l'+s };
+  const lm = G.tiles.filter(t=>t.landmark && t.owner===pi).length;
+  if(lm >= 4) return { kind:'land', label:'観光地独占', col:'#7FE6FF', key:'m' };
+  return null;
 }
 function cityValue(t){
   let v = t.base;
@@ -196,6 +206,21 @@ const ITEMS = [
   { id:'double', nm:'ダブルチャンス',ic:'✌️', desc:'次のサイコロが必ずゾロ目になる' },
 ];
 function itemById(id){ return ITEMS.find(o=>o.id===id); }
+
+/* ══════════ サイコロ（装備して出目そのものを変える） ══════════ */
+const DICE = [
+  { id:'d0', nm:'ふつうのサイコロ', ic:'🎲', rar:'A',  col:'#E8EEF6',
+    ds:'なんの細工もない、木のサイコロ。', gauge:0, dbl:0, big:0 },
+  { id:'d1', nm:'黄金のサイコロ',   ic:'🥇', rar:'S',  col:'#FFD24D',
+    ds:'ゲージインパクトの当たり枠が広がる（＋12）。', gauge:12, dbl:0, big:0 },
+  { id:'d2', nm:'LEDサイコロ',      ic:'💡', rar:'S',  col:'#7FE6FF',
+    ds:'ゾロ目が出やすくなる（＋9%）。もう一回振れる。', gauge:0, dbl:0.09, big:0 },
+  { id:'d3', nm:'トランプサイコロ', ic:'🃏', rar:'S+', col:'#FF8FB0',
+    ds:'大きい目が出やすい（＋1.1マス）。遠くまで一気に進む。', gauge:0, dbl:0, big:1 },
+  { id:'d4', nm:'亡者のサイコロ',   ic:'💀', rar:'S+', col:'#B58CFF',
+    ds:'ゾロ目＋6%、ゲージ＋8。強いが、目が荒れる。', gauge:8, dbl:0.06, big:0.5 }
+];
+function dieById(id){ return DICE.find(d=>d.id===id) || DICE[0]; }
 
 /* ══════════ カメラ ══════════ */
 const cam = {x:BCX, y:BCY, z:1, tx:BCX, ty:BCY, tz:1, shake:0};
