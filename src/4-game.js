@@ -1,6 +1,6 @@
 
 /* ══════════════════════════════════════════════════════════════
-   ダイスボヤージュ — ゲーム進行・演出・CPU・画面
+   ダイスキングダム — ゲーム進行・演出・CPU・画面
    ══════════════════════════════════════════════════════════════ */
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
@@ -303,14 +303,30 @@ function updHUD(){
   if(!G) return;
   const rk = rank();
   const rankOf = pi => rk.findIndex(r=>r.i===pi)+1;
-  const cur = G.turn;
-  const lead = rk[0].i === cur ? (rk[1] ? rk[1].i : cur) : rk[0].i;
-  fillHUD('Top', lead, 'top');
-  fillHUD('Bot', cur,  'bot');
-  $('#rTop').innerHTML = rankOf(lead)+'<span>位</span>';
-  $('#rBot').innerHTML = rankOf(cur)+'<span>位</span>';
-  $('#rTop').className = 'rankbadge' + (rankOf(lead)===1 ? ' red' : '');
-  $('#rBot').className = 'rankbadge' + (rankOf(cur)===1 ? ' red' : '');
+  // 本家は自分の席が必ず右下。残り3人を 左下 → 左上 → 右上 に置く
+  const me = (function(){ const i = G.players.findIndex(p=>p.kind!=='cpu'); return i>=0 ? i : G.turn; })();
+  const rest = G.players.map(function(p,i){ return i; }).filter(function(i){ return i!==me; });
+  const seat = { Bot: me, BL: rest[0], Top: rest[1], TR: rest[2] };
+  const badge = { Bot:'rBot', BL:'rBL', Top:'rTop', TR:'rTR' };
+  const box   = { Bot:'hudBot', BL:'hudBL', Top:'hudTop', TR:'hudTR' };
+  ['Bot','BL','Top','TR'].forEach(function(k){
+    const pi = seat[k], el = $('#'+box[k]), bd = $('#'+badge[k]);
+    if(pi === undefined || pi === null){ if(el) el.style.display='none'; if(bd) bd.style.display='none'; return; }
+    if(el) el.style.display='';
+    if(bd) bd.style.display='';
+    fillHUD(k, pi, k==='Bot' ? 'bot' : 'top');
+    const r = rankOf(pi), out = !!G.players[pi].out;
+    if(bd){
+      bd.innerHTML = (out ? '破' : r) + '<span>' + (out ? '産' : '位') + '</span>';
+      bd.className = 'rankbadge' + ((k==='BL'||k==='TR') ? ' sm' : '') + (r===1 && !out ? ' red' : '');
+    }
+    if(el){
+      el.classList.toggle('out', out);
+      el.style.borderRadius = '14px';
+      el.style.boxShadow = (G.turn===pi && !out)
+        ? '0 0 0 3px rgba(255,224,138,.85), 0 0 26px rgba(255,210,77,.5)' : '';
+    }
+  });
   $('#pTurn').textContent = G.turnsLeft;
   const ie = $('#pInfl');
   if(ie){
@@ -322,7 +338,8 @@ function updHUD(){
   $('#pGoalL').textContent = G.players[rk[0].i].name;
   if(!cfg.timeLimit) $('#pClock').textContent = '--:--';
 
-  const sh = $('#sideHud'); sh.innerHTML = '';
+  const sh = $('#sideHud');
+  if(sh){ sh.innerHTML = '';
   rk.forEach((r,k)=>{
     const p = G.players[r.i];
     const d = document.createElement('div');
@@ -335,7 +352,7 @@ function updHUD(){
       + '<span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'+esc(p.name)+'</span>'
       + '<span style="font-family:var(--pop);font-size:14px;color:#9FD8F8">'+(p.out?'破産':yen(r.a))+'</span>';
     sh.appendChild(d);
-  });
+  }); }
 
   const lg = $('#legend'); lg.innerHTML = '';
   CITY_SLOTS.forEach((slots,g)=>{
@@ -355,7 +372,7 @@ function fillHUD(sfx, pi, cls){
   $('#f'+sfx+'Name').textContent = p.name;
   $('#f'+sfx+'Name').style.background = 'linear-gradient(90deg,'+PCOL[pi]+','+shade(PCOL[pi],-.45)+')';
   $('#f'+sfx+'Cls').textContent = cls==='bot' ? '手番' : (p.kind==='cpu' ? 'CPU' : 'P'+(pi+1));
-  $('#f'+sfx+'Lvl').textContent = (p.laps+1);
+  const lv = $('#f'+sfx+'Lvl'); if(lv) lv.textContent = (p.laps+1);
   const pic = $('#f'+sfx+'Pic');
   if(pic.dataset.ch !== String(p.ch) || pic.dataset.col !== PCOL[pi]){
     pic.dataset.ch = p.ch; pic.dataset.col = PCOL[pi];
@@ -365,8 +382,9 @@ function fillHUD(sfx, pi, cls){
   rollNum($('#f'+sfx+'Cash'), p.cash);
   rollNum($('#f'+sfx+'Asset'), assetOf(G,pi));
   const mana = Math.min(100, p.mana);
-  $('#f'+sfx+'Gauge').style.width = mana+'%';
-  $('#f'+sfx+'Gtx').textContent = ch.skill.nm+' '+mana+'%';
+  const gg = $('#f'+sfx+'Gauge'), gt = $('#f'+sfx+'Gtx');
+  if(gg) gg.style.width = mana+'%';
+  if(gt) gt.textContent = ch.skill.nm+' '+mana+'%';
   if(cls==='bot'){
     const b = $('#skillBtn');
     const ready = mana>=100 && p.skillLeft>0 && p.kind!=='cpu' && G.phase==='wait';
@@ -835,7 +853,7 @@ function parchHTML(t, cost, ownerName){
     + '対価は評価額の2倍とする。</p>'
     + '<div class="amt">'+esc(t.name)+'</div>'
     + '<p style="margin-top:0">買収額 <b style="font-size:20px">'+yen(cost)+'</b></p>'
-    + '<div class="sign">Dice Voyage 商工会</div>'
+    + '<div class="sign">Dice Kingdom 商工会</div>'
     + '<div class="btnrow" style="justify-content:center">'
     + '<button class="btn ghost" data-act="no">やめる</button>'
     + '<button class="btn gold" data-act="ok">買収する</button></div>'
@@ -1991,6 +2009,11 @@ $('#againSame').onclick = async ()=>{
 $('#againSetup').onclick = ()=>{ SFX.click(); screenTo('setup'); };
 
 /* ── 音量バー（音楽と効果音を別々に） ── */
+/* 歯車を押した時だけ音量スライダーを出す */
+(function(){
+  const g = $('#gearBtn'), bar = $('#audiobar');
+  if(g && bar) g.onclick = ()=>{ SFX.click(); bar.classList.toggle('on'); };
+})();
 function applyAudioPrefs(){
   soundOn = sfxVol > 0.001;
   $('#sfxBtn').classList.toggle('off', !soundOn);

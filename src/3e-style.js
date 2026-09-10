@@ -4,6 +4,8 @@
    「アニメ風のキャラ」と「宝石の守護獣」の2つを持ち、設定で選べるようにする。
    どちらの描画関数も読み込まれているので、切り替えは即座に反映される。
    ══════════════════════════════════════════════════════════════ */
+/* 既定は人物のアニメ立ち絵（dvAnime）。社長の指定は「かわいい女性・いい男性」なので、
+   宝石の守護獣は「別の絵柄」として残すだけにする。 */
 let ART_STYLE = 'gem';
 try{ const _a = localStorage.getItem('dv_art'); if(_a==='anime' || _a==='gem') ART_STYLE = _a; }catch(e){}
 function setArtStyle(v){
@@ -31,6 +33,10 @@ function _dvSets(){
 function dvPort(id, ctx, T){
   _dvSets();
   const i = ((id|0)%8+8)%8;
+  if(ART_STYLE !== 'gem'){
+    const a = _dvFn('dvAnime');
+    if(a){ try{ a(ctx, i, T||0); return; }catch(e){} }
+  }
   const set = (ART_STYLE==='gem' && _PORT_GEM) ? _PORT_GEM : (_PORT_ANIME || _PORT_GEM);
   if(!set) return;
   try{ set[i](ctx, T||0); }catch(e){}

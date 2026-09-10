@@ -1,6 +1,6 @@
 <style>
 /* ══════════════════════════════════════════════════════════════
-   ダイスボヤージュ — 質感レイヤー
+   ダイスキングダム — 質感レイヤー
    「安っぽさ」の正体は ①平坦なグラデ ②押した手応えのないボタン
    ③画面が一瞬で切り替わる ④文字と枠が硬い、の4つ。ここで潰す。
    ══════════════════════════════════════════════════════════════ */
@@ -127,14 +127,22 @@ button:focus-visible,.tab:focus-visible,.modebtn:focus-visible,.minicard:focus-v
 .oddeven:active{box-shadow:0 2px 0 rgba(0,0,0,.42)}
 
 /* ── ⑥ 音量つまみ ───────────────────────────────────── */
-#audiobar{position:absolute;left:1%;bottom:2.5%;z-index:86;display:flex;align-items:center;gap:8px;
+#audiobar{position:absolute;right:1%;top:47%;z-index:86;display:none;flex-direction:column;align-items:center;gap:7px;
+  transform:translateY(-50%);
   padding:7px 12px;border-radius:12px;
   background:linear-gradient(#3B2A18,#1B1207);border:2px solid #6B4E28;
   box-shadow:0 4px 0 rgba(0,0,0,.45)}
 #audiobar button{width:34px;height:34px;border-radius:9px;border:2px solid #8A6A3C;cursor:pointer;
   background:linear-gradient(#5E4526,#31210D);font-size:16px;display:grid;place-items:center}
 #audiobar button.off{opacity:.42}
-#audiobar input[type=range]{width:76px;accent-color:#F5A623}
+#audiobar input[type=range]{width:88px;accent-color:#F5A623}
+#audiobar.on{display:flex}
+/* 設定の歯車。本家は右端の中段にこれ1個だけ置いてある */
+#gearBtn{position:absolute;right:1.1%;top:40%;z-index:86;width:44px;height:44px;border-radius:12px;
+  border:2px solid #8A6A3C;cursor:pointer;font-size:21px;line-height:1;
+  background:linear-gradient(180deg,rgba(58,40,16,.92),rgba(26,17,6,.92));color:#FFE9B5;
+  box-shadow:0 3px 0 rgba(0,0,0,.45)}
+#gearBtn:hover{filter:brightness(1.2)}
 
 @media (prefers-reduced-motion:reduce){
   #wipe.go i{animation-duration:.01ms !important}

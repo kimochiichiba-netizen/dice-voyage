@@ -17,10 +17,10 @@
     </div>
 
     <!-- ═══ ティッカー ═══ -->
-    <div id="ticker"><b id="tickerText">ダイスボヤージュへようこそ！</b></div>
+    <div id="ticker"><b id="tickerText">ダイスキングダムへようこそ！</b></div>
 
     <!-- ═══ HUD（上＝1位／下＝手番） ═══ -->
-    <div class="hud top" id="hudTop">
+    <div class="hud mini top" id="hudTop">
       <div class="portrait gild">
         <div class="in"><canvas id="fTopPic" width="176" height="176"></canvas></div>
         <span class="cls" id="fTopCls">CPU</span>
@@ -53,7 +53,28 @@
     <div class="rankbadge" id="rBot" style="right:26.5%;bottom:2%">2<span>位</span></div>
 
     <!-- 全員のコンパクト順位表 -->
-    <div id="sideHud" class="abs" style="left:1.2%;bottom:19%;z-index:80;display:flex;flex-direction:column;gap:5px"></div>
+    <!-- ═══ 残り2人（右上・左下）。自分は必ず右下 ═══ -->
+    <div class="hud mini tr" id="hudTR">
+      <div class="portrait gild"><div class="in"><canvas id="fTRPic" width="176" height="176"></canvas></div>
+        <span class="cls" id="fTRCls">CPU</span></div>
+      <div class="col">
+        <div class="namebar" id="fTRName">—</div>
+        <div class="statrow"><span class="lbl">総資産</span><span class="sub" id="fTRAsset">0</span></div>
+        <div class="statrow"><span class="lbl">所持金</span><span class="sub cash" id="fTRCash">0</span></div>
+      </div>
+    </div>
+    <div class="rankbadge sm" id="rTR" style="right:26.5%;top:1.6%">3<span>位</span></div>
+
+    <div class="hud mini bl" id="hudBL">
+      <div class="portrait gild"><div class="in"><canvas id="fBLPic" width="176" height="176"></canvas></div>
+        <span class="cls" id="fBLCls">CPU</span></div>
+      <div class="col">
+        <div class="namebar" id="fBLName">—</div>
+        <div class="statrow"><span class="lbl">総資産</span><span class="sub" id="fBLAsset">0</span></div>
+        <div class="statrow"><span class="lbl">所持金</span><span class="sub cash" id="fBLCash">0</span></div>
+      </div>
+    </div>
+    <div class="rankbadge sm" id="rBL" style="left:26.5%;bottom:2%">4<span>位</span></div>
 
     <!-- ═══ 独占の進み具合 ═══ -->
     <div id="legend"></div>
@@ -125,7 +146,8 @@
     <!-- ═══ VS マッチング ═══ -->
     <div id="vs"></div>
 
-    <!-- ═══ 音量 ═══ -->
+    <!-- ═══ 設定（歯車を押すと音量が開く） ═══ -->
+    <button id="gearBtn" title="設定">⚙</button>
     <div id="audiobar">
       <button id="bgmBtn" title="音楽">🎵</button>
       <input type="range" id="bgmVol" min="0" max="100" value="55" aria-label="音楽の大きさ">
@@ -139,8 +161,8 @@
     <!-- ═══════════ タイトル ═══════════ -->
     <div class="screen on" id="title">
       <div class="wrap">
-        <div class="logo">ダイスボヤージュ</div>
-        <div class="sub">DICE VOYAGE</div>
+        <div class="logo">ダイスキングダム</div>
+        <div class="sub">DICE KINGDOM</div>
         <div class="lead">
           サイコロを振って街を買い、建てて、独占する。<br>
           <b>横画面</b>で遊ぶボードゲーム。最大4人・CPU対戦つき。

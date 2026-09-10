@@ -1,10 +1,10 @@
-<title>ダイスボヤージュ</title>
+<title>ダイスキングダム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Noto+Sans+JP:wght@500;700;900&family=Bungee&display=swap">
 <style>
 /* ══════════════════════════════════════════════════════════════
-   ダイスボヤージュ — 横画面ボードゲーム
+   ダイスキングダム — 横画面ボードゲーム
    設計: 1600x900 の固定ステージを viewport に合わせて拡大縮小する。
    これにより「縦横比が変わってもレイアウト計算が1つも変わらない」。
    ══════════════════════════════════════════════════════════════ */
@@ -411,4 +411,31 @@ html,body{height:100%;overflow:hidden;background:#04070f;font-family:var(--jp);c
   *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;
     transition-duration:.01ms !important}
 }
+
+/* ══════════ 四隅のプレイヤーカード（右上・左下） ══════════
+   本家は4人ぶんを四隅に置く。盤の脇に順位リストを置くのは当方の代用UIだった。 */
+.hud.mini{gap:6px}
+.hud.mini .face,.hud.mini .portrait{width:58px;height:58px}
+.hud.mini .portrait .in{width:58px;height:58px}
+.hud.mini .col{min-width:184px;gap:2px}
+.hud.mini .namebar{height:22px;font-size:13px;padding:0 10px;border-radius:11px}
+.hud.mini .statrow{height:21px;display:flex;align-items:center;gap:6px}
+.hud.mini .lbl{font-size:10.5px;padding:2px 6px}
+.hud.mini .sub{font-family:var(--pop);font-size:17px;line-height:1;color:#9FD8F8;
+  -webkit-text-stroke:2px #0C1B2E;paint-order:stroke fill}
+.hud.mini .sub.cash{color:#FFE08A;-webkit-text-stroke-color:#2A1D06}
+.hud.mini.tr{right:0.6%;top:1.2%;flex-direction:row-reverse}
+.hud.mini.tr .col{align-items:flex-end}
+.hud.mini.tr .statrow{flex-direction:row-reverse}
+.hud.mini.tr .namebar{flex-direction:row-reverse}
+.hud.mini.bl{left:0.6%;bottom:2.8%}
+.hud.mini .gauge,.hud.mini .jam{display:none}
+.hud.mini.top{left:0.6%;top:1.2%}
+.hud.out{opacity:.42;filter:grayscale(.7)}
+.rankbadge.sm{width:58px;height:58px;font-size:21px;border-width:3px}
+.rankbadge.sm span{font-size:13px}
+/* 本家は下2枚の順位バッジを意図的に大きくしている（自分側が主役） */
+.rankbadge{width:88px;height:88px;font-size:32px}
+.rankbadge span{font-size:19px}
+
 </style>

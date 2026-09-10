@@ -1,6 +1,6 @@
 
 /* ══════════════════════════════════════════════════════════════
-   ダイスボヤージュ — メタ（ホーム／カード／ガチャ／ペンダント／VS）
+   ダイスキングダム — メタ（ホーム／カード／ガチャ／ペンダント／VS）
    セーブはこのブラウザの localStorage に保存される
    ══════════════════════════════════════════════════════════════ */
 const SAVE_KEY = 'dv_save_v1';
@@ -329,7 +329,7 @@ function showHome(){
     +   '<div class="heroPic"><span class="rk">'+RAR[c.rar].nm+' CLASS</span>'
     +     '<canvas id="homePic" width="320" height="450"></canvas></div>'
     +   '<div class="heroInfo">'
-    +     '<h1>ダイスボヤージュ</h1><div class="cap">DICE VOYAGE</div>'
+    +     '<h1>ダイスキングダム</h1><div class="cap">DICE KINGDOM</div>'
     +     '<div class="who"><b>'+esc(c.nm)+'</b>（'+esc(c.role)+'） Lv.'+own.lv
     +       '　「'+esc(c.line)+'」</div>'
     +     '<div class="stats dark-st">'+statRows(st, cardStats(c.id, own.lv, []))+'</div>'

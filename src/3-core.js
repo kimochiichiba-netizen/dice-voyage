@@ -1,7 +1,7 @@
 <script>
 "use strict";
 /* ══════════════════════════════════════════════════════════════
-   ダイスボヤージュ — コア（幾何・データ・描画のとりまとめ）
+   ダイスキングダム — コア（幾何・データ・描画のとりまとめ）
    実際の描き込みは 3b-art.js の dv* 関数が担当する
    ══════════════════════════════════════════════════════════════ */
 
@@ -387,7 +387,7 @@ function drawLake(ctx, map, T){
   const inset = TD;         // 実測: 水面の幅 ÷ 盤の幅 = 0.65
   const pts=[proj(inset,inset),proj(S-inset,inset),proj(S-inset,S-inset),proj(inset,S-inset)];
   // 本家の水面は水色ではなく無彩色のグレー。ここが派手だと盤の主役を食う
-  dvLake(ctx, pts, ['#A6A6A6','#969696','#7C7C7E'], T, 'ダイスボヤージュ', '◇ '+map.name);
+  dvLake(ctx, pts, ['#A6A6A6','#969696','#7C7C7E'], T, 'ダイスキングダム', '◇ '+map.name);
   // 本家の水面のロゴは同じ灰色の凹凸だけ（実効不透明度8%程度）
 }
 function drawSlab(ctx, map, T){
