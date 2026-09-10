@@ -128,6 +128,8 @@ function tollOf(tile, G){
     if(hasLine(G, tile.owner, Math.floor(i/8))) m *= 2;
     if(G.ev && G.ev.tollX) m *= G.ev.tollX;      // 週替わり「通行料値上げ」
     if(G.infl && G.infl > 1) m *= G.infl;        // 終盤インフレ（残り6ターンから毎ターン1.5倍）
+    const ow = G.players && G.players[tile.owner];
+    if(ow && ow.tollUp > 0) m *= 1.6;            // 能力「地価高騰」：自分の土地を一時的に値上げ
   }
   return Math.round(v*m);
 }

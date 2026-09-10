@@ -1770,6 +1770,8 @@ function tollOf(tile, G){
     if(hasLine(G, tile.owner, Math.floor(i/8))) m *= 2;
     if(G.ev && G.ev.tollX) m *= G.ev.tollX;      // 週替わり「通行料値上げ」
     if(G.infl && G.infl > 1) m *= G.infl;        // 終盤インフレ（残り6ターンから毎ターン1.5倍）
+    const ow = G.players && G.players[tile.owner];
+    if(ow && ow.tollUp > 0) m *= 1.6;            // 能力「地価高騰」：自分の土地を一時的に値上げ
   }
   return Math.round(v*m);
 }
@@ -18261,7 +18263,7 @@ function newGame(){
         cash:cfg.cash, pos:0, laps:0, jail:0, out:false, dblRun:0,
         odd:2, even:2, items:pickItems(s.kind!=='cpu'),
         skillLeft: card.sk.uses, mana:0,
-        freeToll:0, halfBuild:0, salaryX2:0, forceDouble:0, chooseEye:0,
+        freeToll:0, halfBuild:0, salaryX2:0, forceDouble:0, chooseEye:0, tollUp:0,
         render:tileCenter(0), hopY:0, squash:1, offx:0, offy:0, face:1, jam:3,
         pend: (s.kind!=='cpu')
           ? SV.slots.map(pendById).filter(Boolean)
@@ -19433,6 +19435,7 @@ async function turnLoop(){
     if(alarmTick(pi)) break;          // 独占を1巡守り切ったら勝ち
     // 凍結の解除
     G.tiles.forEach(t=>{ if(t.frozen>0) t.frozen--; });
+    if(p.tollUp > 0) p.tollUp--;   // 地価高騰の期限
     p.mana = Math.min(100, p.mana + 34);
     updHUD();
     await turnBig(pi);
@@ -19663,6 +19666,77 @@ async function useSkill(pi){
     if(d>=0){ await jumpTo(pi,d); await resolve(pi); }
   }
   if(k===3) give(pi, Math.round(assetOf(G,pi)*p.skillPow));
+  // ── ここから追加分（本家のS+カード41枚の効果を型にしたもの）──
+  if(k===4){
+    // 強奪：相手全員から所持金の一部を奪う
+    const rate = 0.10 + p.skillPow*0.5;
+    let got = 0;
+    G.players.forEach((q,qi)=>{
+      if(qi===pi || q.out) return;
+      const v = Math.round(q.cash * rate);
+      if(v<=0) return;
+      give(qi, -v); got += v;
+      const cq = q.render || tileCenter(q.pos);
+      addFx('spark', cq.x, cq.y-24, 900, PCOL[pi]);
+    });
+    if(got>0){ give(pi, got); SFX.coin();
+      toast('R','💰','強奪', yen(got)+' を奪いました', 2200);
+      news(p.name+' が全員から '+yen(got)+' を奪った！'); }
+  }
+  if(k===5){
+    // 無料増築：自分の街をひとつ、ただで一段上げる
+    const mine = [];
+    for(let i=0;i<32;i++){ const t=G.tiles[i];
+      if(t.type==='city' && t.owner===pi && !t.landmark) mine.push(i); }
+    if(mine.length){
+      let d;
+      if(p.kind==='cpu'){ d = mine.reduce((a,b)=> tollOf(G.tiles[b],G) > tollOf(G.tiles[a],G) ? b : a); }
+      else d = await pickTile(pi,'ただで建てる街を選んでください',
+            i=>G.tiles[i].type==='city' && G.tiles[i].owner===pi && !G.tiles[i].landmark);
+      if(d>=0){
+        const t = G.tiles[d];
+        if(t.lv>=3) t.landmark = true; else t.lv++;
+        await growAnim(d);
+        toast('R','🏗','無料建設', t.name+' が育ちました', 2200);
+      }
+    } else toast('L','🏗','建てる街がありません','まず街を買いましょう',1900);
+  }
+  if(k===6){
+    // 給料：その場で給料を受け取り、次の給料も2倍になる
+    const amt = Math.round(1500000 + p.laps*400000);
+    give(pi, amt); p.salaryX2++;
+    SFX.coin(); toast('R','💴','臨時収入', yen(amt)+'／次の給料も2倍', 2200);
+  }
+  if(k===7){ p.forceDouble++; toast('R','✌️','ゾロ目確定','次のサイコロは必ずゾロ目です',2000); }
+  if(k===8){
+    // 地価高騰：自分の全所有地の通行料が2ターン1.6倍
+    p.tollUp = 2; boardChanged();
+    raiseBanner('地価高騰！');
+    toast('R','📈','地価高騰','自分の街の通行料が2ターン 1.6倍', 2300);
+    news(p.name+' の街の通行料が跳ね上がった！');
+  }
+  if(k===9){
+    // 妨害：一番資産のある相手を監獄へ送る
+    let tgt = -1, bv = -1;
+    G.players.forEach((q,qi)=>{ if(qi!==pi && !q.out && !q.jail){
+      const v = assetOf(G,qi); if(v>bv){ bv=v; tgt=qi; } } });
+    if(tgt>=0){
+      await jumpTo(tgt, 8); G.players[tgt].jail = 3; G.players[tgt].dblRun = 0;
+      SFX.bad(); camShake(12);
+      toast('R','⛓','妨害', G.players[tgt].name+' を'+G.map.corners[1]+'へ送りました', 2300);
+      news(p.name+' が '+G.players[tgt].name+' を'+G.map.corners[1]+'へ送り込んだ！');
+    } else toast('L','⛓','送る相手がいません','—',1800);
+  }
+  if(k===10){
+    // 宝箱：金額は運。当たれば一気に逆転する
+    const base = Math.max(1200000, Math.round(assetOf(G,pi)*0.10));
+    const mul = [0.6, 1, 1, 1.6, 2.6][(Math.random()*5)|0];
+    const amt = Math.round(base*mul);
+    give(pi, amt); SFX.gachaRare();
+    const c2 = p.render || tileCenter(p.pos);
+    addFx('spark', c2.x, c2.y-30, 1100, '#FFD24D');
+    toast('R','🎁','宝箱', yen(amt)+' が出ました'+(mul>=2.6?'（大当たり！）':''), 2400);
+  }
   updHUD();
 }
 
@@ -20128,10 +20202,10 @@ const CARDPOOL = [
    line:'風より速く、盤を駆ける。',
    st:{toll:52,mini:74,special:50,fortune:58,build:48,gauge:76,buyout:44},
    sk:{nm:'霜の跳躍', ds:'好きなマスへ移動する', uses:2}},
-  {id:'c02', art:2, kind:0, col:'#5FD6A8', nm:'翡翠の鶴',   role:'ジェイド',   rar:'A',
+  {id:'c02', art:2, kind:5, col:'#5FD6A8', nm:'翡翠の鶴',   role:'ジェイド',   rar:'A',
    line:'高みから、すべてを見ている。',
    st:{toll:70,mini:56,special:58,fortune:52,build:60,gauge:54,buyout:46},
-   sk:{nm:'翠玉の加護', ds:'次に払う通行料が0になる', uses:2}},
+   sk:{nm:'翠玉の恵み', ds:'自分の街をひとつ、ただで一段育てる', uses:2}},
   {id:'c03', art:4, kind:0, col:'#6B5E8C', nm:'黒曜の狼',   role:'オブシディアン', rar:'A',
    line:'黙って、獲物を待つ。',
    st:{toll:78,mini:60,special:44,fortune:40,build:50,gauge:64,buyout:56},
@@ -20141,23 +20215,36 @@ const CARDPOOL = [
    line:'知は、いつでも金に換えられる。',
    st:{toll:58,mini:66,special:82,fortune:90,build:62,gauge:58,buyout:74},
    sk:{nm:'叡智の対価', ds:'総資産の12%を現金で受け取る', uses:2}},
-  {id:'c05', art:5, kind:2, col:'#F6E6EE', nm:'真珠の兎',   role:'パール',     rar:'S',
+  {id:'c05', art:5, kind:10, col:'#F6E6EE', nm:'真珠の兎',   role:'パール',     rar:'S',
    line:'跳べば、どこへでも。',
    st:{toll:60,mini:88,special:62,fortune:76,build:54,gauge:90,buyout:50},
-   sk:{nm:'月跳び', ds:'好きなマスへ移動する', uses:3}},
-  {id:'c06', art:3, kind:1, col:'#F04A5A', nm:'紅玉の竜',   role:'ルビー',     rar:'S',
+   sk:{nm:'月光の贈り物', ds:'宝箱をひらく。金額は運しだい（最大2.6倍）', uses:3}},
+  {id:'c06', art:3, kind:9, col:'#F04A5A', nm:'紅玉の竜',   role:'ルビー',     rar:'S',
    line:'すべては、我が意のままに。',
    st:{toll:86,mini:64,special:48,fortune:46,build:66,gauge:84,buyout:70},
-   sk:{nm:'紅蓮の目', ds:'次のサイコロの出目を自分で選べる', uses:3}},
+   sk:{nm:'竜の威圧', ds:'一番資産のある相手を監獄へ送る', uses:2}},
 
   {id:'c07', art:1, kind:1, col:'#F2C230', nm:'黄金の獅子', role:'ゴールド',   rar:'SS',
    line:'この盤の王は、我である。',
    st:{toll:94,mini:70,special:60,fortune:58,build:78,gauge:92,buyout:82},
    sk:{nm:'獅子の咆哮', ds:'出目を選び、さらにもう一度振れる', uses:2}},
-  {id:'c08', art:7, kind:3, col:'#E8A032', nm:'琥珀の熊',   role:'アンバー',   rar:'SS',
+  {id:'c08', art:7, kind:4, col:'#E8A032', nm:'琥珀の熊',   role:'アンバー',   rar:'SS',
    line:'蓄えた分だけ、強い。',
    st:{toll:72,mini:64,special:96,fortune:88,build:92,gauge:60,buyout:98},
-   sk:{nm:'琥珀の蓄え', ds:'総資産の18%を現金で受け取る', uses:2}}
+   sk:{nm:'琥珀の徴収', ds:'相手全員から所持金の19%を奪う', uses:2}},
+
+  {id:'c09', art:0, kind:6, col:'#BFE4F2', nm:'白銀の狐',   role:'シルバー',   rar:'A',
+   line:'知らせは、風より早く届く。',
+   st:{toll:48,mini:62,special:66,fortune:72,build:52,gauge:60,buyout:50},
+   sk:{nm:'霜結びの便り', ds:'その場で給料を受け取り、次の給料も2倍になる', uses:2}},
+  {id:'c10', art:3, kind:7, col:'#C0392B', nm:'深紅の竜',   role:'スカーレット', rar:'S',
+   line:'二つの目は、いつも揃う。',
+   st:{toll:80,mini:58,special:50,fortune:44,build:64,gauge:88,buyout:62},
+   sk:{nm:'双竜の吐息', ds:'次のサイコロが必ずゾロ目になる（もう一度振れる）', uses:3}},
+  {id:'c11', art:1, kind:8, col:'#E0B94A', nm:'琥珀の獅子', role:'アンバーレオ', rar:'S',
+   line:'この土地の値は、我が決める。',
+   st:{toll:92,mini:54,special:56,fortune:50,build:74,gauge:62,buyout:66},
+   sk:{nm:'黄金の地脈', ds:'自分の街ぜんぶの通行料が2ターン1.6倍になる', uses:2}}
 ];
 const cardById = id => CARDPOOL.find(c=>c.id===id);
 

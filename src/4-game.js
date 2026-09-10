@@ -101,7 +101,7 @@ function newGame(){
         cash:cfg.cash, pos:0, laps:0, jail:0, out:false, dblRun:0,
         odd:2, even:2, items:pickItems(s.kind!=='cpu'),
         skillLeft: card.sk.uses, mana:0,
-        freeToll:0, halfBuild:0, salaryX2:0, forceDouble:0, chooseEye:0,
+        freeToll:0, halfBuild:0, salaryX2:0, forceDouble:0, chooseEye:0, tollUp:0,
         render:tileCenter(0), hopY:0, squash:1, offx:0, offy:0, face:1, jam:3,
         pend: (s.kind!=='cpu')
           ? SV.slots.map(pendById).filter(Boolean)
@@ -1273,6 +1273,7 @@ async function turnLoop(){
     if(alarmTick(pi)) break;          // 独占を1巡守り切ったら勝ち
     // 凍結の解除
     G.tiles.forEach(t=>{ if(t.frozen>0) t.frozen--; });
+    if(p.tollUp > 0) p.tollUp--;   // 地価高騰の期限
     p.mana = Math.min(100, p.mana + 34);
     updHUD();
     await turnBig(pi);
@@ -1503,6 +1504,77 @@ async function useSkill(pi){
     if(d>=0){ await jumpTo(pi,d); await resolve(pi); }
   }
   if(k===3) give(pi, Math.round(assetOf(G,pi)*p.skillPow));
+  // ── ここから追加分（本家のS+カード41枚の効果を型にしたもの）──
+  if(k===4){
+    // 強奪：相手全員から所持金の一部を奪う
+    const rate = 0.10 + p.skillPow*0.5;
+    let got = 0;
+    G.players.forEach((q,qi)=>{
+      if(qi===pi || q.out) return;
+      const v = Math.round(q.cash * rate);
+      if(v<=0) return;
+      give(qi, -v); got += v;
+      const cq = q.render || tileCenter(q.pos);
+      addFx('spark', cq.x, cq.y-24, 900, PCOL[pi]);
+    });
+    if(got>0){ give(pi, got); SFX.coin();
+      toast('R','💰','強奪', yen(got)+' を奪いました', 2200);
+      news(p.name+' が全員から '+yen(got)+' を奪った！'); }
+  }
+  if(k===5){
+    // 無料増築：自分の街をひとつ、ただで一段上げる
+    const mine = [];
+    for(let i=0;i<32;i++){ const t=G.tiles[i];
+      if(t.type==='city' && t.owner===pi && !t.landmark) mine.push(i); }
+    if(mine.length){
+      let d;
+      if(p.kind==='cpu'){ d = mine.reduce((a,b)=> tollOf(G.tiles[b],G) > tollOf(G.tiles[a],G) ? b : a); }
+      else d = await pickTile(pi,'ただで建てる街を選んでください',
+            i=>G.tiles[i].type==='city' && G.tiles[i].owner===pi && !G.tiles[i].landmark);
+      if(d>=0){
+        const t = G.tiles[d];
+        if(t.lv>=3) t.landmark = true; else t.lv++;
+        await growAnim(d);
+        toast('R','🏗','無料建設', t.name+' が育ちました', 2200);
+      }
+    } else toast('L','🏗','建てる街がありません','まず街を買いましょう',1900);
+  }
+  if(k===6){
+    // 給料：その場で給料を受け取り、次の給料も2倍になる
+    const amt = Math.round(1500000 + p.laps*400000);
+    give(pi, amt); p.salaryX2++;
+    SFX.coin(); toast('R','💴','臨時収入', yen(amt)+'／次の給料も2倍', 2200);
+  }
+  if(k===7){ p.forceDouble++; toast('R','✌️','ゾロ目確定','次のサイコロは必ずゾロ目です',2000); }
+  if(k===8){
+    // 地価高騰：自分の全所有地の通行料が2ターン1.6倍
+    p.tollUp = 2; boardChanged();
+    raiseBanner('地価高騰！');
+    toast('R','📈','地価高騰','自分の街の通行料が2ターン 1.6倍', 2300);
+    news(p.name+' の街の通行料が跳ね上がった！');
+  }
+  if(k===9){
+    // 妨害：一番資産のある相手を監獄へ送る
+    let tgt = -1, bv = -1;
+    G.players.forEach((q,qi)=>{ if(qi!==pi && !q.out && !q.jail){
+      const v = assetOf(G,qi); if(v>bv){ bv=v; tgt=qi; } } });
+    if(tgt>=0){
+      await jumpTo(tgt, 8); G.players[tgt].jail = 3; G.players[tgt].dblRun = 0;
+      SFX.bad(); camShake(12);
+      toast('R','⛓','妨害', G.players[tgt].name+' を'+G.map.corners[1]+'へ送りました', 2300);
+      news(p.name+' が '+G.players[tgt].name+' を'+G.map.corners[1]+'へ送り込んだ！');
+    } else toast('L','⛓','送る相手がいません','—',1800);
+  }
+  if(k===10){
+    // 宝箱：金額は運。当たれば一気に逆転する
+    const base = Math.max(1200000, Math.round(assetOf(G,pi)*0.10));
+    const mul = [0.6, 1, 1, 1.6, 2.6][(Math.random()*5)|0];
+    const amt = Math.round(base*mul);
+    give(pi, amt); SFX.gachaRare();
+    const c2 = p.render || tileCenter(p.pos);
+    addFx('spark', c2.x, c2.y-30, 1100, '#FFD24D');
+    toast('R','🎁','宝箱', yen(amt)+' が出ました'+(mul>=2.6?'（大当たり！）':''), 2400);
+  }
   updHUD();
 }
 
