@@ -6,15 +6,15 @@
    ══════════════════════════════════════════════════════════════ */
 
 const SW = 1600, SH = 900;
-const S  = 882;                          // 盤（正方形）の1辺（盤空間px）
-const CW = 135.4;                        // 角マスの1辺
-const TW = 87.3;                         // 通常マスの幅（進行方向）
-const TD = 113;                          // 通常マスの奥行き
+const S  = 936;                          // 盤（正方形）の1辺（盤空間px）
+const CW = 143.7;                        // 角マスの1辺
+const TW = 92.6;                         // 通常マスの幅（進行方向）
+const TD = 119.9;                          // 通常マスの奥行き
 const KX = 0.7071067811865476;
 const KSQ= 0.585;                        // 縦潰し（実測）
 const KY = KX * KSQ;
 const BCX= SW * 0.505, BCY = SH * 0.535; // 盤中心
-const TILE_H = 15;                       // マスの厚み（画面px）
+const TILE_H = 16;                       // マスの厚み（画面px）
 
 function proj(p, q){
   const dx = p - S/2, dy = q - S/2;

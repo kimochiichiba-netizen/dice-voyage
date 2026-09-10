@@ -46,6 +46,7 @@
         <div class="statrow"><span class="lbl">総資産</span><span class="sub" id="fBotAsset">0</span></div>
         <div class="statrow"><span class="lbl">所持金</span><span class="big" id="fBotCash">0</span></div>
         <div class="gauge"><i id="fBotGauge" style="width:0%"></i><span class="gtxt" id="fBotGtx">魔力 0%</span></div>
+        <div class="jam">邪魔できる回数：<b id="jamN">3</b></div>
       </div>
     </div>
     <div class="rankbadge" id="rBot" style="right:26.5%;bottom:2%">2<span>位</span></div>
@@ -73,6 +74,16 @@
     <!-- ═══ 手番の大見出し ═══ -->
     <div id="turnbig"><b id="turnbigT">—</b><i id="turnbigS">—</i></div>
 
+    <!-- ═══ 通行料値上げ ═══ -->
+    <div id="raise">通行料値上げ！</div>
+
+    <!-- ═══ ゆらす（相手の建設を邪魔する） ═══ -->
+    <div id="shake">
+      <b>相手が建物を設置中！</b>
+      <i>「ゆらす」を押して邪魔しましょう（残り <em id="jamLeft">3</em> 回）</i>
+      <button id="shakeBtn">ゆらす</button>
+    </div>
+
     <!-- ═══ 告知帯 ═══ -->
     <div id="band"><b id="bandT"></b><i id="bandS"></i></div>
 
@@ -92,6 +103,7 @@
       <div class="l1" id="cel1">おめでとうございます！</div>
       <div class="l2" id="cel2">独占</div>
       <div class="l3" id="cel3">通行料 ×2倍</div>
+      <div class="l4" id="cel4">FORTUNE!</div>
     </div>
 
     <!-- ═══ エモート・サウンド ═══ -->
@@ -153,6 +165,9 @@
             </label>
             <label class="opt">CPUの強さ
               <select id="optAI"><option value="0">よわい</option><option value="1" selected>ふつう</option><option value="2">つよい</option></select>
+            </label>
+            <label class="opt">キャラの絵柄
+              <select id="optArt"><option value="gem">宝石の守護獣</option><option value="anime">アニメ風</option></select>
             </label>
             <label class="opt">アニメ速度
               <select id="optSpeed"><option value="1.4">ゆっくり</option><option value="1" selected>ふつう</option><option value="0.62">はやい</option></select>

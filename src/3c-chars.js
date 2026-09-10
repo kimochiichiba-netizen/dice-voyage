@@ -6914,12 +6914,12 @@ function dvT7(ctx, col, T, facing) {
 }
 
 /* ── 呼び分け（3b-art.js の旧 dvChar を上書きする） ── */
-function dvPort(id, ctx, T){
+function dvPortLegacy(id, ctx, T){
   const F = [dvP0,dvP1,dvP2,dvP3,dvP4,dvP5,dvP6,dvP7];
   const f = F[((id|0)%8+8)%8];
   if(f){ try{ f(ctx, T||0); }catch(e){} }
 }
-function dvChar(ctx, id, col, T, facing){
+function dvCharLegacy2(ctx, id, col, T, facing){
   const F = [dvT0,dvT1,dvT2,dvT3,dvT4,dvT5,dvT6,dvT7];
   const f = F[((id|0)%8+8)%8];
   if(f){ try{ f(ctx, col, T||0, facing||1); }catch(e){} }

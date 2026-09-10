@@ -10,43 +10,43 @@ const RAR = {
   SS: {nm:'S+', cls:'rSS', mul:1.32, w: 6, gold:600}
 };
 
-/* ── カード図鑑（8人。art が肖像・コマの絵、kind が能力の型） ───────────── */
+/* ── カード図鑑（守護獣8体。art が像の絵、kind が能力の型） ───────────── */
 /* kind: 0=通行料を無効化 1=出目を選ぶ 2=好きなマスへ移動 3=総資産の一部を現金化 */
 const CARDPOOL = [
-  {id:'c01', art:1, kind:1, col:'#3E8FE0', nm:'レン',   role:'蒼銀の騎士', sex:'男', rar:'A',
-   line:'守るために、前へ出る。',
-   st:{toll:70,mini:52,special:46,fortune:40,build:54,gauge:62,buyout:50},
-   sk:{nm:'ヴァンガード', ds:'次のサイコロの出目を自分で選べる', uses:2}},
-  {id:'c02', art:5, kind:2, col:'#6FCF6F', nm:'ソラ',   role:'翠風の狩人', sex:'男', rar:'A',
-   line:'風の通り道は、見えてるよ。',
-   st:{toll:48,mini:76,special:52,fortune:60,build:48,gauge:78,buyout:44},
-   sk:{nm:'追い風', ds:'好きなマスへ移動する', uses:2}},
-  {id:'c03', art:3, kind:1, col:'#E14A5A', nm:'カイ',   role:'紅蓮の傭兵', sex:'男', rar:'A',
-   line:'細けえ話はナシだ。行くぞ。',
-   st:{toll:78,mini:58,special:38,fortune:36,build:44,gauge:66,buyout:58},
-   sk:{nm:'蛮勇', ds:'次のサイコロの出目を自分で選べる', uses:2}},
+  {id:'c01', art:0, kind:2, col:'#7FD8F0', nm:'氷晶の狐',   role:'クリスタル', rar:'A',
+   line:'風より速く、盤を駆ける。',
+   st:{toll:52,mini:74,special:50,fortune:58,build:48,gauge:76,buyout:44},
+   sk:{nm:'霜の跳躍', ds:'好きなマスへ移動する', uses:2}},
+  {id:'c02', art:2, kind:0, col:'#5FD6A8', nm:'翡翠の鶴',   role:'ジェイド',   rar:'A',
+   line:'高みから、すべてを見ている。',
+   st:{toll:70,mini:56,special:58,fortune:52,build:60,gauge:54,buyout:46},
+   sk:{nm:'翠玉の加護', ds:'次に払う通行料が0になる', uses:2}},
+  {id:'c03', art:4, kind:0, col:'#6B5E8C', nm:'黒曜の狼',   role:'オブシディアン', rar:'A',
+   line:'黙って、獲物を待つ。',
+   st:{toll:78,mini:60,special:44,fortune:40,build:50,gauge:64,buyout:56},
+   sk:{nm:'黒曜の壁', ds:'次に払う通行料が0になる', uses:2}},
 
-  {id:'c04', art:0, kind:0, col:'#8FD8E8', nm:'ユキ',   role:'氷の姫巫女', sex:'女', rar:'S',
-   line:'そっと、凍らせてあげる。',
-   st:{toll:76,mini:56,special:66,fortune:64,build:86,gauge:60,buyout:52},
-   sk:{nm:'氷結の祈り', ds:'次に払う通行料が0になる', uses:2}},
-  {id:'c05', art:2, kind:2, col:'#A87BE0', nm:'ルナ',   role:'星読みの魔女', sex:'女', rar:'S',
-   line:'星が、そう言ってるの。',
-   st:{toll:58,mini:84,special:64,fortune:88,build:56,gauge:86,buyout:50},
-   sk:{nm:'星辰の導き', ds:'好きなマスへ移動する', uses:3}},
-  {id:'c06', art:6, kind:1, col:'#F09AB8', nm:'サクラ', role:'桜花の剣姫', sex:'女', rar:'S',
-   line:'一太刀で、終わらせます。',
-   st:{toll:88,mini:68,special:48,fortune:46,build:58,gauge:82,buyout:66},
-   sk:{nm:'桜花一閃', ds:'次のサイコロの出目を自分で選べる', uses:3}},
+  {id:'c04', art:6, kind:3, col:'#4C82E8', nm:'蒼玉の梟',   role:'サファイア', rar:'S',
+   line:'知は、いつでも金に換えられる。',
+   st:{toll:58,mini:66,special:82,fortune:90,build:62,gauge:58,buyout:74},
+   sk:{nm:'叡智の対価', ds:'総資産の12%を現金で受け取る', uses:2}},
+  {id:'c05', art:5, kind:2, col:'#F6E6EE', nm:'真珠の兎',   role:'パール',     rar:'S',
+   line:'跳べば、どこへでも。',
+   st:{toll:60,mini:88,special:62,fortune:76,build:54,gauge:90,buyout:50},
+   sk:{nm:'月跳び', ds:'好きなマスへ移動する', uses:3}},
+  {id:'c06', art:3, kind:1, col:'#F04A5A', nm:'紅玉の竜',   role:'ルビー',     rar:'S',
+   line:'すべては、我が意のままに。',
+   st:{toll:86,mini:64,special:48,fortune:46,build:66,gauge:84,buyout:70},
+   sk:{nm:'紅蓮の目', ds:'次のサイコロの出目を自分で選べる', uses:3}},
 
-  {id:'c07', art:4, kind:3, col:'#E8C34A', nm:'ミオ',   role:'商会のお嬢様', sex:'女', rar:'SS',
-   line:'わたくしに、任せてくださる？',
-   st:{toll:62,mini:66,special:92,fortune:94,build:80,gauge:58,buyout:96},
-   sk:{nm:'商会の威光', ds:'総資産の18%を現金で受け取る', uses:2}},
-  {id:'c08', art:7, kind:3, col:'#D8B44A', nm:'ジン',   role:'黄金の両替商', sex:'男', rar:'SS',
-   line:'手数料は、いただきますよ。',
-   st:{toll:70,mini:62,special:96,fortune:86,build:88,gauge:64,buyout:98},
-   sk:{nm:'黄金律', ds:'総資産の18%を現金で受け取る', uses:2}}
+  {id:'c07', art:1, kind:1, col:'#F2C230', nm:'黄金の獅子', role:'ゴールド',   rar:'SS',
+   line:'この盤の王は、我である。',
+   st:{toll:94,mini:70,special:60,fortune:58,build:78,gauge:92,buyout:82},
+   sk:{nm:'獅子の咆哮', ds:'出目を選び、さらにもう一度振れる', uses:2}},
+  {id:'c08', art:7, kind:3, col:'#E8A032', nm:'琥珀の熊',   role:'アンバー',   rar:'SS',
+   line:'蓄えた分だけ、強い。',
+   st:{toll:72,mini:64,special:96,fortune:88,build:92,gauge:60,buyout:98},
+   sk:{nm:'琥珀の蓄え', ds:'総資産の18%を現金で受け取る', uses:2}}
 ];
 const cardById = id => CARDPOOL.find(c=>c.id===id);
 
@@ -162,7 +162,7 @@ function showHome(){
   const el = mkScreen('home',
     tabsHTML('home')
     + '<div class="inner">'
-    + '<div class="hero">'
+    + '<div class="hero hero3">'
     +   '<div class="heroPic"><span class="rk">'+RAR[c.rar].nm+' CLASS</span>'
     +     '<canvas id="homePic" width="320" height="450"></canvas></div>'
     +   '<div class="heroInfo">'
@@ -180,6 +180,7 @@ function showHome(){
     +         '<div class="ds">ステータスを<br>上げる</div></div>'
     +     '</div>'
     +   '</div>'
+    +   rankPaneHTML()
     + '</div>'
     + weekBannerHTML()
     + '</div>' + walletHTML());
@@ -189,6 +190,35 @@ function showHome(){
   $('#mCards').onclick = ()=>{ SFX.click(); showCards(); };
   $('#mGacha').onclick = ()=>{ SFX.click(); showGacha(); };
   screenTo('home');
+}
+
+/* ── ランキング（本家ロビーの右半分） ─────────────────── */
+const RIVALS = [
+  {nm:'ボン・クレー', a:31914200, like:214}, {nm:'しゅう',      a:28776500, like:188},
+  {nm:'あんぱん',     a:24310900, like:151}, {nm:'たなか',      a:21085400, like:133},
+  {nm:'みっちゃん',   a:18702300, like:117}, {nm:'ジェイド',    a:16240800, like: 96},
+  {nm:'くり',         a:14118600, like: 82}, {nm:'れっちゃん',  a:12903100, like: 71}
+];
+function rankPaneHTML(){
+  const me = { nm:'あなた', a: SV.gold*180 + SV.lv*900000, like: SV.wins*7+3, me:1 };
+  const rows = RIVALS.concat([me]).sort((x,y)=>y.a-x.a);
+  const rank = rows.findIndex(r=>r.me) + 1;
+  const medal = i => i===0 ? '🥇' : i===1 ? '🥈' : i===2 ? '🥉' : (i+1);
+  return '<div class="rankpane">'
+    + '<div class="rtab"><span class="on">全体ランキング</span><span>ともだち</span></div>'
+    + '<div class="rlist">'
+    + rows.slice(0,7).map((r,i)=>
+        '<div class="rrow'+(r.me?' me':'')+'">'
+        + '<span class="rk">'+medal(i)+'</span>'
+        + '<span class="nm">'+esc(r.nm)+'</span>'
+        + '<span class="as">'+yen(r.a)+'</span>'
+        + '<span class="lk">👍 '+r.like+'</span></div>').join('')
+    + '</div>'
+    + '<div class="mileage"><b>マイレージ</b>'
+    + '<span class="bar"><i style="width:'+Math.min(100, (SV.plays%10)*10)+'%"></i></span>'
+    + '<span class="n">'+(SV.plays%10)+'/10</span></div>'
+    + '<div class="rfoot">あなたは <b>'+rank+'位</b>　／　10戦ごとにマイレージガチャが引けます</div>'
+    + '</div>';
 }
 
 /* ── カード ─────────────────────────────────────────── */

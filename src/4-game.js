@@ -41,7 +41,10 @@ function ac(){
   if(AC && !audioReady){
     audioReady = true;
     try{ SFXE = dvSfx(AC); }catch(e){ SFXE = null; }
-    try{ MUSIC = dvMusic(AC); }catch(e){ MUSIC = null; }
+    try{
+      MUSIC = dvMusicFiles(AC, (window.DV_BGM || null));   // 音楽ファイルがあれば本物を鳴らす
+      if(!MUSIC) MUSIC = dvMusic(AC);                      // 無ければ合成音
+    }catch(e){ try{ MUSIC = dvMusic(AC); }catch(e2){ MUSIC = null; } }
     try{ applyAudioPrefs(); }catch(e){}
     try{ if(MUSIC) MUSIC.play('lobby'); }catch(e){}
   }
@@ -92,7 +95,7 @@ function newGame(){
         odd:2, even:2, items:pickItems(),
         skillLeft: card.sk.uses, mana:0,
         freeToll:0, halfBuild:0, salaryX2:0, forceDouble:0, chooseEye:0,
-        render:tileCenter(0), hopY:0, squash:1, offx:0, offy:0, face:1
+        render:tileCenter(0), hopY:0, squash:1, offx:0, offy:0, face:1, jam:3
       };
     }),
     turn:0, turnsLeft:cfg.turns, over:false, winner:-1, winReason:'',
@@ -325,6 +328,7 @@ function updHUD(){
       + '<span style="color:'+(uni>=0?PCOL[uni]:'#CBDCEE')+'">'+got+'/3</span>';
     lg.appendChild(d);
   });
+  const jn = $('#jamN'); if(jn && G.players[G.turn]) jn.textContent = (G.players.find(p=>p.kind!=='cpu')||{jam:0}).jam;
   renderItems();
 }
 function fillHUD(sfx, pi, cls){
@@ -708,6 +712,7 @@ async function payToll(pi, i){
   if(t.x2) extra.push('×2マス');
   if(hasTriple(G, owner, t.g)) extra.push('トリプル独占 ×2');
   if(hasLine(G, owner, Math.floor(i/8))) extra.push('ライン独占 ×2');
+  news(p.name+' → '+G.players[owner].name+' に通行料 '+yen(amt)+'！');
   await band('通行料 '+yen(amt), extra.length ? extra.join(' / ') : (G.players[owner].name+' に支払います'), 1400);
   if(!payFrom(pi, amt)){ await bankrupt(pi, owner); return; }
   give(pi, -amt); give(owner, amt);
@@ -729,6 +734,7 @@ async function maybeBuyout(pi, i){
   addFx('pillar', tileCenter(i).x, tileCenter(i).y, 900, PCOL[pi]);
   addFx('spark', tileCenter(i).x, tileCenter(i).y-30, 900, '#FFD24D');
   toast('R','📜','買収成立', t.name+' を手に入れました',2100);
+  news(G.players[pi].name+' が '+t.name+' を買収！ 持ち主が変わりました');
   checkWin();
 }
 function parchHTML(t, cost, ownerName){
@@ -853,11 +859,19 @@ async function deedCard(i, paid){
     + '<button class="btn gold" data-act="ok">受け取る</button></div>'
     + '</div><div class="seal">📜</div></div></div>');
 }
+/* 通行料が上がった瞬間に、盤の上へ赤い袋文字で知らせる（本家の「通行料値上げ！」） */
+function raiseBanner(txt){
+  const el = $('#raise'); if(!el) return;
+  el.textContent = txt || '通行料値上げ！';
+  el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+  setTimeout(()=>el.classList.remove('on'), 1400*SPEED);
+}
 async function growAnim(i){
   const t = G.tiles[i]; t.grow = 0;
+  raiseBanner(G.tiles[i].landmark ? 'ランドマーク！' : '通行料値上げ！');
   SFX.build();
   const c = tileCenter(i);
-  if(t.landmark) SFX.landmark();
+  if(t.landmark){ SFX.landmark(); news('🗼 '+G.players[t.owner].name+' が '+t.name+' にランドマークを建設！'); }
   addFx('pillar', c.x, c.y, 950, t.landmark ? '#7FE6FF' : PCOL[t.owner]);
   addFx('ring', c.x, c.y, 700, '#FFD24D');
   addFx('spark', c.x, c.y-26, 900, '#FFF3C0');
@@ -992,12 +1006,35 @@ async function miniGame(pi){
   wrap.classList.remove('on');
   const prize = banked || 0;
   if(prize>0){
+    news('🕯️ '+p.name+' がミニゲームで '+yen(prize)+' を獲得！');
     give(pi, prize);
     addFx('pillar', tileCenter(p.pos).x, tileCenter(p.pos).y, 1000, '#FFD24D');
     await cutIn('MINI GAME','脱出成功！', yen(prize)+' を獲得');
   } else {
     toast('L','🕯️','脱出中止','何も得られませんでした',1800);
   }
+}
+
+/* 相手が建物を建てている間に「ゆらす」で邪魔できる（本家の妨害操作） */
+function shakePhase(me){
+  return new Promise(res=>{
+    const el = $('#shake'); if(!el){ res(false); return; }
+    const p = G.players[me];
+    $('#jamLeft').textContent = p.jam;
+    el.classList.add('on');
+    let done = false;
+    const finish = (v)=>{ if(done) return; done = true; el.classList.remove('on');
+      $('#shakeBtn').onclick = null; res(v); };
+    $('#shakeBtn').onclick = ()=>{
+      if(p.jam<=0){ finish(false); return; }
+      p.jam--; SFX.skill(); camShake(11);
+      const win = Math.random() < 0.45 + statRate(p,'mini')*0.25;
+      updHUD();
+      if(win) SFX.bad();
+      finish(win);
+    };
+    setTimeout(()=>finish(false), 1700*SPEED);
+  });
 }
 
 /* ══════════ チャンスカード ══════════ */
@@ -1069,12 +1106,14 @@ async function bankrupt(pi, toPi){
     if(toPi>=0){ t.owner = toPi; } else { t.owner=-1; t.lv=0; t.landmark=false; }
   }});
   SFX.bad(); camShake(14);
+  news('！！ '+p.name+' が破産しました ！！');
   await band(p.name+' が破産しました',
     toPi>=0 ? '持っていた街は '+G.players[toPi].name+' のものに' : '街は市場に戻りました', 2000);
   checkWin();
 }
 function finish(pi, reason, col){
   bgm('win');
+  news('🏆 '+G.players[pi].name+' が「'+reason+'」で勝利！');
   G.over = true; G.winner = pi; G.winReason = reason; G.running = false;
   celebrate(pi, reason, col);
   return true;
@@ -1084,6 +1123,7 @@ async function celebrate(pi, reason, col){
   $('#cel1').textContent = 'おめでとうございます！';
   $('#cel2').textContent = reason;
   $('#cel3').textContent = G.players[pi].name + ' の勝ち！';
+  const l4 = $('#cel4'); if(l4) l4.textContent = 'FORTUNE!';
   $('#celebrate').classList.add('on');
   const f = $('#flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
   camShake(16);
@@ -1332,12 +1372,23 @@ async function aiBuy(pi, i){
     if(p.cash - spend - c > reserve){ spend += c; lm = true; }
   }
   if(spend === 0) return;
+  // 人間プレイヤーは「ゆらす」で邪魔できる
+  const me = G.players.findIndex(q=>q.kind!=='cpu' && !q.out);
+  if(me>=0 && me!==pi && G.players[me].jam>0){
+    const jammed = await shakePhase(me);
+    if(jammed){
+      lvTarget = Math.max(t.lv, lvTarget-1);
+      spend = Math.round(spend*0.5); lm = false;
+      if(lvTarget<=t.lv && !land) { toast('L','✋','じゃま成功！','建設を止めました',2200); return; }
+    }
+  }
   if(p.halfBuild>0) p.halfBuild--;
   give(pi, -spend);
   if(land || own) t.owner = pi;
   t.lv = Math.max(t.lv, lvTarget);
   if(lm) t.landmark = true;
   toast('L','🏗',(land?'購入':'建設')+'：'+t.name, yen(spend)+' を投資しました', 2000);
+  news(p.name+' が '+t.name+' に '+yen(spend)+' を投資！');
   await growAnim(i);
   checkWin();
 }
@@ -1573,6 +1624,7 @@ $('#optTime').onchange    = e => cfg.timeLimit = +e.target.value;
 $('#optCash').onchange    = e => cfg.cash  = +e.target.value;
 $('#optAI').onchange      = e => cfg.ai    = +e.target.value;
 $('#optSpeed').onchange   = e => { cfg.speed = +e.target.value; SPEED = cfg.speed; };
+$('#optArt').onchange     = e => { setArtStyle(e.target.value); refreshArt(); SFX.click(); };
 
 async function launch(){
   SPEED = cfg.speed;
@@ -1635,13 +1687,46 @@ $$('#emotebar button').forEach(b=>b.onclick = ()=>{
   $('#emotebar').classList.remove('on'); SFX.click();
 });
 
+/* 上部の帯：本家と同じく「誰が何をしたか」が流れる実況テロップ。
+   試合中は実況、それ以外は遊び方のヒントを出す。 */
+const NEWS = [];
+function news(txt){
+  NEWS.push(txt);
+  if(NEWS.length > 12) NEWS.shift();
+  const el = $('#tickerText');
+  el.textContent = txt;
+  el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
+}
+/* 他のプレイヤーの当たりが流れ続ける（本家の上部テロップ）。
+   これが無いと「一人で遊んでいる練習台」に見えてしまう。 */
+const MARQ_NM = ['ボン・クレー','しゅう','あんぱん','たなか','みっちゃん','ジェイド','くり',
+  'れっちゃん','shino','はるお','ちゅーすけ','イナバ','もこ','ren','claire','波平','さっちん',
+  'jade','мaru','ゆうき'];
+const MARQ_EV = ['S+クラス守護獣 獲得おめでとう！','Sクラスペンダント 獲得おめでとう！',
+  'S+ペンダント 獲得！ 50ダイヤ獲得！','トリプル独占で勝利！','ミニゲームで 800万 獲得！',
+  'ランドマークを建設！','マイレージガチャで S+ を引き当てました！'];
+let marqI = 0;
+function marquee(){
+  const n = MARQ_NM[(marqI*7+3) % MARQ_NM.length];
+  const e = MARQ_EV[(marqI*5+1) % MARQ_EV.length];
+  marqI++;
+  return n + ' ' + e;
+}
 let tipI = 0;
-setInterval(()=>{ tipI = (tipI+1)%TIPS.length; $('#tickerText').textContent = TIPS[tipI]; }, 9000);
+setInterval(()=>{
+  const el = $('#tickerText');
+  const inGame = G && !G.over && G.running;
+  if(inGame && NEWS.length){ el.textContent = NEWS[(tipI++) % NEWS.length]; }
+  else if(inGame){ tipI = (tipI+1) % TIPS.length; el.textContent = TIPS[tipI]; }
+  else { el.textContent = marquee(); }
+  el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
+}, 5200);
 $('#tickerText').textContent = TIPS[0];
 
 renderMaps(); renderSeats(); fitStage();
 $('#optTurns').value = cfg.turns; $('#optCash').value = cfg.cash;
 $('#optAI').value = cfg.ai; $('#optPlayers').value = cfg.n; $('#optTime').value = cfg.timeLimit;
+$('#optArt').value = ART_STYLE;
 
 try{
   const boot = st => { if(st && st.cfg){ Object.assign(cfg, st.cfg); renderMaps(); renderSeats(); } };

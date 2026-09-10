@@ -285,4 +285,34 @@
 #title .sub{color:#F0C878}
 #title .lead{color:#E7D3AC}
 #title .credit{color:#9A7C4A}
+
+/* ── ホーム右カラム：ランキング（本家ロビーの主役） ─────────── */
+#home .hero3{grid-template-columns:296px 1fr 400px}
+.rankpane{border-radius:16px;padding:4px;
+  background:linear-gradient(160deg,#C79A57,#8B5A2B 45%,#5A3618 66%,#C79A57);
+  box-shadow:0 12px 30px rgba(0,0,0,.6);display:flex;flex-direction:column;height:100%}
+.rankpane .rtab{display:flex;gap:4px;padding:4px 4px 0}
+.rankpane .rtab span{flex:1;text-align:center;font-size:12.5px;font-weight:900;padding:6px 0 7px;
+  border-radius:9px 9px 0 0;color:#C9A96E;background:linear-gradient(#4E3A1E,#2E200C);
+  border:2px solid #6B4E28;border-bottom:none;cursor:pointer}
+.rankpane .rtab span.on{color:#3E2C15;background:linear-gradient(#FFE9A8,#F2C230);border-color:#8A6314}
+.rankpane .rlist{flex:1;background:linear-gradient(#F8EED6,#E7D3AC);border-radius:0 0 12px 12px;
+  padding:6px;display:flex;flex-direction:column;gap:3px;overflow:hidden}
+.rrow{display:flex;align-items:center;gap:8px;padding:5px 9px;border-radius:8px;
+  background:rgba(255,255,255,.55);border:1px solid #CBB68E;font-size:12.5px;color:#3E2C15}
+.rrow.me{background:linear-gradient(90deg,#FFEFAE,#F7DE96);border-color:#B2411C;font-weight:900;
+  box-shadow:0 0 0 2px rgba(178,65,28,.28)}
+.rrow .rk{flex:0 0 26px;text-align:center;font-family:var(--pop);font-size:14px;color:#7A4A12}
+.rrow .nm{flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.rrow .as{font-family:var(--pop);font-size:12.5px;color:#B2411C;font-variant-numeric:tabular-nums}
+.rrow .lk{flex:0 0 56px;text-align:right;font-size:11px;color:#8A6A3C}
+.mileage{display:flex;align-items:center;gap:8px;padding:7px 10px;margin-top:5px;border-radius:10px;
+  background:linear-gradient(90deg,rgba(93,180,90,.32),rgba(28,44,20,.7));border:2px solid #4C9B47}
+.mileage b{font-size:12px;color:#CFF0C4}
+.mileage .bar{flex:1;height:11px;border-radius:6px;background:#12200E;border:1px solid #3D7A38;
+  overflow:hidden;display:block}
+.mileage .bar i{display:block;height:100%;background:linear-gradient(90deg,#5DB45A,#B8F0A8)}
+.mileage .n{font-family:var(--pop);font-size:12px;color:#CFF0C4}
+.rfoot{font-size:11.5px;color:#E0C795;text-align:center;padding:6px 4px 2px}
+.rfoot b{color:#FFD24D}
 </style>

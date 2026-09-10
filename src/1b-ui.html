@@ -243,4 +243,41 @@
   filter:drop-shadow(0 8px 10px rgba(0,0,0,.6))}
 #turnbig i{display:block;font-style:normal;font-size:17px;font-weight:900;color:#CBDCEE;margin-top:2px;
   text-shadow:0 2px 6px #000}
+
+/* ── 独占の FORTUNE! ─────────────────────────────────── */
+#celebrate .l4{font-family:var(--caps);font-size:34px;color:#7EC850;margin-top:2px;
+  -webkit-text-stroke:6px #123A10;paint-order:stroke fill;letter-spacing:.14em;
+  animation:cIn .35s cubic-bezier(.2,1.6,.4,1) .34s both}
+
+/* ── 通行料値上げ！ ─────────────────────────────────── */
+#raise{position:absolute;left:0;right:0;top:9%;z-index:92;text-align:center;display:none;
+  font-family:var(--pop);font-size:46px;line-height:1;
+  background:linear-gradient(#FFE070,#F0A020 55%,#D92B2B);-webkit-background-clip:text;
+  background-clip:text;color:transparent;-webkit-text-stroke:8px #FFFFFF;paint-order:stroke fill;
+  filter:drop-shadow(0 4px 0 rgba(0,0,0,.5))}
+#raise.on{display:block;animation:raiseIn .5s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes raiseIn{0%{transform:scale(1.7) rotate(-5deg)}55%{transform:scale(.95) rotate(2deg)}
+  100%{transform:scale(1) rotate(-2deg)}}
+
+/* ── ゆらす（相手の建設を邪魔する） ─────────────────── */
+#shake{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);z-index:95;display:none;
+  flex-direction:column;align-items:center;gap:9px;padding:20px 34px 22px;border-radius:18px;
+  background:linear-gradient(180deg,rgba(10,18,30,.94),rgba(4,8,16,.94));
+  border:3px solid #5FA8E8;box-shadow:0 0 44px rgba(95,168,232,.5),0 18px 40px rgba(0,0,0,.7)}
+#shake.on{display:flex;animation:shakeIn .25s cubic-bezier(.2,1.5,.4,1) both}
+@keyframes shakeIn{from{transform:translate(-50%,-50%) scale(.8)}to{transform:translate(-50%,-50%) scale(1)}}
+#shake b{font-size:21px;color:#CFE8FF}
+#shake i{font-style:normal;font-size:13px;color:#9FBBD6}
+#shake i em{font-style:normal;font-family:var(--pop);color:#FFD24D}
+#shakeBtn{width:150px;height:64px;border-radius:32px;border:4px solid #A8DCFF;cursor:pointer;
+  font-family:var(--pop);font-size:26px;color:#062038;
+  background:radial-gradient(ellipse at 38% 30%,#DCF2FF,#4FA8E8 72%);
+  box-shadow:0 7px 0 #1D5C90,0 0 30px rgba(120,200,255,.7);
+  animation:shakePulse .55s ease-in-out infinite alternate}
+@keyframes shakePulse{from{transform:scale(1)}to{transform:scale(1.07)}}
+#shakeBtn:active{transform:translateY(4px) scale(.97);box-shadow:0 3px 0 #1D5C90}
+
+/* 邪魔できる回数 */
+.hud .jam{font-size:11px;font-weight:900;color:#9FBBD6;text-align:right;margin-top:1px}
+.hud .jam b{font-family:var(--pop);font-size:14px;color:#FFD24D}
 </style>
