@@ -1,0 +1,127 @@
+<!-- ══════════════════════════════════════════════════════════════
+     KR SKIN — 「내아이템」画面の骨組み（静的HTML版）
+     ・そのまま #cards の中身に入れれば見た目が出る
+     ・動的化する場合は下の 5-meta.js 差し替え版（showCards）を使う
+     ・#cards には class="screen meta kr" を付けること
+     ══════════════════════════════════════════════════════════════ -->
+<div class="kr-wrap">
+
+  <!-- ── B. 上部バー ─────────────────────────────────── -->
+  <div class="kr-top">
+    <span class="kr-back" id="krBack">&#10094;</span>
+    <span class="kr-title">マイアイテム</span>
+
+    <div class="kr-cur">
+      <span class="kr-pill blue"><span class="ic">&#128142;</span><b>2,760</b></span>
+      <span class="kr-pill"><span class="ic">&#129689;</span><b id="wGold">2億</b></span>
+      <span class="kr-pill"><span class="ic">&#128142;</span><b id="wGem">10,890</b></span>
+      <span class="kr-pill star"><span class="ic">&#11088;</span><b>20,476</b></span>
+    </div>
+
+    <div class="kr-sys">
+      <i title="旗">&#9873;</i>
+      <i title="メニュー">&#9638;<em></em></i>
+      <i title="ホーム" id="krHome">&#127968;</i>
+    </div>
+  </div>
+
+  <!-- ── C. 左の縦カラム ─────────────────────────────── -->
+  <div class="kr-left">
+    <div class="kr-lhd"><em>S+</em>進化セシル</div>
+
+    <!-- 進化セット（選択中1枚＋素材2枚）。右端の▶は「この束を開く」 -->
+    <div class="kr-lgroup">
+      <div class="kr-thumb on"><canvas width="150" height="126"></canvas>
+        <span class="rr">S+</span><span class="lv">II</span></div>
+      <div class="kr-thumb gold"><canvas width="150" height="126"></canvas>
+        <span class="rr">S+</span></div>
+      <div class="kr-thumb gold"><canvas width="150" height="126"></canvas>
+        <span class="rr">S+</span></div>
+      <span class="kr-next"></span>
+    </div>
+
+    <!-- 所持している他の束 -->
+    <div class="kr-lgroup">
+      <div class="kr-thumb"><canvas width="150" height="126"></canvas><span class="rr">S+</span></div>
+      <div class="kr-thumb"><canvas width="150" height="126"></canvas><span class="rr">S+</span></div>
+      <div class="kr-thumb"><canvas width="150" height="126"></canvas><span class="rr">S+</span></div>
+      <div class="kr-thumb gold"><canvas width="150" height="126"></canvas>
+        <span class="rr">S+</span><span class="pl">+7</span></div>
+    </div>
+  </div>
+
+  <!-- ── D. 中央の大きなカード ───────────────────────── -->
+  <div class="kr-stage">
+    <div style="position:relative;display:grid;place-items:center;width:100%;height:100%">
+
+      <!-- カードの周りのイベント飾り（バレンタイン演出） -->
+      <div class="kr-deco">
+        <span style="left:20%;top:4%">&#128149;</span>
+        <span style="left:31%;top:1%;font-size:3vh">&#10084;&#65039;</span>
+        <span style="left:57%;top:2%">&#127873;</span>
+        <span style="left:66%;top:8%;font-size:5vh">&#11088;</span>
+        <span style="left:16%;top:62%">&#127873;</span>
+        <span style="left:69%;top:47%">&#128150;</span>
+        <span style="left:72%;top:64%;font-size:3vh">&#128374;&#65039;</span>
+        <span style="left:78%;top:57%;font-size:2.4vh">&#127882;</span>
+      </div>
+
+      <div class="kr-card">
+        <span class="rank">S&#43;</span>
+        <div class="art">
+          <canvas id="krPic" width="330" height="437"></canvas>
+          <div class="nameband"><b>進化セシル</b></div>
+        </div>
+        <div class="side">
+          <b class="warn" title="属性">&#9650;</b>
+          <b class="lock" title="ロック">&#128274;</b>
+          <b class="gem"  title="宝石">&#128142;</b>
+        </div>
+        <span class="kr-star">&#10037;</span>
+      </div>
+    </div>
+
+    <!-- カード下の3つのUI -->
+    <div class="kr-cardbar">
+      <div class="kr-drop"><span class="no">1</span><span class="nm">進化セシル</span><span class="ar">&#9650;</span></div>
+      <div class="kr-chip"><span class="ic" style="color:#F2D06A">S</span><b>合成状況</b></div>
+      <div class="kr-chip"><span class="ic">&#10037;</span><b>成長状況</b></div>
+    </div>
+  </div>
+
+  <!-- ── E. 右のカードグリッド ───────────────────────── -->
+  <div class="kr-right">
+
+    <div class="kr-tabs">
+      <div class="tb sort">&#8801;&#8595;</div>
+      <div class="tb on">&#128100;<span class="new">NEW</span></div>
+      <div class="tb">&#128481;<span class="new">NEW</span></div>
+      <div class="tb">&#127922;</div>
+      <div class="tb">&#128085;<span class="new">NEW</span></div>
+      <div class="tb">&#128142;<span class="new">NEW</span></div>
+    </div>
+
+    <div class="kr-checks">
+      <label><input type="checkbox" checked><i>&#10003;</i>キャラ</label>
+      <label><input type="checkbox"><i>&#10003;</i>イベント</label>
+      <label><input type="checkbox"><i>&#10003;</i>その他</label>
+    </div>
+
+    <div class="kr-grid" id="krGrid">
+      <!-- .kr-mini を並べる。1枚＝幅9.53% / 高さ21.6%（帯基準） -->
+      <div class="kr-mini on">
+        <canvas width="150" height="194"></canvas>
+        <div class="nb"><span>進化セシル</span></div>
+        <span class="rr">S&#43;</span><span class="st">&#10037;</span>
+      </div>
+    </div>
+
+    <div class="kr-foot">
+      <div class="b">売却</div>
+      <div class="b">強化</div>
+      <div class="b">合成</div>
+      <div class="cnt"><em>1154</em><span>/1200</span></div>
+      <div class="add">&#43;</div>
+    </div>
+  </div>
+</div>

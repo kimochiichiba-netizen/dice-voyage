@@ -1153,15 +1153,15 @@ function dvLake(ctx, pts, cols, T, label, sub){
     ctx.translate(cx, ty);
     ctx.transform(1,0,-0.085,1,0,0);                    // わずかに斜体
     ctx.font = '900 '+fs.toFixed(1)+'px "Noto Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif';
-    ctx.shadowColor = 'rgba(127,217,240,0.40)';         // 外側のにじみ
+    ctx.shadowColor = 'rgba(210,210,210,0.30)';         // 外側のにじみ
     ctx.shadowBlur  = fs*0.30;
     ctx.lineJoin='round'; ctx.miterLimit=2;
     ctx.lineWidth = fs*0.20;
-    ctx.strokeStyle = 'rgba(127,217,240,0.16)';         // #7FD9F0 の太縁
+    ctx.strokeStyle = 'rgba(190,190,190,0.16)';         // #7FD9F0 の太縁
     ctx.strokeText(label, 0, 0);
     ctx.shadowBlur = 0;
     ctx.lineWidth = fs*0.12;
-    ctx.strokeStyle = 'rgba(127,217,240,0.24)';
+    ctx.strokeStyle = 'rgba(200,200,200,0.20)';
     ctx.strokeText(label, 0, 0);
     ctx.fillStyle = 'rgba(255,255,255,0.22)';
     ctx.fillText(label, 0, 0);
@@ -1176,7 +1176,7 @@ function dvLake(ctx, pts, cols, T, label, sub){
       ctx.font = '700 '+fs2.toFixed(1)+'px "Noto Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif';
       ctx.lineJoin='round'; ctx.miterLimit=2;
       ctx.lineWidth = fs2*0.26;
-      ctx.strokeStyle = 'rgba(127,217,240,0.26)';
+      ctx.strokeStyle = 'rgba(200,200,200,0.22)';
       ctx.strokeText(sub, 0, 0);
       ctx.fillStyle = 'rgba(255,255,255,0.22)';
       ctx.fillText(sub, 0, 0);
