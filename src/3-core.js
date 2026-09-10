@@ -766,20 +766,31 @@ function drawDice(ctx, T){
 
 /* エフェクト管理 */
 const fxList = [];
-function addFx(kind, x, y, dur, col, txt, big){
-  fxList.push({kind, x, y, t:0, dur, col, txt, big});
+function addFx(kind, x, y, dur, col, txt, big, opt){
+  const f = {kind, x, y, t:0, dur, col, txt, big};
+  // 通し番号。乱数を使わずに「毎回ちがう散らばり」を作るための種
+  f.i = (addFx.seq = (addFx.seq || 0) + 1);
+  if(opt) for(const key in opt) f[key] = opt[key];   // from/to・w/h・r・rot・n・scr
+  fxList.push(f);
 }
 function drawFx(ctx, dt){
   for(let i=fxList.length-1;i>=0;i--){
     const f = fxList[i]; f.t += dt;
     const k = f.t/f.dur;
     if(k>=1){ fxList.splice(i,1); continue; }
+    if(f.scr){                                   // scr:true = 画面座標で描く（紙吹雪など）
+      ctx.save();
+      ctx.translate(cam.x, cam.y); ctx.scale(1/cam.z, 1/cam.z);
+      ctx.translate(-SW/2, -SH/2);
+    }
     if(f.kind==='land')   dvFxLand(ctx, f.x, f.y, k);
     else if(f.kind==='pillar') dvFxPillar(ctx, f.x, f.y, k, f.col);
     else if(f.kind==='ring')   dvFxRing(ctx, f.x, f.y, k, f.col);
     else if(f.kind==='spark')  dvFxSpark(ctx, f.x, f.y, k, f.col);
     else if(f.kind==='steam')  dvFxSteam(ctx, f.x, f.y, k);
     else if(f.kind==='num')    dvFxNumber(ctx, f.x, f.y, k, f.txt, f.col, f.big);
+    else dvFx2(ctx, f, k, dt);   // bill / coinburst / shockring / confetti / starburst / lightray / smoke
+    if(f.scr) ctx.restore();
   }
 }
 function addFloat(x,y,txt,col,big){ addFx('num', x, y, 1500, col, txt, big); }

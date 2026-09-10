@@ -2705,20 +2705,31 @@ function drawDice(ctx, T){
 
 /* エフェクト管理 */
 const fxList = [];
-function addFx(kind, x, y, dur, col, txt, big){
-  fxList.push({kind, x, y, t:0, dur, col, txt, big});
+function addFx(kind, x, y, dur, col, txt, big, opt){
+  const f = {kind, x, y, t:0, dur, col, txt, big};
+  // 通し番号。乱数を使わずに「毎回ちがう散らばり」を作るための種
+  f.i = (addFx.seq = (addFx.seq || 0) + 1);
+  if(opt) for(const key in opt) f[key] = opt[key];   // from/to・w/h・r・rot・n・scr
+  fxList.push(f);
 }
 function drawFx(ctx, dt){
   for(let i=fxList.length-1;i>=0;i--){
     const f = fxList[i]; f.t += dt;
     const k = f.t/f.dur;
     if(k>=1){ fxList.splice(i,1); continue; }
+    if(f.scr){                                   // scr:true = 画面座標で描く（紙吹雪など）
+      ctx.save();
+      ctx.translate(cam.x, cam.y); ctx.scale(1/cam.z, 1/cam.z);
+      ctx.translate(-SW/2, -SH/2);
+    }
     if(f.kind==='land')   dvFxLand(ctx, f.x, f.y, k);
     else if(f.kind==='pillar') dvFxPillar(ctx, f.x, f.y, k, f.col);
     else if(f.kind==='ring')   dvFxRing(ctx, f.x, f.y, k, f.col);
     else if(f.kind==='spark')  dvFxSpark(ctx, f.x, f.y, k, f.col);
     else if(f.kind==='steam')  dvFxSteam(ctx, f.x, f.y, k);
     else if(f.kind==='num')    dvFxNumber(ctx, f.x, f.y, k, f.txt, f.col, f.big);
+    else dvFx2(ctx, f, k, dt);   // bill / coinburst / shockring / confetti / starburst / lightray / smoke
+    if(f.scr) ctx.restore();
   }
 }
 function addFloat(x,y,txt,col,big){ addFx('num', x, y, 1500, col, txt, big); }
@@ -6445,6 +6456,714 @@ function dvPin(ctx, col, T){
   dv_sparkle(ctx, R*0.62, headY - R*0.72, 2.6, blink*0.9);
 
   ctx.restore();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ダイスボヤージュ — 演出エフェクト 第2弾
+   札束 / 金貨 / 衝撃波 / 紙吹雪 / 4方向スター / 光条 / 土煙
+   ＋ 独占成立カットイン dvCelebrate
+
+   ・すべて決定論（Math.random / Date.now / new Date は使わない）。
+     ばらつきは fx の通し番号 f.i（無ければ座標）と進行度 k から作る。
+   ・関数の外に変数を置かない。
+   ・3b-art.js の dvFxRnd / dvFxRgba / dvFxLighten を再利用するので、
+     このコードは 3b-art.js の末尾（または dvFxNumber の後ろ）へ置く。
+   ══════════════════════════════════════════════════════════════ */
+
+/* ───── 共有の小道具 ───── */
+
+/* 4方向スター（本家の独占演出の背景に約40個ある形）
+   長い横棒＋縦棒＋短い斜め8本。r は横棒の片側の長さ。
+   hue を上げる（0..1）と白飛びせず色みが残る＝紫・青の星に使う。 */
+function dvStarburst(ctx, x, y, r, col, a, rot, hue){
+  if(!(a > 0) || !(r > 0)) return;
+  const c = col || '#FFFFFF';
+  const wl = 1 - Math.max(0, Math.min(1, hue || 0));   // hue を上げると色みが残る
+  const sat = 0.40 + 0.60 * wl;                        // 色つきの星は白飛びさせない
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rot || 0);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = a;
+
+  /* 中心のにじみ */
+  const gg = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.46);
+  gg.addColorStop(0,    dvFxRgba(dvFxLighten(c, 0.9 * wl), 0.95 * sat));
+  gg.addColorStop(0.26, dvFxRgba(dvFxLighten(c, 0.4 * wl), 0.42 * sat));
+  gg.addColorStop(1,    dvFxRgba(c, 0));
+  ctx.fillStyle = gg;
+  ctx.beginPath(); ctx.arc(0, 0, r * 0.46, 0, Math.PI * 2); ctx.fill();
+
+  /* 棘。中心から len まで伸びる細い菱形を2枚（表裏）で1本の棒にする */
+  const spike = function(ang, len, wid, alpha){
+    ctx.save();
+    ctx.rotate(ang);
+    const lg = ctx.createLinearGradient(0, 0, len, 0);
+    lg.addColorStop(0,    dvFxRgba(dvFxLighten(c, 0.95 * wl), 0.98 * alpha * sat));
+    lg.addColorStop(0.22, dvFxRgba(dvFxLighten(c, 0.5 * wl),  0.72 * alpha * sat));
+    lg.addColorStop(1,    dvFxRgba(c, 0));
+    ctx.fillStyle = lg;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(len * 0.20, -wid);
+    ctx.lineTo(len, 0);
+    ctx.lineTo(len * 0.20,  wid);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  };
+
+  const HW = Math.max(1.1, r * 0.052);          // 横棒の太さ
+  spike(0,            r,        HW,        1);
+  spike(Math.PI,      r,        HW,        1);
+  spike(-Math.PI / 2, r * 0.60, HW * 0.92, 0.95);
+  spike( Math.PI / 2, r * 0.60, HW * 0.92, 0.95);
+  for(let i = 0; i < 8; i++){
+    spike(Math.PI / 8 + i * Math.PI / 4, r * 0.19, HW * 0.55, 0.7);
+  }
+
+  /* 芯の白い点 */
+  ctx.globalAlpha = a * wl * wl;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.beginPath(); ctx.arc(0, 0, Math.max(0.8, r * 0.05), 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+/* 暖色のレンズフレアの筋（横に長い光の帯）。len は片側の長さ */
+function dvLightRay(ctx, x, y, len, thick, col, a, rot){
+  if(!(a > 0) || !(len > 0)) return;
+  const c = col || '#FFD9A0';
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rot || 0);
+  ctx.globalCompositeOperation = 'lighter';
+
+  /* 帯の本体（中央が濃く両端が消える） */
+  const bg = ctx.createLinearGradient(-len, 0, len, 0);
+  bg.addColorStop(0,    dvFxRgba(c, 0));
+  bg.addColorStop(0.28, dvFxRgba(c, 0.24 * a));
+  bg.addColorStop(0.5,  dvFxRgba(dvFxLighten(c, 0.75), 0.85 * a));
+  bg.addColorStop(0.72, dvFxRgba(c, 0.24 * a));
+  bg.addColorStop(1,    dvFxRgba(c, 0));
+  ctx.fillStyle = bg;
+  ctx.beginPath();
+  ctx.moveTo(-len, 0);
+  ctx.lineTo(-len * 0.34, -thick);
+  ctx.lineTo( len * 0.34, -thick);
+  ctx.lineTo( len, 0);
+  ctx.lineTo( len * 0.34,  thick);
+  ctx.lineTo(-len * 0.34,  thick);
+  ctx.closePath(); ctx.fill();
+
+  /* 芯の細い白線 */
+  const cg = ctx.createLinearGradient(-len, 0, len, 0);
+  cg.addColorStop(0,   'rgba(255,255,255,0)');
+  cg.addColorStop(0.5, 'rgba(255,255,255,' + (0.9 * a).toFixed(3) + ')');
+  cg.addColorStop(1,   'rgba(255,255,255,0)');
+  ctx.fillStyle = cg;
+  ctx.fillRect(-len, -Math.max(0.6, thick * 0.16), len * 2, Math.max(1.2, thick * 0.32));
+
+  /* 中央のふくらみ */
+  const rg = ctx.createRadialGradient(0, 0, 0, 0, 0, thick * 3.4);
+  rg.addColorStop(0,   dvFxRgba(dvFxLighten(c, 0.9), 0.8 * a));
+  rg.addColorStop(0.4, dvFxRgba(c, 0.28 * a));
+  rg.addColorStop(1,   dvFxRgba(c, 0));
+  ctx.fillStyle = rg;
+  ctx.beginPath(); ctx.arc(0, 0, thick * 3.4, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+/* 紙幣1枚。原点が中心、w×h の紙。band は留め帯の色 */
+function dvBillNote(ctx, w, h, band){
+  const g = ctx.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2);
+  g.addColorStop(0,    '#FFFEF6');
+  g.addColorStop(0.42, '#F7F2DC');
+  g.addColorStop(0.72, '#E9E2C4');
+  g.addColorStop(1,    '#D3CDB2');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  if(ctx.roundRect){ ctx.roundRect(-w / 2, -h / 2, w, h, Math.min(3, h * 0.2)); }
+  else { ctx.rect(-w / 2, -h / 2, w, h); }
+  ctx.fill();
+  ctx.lineWidth = 0.9;
+  ctx.strokeStyle = 'rgba(90,72,30,0.55)';
+  ctx.stroke();
+  /* 内側の飾り枠 */
+  ctx.strokeStyle = 'rgba(150,120,50,0.45)';
+  ctx.lineWidth = 0.7;
+  ctx.strokeRect(-w / 2 + w * 0.09, -h / 2 + h * 0.16, w * 0.82, h * 0.68);
+  /* 肖像の窓 */
+  ctx.fillStyle = 'rgba(150,128,70,0.30)';
+  ctx.beginPath(); ctx.ellipse(-w * 0.24, 0, w * 0.11, h * 0.26, 0, 0, Math.PI * 2); ctx.fill();
+  /* 留め帯 */
+  ctx.fillStyle = band || '#C8484C';
+  ctx.fillRect(w * 0.08, -h / 2, w * 0.13, h);
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.fillRect(w * 0.08, -h / 2, w * 0.04, h);
+  /* 額面の金の点 */
+  ctx.fillStyle = 'rgba(214,168,40,0.9)';
+  ctx.beginPath(); ctx.arc(w * 0.32, -h * 0.02, Math.max(1, h * 0.13), 0, Math.PI * 2); ctx.fill();
+}
+
+/* 金貨1枚。縦回転で幅が縮む（edge-on）ように見せる */
+function dvCoin(ctx, r, spin){
+  const sx = Math.abs(Math.cos(spin));
+  ctx.save();
+  ctx.scale(Math.max(0.10, sx), 1);
+  /* 縁 */
+  ctx.fillStyle = '#A9760E';
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+  /* 面 */
+  const g = ctx.createLinearGradient(0, -r, 0, r);
+  g.addColorStop(0,    '#FFF6C8');
+  g.addColorStop(0.42, '#F5C63A');
+  g.addColorStop(1,    '#C98D16');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(0, 0, r * 0.82, 0, Math.PI * 2); ctx.fill();
+  /* ハイライト */
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.beginPath(); ctx.ellipse(-r * 0.24, -r * 0.32, r * 0.30, r * 0.18, -0.5, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  /* 厚み（edge-on のとき側面が見える） */
+  if(sx < 0.55){
+    ctx.fillStyle = '#8E620B';
+    ctx.fillRect(-Math.max(0.7, r * 0.10), -r * 0.94, Math.max(1.4, r * 0.20), r * 1.88);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   dvFx2 — fxList の1件を描く。既存の drawFx から呼ぶ。
+   f : {kind,x,y,t,dur,col,txt,big, ...opt}   k : 0..1
+   opt で from/to（{x,y}）, w/h（画面サイズ）, r（大きさ）, rot, n を渡せる。
+   扱える kind なら true、知らない kind なら false を返す。
+   ══════════════════════════════════════════════════════════════ */
+function dvFx2(ctx, f, k, dt){
+  if(!f || !(k >= 0) || k >= 1) return false;
+  const kind = f.kind;
+
+  /* 決定論の種：通し番号 f.i があればそれ、無ければ座標から作る */
+  const seed = (typeof f.i === 'number')
+    ? (f.i * 1.7 + 0.31)
+    : ((f.x || 0) * 0.0173 + (f.y || 0) * 0.0411 + (f.dur || 1) * 0.00097);
+  const rnd = function(j){ return dvFxRnd(seed * 4.13 + j * 1.618 + 7.77); };
+  const easeOut = function(t){ const u = 1 - t; return 1 - u * u * u; };
+  const smooth  = function(t){ return t * t * (3 - 2 * t); };
+
+  /* ───────────── 1) 札束が飛ぶ ───────────── */
+  if(kind === 'bill'){
+    const ax = (f.from && f.from.x !== undefined) ? f.from.x : f.x;
+    const ay = (f.from && f.from.y !== undefined) ? f.from.y : f.y;
+    const bx = (f.to && f.to.x !== undefined) ? f.to.x : (f.tx !== undefined ? f.tx : f.x);
+    const by = (f.to && f.to.y !== undefined) ? f.to.y : (f.ty !== undefined ? f.ty : f.y - 200);
+    const band = f.col || '#C8484C';
+    const dx = bx - ax, dy = by - ay;
+    const L  = Math.sqrt(dx * dx + dy * dy) || 1;
+    const nx = -dy / L, ny = dx / L;                    // 進行方向の法線
+    const n  = 12 + Math.floor(rnd(1) * 6.999);         // 12〜18枚
+    const FLY = 0.58;                                   // 1枚あたりの飛行時間（k比）
+    ctx.save();
+    for(let i = 0; i < n; i++){
+      const t0 = (i / n) * 0.30 + rnd(i + 2) * 0.10;    // 時間差でばらける
+      const p  = (k - t0) / FLY;
+      if(p <= 0) continue;
+
+      if(p < 1){
+        const e   = smooth(p);
+        const sgn = (i % 2 === 0) ? 1 : -1;
+        const bow = (30 + 110 * rnd(i + 7)) * sgn;      // 弧の深さ
+        const sp  = (rnd(i + 13) * 2 - 1) * 30;         // 横のばらけ
+        const cx  = ax + dx * 0.5 + nx * (bow + sp);
+        const cy  = ay + dy * 0.5 + ny * (bow + sp) - (46 + 44 * rnd(i + 17));
+        const u   = 1 - e;
+        const px  = u * u * ax + 2 * u * e * cx + e * e * bx;
+        const py  = u * u * ay + 2 * u * e * cy + e * e * by;
+        const rot = (rnd(i + 19) * 6.283) + p * (5.0 + 4.0 * rnd(i + 23)) * sgn;
+        const flip = Math.cos(p * (8 + 7 * rnd(i + 29)) + rnd(i + 31) * 6.283);
+        const sc  = 0.80 + 0.34 * rnd(i + 37);
+        const a   = p < 0.10 ? p / 0.10 : (p > 0.92 ? (1 - p) / 0.08 : 1);
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.rotate(rot);
+        ctx.globalAlpha = Math.max(0, a);
+        /* 落ち影（紙のふちの濃い線） */
+        ctx.save();
+        ctx.scale(Math.max(0.12, Math.abs(flip)) * sc, sc);
+        ctx.globalAlpha = Math.max(0, a) * 0.30;
+        ctx.fillStyle = 'rgba(20,12,4,0.9)';
+        ctx.fillRect(-16 + 1.6, -9 + 2.2, 32, 18);
+        ctx.globalAlpha = Math.max(0, a);
+        dvBillNote(ctx, 32, 18, band);
+        ctx.restore();
+        ctx.restore();
+      } else {
+        /* 着地：ぱっと消えて金貨の粒になる */
+        const q = (p - 1) / 0.30;
+        if(q >= 1) continue;
+        const eq = easeOut(q);
+        ctx.save();
+        ctx.translate(bx, by);
+        ctx.globalAlpha = Math.pow(1 - q, 1.4);
+        for(let m = 0; m < 3; m++){
+          const ang = rnd(i * 3 + m + 41) * 6.283;
+          const d   = (10 + 34 * rnd(i * 3 + m + 47)) * eq;
+          const gx  = Math.cos(ang) * d;
+          const gy  = Math.sin(ang) * d * 0.62 - 26 * eq * (0.4 + rnd(i * 3 + m + 53));
+          ctx.save();
+          ctx.translate(gx, gy);
+          dvCoin(ctx, 4.2 + 2.2 * rnd(i * 3 + m + 59), q * 7 + rnd(i + 61) * 3);
+          ctx.restore();
+        }
+        /* 受け取り側の光 */
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = Math.pow(1 - q, 2) * 0.5;
+        const fg = ctx.createRadialGradient(0, 0, 0, 0, 0, 40 * (0.4 + eq));
+        fg.addColorStop(0,   'rgba(255,240,180,0.9)');
+        fg.addColorStop(0.5, 'rgba(255,206,90,0.35)');
+        fg.addColorStop(1,   'rgba(255,206,90,0)');
+        ctx.fillStyle = fg;
+        ctx.beginPath(); ctx.arc(0, 0, 40 * (0.4 + eq), 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+    }
+    ctx.restore();
+    return true;
+  }
+
+  /* ───────────── 2) 金貨が弾け飛ぶ ───────────── */
+  if(kind === 'coinburst'){
+    const n = 24;
+    const GND = 0.62;                                   // 地面に着く時点
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    for(let i = 0; i < n; i++){
+      const t0 = rnd(i + 3) * 0.16;
+      const p  = (k - t0) / (1 - t0);
+      if(p <= 0) continue;
+      const ang  = (i / n) * 6.283 + rnd(i + 11) * 0.42;
+      const reach = 46 + 118 * rnd(i + 17);
+      const hi    = 68 + 92 * rnd(i + 23);
+      const px = Math.cos(ang) * reach * easeOut(p);
+      let hgt;
+      if(p < GND){
+        const u = p / GND;
+        hgt = Math.sin(Math.PI * u) * hi;
+      } else {
+        const u = (p - GND) / (1 - GND);
+        hgt = Math.sin(Math.PI * Math.min(1, u * 1.25)) * hi * 0.26;   // 跳ね返り
+      }
+      const py = Math.sin(ang) * reach * easeOut(p) * 0.38 - hgt;
+      const a  = p > 0.80 ? Math.pow((1 - p) / 0.20, 1.2) : 1;
+      if(a <= 0) continue;
+      /* 影（地面） */
+      ctx.save();
+      ctx.globalAlpha = a * 0.26 * Math.max(0.15, 1 - hgt / 160);
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.ellipse(px, Math.sin(ang) * reach * easeOut(p) * 0.38, 6, 2.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      /* 本体 */
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.globalAlpha = a;
+      ctx.rotate((rnd(i + 29) * 2 - 1) * 0.5);
+      dvCoin(ctx, 6.5 + 4.0 * rnd(i + 31), p * (11 + 9 * rnd(i + 37)) + rnd(i + 41) * 6.283);
+      ctx.restore();
+      /* きらり */
+      if(rnd(i + 43) > 0.55){
+        dvStarburst(ctx, px, py, (7 + 6 * rnd(i + 47)),
+                    '#FFE9A0', a * 0.6 * (0.4 + 0.6 * Math.abs(Math.sin(p * 9 + i))), 0);
+      }
+    }
+    ctx.restore();
+    return true;
+  }
+
+  /* ───────────── 3) 地面を走る衝撃波（アイソメ：縦に潰した楕円・2重） ───────────── */
+  if(kind === 'shockring'){
+    const c = f.col || '#FFE7A8';
+    const R = f.r || 210;
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.scale(1, 0.42);                                  // 床に寝かせる
+    for(let n = 0; n < 2; n++){
+      const kk = n === 0 ? k : (k - 0.16) / 0.84;
+      if(kk <= 0 || kk >= 1) continue;
+      const e  = easeOut(kk);
+      const r  = 16 + (n === 0 ? R : R * 0.66) * e;
+      const a  = Math.pow(1 - kk, 1.6) * (n === 0 ? 1 : 0.66);
+      const wd = Math.max(1.2, (n === 0 ? 15 : 9) * (1 - kk * 0.85));
+      /* 前縁の厚い光 */
+      const rg = ctx.createRadialGradient(0, 0, Math.max(0, r - wd * 2.4), 0, 0, r + wd);
+      rg.addColorStop(0,    dvFxRgba(c, 0));
+      rg.addColorStop(0.55, dvFxRgba(c, 0.42 * a));
+      rg.addColorStop(0.88, dvFxRgba(dvFxLighten(c, 0.7), 0.95 * a));
+      rg.addColorStop(1,    dvFxRgba(c, 0));
+      ctx.fillStyle = rg;
+      ctx.beginPath(); ctx.arc(0, 0, r + wd, 0, Math.PI * 2); ctx.fill();
+      /* 芯の白線 */
+      ctx.globalAlpha = a * 0.85;
+      ctx.lineWidth = Math.max(0.8, wd * 0.30);
+      ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    /* 押し出された空気の薄い面（最初だけ） */
+    const early = Math.max(0, 1 - k * 2.1);
+    if(early > 0){
+      const rr = 24 + R * 0.7 * easeOut(k);
+      const fg = ctx.createRadialGradient(0, 0, rr * 0.15, 0, 0, rr);
+      fg.addColorStop(0,    dvFxRgba(c, 0.20 * early));
+      fg.addColorStop(0.75, dvFxRgba(c, 0.10 * early));
+      fg.addColorStop(1,    dvFxRgba(c, 0));
+      ctx.fillStyle = fg;
+      ctx.beginPath(); ctx.arc(0, 0, rr, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+    return true;
+  }
+
+  /* ───────────── 4) 紙吹雪（画面の上から降る・4色） ───────────── */
+  if(kind === 'confetti'){
+    const W = f.w || 1600, H = f.h || 900;
+    const cols = ['#FF5A6E', '#FFD24D', '#5FC7F5', '#7DE08A'];
+    const n = f.n || 96;
+    ctx.save();
+    for(let i = 0; i < n; i++){
+      const t0 = rnd(i + 5) * 0.34;
+      const p  = (k - t0) / (1 - t0);
+      if(p <= 0) continue;
+      const sp = 0.72 + 0.62 * rnd(i + 9);               // 落ちる速さ
+      const y  = -40 + p * (H + 90) * sp;
+      if(y > H + 40) continue;
+      const swA = 16 + 34 * rnd(i + 13);
+      const swF = 2.2 + 3.4 * rnd(i + 17);
+      const x  = rnd(i) * W + Math.sin(p * swF * 6.283 + rnd(i + 21) * 6.283) * swA;
+      const w  = 7 + 8 * rnd(i + 25);
+      const h  = w * (0.5 + 0.5 * rnd(i + 29));
+      const spin = p * (5 + 9 * rnd(i + 33)) * 6.283 + rnd(i + 37) * 6.283;
+      const a  = p > 0.88 ? (1 - p) / 0.12 : 1;
+      if(a <= 0) continue;
+      const c  = cols[i & 3];
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate((rnd(i + 41) * 2 - 1) * 0.6 + p * (rnd(i + 43) * 2 - 1) * 2.2);
+      const fl = Math.cos(spin);                         // 紙が翻る
+      ctx.scale(1, Math.max(0.06, Math.abs(fl)));
+      ctx.globalAlpha = a;
+      ctx.fillStyle = c;
+      ctx.fillRect(-w / 2, -h / 2, w, h);
+      /* 裏面は暗く（ひらひら感） */
+      if(fl < 0){
+        ctx.fillStyle = 'rgba(0,0,0,0.30)';
+        ctx.fillRect(-w / 2, -h / 2, w, h);
+      } else {
+        ctx.fillStyle = 'rgba(255,255,255,0.35)';
+        ctx.fillRect(-w / 2, -h / 2, w, h * 0.34);
+      }
+      ctx.restore();
+    }
+    ctx.restore();
+    return true;
+  }
+
+  /* ───────────── 5) 4方向スター ───────────── */
+  if(kind === 'starburst'){
+    const R = f.r || (f.big ? 90 : 46);
+    const c = f.col || '#FFF3C0';
+    const gr = k < 0.18 ? easeOut(k / 0.18) : 1;
+    const a  = k < 0.10 ? (k / 0.10) : Math.pow(1 - (k - 0.10) / 0.90, 1.5);
+    const pulse = 0.86 + 0.14 * Math.sin(k * Math.PI * 6);
+    dvStarburst(ctx, f.x, f.y, R * gr * pulse, c, a, (f.rot || 0) + k * 0.35);
+    return true;
+  }
+
+  /* ───────────── 6) 暖色のレンズフレアの筋 ───────────── */
+  if(kind === 'lightray'){
+    const L = f.r || 420;
+    const c = f.col || '#FFCE96';
+    const gr = k < 0.22 ? easeOut(k / 0.22) : 1;
+    const a  = k < 0.12 ? (k / 0.12) : Math.pow(1 - (k - 0.12) / 0.88, 1.4);
+    dvLightRay(ctx, f.x, f.y, L * (0.35 + 0.65 * gr),
+               Math.max(2, (f.big ? 15 : 9) * (0.6 + 0.4 * gr)), c, a, f.rot || 0);
+    return true;
+  }
+
+  /* ───────────── 7) 建設の土煙（低く広がって薄れる） ───────────── */
+  if(kind === 'smoke'){
+    const n = 15;
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    ctx.scale(1, 0.52);                                  // 床に沿って低く広がる
+    for(let i = 0; i < n; i++){
+      const t0 = rnd(i + 3) * 0.26;
+      const p  = (k - t0) / (1 - t0);
+      if(p <= 0 || p >= 1) continue;
+      const e  = easeOut(p);
+      const ang = (i / n) * 6.283 + rnd(i + 7) * 0.7;
+      const d   = (18 + 104 * rnd(i + 11)) * e;
+      const px  = Math.cos(ang) * d;
+      const py  = Math.sin(ang) * d * 0.9 - (10 + 26 * rnd(i + 13)) * e;
+      const r   = (12 + 20 * rnd(i + 17)) * (0.42 + 1.15 * e);
+      const a   = Math.sin(Math.PI * Math.min(1, p * 1.1)) * 0.42;
+      if(a <= 0) continue;
+      const tone = 0.5 + 0.5 * rnd(i + 19);
+      const g = ctx.createRadialGradient(px, py, 0, px, py, r);
+      g.addColorStop(0,    'rgba(' + Math.round(214 + 22 * tone) + ',' + Math.round(200 + 20 * tone) + ',' + Math.round(176 + 20 * tone) + ',' + a.toFixed(3) + ')');
+      g.addColorStop(0.55, 'rgba(196,182,158,' + (a * 0.5).toFixed(3) + ')');
+      g.addColorStop(1,    'rgba(180,166,142,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+    }
+    /* 足元に残る土の輪 */
+    const base = Math.max(0, 1 - k * 1.9);
+    if(base > 0){
+      const rr = 26 + 96 * easeOut(k);
+      const bg = ctx.createRadialGradient(0, 0, rr * 0.3, 0, 0, rr);
+      bg.addColorStop(0,    'rgba(150,130,100,0)');
+      bg.addColorStop(0.72, 'rgba(168,150,120,' + (0.22 * base).toFixed(3) + ')');
+      bg.addColorStop(1,    'rgba(168,150,120,0)');
+      ctx.fillStyle = bg;
+      ctx.beginPath(); ctx.arc(0, 0, rr, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+    return true;
+  }
+
+  return false;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   dvCelebrate — 独占成立のカットイン（本家の実測値に寄せた版）
+   T     : 演出開始からの経過ミリ秒
+   lines : ['おめでとうございます！','トリプル独占','独占ボーナス x2倍']
+   W, H  : 画面サイズ
+   ══════════════════════════════════════════════════════════════ */
+function dvCelebrate(ctx, T, lines, W, H){
+  const t  = Math.max(0, T || 0);
+  const L  = lines || [];
+  const l1 = L[0] || 'おめでとうございます！';
+  const l2 = L[1] || 'トリプル独占';
+  const l3 = (L[2] === undefined) ? '独占ボーナス x2倍' : L[2];
+  const rnd = function(j){ return dvFxRnd(j * 1.618 + 3.33); };
+  const easeOut = function(u){ const v = 1 - u; return 1 - v * v * v; };
+
+  /* 実際の字の高さを測って、指定の字高ぴったりに合わせる */
+  const fit = function(txt, targetH, weight){
+    let fs = targetH;
+    for(let n = 0; n < 3; n++){
+      ctx.font = weight + ' ' + fs.toFixed(2) + 'px "Noto Sans JP","Mochiy Pop One",sans-serif';
+      const m = ctx.measureText(txt);
+      const h = (m.actualBoundingBoxAscent !== undefined && m.actualBoundingBoxDescent !== undefined)
+        ? (m.actualBoundingBoxAscent + m.actualBoundingBoxDescent) : (fs * 0.72);
+      if(!(h > 0)) break;
+      fs = fs * targetH / h;
+    }
+    return fs;
+  };
+
+  const inK  = Math.min(1, t / 380);                     // 出だしの寄り
+  const pop  = 0.86 + 0.14 * easeOut(inK);
+  const fade = Math.min(1, t / 160);
+
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.lineJoin = 'round';
+  ctx.miterLimit = 2.4;
+
+  /* ── 背景：中央から広がる暖色の後光 ── */
+  ctx.save();
+  ctx.globalAlpha = fade;
+  const bg = ctx.createRadialGradient(W * 0.5, H * 0.48, 0, W * 0.5, H * 0.48, W * 0.62);
+  bg.addColorStop(0,    'rgba(255,214,140,0.30)');
+  bg.addColorStop(0.34, 'rgba(180,110,40,0.20)');
+  bg.addColorStop(0.72, 'rgba(30,14,40,0.34)');
+  bg.addColorStop(1,    'rgba(12,6,20,0.52)');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+
+  /* ── 背景：4方向スター 約40個（白〜金）＋紫と青 十数個 ── */
+  ctx.save();
+  ctx.globalAlpha = fade;
+  for(let i = 0; i < 40; i++){
+    const sx = (0.04 + 0.92 * rnd(i * 3 + 1)) * W;
+    const sy = (0.06 + 0.88 * rnd(i * 3 + 2)) * H;
+    /* 文字の帯（中央付近）は薄くして、字を邪魔しない */
+    const near = 1 - Math.min(1, Math.abs(sy - H * 0.5) / (H * 0.30));
+    const gold = rnd(i * 3 + 3);
+    const col  = gold < 0.42 ? '#FFFFFF' : (gold < 0.78 ? '#FFE9A8' : '#FFC64A');
+    const r    = (0.008 + 0.032 * Math.pow(rnd(i + 60), 1.7)) * W;
+    const tw   = 0.55 + 0.45 * Math.sin(t * 0.006 + i * 1.9);   // またたき
+    const grow = easeOut(Math.min(1, (t - i * 12) / 420));
+    if(grow <= 0) continue;
+    dvStarburst(ctx, sx, sy, r * grow * (0.8 + 0.2 * tw), col,
+                (0.42 + 0.5 * tw) * (1 - near * 0.55), i * 0.7);
+  }
+  for(let i = 0; i < 14; i++){
+    const sx = (0.05 + 0.90 * rnd(i * 5 + 101)) * W;
+    const sy = (0.07 + 0.86 * rnd(i * 5 + 102)) * H;
+    const col = (i % 2 === 0) ? '#9B7BE8' : '#6EA8FF';
+    const r   = (0.013 + 0.030 * rnd(i + 130)) * W;
+    const tw  = 0.5 + 0.5 * Math.sin(t * 0.005 + i * 2.4 + 1.2);
+    const grow = easeOut(Math.min(1, (t - 120 - i * 16) / 460));
+    if(grow <= 0) continue;
+    dvStarburst(ctx, sx, sy, r * grow, col, (0.70 + 0.30 * tw), i * 1.3 + 0.4, 0.95);
+  }
+  ctx.restore();
+
+  /* ── 背景：暖色のレンズフレアの筋 2本 ── */
+  ctx.save();
+  ctx.globalAlpha = fade;
+  dvLightRay(ctx, W * 0.50, H * 0.315, W * 0.52 * (0.4 + 0.6 * easeOut(inK)),
+             H * 0.020, '#FFB86A', 0.75, -0.045);
+  dvLightRay(ctx, W * 0.50, H * 0.688, W * 0.44 * (0.4 + 0.6 * easeOut(Math.min(1, t / 520))),
+             H * 0.014, '#FFD9A0', 0.55, 0.030);
+  ctx.restore();
+
+  /* ── 版面：3行を縦に積む ── */
+  const h1 = H * 0.075, h2 = H * 0.185, h3 = H * 0.070;
+  const y1 = H * 0.500 - h2 * 0.5 - h1 * 0.62;
+  const y2 = H * 0.500 + h2 * 0.42;
+  const y3 = H * 0.500 + h2 * 0.5 + h3 * 1.22;
+
+  ctx.save();
+  ctx.translate(W * 0.5, H * 0.5);
+  ctx.scale(pop, pop);
+  ctx.translate(-W * 0.5, -H * 0.5);
+  ctx.globalAlpha = fade;
+
+  /* ── 1行目：ベタ白＋濃縁＋暖色のにじみ ── */
+  (function(){
+    const fs = fit(l1, h1, '900');
+    ctx.save();
+    ctx.translate(W * 0.5, y1);
+    ctx.font = '900 ' + fs.toFixed(2) + 'px "Noto Sans JP","Mochiy Pop One",sans-serif';
+    /* 外側の暖色のにじみ */
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.shadowColor = '#FCE4D8';
+    ctx.shadowBlur = Math.max(6, fs * 0.42);
+    ctx.lineWidth = Math.max(4, fs * 0.13);
+    ctx.strokeStyle = 'rgba(252,228,216,0.85)';
+    ctx.strokeText(l1, 0, 0);
+    ctx.restore();
+    /* 下に落ちる影（+3px） */
+    ctx.fillStyle = 'rgba(24,0,0,0.55)';
+    ctx.fillText(l1, 0, 3);
+    /* 3px の濃縁 → ベタ白 */
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#180000';
+    ctx.strokeText(l1, 0, 0);
+    ctx.fillStyle = '#FCFCFC';
+    ctx.fillText(l1, 0, 0);
+    ctx.restore();
+  })();
+
+  /* ── 2行目：画面で最大。銀グラデ＋濃赤の二重縁＋アーチ＋約-3°傾き ── */
+  (function(){
+    const fs = fit(l2, h2, '900');
+    ctx.save();
+    ctx.translate(W * 0.5, y2);
+    ctx.rotate(-3 * Math.PI / 180);
+    ctx.font = '900 ' + fs.toFixed(2) + 'px "Noto Sans JP","Mochiy Pop One",sans-serif';
+    ctx.textAlign = 'left';
+
+    const chars = l2.split('');
+    const ws = chars.map(function(c){ return ctx.measureText(c).width; });
+    let total = 0; for(let i = 0; i < ws.length; i++) total += ws[i];
+    const arch = fs * 0.055;                              // わずかなアーチ
+    const top = -fs * 0.80, bot = fs * 0.16;
+    let cx = -total / 2;
+
+    for(let i = 0; i < chars.length; i++){
+      const w = ws[i];
+      const u = (ws.length === 1) ? 0.5 : ((cx + w / 2 + total / 2) / total);
+      const dy = -arch * (1 - Math.pow(2 * u - 1, 2));    // 中央が上がる
+      const rot = (2 * u - 1) * 0.030;                    // 接線ぶんだけ傾ける
+      ctx.save();
+      ctx.translate(cx + w / 2, dy);
+      ctx.rotate(rot);
+      const c = chars[i];
+
+      /* 右下の灰の影 */
+      ctx.fillStyle = '#606060';
+      ctx.fillText(c, -w / 2 + fs * 0.058, fs * 0.058);
+
+      /* 外縁：太い濃赤（8〜10px） */
+      ctx.lineWidth = Math.max(8, Math.min(10, fs * 0.062));
+      ctx.strokeStyle = '#3C0000';
+      ctx.strokeText(c, -w / 2, 0);
+      /* 内縁：中間赤 */
+      ctx.lineWidth = Math.max(3.5, Math.min(6, fs * 0.034));
+      ctx.strokeStyle = '#C0392B';
+      ctx.strokeText(c, -w / 2, 0);
+
+      /* 塗り：縦グラデ（上1/3に強いハイライト） */
+      const g = ctx.createLinearGradient(0, top, 0, bot);
+      g.addColorStop(0,    '#FFFFFF');
+      g.addColorStop(0.30, '#FFFFFF');
+      g.addColorStop(0.34, '#E4E4E4');
+      g.addColorStop(0.72, '#E4E4E4');
+      g.addColorStop(1,    '#D8D8D8');
+      ctx.fillStyle = g;
+      ctx.fillText(c, -w / 2, 0);
+      ctx.restore();
+      cx += w;
+    }
+    ctx.restore();
+  })();
+
+  /* ── 3行目：金グラデ＋紺の縁。「x2倍」だけ1.3倍 ── */
+  (function(){
+    if(!l3) return;
+    /* 「x2倍」「×2倍」のような末尾の倍率だけ大きくする */
+    let head = l3, tail = '';
+    const m = l3.match(/[xX×]\s*[0-9０-９]+\s*倍?\s*$/);
+    if(m){ tail = m[0]; head = l3.slice(0, l3.length - tail.length); }
+
+    const fsA = fit(head || l3, h3, '900');
+    const fsB = fsA * 1.3;
+    ctx.save();
+    ctx.translate(W * 0.5, y3);
+    ctx.textAlign = 'left';
+    ctx.font = '900 ' + fsA.toFixed(2) + 'px "Noto Sans JP","Mochiy Pop One",sans-serif';
+    const wA = head ? ctx.measureText(head).width : 0;
+    ctx.font = '900 ' + fsB.toFixed(2) + 'px "Noto Sans JP","Mochiy Pop One",sans-serif';
+    const wB = tail ? ctx.measureText(tail).width : 0;
+    let x = -(wA + wB) / 2;
+
+    const put = function(txt, fs, baseShift){
+      if(!txt) return;
+      ctx.font = '900 ' + fs.toFixed(2) + 'px "Noto Sans JP","Mochiy Pop One",sans-serif';
+      const w = ctx.measureText(txt).width;
+      ctx.save();
+      ctx.translate(x + w / 2, baseShift);
+      /* 影 */
+      ctx.fillStyle = 'rgba(10,10,30,0.5)';
+      ctx.fillText(txt, -w / 2 + fs * 0.03, fs * 0.04);
+      /* 紺の縁 3px */
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#181830';
+      ctx.strokeText(txt, -w / 2, 0);
+      /* 金グラデ */
+      const g = ctx.createLinearGradient(0, -fs * 0.78, 0, fs * 0.16);
+      g.addColorStop(0,    '#F6F0A0');
+      g.addColorStop(0.46, '#CCE454');
+      g.addColorStop(1,    '#E0B020');
+      ctx.fillStyle = g;
+      ctx.fillText(txt, -w / 2, 0);
+      ctx.restore();
+      x += w;
+    };
+    put(head, fsA, 0);
+    put(tail, fsB, 0);
+    ctx.restore();
+  })();
+
+  ctx.restore();   // pop
+  ctx.restore();   // 全体
 }
 
 /* ══════════════════════════════════════════════
@@ -21028,6 +21747,7 @@ function frame(now){
       if(diceAnim.t > th.dur + 460) diceAnim = null;
     } else if(diceAnim.t > 1600) diceAnim = null;
   }
+  celOverlay(ctx, now);      // 独占カットイン（画面座標）
   drawGauge(now);
   paintPortraits(now);
   tickClock(dt);
@@ -21111,6 +21831,32 @@ function tickClock(dt){
   const el = $('#pClock');
   const txt = m+':'+String(s).padStart(2,'0');
   if(el.textContent !== txt){ el.textContent = txt; if(G.clock<60) el.classList.add('warn'); }
+}
+
+/* 相手の席の札束が自分の方へ雪崩れ込む。本家のレビューが面白さの核と書いた瞬間。
+   数字が先に動くと札は「あとから飛ぶ飾り」になってしまうので、必ず札→数字の順にする */
+function moneyFly(fromPi, toPi, heavy){
+  const a = G.players[fromPi].render || tileCenter(G.players[fromPi].pos);
+  const s = STACK_POS[toPi], b = proj(s.p, s.q);
+  addFx('bill', a.x, a.y, 900, PCOL[toPi], null, false, {from:a, to:b});
+  addFx('shockring', a.x, a.y + 6, 700, '#FFD8A0', null, false, {r: heavy ? 260 : 190});
+  addFx('coinburst', b.x, b.y - 8, 950);
+  addFx('starburst', b.x, b.y - 20, 700, '#FFE9A8', null, false, {r:70});
+  SFX.coin();
+  setTimeout(()=>SFX.coin(), 260*SPEED);
+  setTimeout(()=>SFX.coin(), 480*SPEED);
+}
+/* 独占カットイン（キャンバスに直接描く） */
+function celOverlay(ctx2, now){
+  if(!celOverlay.on) return;
+  if(celOverlay.t0 === null || celOverlay.t0 === undefined) celOverlay.t0 = now;
+  const T = now - celOverlay.t0;
+  if(T > celOverlay.ms){ celOverlay.on = false; celOverlay.t0 = null; return; }
+  dvCelebrate(ctx2, T, celOverlay.lines, SW, SH);
+}
+function showCelebrate(lines, ms){
+  celOverlay.on = true; celOverlay.t0 = null;
+  celOverlay.lines = lines; celOverlay.ms = (ms || 2800) * SPEED;
 }
 
 /* ══════════ HUD ══════════ */
@@ -21642,6 +22388,8 @@ async function payToll(pi, i){
   news(p.name+' → '+G.players[owner].name+' に通行料 '+yen(amt)+'！');
   await band('通行料 '+yen(amt), extra.length ? extra.join(' / ') : (G.players[owner].name+' に支払います'), 1400);
   if(!payFrom(pi, amt)){ await bankrupt(pi, owner); return; }
+  moneyFly(pi, owner, amt > 3000000);   // 先に札束を飛ばす
+  await wait(420);                      // 札が着いてから数字が増える
   give(pi, -amt); give(owner, amt);
   camShake(8);
   await wait(500);
@@ -21656,6 +22404,7 @@ async function maybeBuyout(pi, i){
   else yes = (await modal(parchHTML(t, cost, G.players[t.owner].name))) === 'ok';
   if(!yes) return;
   give(pi, -cost); give(t.owner, cost);
+  moneyFly(pi, t.owner, true);
   t.owner = pi;
   SFX.buy();
   addFx('pillar', tileCenter(i).x, tileCenter(i).y, 900, PCOL[pi]);
@@ -21814,6 +22563,9 @@ async function growAnim(i){
   addFx('pillar', c.x, c.y, 950, t.landmark ? '#7FE6FF' : PCOL[t.owner]);
   addFx('ring', c.x, c.y, 700, '#FFD24D');
   addFx('spark', c.x, c.y-26, 900, '#FFF3C0');
+  addFx('smoke', c.x, c.y+4, 1100);                                        // 建設の土煙
+  addFx('shockring', c.x, c.y+4, 620, '#FFE7A8', null, false, {r:150});
+  if(t.landmark) addFx('starburst', c.x, c.y-70, 900, '#FFFFFF', null, false, {r:120});
   camShake(5);
   let t0 = null; const D = 400*SPEED;
   await new Promise(res=>{
@@ -22103,6 +22855,13 @@ async function bankrupt(pi, toPi){
     if(toPi>=0){ t.owner = toPi; } else { t.owner=-1; t.lv=0; t.landmark=false; }
   }});
   SFX.bad(); camShake(14); jingle('bankrupt');
+  if(toPi >= 0){                       // 破産＝全財産が勝者の席へ雪崩れ込む
+    const sa = STACK_POS[pi],  a2 = proj(sa.p, sa.q);
+    const sb = STACK_POS[toPi], b2 = proj(sb.p, sb.q);
+    for(let w=0; w<3; w++)
+      setTimeout(function(){ addFx('bill', a2.x, a2.y, 1000, PCOL[toPi], null, false, {from:a2, to:b2}); }, w*220);
+    addFx('coinburst', b2.x, b2.y-8, 1200);
+  }
   news('！！ '+p.name+' が破産しました ！！');
   await band(p.name+' が破産しました',
     toPi>=0 ? '持っていた街は '+G.players[toPi].name+' のものに' : '街は市場に戻りました', 2000);
@@ -22110,6 +22869,8 @@ async function bankrupt(pi, toPi){
 }
 function finish(pi, reason, col){
   if(String(reason).indexOf('独占') >= 0) jingle('mono');
+  showCelebrate(['おめでとうございます！', reason, G.players[pi].name + ' の勝ち！'], 2800);
+  addFx('confetti', SW/2, 0, 3000, null, null, false, {scr:true, w:SW, h:SH, n:110});
   bgm('win');
   news('🏆 '+G.players[pi].name+' が「'+reason+'」で勝利！');
   G.over = true; G.winner = pi; G.winReason = reason; G.running = false;
@@ -22729,9 +23490,13 @@ async function pickPhase(){
 
 /* ローディング */
 const TIPS = [
-  '同じ色の街を3つそろえて1巡守り切ると「トリプル独占」で勝ちです。',
+  '同じ色の街を全部そろえると、その色の通行料が2倍になります。',
+  '色の独占を3つそろえると「トリプル独占」でその場で勝ちです。',
   '独占されたら、その街を買収して崩せば負けを防げます。',
-  'ランドマークを3つ持つと「観光地独占」でも勝てます。',
+  'ランドマークを6つ持つと「観光地独占」で勝ちです（報酬5倍）。',
+  '1辺の街をぜんぶ持つと「ライン独占」で勝ちです（報酬3倍）。',
+  '建物は1周ごとに1段ずつ解放されます。スタートを通るのが近道です。',
+  '残り6ターンから通行料が毎ターン1.5倍。負けていても最後まで諦めないこと。',
   '1辺の街をぜんぶ持つと「ライン独占」でその場で勝ちです。',
   '奇数・偶数ボタンを押すと、かならずその出目が出ます（回数かぎり）。',
   'ゲージが光っているところで「押す」と、出目をコントロールできます。',

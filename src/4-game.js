@@ -220,6 +220,7 @@ function frame(now){
       if(diceAnim.t > th.dur + 460) diceAnim = null;
     } else if(diceAnim.t > 1600) diceAnim = null;
   }
+  celOverlay(ctx, now);      // 独占カットイン（画面座標）
   drawGauge(now);
   paintPortraits(now);
   tickClock(dt);
@@ -303,6 +304,32 @@ function tickClock(dt){
   const el = $('#pClock');
   const txt = m+':'+String(s).padStart(2,'0');
   if(el.textContent !== txt){ el.textContent = txt; if(G.clock<60) el.classList.add('warn'); }
+}
+
+/* 相手の席の札束が自分の方へ雪崩れ込む。本家のレビューが面白さの核と書いた瞬間。
+   数字が先に動くと札は「あとから飛ぶ飾り」になってしまうので、必ず札→数字の順にする */
+function moneyFly(fromPi, toPi, heavy){
+  const a = G.players[fromPi].render || tileCenter(G.players[fromPi].pos);
+  const s = STACK_POS[toPi], b = proj(s.p, s.q);
+  addFx('bill', a.x, a.y, 900, PCOL[toPi], null, false, {from:a, to:b});
+  addFx('shockring', a.x, a.y + 6, 700, '#FFD8A0', null, false, {r: heavy ? 260 : 190});
+  addFx('coinburst', b.x, b.y - 8, 950);
+  addFx('starburst', b.x, b.y - 20, 700, '#FFE9A8', null, false, {r:70});
+  SFX.coin();
+  setTimeout(()=>SFX.coin(), 260*SPEED);
+  setTimeout(()=>SFX.coin(), 480*SPEED);
+}
+/* 独占カットイン（キャンバスに直接描く） */
+function celOverlay(ctx2, now){
+  if(!celOverlay.on) return;
+  if(celOverlay.t0 === null || celOverlay.t0 === undefined) celOverlay.t0 = now;
+  const T = now - celOverlay.t0;
+  if(T > celOverlay.ms){ celOverlay.on = false; celOverlay.t0 = null; return; }
+  dvCelebrate(ctx2, T, celOverlay.lines, SW, SH);
+}
+function showCelebrate(lines, ms){
+  celOverlay.on = true; celOverlay.t0 = null;
+  celOverlay.lines = lines; celOverlay.ms = (ms || 2800) * SPEED;
 }
 
 /* ══════════ HUD ══════════ */
@@ -834,6 +861,8 @@ async function payToll(pi, i){
   news(p.name+' → '+G.players[owner].name+' に通行料 '+yen(amt)+'！');
   await band('通行料 '+yen(amt), extra.length ? extra.join(' / ') : (G.players[owner].name+' に支払います'), 1400);
   if(!payFrom(pi, amt)){ await bankrupt(pi, owner); return; }
+  moneyFly(pi, owner, amt > 3000000);   // 先に札束を飛ばす
+  await wait(420);                      // 札が着いてから数字が増える
   give(pi, -amt); give(owner, amt);
   camShake(8);
   await wait(500);
@@ -848,6 +877,7 @@ async function maybeBuyout(pi, i){
   else yes = (await modal(parchHTML(t, cost, G.players[t.owner].name))) === 'ok';
   if(!yes) return;
   give(pi, -cost); give(t.owner, cost);
+  moneyFly(pi, t.owner, true);
   t.owner = pi;
   SFX.buy();
   addFx('pillar', tileCenter(i).x, tileCenter(i).y, 900, PCOL[pi]);
@@ -1006,6 +1036,9 @@ async function growAnim(i){
   addFx('pillar', c.x, c.y, 950, t.landmark ? '#7FE6FF' : PCOL[t.owner]);
   addFx('ring', c.x, c.y, 700, '#FFD24D');
   addFx('spark', c.x, c.y-26, 900, '#FFF3C0');
+  addFx('smoke', c.x, c.y+4, 1100);                                        // 建設の土煙
+  addFx('shockring', c.x, c.y+4, 620, '#FFE7A8', null, false, {r:150});
+  if(t.landmark) addFx('starburst', c.x, c.y-70, 900, '#FFFFFF', null, false, {r:120});
   camShake(5);
   let t0 = null; const D = 400*SPEED;
   await new Promise(res=>{
@@ -1295,6 +1328,13 @@ async function bankrupt(pi, toPi){
     if(toPi>=0){ t.owner = toPi; } else { t.owner=-1; t.lv=0; t.landmark=false; }
   }});
   SFX.bad(); camShake(14); jingle('bankrupt');
+  if(toPi >= 0){                       // 破産＝全財産が勝者の席へ雪崩れ込む
+    const sa = STACK_POS[pi],  a2 = proj(sa.p, sa.q);
+    const sb = STACK_POS[toPi], b2 = proj(sb.p, sb.q);
+    for(let w=0; w<3; w++)
+      setTimeout(function(){ addFx('bill', a2.x, a2.y, 1000, PCOL[toPi], null, false, {from:a2, to:b2}); }, w*220);
+    addFx('coinburst', b2.x, b2.y-8, 1200);
+  }
   news('！！ '+p.name+' が破産しました ！！');
   await band(p.name+' が破産しました',
     toPi>=0 ? '持っていた街は '+G.players[toPi].name+' のものに' : '街は市場に戻りました', 2000);
@@ -1302,6 +1342,8 @@ async function bankrupt(pi, toPi){
 }
 function finish(pi, reason, col){
   if(String(reason).indexOf('独占') >= 0) jingle('mono');
+  showCelebrate(['おめでとうございます！', reason, G.players[pi].name + ' の勝ち！'], 2800);
+  addFx('confetti', SW/2, 0, 3000, null, null, false, {scr:true, w:SW, h:SH, n:110});
   bgm('win');
   news('🏆 '+G.players[pi].name+' が「'+reason+'」で勝利！');
   G.over = true; G.winner = pi; G.winReason = reason; G.running = false;
@@ -1921,9 +1963,13 @@ async function pickPhase(){
 
 /* ローディング */
 const TIPS = [
-  '同じ色の街を3つそろえて1巡守り切ると「トリプル独占」で勝ちです。',
+  '同じ色の街を全部そろえると、その色の通行料が2倍になります。',
+  '色の独占を3つそろえると「トリプル独占」でその場で勝ちです。',
   '独占されたら、その街を買収して崩せば負けを防げます。',
-  'ランドマークを3つ持つと「観光地独占」でも勝てます。',
+  'ランドマークを6つ持つと「観光地独占」で勝ちです（報酬5倍）。',
+  '1辺の街をぜんぶ持つと「ライン独占」で勝ちです（報酬3倍）。',
+  '建物は1周ごとに1段ずつ解放されます。スタートを通るのが近道です。',
+  '残り6ターンから通行料が毎ターン1.5倍。負けていても最後まで諦めないこと。',
   '1辺の街をぜんぶ持つと「ライン独占」でその場で勝ちです。',
   '奇数・偶数ボタンを押すと、かならずその出目が出ます（回数かぎり）。',
   'ゲージが光っているところで「押す」と、出目をコントロールできます。',
