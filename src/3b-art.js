@@ -1142,10 +1142,10 @@ function dvLake(ctx, pts, cols, T, label, sub){
 
   // ===== 9. 中央の透かしロゴ =====
   if(label){
-    let fs = spanX*0.075;
+    let fs = spanX*0.050;
     ctx.font = '900 '+fs.toFixed(1)+'px "Noto Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif';
     const w = ctx.measureText(label).width;
-    if(w > spanX*0.62 && w > 0) fs *= (spanX*0.62)/w;   // 長い名前でもはみ出さない
+    if(w > spanX*0.44 && w > 0) fs *= (spanX*0.44)/w;   // 長い名前でもはみ出さない
     const ty = cy - fs*0.12;
 
     ctx.save();
@@ -1157,13 +1157,13 @@ function dvLake(ctx, pts, cols, T, label, sub){
     ctx.shadowBlur  = fs*0.30;
     ctx.lineJoin='round'; ctx.miterLimit=2;
     ctx.lineWidth = fs*0.20;
-    ctx.strokeStyle = 'rgba(127,217,240,0.34)';         // #7FD9F0 の太縁
+    ctx.strokeStyle = 'rgba(127,217,240,0.16)';         // #7FD9F0 の太縁
     ctx.strokeText(label, 0, 0);
     ctx.shadowBlur = 0;
     ctx.lineWidth = fs*0.12;
-    ctx.strokeStyle = 'rgba(127,217,240,0.52)';
+    ctx.strokeStyle = 'rgba(127,217,240,0.24)';
     ctx.strokeText(label, 0, 0);
-    ctx.fillStyle = 'rgba(255,255,255,0.50)';
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
     ctx.fillText(label, 0, 0);
     ctx.restore();
 
@@ -1176,9 +1176,9 @@ function dvLake(ctx, pts, cols, T, label, sub){
       ctx.font = '700 '+fs2.toFixed(1)+'px "Noto Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif';
       ctx.lineJoin='round'; ctx.miterLimit=2;
       ctx.lineWidth = fs2*0.26;
-      ctx.strokeStyle = 'rgba(127,217,240,0.60)';
+      ctx.strokeStyle = 'rgba(127,217,240,0.26)';
       ctx.strokeText(sub, 0, 0);
-      ctx.fillStyle = 'rgba(255,255,255,0.48)';
+      ctx.fillStyle = 'rgba(255,255,255,0.22)';
       ctx.fillText(sub, 0, 0);
       ctx.restore();
     }

@@ -394,7 +394,7 @@ function renderItems(){
   if(!itemBar){
     itemBar = document.createElement('div');
     itemBar.id = 'itembar';
-    itemBar.style.cssText = 'position:absolute;right:1%;bottom:31%;z-index:84;display:flex;'
+    itemBar.style.cssText = 'position:absolute;left:1.2%;top:34%;z-index:84;display:flex;'
       + 'flex-direction:column;gap:6px;align-items:flex-end';
     $('#stage').appendChild(itemBar);
   }

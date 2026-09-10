@@ -14,7 +14,7 @@ const TD = CW;                           // 帯の深さ。角マスと合わせ
 const KX = 0.7071067811865476;
 const KSQ= 0.585;                        // 縦潰し（実測）
 const KY = KX * KSQ;
-const BCX= SW * 0.505, BCY = SH * 0.578; // 盤中心（下の頂点は画面外へ出す）
+const BCX= SW * 0.505, BCY = SH * 0.600; // 盤中心（下の頂点だけ画面外へ出す）
 const TILE_H = 16;                       // マスの厚み（画面px）
 
 function proj(p, q){
@@ -246,7 +246,9 @@ function camStep(dt){
 }
 
 /* ══════════ 描画のとりまとめ ══════════ */
-const SIDE_ROT = [0, Math.PI/2, Math.PI, -Math.PI/2];
+/* 4辺とも文字が読める向きになる回転。向かい合う辺は同じ角度でよい
+   （アイソメでは、辺0と辺2・辺1と辺3が画面上で同じ傾きになるため） */
+const SIDE_ROT = [0, -Math.PI/2, 0, -Math.PI/2];
 
 function polyPath(ctx, pts){
   ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
@@ -295,7 +297,7 @@ function shrinkQuad(q, d){
     return { x: p.x + dx/L*d, y: p.y + dy/L*d }; });
 }
 /* 盤平面に沿った文字 */
-function planeText(ctx, p, q, rot, txt, size, fill, stroke, sw){
+function planeText(ctx, p, q, rot, txt, size, fill, stroke, sw, oy){
   const o = proj(p,q);
   const c = Math.cos(rot), s = Math.sin(rot);
   const e1 = { x: KX*( c - s), y: KY*( c + s) };
@@ -305,8 +307,9 @@ function planeText(ctx, p, q, rot, txt, size, fill, stroke, sw){
   ctx.transform(e1.x, e1.y, e2.x, e2.y, 0, 0);
   ctx.font = '900 '+size+'px "Noto Sans JP", sans-serif';
   ctx.textAlign='center'; ctx.textBaseline='middle';
-  if(stroke){ ctx.lineWidth=sw||3; ctx.strokeStyle=stroke; ctx.lineJoin='round'; ctx.strokeText(txt,0,0); }
-  ctx.fillStyle = fill; ctx.fillText(txt,0,0);
+  const dy = oy || 0;
+  if(stroke){ ctx.lineWidth=sw||3; ctx.strokeStyle=stroke; ctx.lineJoin='round'; ctx.strokeText(txt,0,dy); }
+  ctx.fillStyle = fill; ctx.fillText(txt,0,dy);
   ctx.restore();
 }
 /* マスの外周寄りの帯 */
@@ -390,14 +393,9 @@ function drawTile(ctx, G, i, T){
     ctx.fillStyle = gr; ctx.fillText(t.name, cc.x, cc.y+34);
     ctx.restore();
   } else {
-    const dIn = 8, dPr = 17;
-    let nx=cx, ny=cy, px=cx, py=cy;
-    if(r.side===0){ ny=cy-dIn; py=cy+dPr; }
-    if(r.side===2){ ny=cy+dIn; py=cy-dPr; }
-    if(r.side===1){ nx=cx+dIn; px=cx-dPr; }
-    if(r.side===3){ nx=cx-dIn; px=cx+dPr; }
-    planeText(ctx, nx, ny, rot, label, 21, '#FFFFFF', '#101C2A', 6.5);
-    if(sub) planeText(ctx, px, py, rot, sub, 19, '#FFE9A8', '#3A2205', 6);
+    // 名前を上・金額を下に。ずらす量は「文字の座標系」で指定する
+    planeText(ctx, cx, cy, rot, label, 21, '#FFFFFF', '#101C2A', 6.5, -15);
+    if(sub) planeText(ctx, cx, cy, rot, sub, 20, '#FFE9A8', '#3A2205', 6, 17);
   }
   // 角マスのアイコン
   const c = centroid(q);
@@ -461,30 +459,48 @@ function drawBuilding(ctx, G, i, T){
     const pulse = 0.55 + 0.45*Math.sin(T*0.0022);
     ctx.save(); ctx.translate(o.x, o.y);
     ctx.globalCompositeOperation = 'lighter';
-    const g = ctx.createLinearGradient(0,0,0,-250);
-    g.addColorStop(0,'rgba(140,230,255,'+(0.42*pulse).toFixed(3)+')');
-    g.addColorStop(.45,'rgba(140,230,255,'+(0.20*pulse).toFixed(3)+')');
+    // 柱は「そこが特別だ」と分かれば十分。高くて濃いと盤が見えなくなる
+    const g = ctx.createLinearGradient(0,0,0,-112);
+    g.addColorStop(0,'rgba(140,230,255,'+(0.24*pulse).toFixed(3)+')');
+    g.addColorStop(.45,'rgba(140,230,255,'+(0.10*pulse).toFixed(3)+')');
     g.addColorStop(1,'rgba(140,230,255,0)');
     ctx.fillStyle=g;
-    ctx.beginPath(); ctx.moveTo(-26,0); ctx.lineTo(-9,-250); ctx.lineTo(9,-250); ctx.lineTo(26,0);
+    ctx.beginPath(); ctx.moveTo(-15,0); ctx.lineTo(-5,-112); ctx.lineTo(5,-112); ctx.lineTo(15,0);
     ctx.closePath(); ctx.fill();
     ctx.restore();
   }
-  ctx.save(); ctx.translate(o.x, o.y); ctx.scale(grow, grow);
-  if(t.landmark) dvLandmark(ctx, col, T);
-  else if(t.lv>=3) dvHotel(ctx, col, T);
-  else if(t.lv>=2) dvTowerB(ctx, col, T);
-  else if(t.lv>=1) dvVilla(ctx, col, T);
-  else {
+  // 本家は「建てた分だけ小さい建物がマスに横一列に並ぶ」。
+  // 1マス1個の巨大モデルだと盤が見えなくなり、育てた実感も出ない。
+  const along = (r.side===0 || r.side===2) ? 'p' : 'q';
+  const span  = (along==='p') ? r.w : r.h;
+  function put(f, sc, fn){
+    const bx = (along==='p') ? ax + span*f : ax;
+    const by = (along==='q') ? ay + span*f : ay;
+    const oo = proj(bx, by);
+    ctx.save(); ctx.translate(oo.x, oo.y); ctx.scale(grow*sc, grow*sc);
+    fn(ctx, col, T);
+    ctx.restore();
+  }
+  if(t.landmark){
+    put(0, 0.74, dvLandmark);
+  } else if(t.lv > 0){
+    const list = [];
+    if(t.lv >= 1) list.push(dvVilla);
+    if(t.lv >= 2) list.push(dvTowerB);
+    if(t.lv >= 3) list.push(dvHotel);
+    const n = list.length;
+    list.forEach(function(fn, k){
+      put(((k+1)/(n+1) - 0.5) * 0.78, 0.44, fn);
+    });
+  } else {
     // 更地：所有を示す小さな旗
-    ctx.save();
+    ctx.save(); ctx.translate(o.x, o.y); ctx.scale(grow, grow);
     ctx.strokeStyle='rgba(0,0,0,.35)'; ctx.lineWidth=2;
     ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-26); ctx.stroke();
     ctx.fillStyle=col; ctx.beginPath();
     ctx.moveTo(0,-26); ctx.lineTo(20,-21); ctx.lineTo(0,-15); ctx.closePath(); ctx.fill();
     ctx.restore();
   }
-  ctx.restore();
 }
 
 /* コマ */
