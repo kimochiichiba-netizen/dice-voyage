@@ -1253,6 +1253,246 @@ html,body{height:100%;overflow:hidden;background:#04070f;font-family:var(--jp);c
 .mcard b{font-family:var(--pop);font-size:15px;color:#FFE9B5}
 .mcard i{font-style:normal;font-size:10px;letter-spacing:.12em;color:#8FA9C4}
 
+
+/* ══════════════════════════════════════════════════════════════
+   KR SKIN — 모두의마블「내아이템」画面の実測トレース
+   採寸元: ゲーム帯 1301×742px（16:9）／左上(0%,0%)〜右下(100%,100%)
+   1c-meta.html の <style> の一番最後に貼る（既存の暖色トークンより後勝ち）
+   ══════════════════════════════════════════════════════════════ */
+:root{
+  /* ── 背景（縦グラデ・実測サンプル） ─────────────────── */
+  --kr-bg1:#B9B8F7;  --kr-bg2:#B7B2F1;  --kr-bg3:#A19BD7;
+  --kr-bg4:#8280B6;  --kr-bg5:#52527B;  --kr-bg6:#474772;
+  --kr-bg7:#353960;
+  --kr-vignette:#7C86C4;              /* 左右端の落ち込み */
+  --kr-avg:#8E84AA;                   /* 画面平均色 */
+
+  /* ── 面（パネル・ボタン） ───────────────────────────── */
+  --kr-panel:#4C4D79;                 /* 右パネルの地（暗紫の半透明） */
+  --kr-panel-top:#6F6692;
+  --kr-rail:#A79EE8;                  /* 左レールの地（明るい藤） */
+  --kr-rail-line:#8880BC;             /* レールの縁ハイライト */
+  --kr-btn:#A290B8;                   /* ボタン面 */
+  --kr-btn-hi:#CFC4DE;                /* ボタン上端ハイライト */
+  --kr-btn-line:#5B4E74;              /* ボタン縁 */
+  --kr-pill:#7F7EB2;                  /* 通貨カプセルの地 */
+  --kr-pill-line:#4E4B77;
+  --kr-slot:#23233F;                  /* 1154/1200 の暗い窪み */
+
+  /* ── 紫の主役色（カード枠・星） ─────────────────────── */
+  --kr-vio-hi:#9B2BE8;   --kr-vio:#7514C0;   --kr-vio-dk:#3C0854;
+  --kr-vio-glow:#E4D0FC;
+  --kr-star1:#C9A6F5;  --kr-star2:#7B3FD4;  --kr-star3:#4A1090;
+
+  /* ── アクセント ─────────────────────────────────────── */
+  --kr-sel:#A6E85C;      /* 選択中カードの黄緑枠 */
+  --kr-gold:#EEEE7A;     /* 1154 の数字 */
+  --kr-cream:#EBD9B2;    /* 戻る「＜」 */
+  --kr-red:#D9331F;      /* NEW / 赤丸バッジ */
+  --kr-cyan:#DDF5FE;     /* ダイヤ */
+  --kr-coin:#F2E98C;     /* 金貨 */
+  --kr-blue:#69A0E5;     /* 青い石カプセル */
+  --kr-magenta:#BA83D0;  /* 星カプセル */
+  --kr-ink:#F2F1FC;      /* 白文字 */
+  --kr-ink-sh:#3A3660;   /* 白文字の縁取り */
+  --kr-name:rgba(14,12,28,.62); /* カード名の暗帯 */
+}
+
+/* ══════ 画面の器 ══════ */
+#cards.meta.kr{background:
+   radial-gradient(120% 62% at 50% 0%, rgba(255,255,255,.20), transparent 60%),
+   linear-gradient(90deg, var(--kr-vignette) 0%, transparent 9%, transparent 91%, var(--kr-vignette) 100%),
+   linear-gradient(180deg,
+     var(--kr-bg1) 0%,  var(--kr-bg2) 22%, var(--kr-bg3) 38%,
+     var(--kr-bg4) 49%, var(--kr-bg5) 59%, var(--kr-bg6) 76%, var(--kr-bg7) 100%)}
+#cards.kr::before{display:none}
+#cards.kr .rail,#cards.kr .tabs,#cards.kr .wallet{display:none}
+
+.kr-wrap{position:absolute;inset:0;display:grid;
+  grid-template-columns:9.4% 1fr 31.7%;   /* 実測 122px / 767px / 412px */
+  grid-template-rows:8.4% 1fr;            /* 上部バー 62px */
+  font-family:var(--pop),system-ui,sans-serif}
+
+/* ══════ B. 上部バー ══════ */
+.kr-top{grid-column:1/4;grid-row:1;display:flex;align-items:center;padding:0 0 0 1.6%}
+.kr-back{font-size:2.9vh;line-height:1;color:var(--kr-cream);cursor:pointer;
+  text-shadow:0 .25vh .3vh rgba(30,20,50,.45);padding:0 .6vh}
+.kr-title{font-size:3.4vh;color:var(--kr-ink);letter-spacing:.02em;margin-left:1.6%;
+  -webkit-text-stroke:.55vh var(--kr-ink-sh);paint-order:stroke fill;
+  text-shadow:0 .3vh .5vh rgba(40,30,70,.5)}
+.kr-cur{margin-left:auto;display:flex;align-items:center;gap:1.7vh}
+.kr-pill{position:relative;display:flex;align-items:center;height:5.5vh;padding:0 1.6vh 0 4.4vh;
+  border-radius:999px;background:var(--kr-pill);border:.22vh solid var(--kr-pill-line);
+  box-shadow:inset 0 .3vh .5vh rgba(255,255,255,.18), 0 .25vh .4vh rgba(20,14,40,.3)}
+.kr-pill.blue{background:linear-gradient(90deg,var(--kr-blue) 0%,var(--kr-blue) 62%,var(--kr-pill) 100%)}
+.kr-pill.star{background:linear-gradient(90deg,var(--kr-magenta) 0%,var(--kr-magenta) 58%,var(--kr-pill) 100%)}
+.kr-pill b{font-size:2.3vh;color:#FFFFFF;font-variant-numeric:tabular-nums;
+  -webkit-text-stroke:.4vh rgba(38,28,66,.75);paint-order:stroke fill}
+.kr-pill .ic{position:absolute;left:-.6vh;top:50%;transform:translateY(-50%);
+  font-size:3.4vh;line-height:1;filter:drop-shadow(0 .25vh .3vh rgba(20,14,40,.45))}
+.kr-sys{display:flex;align-items:center;gap:1.4vh;margin-left:1.4vh;padding-right:.4%}
+.kr-sys i{position:relative;font-style:normal;font-size:3.2vh;line-height:1;color:#F0F1F8;cursor:pointer;
+  filter:drop-shadow(0 .3vh .35vh rgba(20,14,40,.5))}
+.kr-sys i em{position:absolute;right:-.4vh;top:-.4vh;width:1.7vh;height:1.7vh;border-radius:50%;
+  background:radial-gradient(circle at 34% 28%,#FF7A63,var(--kr-red));
+  border:.2vh solid #6B1005}
+
+/* ══════ C. 左の縦カラム ══════ */
+.kr-left{grid-column:1;grid-row:2;padding:.6vh 0 1.2vh .6%;display:flex;flex-direction:column;gap:1.1vh;
+  overflow:hidden}
+.kr-lhd{font-size:2vh;color:#FFFFFF;-webkit-text-stroke:.4vh rgba(46,36,80,.8);paint-order:stroke fill;
+  margin:0 0 .2vh .3vh;white-space:nowrap}
+.kr-lhd em{font-style:normal;color:#DEA0FA;-webkit-text-stroke:.4vh #6A2A9E;margin-right:.5vh}
+.kr-lgroup{position:relative;border-radius:1.6vh;padding:.9vh .8vh;display:flex;flex-direction:column;
+  gap:1.2vh;background:linear-gradient(180deg,rgba(190,185,250,.42),rgba(150,142,225,.26));
+  border:.2vh solid rgba(206,200,255,.5)}
+.kr-lgroup .kr-next{position:absolute;right:-1.5vh;top:50%;transform:translateY(-50%);
+  border-style:solid;border-width:1.3vh 0 1.3vh 1.5vh;
+  border-color:transparent transparent transparent #FFFFFF;
+  filter:drop-shadow(0 0 .8vh rgba(255,255,255,.75))}
+.kr-thumb{position:relative;aspect-ratio:88/74;border-radius:1.1vh;overflow:hidden;cursor:pointer;
+  border:.35vh solid #6C3FB8;background:#2C1E52;
+  box-shadow:0 .4vh .7vh rgba(24,14,48,.45), inset 0 0 0 .2vh rgba(214,190,255,.5)}
+.kr-thumb.gold{border-color:#C9A03A;background:#7A5F18;
+  box-shadow:0 .4vh .7vh rgba(24,14,48,.45), inset 0 0 0 .2vh rgba(255,232,160,.6)}
+.kr-thumb.on{border-color:#C9A6F5;box-shadow:0 0 0 .35vh rgba(255,255,255,.85),0 .5vh 1vh rgba(24,14,48,.5)}
+.kr-thumb canvas{display:block;width:100%;height:100%}
+.kr-thumb .rr{position:absolute;left:.2vh;top:.1vh;font-size:1.5vh;color:#E8A8FF;
+  -webkit-text-stroke:.35vh #FFFFFF;paint-order:stroke fill}
+.kr-thumb .lv{position:absolute;right:.3vh;top:.1vh;font-size:1.6vh;color:#FFE9A8;
+  -webkit-text-stroke:.35vh #4A2A05;paint-order:stroke fill}
+.kr-thumb .pl{position:absolute;left:.3vh;bottom:.1vh;font-size:1.4vh;color:#FFFFFF;
+  -webkit-text-stroke:.3vh #3A2A05;paint-order:stroke fill}
+
+/* ══════ D. 中央の大きなカード ══════ */
+/* ステータスを左、カードを右に並べる。縦積みだと画面から落ちる */
+.kr-stage{grid-column:2;grid-row:2;position:relative;display:flex;flex-direction:row;
+  align-items:center;justify-content:center;gap:2.5%;padding:.8vh 1.4%;min-height:0;overflow:hidden}
+.kr-card{position:relative;flex:0 0 auto;height:68%;aspect-ratio:350/463;  /* 実測 350×463px */
+  border-radius:2.2vh;padding:.9vh .9vh 2.1vh;                /* 下枠だけ厚い＝台座 */
+  background:linear-gradient(180deg,var(--kr-vio-hi),var(--kr-vio) 45%,#5D0FA0 100%);
+  box-shadow:0 0 0 .35vh var(--kr-vio-dk), 0 0 5.5vh 1.4vh rgba(228,208,252,.55),
+             0 1.6vh 3vh rgba(24,10,48,.55)}
+.kr-card::before{content:"";position:absolute;inset:.35vh;border-radius:1.9vh;
+  border:.22vh solid rgba(238,214,255,.55);pointer-events:none}
+.kr-card .art{position:relative;width:100%;height:100%;border-radius:1.4vh;overflow:hidden;
+  background:radial-gradient(120% 90% at 50% 16%,#3C5C86,#141034)}
+.kr-card .art canvas{display:block;width:100%;height:100%}
+.kr-card .nameband{position:absolute;left:0;right:0;top:0;height:11%;
+  display:flex;align-items:center;justify-content:flex-end;padding:0 4%;
+  background:linear-gradient(180deg,rgba(10,8,24,.72),rgba(10,8,24,.45))}
+.kr-card .nameband b{font-size:2.8vh;color:#FFFFFF;
+  -webkit-text-stroke:.5vh rgba(16,10,32,.9);paint-order:stroke fill}
+.kr-card .rank{position:absolute;left:1.5%;top:.4%;font-size:5.6vh;line-height:1;z-index:2;
+  color:#9A3FD6;-webkit-text-stroke:.75vh #F0DBFF;paint-order:stroke fill;
+  filter:drop-shadow(0 .35vh 0 #3C0854)}
+/* 右に縦並びの操作ボタン（実測 x=39.4〜44.7%／上から y=22%,39%,56%） */
+.kr-card .side{position:absolute;right:3.5%;top:19%;display:flex;flex-direction:column;gap:1.4vh;z-index:2}
+.kr-card .side b{width:6.4vh;height:6.4vh;border-radius:1vh;display:grid;place-items:center;
+  font-size:3.4vh;cursor:pointer;
+  background:linear-gradient(160deg,#FFF0C0,#E0662C 45%,#8A1414);
+  border:.3vh solid #FFE6A8;box-shadow:0 .4vh .8vh rgba(20,10,40,.5)}
+.kr-card .side b.lock{background:linear-gradient(160deg,#FFD2C8,#D3211C 48%,#6B0A12)}
+.kr-card .side b.gem{background:linear-gradient(160deg,#FFF8D8,#E9B03A 42%,#7A4A08)}
+/* 下の大きな紫の星（実測 121×131px・カード右下を跨いで置く） */
+.kr-star{position:absolute;right:-3%;bottom:-4%;width:34%;aspect-ratio:1;z-index:3;
+  display:grid;place-items:center;font-size:12vh;line-height:1;color:var(--kr-star2);
+  -webkit-text-stroke:.8vh var(--kr-star3);paint-order:stroke fill;
+  filter:drop-shadow(0 0 2vh rgba(160,100,240,.85)) drop-shadow(0 .6vh .6vh rgba(20,8,40,.6))}
+/* カードの周りのイベント飾り（バレンタイン演出の位置に合わせた） */
+.kr-deco{position:absolute;inset:0;pointer-events:none;z-index:1;font-size:4.2vh;line-height:1}
+.kr-deco span{position:absolute;filter:drop-shadow(0 .4vh .6vh rgba(20,10,40,.45))}
+
+/* カード下の3つのUI */
+.kr-cardbar{position:static;flex:0 1 36%;max-width:340px;
+  display:flex;flex-direction:column;align-items:stretch;gap:.6vh;
+  max-height:92%;overflow:auto}
+.kr-drop{flex:1;display:flex;align-items:center;gap:1.2vh;height:6.5vh;padding:0 1.4vh;
+  border-radius:1vh;cursor:pointer;
+  background:linear-gradient(180deg,var(--kr-btn-hi),var(--kr-btn));
+  border:.24vh solid var(--kr-btn-line);box-shadow:0 .3vh .5vh rgba(20,14,40,.35)}
+.kr-drop .no{min-width:4.6vh;text-align:center;padding:.4vh 0;border-radius:.7vh;font-size:2.1vh;
+  color:#F4F1FF;background:rgba(88,74,124,.55);border:.2vh solid rgba(240,235,255,.45)}
+.kr-drop .nm{flex:1;font-size:2.4vh;color:#FFFFFF;
+  -webkit-text-stroke:.4vh rgba(52,42,86,.8);paint-order:stroke fill}
+.kr-drop .ar{color:#8E9BE8;font-size:1.8vh}
+.kr-chip{display:flex;align-items:center;gap:.8vh;height:6.5vh;padding:0 1.6vh;border-radius:1vh;
+  cursor:pointer;background:linear-gradient(180deg,var(--kr-btn-hi),var(--kr-btn));
+  border:.24vh solid var(--kr-btn-line);box-shadow:0 .3vh .5vh rgba(20,14,40,.35)}
+.kr-chip .ic{font-size:2.6vh;line-height:1}
+.kr-chip b{font-size:2.3vh;color:#FFFFFF;-webkit-text-stroke:.4vh rgba(52,42,86,.8);paint-order:stroke fill}
+
+/* ══════ E. 右のカードグリッド ══════ */
+.kr-right{grid-column:3;grid-row:2;display:flex;flex-direction:column;gap:.9vh;
+  padding:.9vh 0 1.2vh .9vh;background:rgba(28,20,58,.30)}
+.kr-tabs{display:flex;gap:.3vh}
+.kr-tabs .tb{position:relative;flex:1;height:7.6vh;display:grid;place-items:center;font-size:3vh;
+  border-radius:.9vh .9vh 0 0;cursor:pointer;
+  background:linear-gradient(180deg,rgba(120,110,180,.55),rgba(70,62,116,.55));
+  border:.2vh solid rgba(190,182,244,.35);border-bottom:none;color:#EDEAFB}
+.kr-tabs .tb.on{background:linear-gradient(180deg,#CFC8FA,#9C93E4);color:#2E2758}
+.kr-tabs .tb.sort{flex:.85;background:linear-gradient(180deg,#EDEAFB,#B9B3E8);color:#3A3468}
+.kr-tabs .tb .new{position:absolute;left:50%;top:-1.5vh;transform:translateX(-50%);
+  font-size:1.4vh;font-weight:900;letter-spacing:.02em;padding:.1vh .7vh;border-radius:.5vh;
+  background:linear-gradient(180deg,#FFF3C0,#F3D24A);color:#B02010;border:.2vh solid #8A1408}
+.kr-checks{display:flex;align-items:center;gap:1.6vh;padding:.4vh .6vh}
+.kr-checks label{display:flex;align-items:center;gap:.7vh;font-size:2.3vh;color:#EFEBFF;cursor:pointer;
+  -webkit-text-stroke:.4vh rgba(38,30,70,.7);paint-order:stroke fill}
+.kr-checks i{width:2.6vh;height:2.6vh;border-radius:.5vh;display:grid;place-items:center;
+  font-style:normal;font-size:2vh;color:#2E2758;
+  background:rgba(60,52,104,.5);border:.24vh solid rgba(216,210,255,.6)}
+.kr-checks input{display:none}
+.kr-checks input:checked + i{background:linear-gradient(180deg,#D6CEFF,#A79BEE)}
+
+.kr-grid{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:1.6% .81%;
+  align-content:start;overflow-y:auto;padding-right:.2vh;scrollbar-width:thin}
+.kr-mini{position:relative;aspect-ratio:124/160;border-radius:.8vh;overflow:hidden;cursor:pointer;
+  border:.34vh solid #8A3FC8;background:#241A44;
+  box-shadow:0 0 0 .2vh #2B0E4F, 0 .3vh .6vh rgba(18,10,40,.45)}
+.kr-mini canvas{display:block;width:100%;height:100%}
+.kr-mini.on{border-color:var(--kr-sel);box-shadow:0 0 0 .2vh #2F5A0E,0 0 1.4vh rgba(166,232,92,.6)}
+.kr-mini.locked{filter:grayscale(1) brightness(.42)}
+.kr-mini .nb{position:absolute;left:0;right:0;top:0;height:14.5%;display:flex;align-items:center;
+  justify-content:flex-end;padding:0 .5vh;background:var(--kr-name)}
+.kr-mini .nb span{font-size:1.5vh;color:#FFFFFF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  -webkit-text-stroke:.32vh rgba(12,8,26,.85);paint-order:stroke fill}
+.kr-mini .rr{position:absolute;left:-.2vh;top:-.4vh;font-size:2.3vh;line-height:1;color:#B349E8;
+  -webkit-text-stroke:.45vh #F3E4FF;paint-order:stroke fill}
+.kr-mini .st{position:absolute;right:.2vh;bottom:.2vh;font-size:3.4vh;line-height:1;color:var(--kr-star2);
+  -webkit-text-stroke:.45vh var(--kr-star3);paint-order:stroke fill;
+  filter:drop-shadow(0 0 .8vh rgba(150,90,235,.8))}
+.kr-mini .eq{position:absolute;left:.2vh;bottom:.2vh;font-size:1.4vh;padding:.1vh .6vh;border-radius:.5vh;
+  background:linear-gradient(180deg,#FFF3C0,#F3D24A);color:#8A1408;border:.2vh solid #8A1408}
+
+.kr-foot{display:flex;align-items:center;gap:.9vh;padding-right:.6vh}
+.kr-foot .b{flex:1;height:6.2vh;border-radius:.9vh;display:grid;place-items:center;font-size:2.3vh;
+  cursor:pointer;color:#FFFFFF;-webkit-text-stroke:.4vh rgba(52,42,86,.8);paint-order:stroke fill;
+  background:linear-gradient(180deg,var(--kr-btn-hi),var(--kr-btn));
+  border:.24vh solid var(--kr-btn-line);box-shadow:0 .3vh .5vh rgba(20,14,40,.35)}
+.kr-foot .cnt{display:flex;align-items:center;gap:.3vh;height:6.2vh;padding:0 1vh;border-radius:.9vh;
+  background:var(--kr-slot);border:.24vh solid #14142A;font-variant-numeric:tabular-nums}
+.kr-foot .cnt em{font-style:normal;font-size:2.4vh;color:var(--kr-gold)}
+.kr-foot .cnt span{font-size:2vh;color:#B9B4D8}
+.kr-foot .add{width:5.4vh;height:6.2vh;border-radius:.9vh;display:grid;place-items:center;font-size:3vh;
+  color:#2E5B12;background:linear-gradient(180deg,#D7F7A4,#7FCB3A);border:.24vh solid #3E7A14;
+  cursor:pointer}
+
+/* 縦長のときだけ左右を少し太らせる（本家も端末比で可変） */
+@media (max-aspect-ratio:13/9){
+  .kr-wrap{grid-template-columns:11% 1fr 34%}
+  .kr-card{width:58%}
+}
+
+
+/* カード詳細の7ステータス（本家のカード画面はここが主役） */
+.kr-stats{margin:6px 0 4px;padding:7px 10px;border-radius:10px;background:rgba(20,16,40,.55);
+  border:1px solid rgba(190,170,255,.28)}
+.kr-stats .strow{margin:1px 0}
+.kr-skill{font-size:11.5px;line-height:1.45;color:#E6DEFF;padding:6px 10px;border-radius:10px;
+  background:rgba(20,16,40,.5);border-left:3px solid var(--kr-star1,#C9A6F5)}
+.kr-skill b{display:block;color:#FFE9B5;font-size:12.5px}
+.kr-chiprow{display:flex;gap:8px;margin-top:6px}
+
 </style>
 
 <style>
@@ -18455,14 +18695,14 @@ function dvSfx(ac){
     /* bill：札束が飛ぶ／紙のバサバサ4連（900→2800→1400Hzのスイープ）＋舞う風220→130Hz／全体約0.55秒 */
     bill: function(){
       if(!_dvOn) return; var t = _dvT();
-      var at = [0, 0.075, 0.145, 0.205], vv = [0.090, 0.078, 0.066, 0.054],
+      var at = [0, 0.075, 0.145, 0.205], vv = [0.250, 0.215, 0.180, 0.145],
           rt = [1.00, 1.07, 0.94, 1.03], i;
       for(i=0;i<at.length;i++){
         _dvNz({ t:t+at[i], dur:0.115, type:'bandpass', Q:0.9, v:vv[i], a:0.012, rate:rt[i],
                 fSeq:[[0,900],[0.05,2800],[0.115,1400]] });
       }
-      _dvNz ({ t:t,      dur:0.34, type:'lowpass', f:1200, f2:400, Q:0.7, v:0.045, a:0.05 });
-      _dvOsc({ t:t+0.02, dur:0.30, type:'sine',    f:220,  f2:130, v:0.045, a:0.03, rev:0.10 });
+      _dvNz ({ t:t,      dur:0.34, type:'lowpass', f:1200, f2:400, Q:0.7, v:0.075, a:0.05 });
+      _dvOsc({ t:t+0.02, dur:0.30, type:'sine',    f:220,  f2:130, v:0.070, a:0.03, rev:0.10 });
     },
 
     /* coinBurst：金貨が散る／ベル12粒（1046〜2637Hz・各3層）＋擦れ3粒／全体約0.75秒 */
@@ -18481,7 +18721,7 @@ function dvSfx(ac){
     /* confetti：紙吹雪／広がるノイズ（2000→6500Hz）＋舞う粒12個＋ふわっと上がる風／全体約1.1秒 */
     confetti: function(){
       if(!_dvOn) return; var t = _dvT();
-      _dvNz({ t:t, dur:0.55, type:'highpass', Q:0.6, v:0.070, a:0.030,
+      _dvNz({ t:t, dur:0.55, type:'highpass', Q:0.6, v:0.110, a:0.030,
               fSeq:[[0,2000],[0.20,6500],[0.55,3200]] });
       var ts = [0.06,0.12,0.19,0.25,0.33,0.40,0.48,0.56,0.65,0.74,0.84,0.95],
           fs = [2600,3400,2200,4200,2900,3800,2400,4600,3100,2700,3600,2300],
@@ -18511,24 +18751,28 @@ function dvSfx(ac){
       if(!_dvOn) return { level:function(){}, end:function(){} };
       var t = _dvT(), MAXS = 8;
       var o1 = ac.createOscillator(), o2 = ac.createOscillator(),
+          g1 = ac.createGain(), g2 = ac.createGain(),
           lfo = ac.createOscillator(), lg = ac.createGain(), amp = ac.createGain(),
           lp = ac.createBiquadFilter(), g = ac.createGain(), sg = null, done = false;
       o1.type = 'sawtooth'; o1.frequency.setValueAtTime(180, t);
       o2.type = 'square';   o2.frequency.setValueAtTime(90, t); o2.detune.setValueAtTime(7, t);
-      lp.type = 'lowpass';  lp.Q.value = 6; lp.frequency.setValueAtTime(700, t);
+      g1.gain.value = 0.30; g2.gain.value = 0.18;         // ← フィルタの共鳴で歪まない量まで落とす
+      lp.type = 'lowpass';  lp.Q.value = 3; lp.frequency.setValueAtTime(700, t);
       lfo.type = 'sine';    lfo.frequency.setValueAtTime(7, t);
-      lg.gain.setValueAtTime(0.25, t);                    // 1 ± 0.25 で震える
+      lg.gain.setValueAtTime(0.22, t);                    // 1 ± 0.22 で震える
       amp.gain.setValueAtTime(1, t);
       g.gain.setValueAtTime(_dvEPS, t);
-      g.gain.exponentialRampToValueAtTime(0.060, t + 0.06);
+      g.gain.exponentialRampToValueAtTime(0.090, t + 0.06);
       lfo.connect(lg); lg.connect(amp.gain);
-      o1.connect(lp); o2.connect(lp); lp.connect(amp); amp.connect(g); g.connect(_dvOut);
+      o1.connect(g1); g1.connect(lp); o2.connect(g2); g2.connect(lp);
+      lp.connect(amp); amp.connect(g); g.connect(_dvOut);
       sg = _dvSend(g, 0.12, false);
       o1.start(t); o2.start(t); lfo.start(t);
       o1.stop(t + MAXS); o2.stop(t + MAXS); lfo.stop(t + MAXS);
       o1.onended = function(){
-        try{ o1.disconnect(); o2.disconnect(); lfo.disconnect(); lg.disconnect();
-             amp.disconnect(); lp.disconnect(); g.disconnect(); if(sg) sg.disconnect(); }catch(e){}
+        try{ o1.disconnect(); o2.disconnect(); g1.disconnect(); g2.disconnect();
+             lfo.disconnect(); lg.disconnect(); amp.disconnect(); lp.disconnect();
+             g.disconnect(); if(sg) sg.disconnect(); }catch(e){}
       };
       return {
         level: function(p){
@@ -18538,7 +18782,7 @@ function dvSfx(ac){
             o2.frequency.setTargetAtTime(90 *Math.pow(2, k*1.6), n, 0.04);
             lp.frequency.setTargetAtTime(700 + 2600*k, n, 0.05);
             lfo.frequency.setTargetAtTime(7 + 13*k, n, 0.05);
-            g.gain.setTargetAtTime(0.055 + 0.050*k, n, 0.05);
+            g.gain.setTargetAtTime(0.080 + 0.055*k, n, 0.05);
           }catch(e){}
         },
         end: function(){
@@ -23035,6 +23279,7 @@ function showHome(){
   $('#mPlay').onclick  = ()=>{ SFX.click(); screenTo('setup'); };
   $('#mCards').onclick = ()=>{ SFX.click(); showCards(); };
   $('#mGacha').onclick = ()=>{ SFX.click(); showGacha(); };
+  bgm('lobby');                 // ホームに戻ったらロビーの曲へ戻す
   screenTo('home');
 }
 
@@ -23214,6 +23459,7 @@ function showGacha(){
     const ms = freeLeft();
     f.textContent = ms===0 ? 'いま無料で引けます' : '次の無料まで ' + mmss(ms);
   }, 1000);
+  bgm('gacha');                 // ガチャ画面はきらびやかな曲へ
   screenTo('gacha');
 }
 function rollLane(w){
@@ -23643,6 +23889,158 @@ function slotPicker(slot, after){
   body.querySelectorAll('[data-act]').forEach(b=>{
     b.onclick = ()=>{ SFX.click(); wrap.classList.remove('on'); after && after(); };
   });
+}
+
+
+/* ══════════ 韓国版「내아이템」に寄せたカード画面（後勝ちで差し替え） ══════════ */
+/* ══════════════════════════════════════════════════════════════
+   5-meta.js の showCards / drawCardGrid / drawCardDetail 差し替え版
+   「내아이템」レイアウト（左レール＋中央大カード＋右3列グリッド）
+   ・kr-item.css を 1c-meta.html の <style> 末尾に貼ってから使う
+   ・既存の mkScreen / regPortrait / RAR / CARDPOOL / SV をそのまま使う
+   ══════════════════════════════════════════════════════════════ */
+let krCardSel = null;
+
+function showCards(){
+  krCardSel = krCardSel && SV.cards[krCardSel] ? krCardSel : SV.equip;
+  const el = mkScreen('cards', krItemHTML());
+  el.classList.add('kr');                       // 背景を紫トークンに切り替える
+  el.querySelector('#krBack').onclick = ()=>{ SFX.click(); showHome(); };
+  el.querySelector('#krHome').onclick = ()=>{ SFX.click(); showHome(); };
+  drawKrGrid(); drawKrLeft(); drawKrCard();
+  screenTo('cards');
+}
+
+function krItemHTML(){
+  const own = ownedCards().length, all = CARDPOOL.length;
+  return ''
+  + '<div class="kr-wrap">'
+  /* ── 上部バー ── */
+  + '<div class="kr-top">'
+  +   '<span class="kr-back" id="krBack">❮</span>'
+  +   '<span class="kr-title">マイアイテム</span>'
+  +   '<div class="kr-cur">'
+  +     '<span class="kr-pill blue"><span class="ic">💎</span><b>'+SV.gem+'</b></span>'
+  +     '<span class="kr-pill"><span class="ic">🪙</span><b id="wGold">'+SV.gold.toLocaleString()+'</b></span>'
+  +     '<span class="kr-pill"><span class="ic">🃏</span><b>'+own+'/'+all+'</b></span>'
+  +     '<span class="kr-pill star"><span class="ic">⭐</span><b>Lv.'+SV.lv+'</b></span>'
+  +   '</div>'
+  +   '<div class="kr-sys"><i>⚑</i><i>▦<em></em></i><i id="krHome">🏠</i></div>'
+  + '</div>'
+  /* ── 左カラム ── */
+  + '<div class="kr-left"><div class="kr-lhd" id="krLhd"></div>'
+  +   '<div class="kr-lgroup" id="krSet"><span class="kr-next"></span></div>'
+  +   '<div class="kr-lgroup" id="krOther"></div>'
+  + '</div>'
+  /* ── 中央 ── */
+  + '<div class="kr-stage">'
+  +   '<div style="position:relative;display:grid;place-items:center;width:100%;height:100%">'
+  +     '<div class="kr-deco">'
+  +       '<span style="left:20%;top:4%">💕</span>'
+  +       '<span style="left:31%;top:1%;font-size:3vh">❤️</span>'
+  +       '<span style="left:57%;top:2%">🎁</span>'
+  +       '<span style="left:66%;top:8%;font-size:5vh">⭐</span>'
+  +       '<span style="left:16%;top:62%">🎁</span>'
+  +       '<span style="left:69%;top:47%">💖</span>'
+  +       '<span style="left:72%;top:64%;font-size:3vh">🕶️</span>'
+  +       '<span style="left:78%;top:57%;font-size:2.4vh">🎉</span>'
+  +     '</div>'
+  +     '<div class="kr-card" id="krCard"></div>'
+  +   '</div>'
+  +   '<div class="kr-cardbar" id="krBar"></div>'
+  + '</div>'
+  /* ── 右パネル ── */
+  + '<div class="kr-right">'
+  +   '<div class="kr-tabs">'
+  +     '<div class="tb sort">≡↓</div>'
+  +     '<div class="tb on">👤<span class="new">NEW</span></div>'
+  +     '<div class="tb">🗡<span class="new">NEW</span></div>'
+  +     '<div class="tb">🎲</div>'
+  +     '<div class="tb">👕<span class="new">NEW</span></div>'
+  +     '<div class="tb">💎<span class="new">NEW</span></div>'
+  +   '</div>'
+  +   '<div class="kr-checks">'
+  +     '<label><input type="checkbox" checked><i>✓</i>キャラ</label>'
+  +     '<label><input type="checkbox"><i>✓</i>イベント</label>'
+  +     '<label><input type="checkbox"><i>✓</i>その他</label>'
+  +   '</div>'
+  +   '<div class="kr-grid" id="krGrid"></div>'
+  +   '<div class="kr-foot">'
+  +     '<div class="b">売却</div><div class="b" id="krUp">強化</div><div class="b">合成</div>'
+  +     '<div class="cnt"><em>'+own+'</em><span>/'+all+'</span></div>'
+  +     '<div class="add">＋</div>'
+  +   '</div>'
+  + '</div></div>';
+}
+
+/* 右の3列グリッド（1枚 = 幅9.53% / 高さ21.6% / 横間隔0.81% / 縦間隔1.6%） */
+function drawKrGrid(){
+  const g = document.getElementById('krGrid'); g.innerHTML = '';
+  CARDPOOL.forEach(c=>{
+    const o = SV.cards[c.id];
+    const d = document.createElement('div');
+    d.className = 'kr-mini' + (o?'':' locked') + (krCardSel===c.id?' on':'');
+    d.innerHTML = '<canvas width="150" height="194"></canvas>'
+      + '<div class="nb"><span>'+(o?esc(c.nm):'？？？')+'</span></div>'
+      + '<span class="rr">'+RAR[c.rar].nm+'</span>'
+      + '<span class="st">✹</span>'
+      + (SV.equip===c.id?'<span class="eq">装備</span>':'');
+    if(o) regPortrait(d.querySelector('canvas'), c.art, c.col);
+    d.onclick = ()=>{ if(!o) return; SFX.click(); krCardSel=c.id; drawKrGrid(); drawKrLeft(); drawKrCard(); };
+    g.appendChild(d);
+  });
+}
+
+/* 左レール（選択カード＋同レアの手持ちを束にして並べる） */
+function drawKrLeft(){
+  const c = cardById(krCardSel); if(!c) return;
+  document.getElementById('krLhd').innerHTML = '<em>'+RAR[c.rar].nm+'</em>'+esc(c.nm);
+  const set   = document.getElementById('krSet');
+  const other = document.getElementById('krOther');
+  const same  = CARDPOOL.filter(x=>SV.cards[x.id] && x.rar===c.rar && x.id!==c.id).slice(0,2);
+  const rest  = CARDPOOL.filter(x=>SV.cards[x.id] && x.rar!==c.rar).slice(0,4);
+  set.innerHTML = thumb(c,true) + same.map(x=>thumb(x,false,true)).join('') + '<span class="kr-next"></span>';
+  other.innerHTML = rest.map(x=>thumb(x,false)).join('');
+  [set,other].forEach(box=>box.querySelectorAll('.kr-thumb').forEach(t=>{
+    const id = t.dataset.id;
+    regPortrait(t.querySelector('canvas'), cardById(id).art, cardById(id).col);
+    t.onclick = ()=>{ SFX.click(); krCardSel=id; drawKrGrid(); drawKrLeft(); drawKrCard(); };
+  }));
+}
+function thumb(c, on, gold){
+  const o = SV.cards[c.id]||{lv:1,dup:0};
+  return '<div class="kr-thumb'+(on?' on':'')+(gold?' gold':'')+'" data-id="'+c.id+'">'
+    + '<canvas width="150" height="126"></canvas>'
+    + '<span class="rr">'+RAR[c.rar].nm+'</span>'
+    + '<span class="lv">'+o.lv+'</span>'
+    + (o.dup>0?'<span class="pl">+'+o.dup+'</span>':'')
+    + '</div>';
+}
+
+/* 中央の大カード（実測 350×463px = 幅26.9% / 高さ62.4%） */
+function drawKrCard(){
+  const c = cardById(krCardSel), o = SV.cards[krCardSel];
+  const card = document.getElementById('krCard'), bar = document.getElementById('krBar');
+  if(!c || !o){ card.innerHTML=''; bar.innerHTML=''; return; }
+  card.innerHTML = '<span class="rank">'+RAR[c.rar].nm+'</span>'
+    + '<div class="art"><canvas id="krPic" width="330" height="437"></canvas>'
+    +   '<div class="nameband"><b>'+esc(c.nm)+'</b></div></div>'
+    + '<div class="side">'
+    +   '<b class="warn" title="'+esc(c.role)+'">▲</b>'
+    +   '<b class="lock" title="ロック">🔒</b>'
+    +   '<b class="gem"  title="'+esc(c.sk.nm)+'">💎</b>'
+    + '</div>'
+    + '<span class="kr-star">✹</span>';
+  regPortrait(document.getElementById('krPic'), c.art, c.col);
+  // 本家（日本版）のカード画面は7つのステータスバーが主役。ここが無いと育てる意味が見えない
+  const st = cardStats(c.id, o.lv, SV.equip===c.id ? SV.slots : []);
+  bar.innerHTML = '<div class="kr-drop"><span class="no">'+o.lv+'</span>'
+    +   '<span class="nm">'+esc(c.nm)+'</span><span class="ar">▲</span></div>'
+    + '<div class="kr-stats">'+statRows(st)+'</div>'
+    + '<div class="kr-skill"><b>'+esc(c.sk.nm)+'（'+c.sk.uses+'回）</b>'+esc(c.sk.ds)+'</div>'
+    + '<div class="kr-chiprow">'
+    +   '<div class="kr-chip"><span class="ic" style="color:#F2D06A">S</span><b>合成状況</b></div>'
+    +   '<div class="kr-chip"><span class="ic">✹</span><b>成長状況</b></div></div>';
 }
 
 </script>
