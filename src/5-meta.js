@@ -674,6 +674,7 @@ async function grantRewards(won){
   SV.gold += gold; SV.exp += exp; SV.plays++; if(won) SV.wins++;
   let up = 0;
   while(SV.exp >= playerLvNeed(SV.lv)){ SV.exp -= playerLvNeed(SV.lv); SV.lv++; up++; }
+  if(up) jingle('levelup');
   let pend = null;
   if(Math.random() < (won?0.35:0.15)){
     const p = PENDANTS[(Math.random()*PENDANTS.length)|0];
@@ -912,6 +913,7 @@ function roomPhase(){
     }
 
     render();
+    bgm('room');
     screenTo('room');
   });
 }

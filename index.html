@@ -20397,21 +20397,21 @@ function dvJingle(ac, name, bgm){
       dur:2.40,
       nz  :[[0.00,1.30,'highpass',[[0,4200],[1.30,2600]],0.6,0.085,0.006,0.50],
             [0.36,0.50,'bandpass',[[0,900],[0.50,300]],0.8,0.045,0.010,0.30]],
-      hit :[[0.00, 210, 60, 0.24],[0.36, 180, 56, 0.18]],
+      hit :[[0.00, 210, 60, 0.27],[0.36, 180, 56, 0.20]],
       tone:[[0.00,'G4',0.14,'sawtooth',0.130,4000,1000],
             [0.12,'C5',0.14,'sawtooth',0.140,4200,1050],
             [0.24,'E5',0.14,'sawtooth',0.145,4400,1100],
-            [0.36,'G5',0.95,'sawtooth',0.165,5000,1300],
+            [0.36,'G5',0.95,'sawtooth',0.180,5000,1300],
             /* 支えの和音（ゆっくり立ち上がるパッド代わり）*/
             [0.36,'C4',1.70,'triangle',0.070,1800,760],
             [0.40,'E4',1.66,'triangle',0.065,1800,760],
             [0.44,'G4',1.62,'triangle',0.065,1900,780],
             [0.48,'C5',1.58,'triangle',0.060,2000,800],
             /* 締めの2音 */
-            [1.42,'A5',0.24,'sawtooth',0.140,4600,1200],
-            [1.66,'C6',0.72,'sawtooth',0.160,5200,1400]],
+            [1.42,'A5',0.24,'sawtooth',0.155,4600,1200],
+            [1.66,'C6',0.72,'sawtooth',0.180,5200,1400]],
       bell:[[0.50,'C6',1.50,0.100],[0.92,'G6',1.10,0.075],[1.70,'E6',0.90,0.080]],
-      sub :[[0.00,'C2',null,1.90,0.185]],
+      sub :[[0.00,'C2',null,1.90,0.215]],
       spk :[[0.60,6,0.90,0.045,0],[1.72,4,0.50,0.040,5]]
     },
 
@@ -20516,7 +20516,10 @@ function dvJingle(ac, name, bgm){
     if(!live) return 0;
     var J = JINGLES[nm];
     if(!J) return 0;
-    if(ac.state === 'suspended'){ try{ ac.resume(); }catch(e){} }
+    if(ac.state === 'suspended'){
+      /* resume() は Promise を返す実装がある。握りつぶさないと未処理拒否として残る */
+      try{ var rp = ac.resume(); if(rp && rp.catch) rp.catch(function(){}); }catch(e){}
+    }
     var t = ac.currentTime + 0.02, i, a;
 
     if(J.hit)  for(i=0;i<J.hit.length;i++){ a = J.hit[i];  jHit(t+a[0], a[1], a[2], a[3]); }
@@ -21419,6 +21422,7 @@ async function maybeBuyout(pi, i){
   SFX.buy();
   addFx('pillar', tileCenter(i).x, tileCenter(i).y, 900, PCOL[pi]);
   addFx('spark', tileCenter(i).x, tileCenter(i).y-30, 900, '#FFD24D');
+  jingle('buyout');
   toast('R','📜','買収成立', t.name+' を手に入れました',2100);
   news(G.players[pi].name+' が '+t.name+' を買収！ 持ち主が変わりました');
   checkWin();
@@ -21566,6 +21570,7 @@ async function growAnim(i){
   const t = G.tiles[i]; t.grow = 0;
   raiseBanner(G.tiles[i].landmark ? 'ランドマーク！' : '通行料値上げ！');
   SFX.build();
+  jingle(G.tiles[i].landmark ? 'landmark' : 'build');
   const c = tileCenter(i);
   if(t.landmark){ SFX.landmark(); news('🗼 '+G.players[t.owner].name+' が '+t.name+' にランドマークを建設！'); }
   addFx('pillar', c.x, c.y, 950, t.landmark ? '#7FE6FF' : PCOL[t.owner]);
@@ -21809,6 +21814,7 @@ function checkWin(){
     if(colorMono(G,pi) === 2 && G.reach !== pi){
       G.reach = pi;
       SFX.warn(); camShake(10);
+      bgm('boss');
       alarmBand(G.players[pi].name+' 独占リーチ！', 'あと1色そろえられたら負け。買収して崩せ！');
       news('🚨 '+G.players[pi].name+' がカラー独占2色。あと1色で勝たれます');
     }
@@ -21858,13 +21864,14 @@ async function bankrupt(pi, toPi){
   G.tiles.forEach(t=>{ if(t.type==='city' && t.owner===pi){
     if(toPi>=0){ t.owner = toPi; } else { t.owner=-1; t.lv=0; t.landmark=false; }
   }});
-  SFX.bad(); camShake(14);
+  SFX.bad(); camShake(14); jingle('bankrupt');
   news('！！ '+p.name+' が破産しました ！！');
   await band(p.name+' が破産しました',
     toPi>=0 ? '持っていた街は '+G.players[toPi].name+' のものに' : '街は市場に戻りました', 2000);
   checkWin();
 }
 function finish(pi, reason, col){
+  if(String(reason).indexOf('独占') >= 0) jingle('mono');
   bgm('win');
   news('🏆 '+G.players[pi].name+' が「'+reason+'」で勝利！');
   G.over = true; G.winner = pi; G.winReason = reason; G.running = false;
@@ -21895,6 +21902,7 @@ async function celebrate(pi, reason, col){
 }
 function showResult(){
   if(!G || G.winner < 0 || !G.players[G.winner]) return;
+  bgm('result');
   const rk = rank();
   $('#resWin').textContent = G.players[G.winner].name + ' の勝利！';
   $('#resReason').textContent = '勝ち方：' + G.winReason;
@@ -21959,7 +21967,7 @@ async function turnLoop(){
     if(G.over) break;
     nextTurn();
     if(G.turnsLeft <= 0){ timeUp(); break; }
-    if(G.turnsLeft === 8) bgm('tense');
+    if(G.turnsLeft === INFL_FROM) bgm('tense');   // インフレ開始と同時に曲を切り替える
     await wait(240);
   }
   G.running = false;
@@ -23355,6 +23363,7 @@ async function grantRewards(won){
   SV.gold += gold; SV.exp += exp; SV.plays++; if(won) SV.wins++;
   let up = 0;
   while(SV.exp >= playerLvNeed(SV.lv)){ SV.exp -= playerLvNeed(SV.lv); SV.lv++; up++; }
+  if(up) jingle('levelup');
   let pend = null;
   if(Math.random() < (won?0.35:0.15)){
     const p = PENDANTS[(Math.random()*PENDANTS.length)|0];
@@ -23593,6 +23602,7 @@ function roomPhase(){
     }
 
     render();
+    bgm('room');
     screenTo('room');
   });
 }

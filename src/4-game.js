@@ -852,6 +852,7 @@ async function maybeBuyout(pi, i){
   SFX.buy();
   addFx('pillar', tileCenter(i).x, tileCenter(i).y, 900, PCOL[pi]);
   addFx('spark', tileCenter(i).x, tileCenter(i).y-30, 900, '#FFD24D');
+  jingle('buyout');
   toast('R','📜','買収成立', t.name+' を手に入れました',2100);
   news(G.players[pi].name+' が '+t.name+' を買収！ 持ち主が変わりました');
   checkWin();
@@ -999,6 +1000,7 @@ async function growAnim(i){
   const t = G.tiles[i]; t.grow = 0;
   raiseBanner(G.tiles[i].landmark ? 'ランドマーク！' : '通行料値上げ！');
   SFX.build();
+  jingle(G.tiles[i].landmark ? 'landmark' : 'build');
   const c = tileCenter(i);
   if(t.landmark){ SFX.landmark(); news('🗼 '+G.players[t.owner].name+' が '+t.name+' にランドマークを建設！'); }
   addFx('pillar', c.x, c.y, 950, t.landmark ? '#7FE6FF' : PCOL[t.owner]);
@@ -1242,6 +1244,7 @@ function checkWin(){
     if(colorMono(G,pi) === 2 && G.reach !== pi){
       G.reach = pi;
       SFX.warn(); camShake(10);
+      bgm('boss');
       alarmBand(G.players[pi].name+' 独占リーチ！', 'あと1色そろえられたら負け。買収して崩せ！');
       news('🚨 '+G.players[pi].name+' がカラー独占2色。あと1色で勝たれます');
     }
@@ -1291,13 +1294,14 @@ async function bankrupt(pi, toPi){
   G.tiles.forEach(t=>{ if(t.type==='city' && t.owner===pi){
     if(toPi>=0){ t.owner = toPi; } else { t.owner=-1; t.lv=0; t.landmark=false; }
   }});
-  SFX.bad(); camShake(14);
+  SFX.bad(); camShake(14); jingle('bankrupt');
   news('！！ '+p.name+' が破産しました ！！');
   await band(p.name+' が破産しました',
     toPi>=0 ? '持っていた街は '+G.players[toPi].name+' のものに' : '街は市場に戻りました', 2000);
   checkWin();
 }
 function finish(pi, reason, col){
+  if(String(reason).indexOf('独占') >= 0) jingle('mono');
   bgm('win');
   news('🏆 '+G.players[pi].name+' が「'+reason+'」で勝利！');
   G.over = true; G.winner = pi; G.winReason = reason; G.running = false;
@@ -1328,6 +1332,7 @@ async function celebrate(pi, reason, col){
 }
 function showResult(){
   if(!G || G.winner < 0 || !G.players[G.winner]) return;
+  bgm('result');
   const rk = rank();
   $('#resWin').textContent = G.players[G.winner].name + ' の勝利！';
   $('#resReason').textContent = '勝ち方：' + G.winReason;
@@ -1392,7 +1397,7 @@ async function turnLoop(){
     if(G.over) break;
     nextTurn();
     if(G.turnsLeft <= 0){ timeUp(); break; }
-    if(G.turnsLeft === 8) bgm('tense');
+    if(G.turnsLeft === INFL_FROM) bgm('tense');   // インフレ開始と同時に曲を切り替える
     await wait(240);
   }
   G.running = false;
