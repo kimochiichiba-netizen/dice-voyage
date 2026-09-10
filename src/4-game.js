@@ -111,7 +111,7 @@ function newGame(){
         pboost: {}
       };
     }),
-    turn:0, turnsLeft:cfg.turns, over:false, winner:-1, winReason:'', alarm:null,
+    turn:0, turnsLeft:cfg.turns, over:false, winner:-1, winReason:'', alarm:null, infl:1,
     clock: cfg.timeLimit, lastTick: 0, ev:{}
   };
   thisWeek().apply(G);          // 今週のイベントを反映（毎週月曜6時に自動で変わる）
@@ -312,6 +312,12 @@ function updHUD(){
   $('#rTop').className = 'rankbadge' + (rankOf(lead)===1 ? ' red' : '');
   $('#rBot').className = 'rankbadge' + (rankOf(cur)===1 ? ' red' : '');
   $('#pTurn').textContent = G.turnsLeft;
+  const ie = $('#pInfl');
+  if(ie){
+    const on = G.infl > 1;
+    ie.classList.toggle('on', on);
+    ie.textContent = on ? '通行料 ×' + G.infl : '';
+  }
   $('#pGoal').textContent = yen(rk[0].a);
   $('#pGoalL').textContent = G.players[rk[0].i].name;
   if(!cfg.timeLimit) $('#pClock').textContent = '--:--';
@@ -1306,14 +1312,25 @@ async function turnLoop(){
   }
   G.running = false;
 }
+const INFL_FROM = 6;      // 残りこのターン数を切ったらインフレ開始
+const INFL_STEP = 1.5;    // 1ターンごとの倍率
 function nextTurn(){
   const n = G.players.length;
+  const before = G.turnsLeft;
   for(let k=1;k<=n;k++){
     const j = (G.turn + k) % n;
     if(!G.players[j].out){
       if(j <= G.turn) G.turnsLeft--;
       G.turn = j; break;
     }
+  }
+  // 終盤インフレ。序盤の差を「1回踏むだけ」で無効化できるので、
+  // 負けている人が最後まで降りなくなる（本家が後から足した仕掛け）
+  if(G.turnsLeft < before && G.turnsLeft <= INFL_FROM && G.turnsLeft > 0){
+    G.infl = Math.round(G.infl * INFL_STEP * 10) / 10;
+    raiseBanner('通行料 ×' + G.infl + '！');
+    news('🔥 のこり' + G.turnsLeft + 'ターン — 通行料が ×' + G.infl + ' になりました');
+    SFX.warn(); camShake(9);
   }
   camReset(); updHUD();
 }

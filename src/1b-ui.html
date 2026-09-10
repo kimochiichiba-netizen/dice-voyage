@@ -298,4 +298,10 @@
 /* 邪魔できる回数 */
 .hud .jam{font-size:11px;font-weight:900;color:#9FBBD6;text-align:right;margin-top:1px}
 .hud .jam b{font-family:var(--pop);font-size:14px;color:#FFD24D}
+
+/* 終盤インフレ倍率。ここが赤く光り出したら全員が身構える */
+#plate .infl{display:none;font-family:var(--pop);font-size:13px;padding:1px 9px;border-radius:999px;background:linear-gradient(90deg,#C0261A,#F0602A);color:#FFE9B5;box-shadow:0 0 12px rgba(255,90,40,.75);animation:inflPulse 1.1s ease-in-out infinite}
+#plate .infl.on{display:inline-block}
+@keyframes inflPulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.45)}}
+
 </style>
