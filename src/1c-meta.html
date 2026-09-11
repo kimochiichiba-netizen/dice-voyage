@@ -560,7 +560,7 @@
 
 .kr-wrap{position:absolute;inset:0;display:grid;
   grid-template-columns:9.4% 1fr 31.7%;   /* 実測 122px / 767px / 412px */
-  grid-template-rows:8.4% 1fr;            /* 上部バー 62px */
+  grid-template-rows:8.4% minmax(0,1fr);  /* 上部バー 62px。行が中身で伸びないようにする */
   font-family:var(--pop),system-ui,sans-serif}
 
 /* ══════ B. 上部バー ══════ */
@@ -589,7 +589,7 @@
 
 /* ══════ C. 左の縦カラム ══════ */
 .kr-left{grid-column:1;grid-row:2;padding:.6vh 0 1.2vh .6%;display:flex;flex-direction:column;gap:1.1vh;
-  overflow:hidden}
+  min-height:0;overflow-y:auto;scrollbar-width:thin}
 .kr-lhd{font-size:2vh;color:#FFFFFF;-webkit-text-stroke:.4vh rgba(46,36,80,.8);paint-order:stroke fill;
   margin:0 0 .2vh .3vh;white-space:nowrap}
 .kr-lhd em{font-style:normal;color:#DEA0FA;-webkit-text-stroke:.4vh #6A2A9E;margin-right:.5vh}
@@ -673,7 +673,7 @@
 .kr-chip b{font-size:2.3vh;color:#FFFFFF;-webkit-text-stroke:.4vh rgba(52,42,86,.8);paint-order:stroke fill}
 
 /* ══════ E. 右のカードグリッド ══════ */
-.kr-right{grid-column:3;grid-row:2;display:flex;flex-direction:column;gap:.9vh;
+.kr-right{grid-column:3;grid-row:2;display:flex;flex-direction:column;gap:.9vh;min-height:0;
   padding:.9vh 0 1.2vh .9vh;background:rgba(28,20,58,.30)}
 .kr-tabs{display:flex;gap:.3vh}
 .kr-tabs .tb{position:relative;flex:1;height:7.6vh;display:grid;place-items:center;font-size:3vh;
@@ -694,9 +694,9 @@
 .kr-checks input{display:none}
 .kr-checks input:checked + i{background:linear-gradient(180deg,#D6CEFF,#A79BEE)}
 
-.kr-grid{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:1.6% .81%;
-  align-content:start;overflow-y:auto;padding-right:.2vh;scrollbar-width:thin}
-.kr-mini{position:relative;aspect-ratio:124/160;border-radius:.8vh;overflow:hidden;cursor:pointer;
+.kr-grid{flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,1fr);gap:1.6% .81%;
+  grid-auto-rows:16.6vh;align-content:start;overflow-y:auto;padding-right:.2vh;scrollbar-width:thin}
+.kr-mini{position:relative;height:100%;border-radius:.8vh;overflow:hidden;cursor:pointer;
   border:.34vh solid #8A3FC8;background:#241A44;
   box-shadow:0 0 0 .2vh #2B0E4F, 0 .3vh .6vh rgba(18,10,40,.45)}
 .kr-mini canvas{display:block;width:100%;height:100%}

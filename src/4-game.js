@@ -745,6 +745,8 @@ async function jumpTo(pi, idx){
 /* ══════════ マスの解決 ══════════ */
 let resolveDepth = 0;
 async function resolve(pi){
+  // 監獄にいる駒は、マスの効果を受けない（買う・建てる・通行料も発生しない）
+  if(G.players[pi].jail > 0 && G.players[pi].pos === 8) return;
   if(resolveDepth > 3) return;
   resolveDepth++;
   try { await resolveInner(pi); } finally { resolveDepth--; }
@@ -1428,6 +1430,7 @@ async function turnLoop(){
         await moveSteps(pi, r.total);
         await resolve(pi);
         if(G.over) break;
+        if(p.jail > 0) break;            // 監獄に入ったら、ゾロ目でももう一度は振れない
         toast('R','🎲','ゾロ目！','もう一回サイコロを振れます', 1700);
         again = true;
       } else {

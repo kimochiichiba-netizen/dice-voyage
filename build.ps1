@@ -47,8 +47,8 @@ if($rel.Count -gt 0){
 #   c01…c11 = 立ち絵 / t01…t11 = 盤のコマ。CARDPOOL のカードID と同じ名前
 #   index.html は相対パス、game.html(Artifact) は外部ファイルを読めないので data URI
 $cnames = @()
-for($i=1; $i -le 11; $i++){ $cnames += ("c{0:d2}" -f $i) }
-for($i=1; $i -le 11; $i++){ $cnames += ("t{0:d2}" -f $i) }
+for($i=1; $i -le 24; $i++){ $cnames += ("c{0:d2}" -f $i) }
+for($i=1; $i -le 24; $i++){ $cnames += ("t{0:d2}" -f $i) }
 $cexts = @("png","webp","jpg","jpeg")
 $crel = @{}; $cdat = @{}; $ctotal = 0
 foreach($n in $cnames){

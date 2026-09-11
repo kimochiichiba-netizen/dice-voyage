@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="description" content="ダイスボヤージュ — 横画面で遊ぶボードゲーム">
+<script>window.DV_CHARIMG={"t11":"assets/chars/t11.webp","t06":"assets/chars/t06.webp","c16":"assets/chars/c16.webp","c03":"assets/chars/c03.webp","t01":"assets/chars/t01.webp","c02":"assets/chars/c02.webp","t09":"assets/chars/t09.webp","t10":"assets/chars/t10.webp","t07":"assets/chars/t07.webp","t21":"assets/chars/t21.webp","c22":"assets/chars/c22.webp","c08":"assets/chars/c08.webp","t03":"assets/chars/t03.webp","c11":"assets/chars/c11.webp","t15":"assets/chars/t15.webp","t08":"assets/chars/t08.webp","t14":"assets/chars/t14.webp","c23":"assets/chars/c23.webp","t12":"assets/chars/t12.webp","c20":"assets/chars/c20.webp","t24":"assets/chars/t24.webp","t16":"assets/chars/t16.webp","c05":"assets/chars/c05.webp","t23":"assets/chars/t23.webp","c17":"assets/chars/c17.webp","c15":"assets/chars/c15.webp","c04":"assets/chars/c04.webp","t13":"assets/chars/t13.webp","c19":"assets/chars/c19.webp","c01":"assets/chars/c01.webp","c12":"assets/chars/c12.webp","t19":"assets/chars/t19.webp","t04":"assets/chars/t04.webp","t18":"assets/chars/t18.webp","c13":"assets/chars/c13.webp","t17":"assets/chars/t17.webp","t05":"assets/chars/t05.webp","c21":"assets/chars/c21.webp","t22":"assets/chars/t22.webp","c14":"assets/chars/c14.webp","t20":"assets/chars/t20.webp","c07":"assets/chars/c07.webp","c24":"assets/chars/c24.webp","c09":"assets/chars/c09.webp","c18":"assets/chars/c18.webp","c10":"assets/chars/c10.webp","t02":"assets/chars/t02.webp","c06":"assets/chars/c06.webp"};</script>
 <title>ダイスキングダム</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1316,7 +1317,7 @@ html,body{height:100%;overflow:hidden;background:#04070f;font-family:var(--jp);c
 
 .kr-wrap{position:absolute;inset:0;display:grid;
   grid-template-columns:9.4% 1fr 31.7%;   /* 実測 122px / 767px / 412px */
-  grid-template-rows:8.4% 1fr;            /* 上部バー 62px */
+  grid-template-rows:8.4% minmax(0,1fr);  /* 上部バー 62px。行が中身で伸びないようにする */
   font-family:var(--pop),system-ui,sans-serif}
 
 /* ══════ B. 上部バー ══════ */
@@ -1345,7 +1346,7 @@ html,body{height:100%;overflow:hidden;background:#04070f;font-family:var(--jp);c
 
 /* ══════ C. 左の縦カラム ══════ */
 .kr-left{grid-column:1;grid-row:2;padding:.6vh 0 1.2vh .6%;display:flex;flex-direction:column;gap:1.1vh;
-  overflow:hidden}
+  min-height:0;overflow-y:auto;scrollbar-width:thin}
 .kr-lhd{font-size:2vh;color:#FFFFFF;-webkit-text-stroke:.4vh rgba(46,36,80,.8);paint-order:stroke fill;
   margin:0 0 .2vh .3vh;white-space:nowrap}
 .kr-lhd em{font-style:normal;color:#DEA0FA;-webkit-text-stroke:.4vh #6A2A9E;margin-right:.5vh}
@@ -1429,7 +1430,7 @@ html,body{height:100%;overflow:hidden;background:#04070f;font-family:var(--jp);c
 .kr-chip b{font-size:2.3vh;color:#FFFFFF;-webkit-text-stroke:.4vh rgba(52,42,86,.8);paint-order:stroke fill}
 
 /* ══════ E. 右のカードグリッド ══════ */
-.kr-right{grid-column:3;grid-row:2;display:flex;flex-direction:column;gap:.9vh;
+.kr-right{grid-column:3;grid-row:2;display:flex;flex-direction:column;gap:.9vh;min-height:0;
   padding:.9vh 0 1.2vh .9vh;background:rgba(28,20,58,.30)}
 .kr-tabs{display:flex;gap:.3vh}
 .kr-tabs .tb{position:relative;flex:1;height:7.6vh;display:grid;place-items:center;font-size:3vh;
@@ -1450,9 +1451,9 @@ html,body{height:100%;overflow:hidden;background:#04070f;font-family:var(--jp);c
 .kr-checks input{display:none}
 .kr-checks input:checked + i{background:linear-gradient(180deg,#D6CEFF,#A79BEE)}
 
-.kr-grid{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:1.6% .81%;
-  align-content:start;overflow-y:auto;padding-right:.2vh;scrollbar-width:thin}
-.kr-mini{position:relative;aspect-ratio:124/160;border-radius:.8vh;overflow:hidden;cursor:pointer;
+.kr-grid{flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,1fr);gap:1.6% .81%;
+  grid-auto-rows:16.6vh;align-content:start;overflow-y:auto;padding-right:.2vh;scrollbar-width:thin}
+.kr-mini{position:relative;height:100%;border-radius:.8vh;overflow:hidden;cursor:pointer;
   border:.34vh solid #8A3FC8;background:#241A44;
   box-shadow:0 0 0 .2vh #2B0E4F, 0 .3vh .6vh rgba(18,10,40,.45)}
 .kr-mini canvas{display:block;width:100%;height:100%}
@@ -23814,6 +23815,8 @@ async function jumpTo(pi, idx){
 /* ══════════ マスの解決 ══════════ */
 let resolveDepth = 0;
 async function resolve(pi){
+  // 監獄にいる駒は、マスの効果を受けない（買う・建てる・通行料も発生しない）
+  if(G.players[pi].jail > 0 && G.players[pi].pos === 8) return;
   if(resolveDepth > 3) return;
   resolveDepth++;
   try { await resolveInner(pi); } finally { resolveDepth--; }
@@ -24497,6 +24500,7 @@ async function turnLoop(){
         await moveSteps(pi, r.total);
         await resolve(pi);
         if(G.over) break;
+        if(p.jail > 0) break;            // 監獄に入ったら、ゾロ目でももう一度は振れない
         toast('R','🎲','ゾロ目！','もう一回サイコロを振れます', 1700);
         again = true;
       } else {
@@ -25244,56 +25248,107 @@ const RAR = {
   SS: {nm:'S+', cls:'rSS', mul:1.32, w: 6, gold:600}
 };
 
-/* ── カード図鑑（守護獣8体。art が像の絵、kind が能力の型） ───────────── */
-/* kind: 0=通行料を無効化 1=出目を選ぶ 2=好きなマスへ移動 3=総資産の一部を現金化 */
+/* ── カード図鑑（24人。art は画像が無いときの下絵、kind が能力の型） ───────
+   kind: 0=通行料を無効化 1=出目を選ぶ 2=好きなマスへ移動 3=総資産の一部を現金化
+         4=相手から奪う 5=無料で増築 6=臨時収入 7=ゾロ目確定 8=地価高騰
+         9=相手を監獄へ 10=宝箱                                              */
 const CARDPOOL = [
-  {id:'c01', art:0, kind:2, col:'#7FD8F0', nm:'氷晶の狐',   role:'クリスタル', rar:'A',
-   line:'風より速く、盤を駆ける。',
-   st:{toll:52,mini:74,special:50,fortune:58,build:48,gauge:76,buyout:44},
-   sk:{nm:'霜の跳躍', ds:'好きなマスへ移動する', uses:2}},
-  {id:'c02', art:2, kind:5, col:'#5FD6A8', nm:'翡翠の鶴',   role:'ジェイド',   rar:'A',
-   line:'高みから、すべてを見ている。',
-   st:{toll:70,mini:56,special:58,fortune:52,build:60,gauge:54,buyout:46},
-   sk:{nm:'翠玉の恵み', ds:'自分の街をひとつ、ただで一段育てる', uses:2}},
-  {id:'c03', art:4, kind:0, col:'#6B5E8C', nm:'黒曜の狼',   role:'オブシディアン', rar:'A',
-   line:'黙って、獲物を待つ。',
-   st:{toll:78,mini:60,special:44,fortune:40,build:50,gauge:64,buyout:56},
-   sk:{nm:'黒曜の壁', ds:'次に払う通行料が0になる', uses:2}},
-
-  {id:'c04', art:6, kind:3, col:'#4C82E8', nm:'蒼玉の梟',   role:'サファイア', rar:'S',
-   line:'知は、いつでも金に換えられる。',
-   st:{toll:58,mini:66,special:82,fortune:90,build:62,gauge:58,buyout:74},
-   sk:{nm:'叡智の対価', ds:'総資産の12%を現金で受け取る', uses:2}},
-  {id:'c05', art:5, kind:10, col:'#F6E6EE', nm:'真珠の兎',   role:'パール',     rar:'S',
-   line:'跳べば、どこへでも。',
-   st:{toll:60,mini:88,special:62,fortune:76,build:54,gauge:90,buyout:50},
-   sk:{nm:'月光の贈り物', ds:'宝箱をひらく。金額は運しだい（最大2.6倍）', uses:3}},
-  {id:'c06', art:3, kind:9, col:'#F04A5A', nm:'紅玉の竜',   role:'ルビー',     rar:'S',
-   line:'すべては、我が意のままに。',
-   st:{toll:86,mini:64,special:48,fortune:46,build:66,gauge:84,buyout:70},
-   sk:{nm:'竜の威圧', ds:'一番資産のある相手を監獄へ送る', uses:2}},
-
-  {id:'c07', art:1, kind:1, col:'#F2C230', nm:'黄金の獅子', role:'ゴールド',   rar:'SS',
-   line:'この盤の王は、我である。',
-   st:{toll:94,mini:70,special:60,fortune:58,build:78,gauge:92,buyout:82},
-   sk:{nm:'獅子の咆哮', ds:'出目を選び、さらにもう一度振れる', uses:2}},
-  {id:'c08', art:7, kind:4, col:'#E8A032', nm:'琥珀の熊',   role:'アンバー',   rar:'SS',
-   line:'蓄えた分だけ、強い。',
-   st:{toll:72,mini:64,special:96,fortune:88,build:92,gauge:60,buyout:98},
-   sk:{nm:'琥珀の徴収', ds:'相手全員から所持金の19%を奪う', uses:2}},
-
-  {id:'c09', art:0, kind:6, col:'#BFE4F2', nm:'白銀の狐',   role:'シルバー',   rar:'A',
-   line:'知らせは、風より早く届く。',
-   st:{toll:48,mini:62,special:66,fortune:72,build:52,gauge:60,buyout:50},
-   sk:{nm:'霜結びの便り', ds:'その場で給料を受け取り、次の給料も2倍になる', uses:2}},
-  {id:'c10', art:3, kind:7, col:'#C0392B', nm:'深紅の竜',   role:'スカーレット', rar:'S',
-   line:'二つの目は、いつも揃う。',
-   st:{toll:80,mini:58,special:50,fortune:44,build:64,gauge:88,buyout:62},
-   sk:{nm:'双竜の吐息', ds:'次のサイコロが必ずゾロ目になる（もう一度振れる）', uses:3}},
-  {id:'c11', art:1, kind:8, col:'#E0B94A', nm:'琥珀の獅子', role:'アンバーレオ', rar:'S',
-   line:'この土地の値は、我が決める。',
-   st:{toll:92,mini:54,special:56,fortune:50,build:74,gauge:62,buyout:66},
-   sk:{nm:'黄金の地脈', ds:'自分の街ぜんぶの通行料が2ターン1.6倍になる', uses:2}}
+  {id:'c01', art:3, kind:8, col:'#E0452A', nm:'業火のカイン', role:'炎の賭博師', rar:'SS',
+   line:'燃えないものは、賭けに値しない。',
+   st:{toll:92,mini:64,special:58,fortune:72,build:70,gauge:88,buyout:66},
+   sk:{nm:'獄炎の地脈', ds:'自分の街ぜんぶの通行料が2ターン1.6倍になる', uses:2}},
+  {id:'c02', art:0, kind:0, col:'#9FD8F0', nm:'氷華のリーゼ', role:'氷の姫', rar:'S',
+   line:'凍れば、痛みも止まります。',
+   st:{toll:74,mini:58,special:66,fortune:62,build:68,gauge:70,buyout:60},
+   sk:{nm:'氷結の加護', ds:'次に払う通行料が0になる', uses:3}},
+  {id:'c03', art:7, kind:4, col:'#F2C230', nm:'雷拳のゴウ', role:'雷の闘士', rar:'S',
+   line:'奪う。理由はそれだけだ。',
+   st:{toll:68,mini:86,special:52,fortune:54,build:62,gauge:78,buyout:58},
+   sk:{nm:'雷鳴の徴収', ds:'相手全員から所持金の16%を奪う', uses:2}},
+  {id:'c04', art:6, kind:1, col:'#8F6BC8', nm:'星詠みのセレナ', role:'星の魔女', rar:'SS',
+   line:'その目は、もう見えています。',
+   st:{toll:66,mini:72,special:78,fortune:94,build:64,gauge:96,buyout:70},
+   sk:{nm:'星辰の導き', ds:'次のサイコロの出目を自分で選べる', uses:3}},
+  {id:'c05', art:4, kind:9, col:'#5FA38C', nm:'無風のソウマ', role:'剣の老師', rar:'S',
+   line:'動くな。斬る。',
+   st:{toll:80,mini:60,special:56,fortune:50,build:58,gauge:82,buyout:64},
+   sk:{nm:'一閃の威', ds:'一番資産のある相手を監獄へ送る', uses:2}},
+  {id:'c06', art:5, kind:5, col:'#E86AA0', nm:'発明家ミリィ', role:'機械技師', rar:'A',
+   line:'こわれたら、直せばいいの！',
+   st:{toll:52,mini:68,special:62,fortune:58,build:74,gauge:60,buyout:54},
+   sk:{nm:'突貫工事', ds:'自分の街をひとつ、ただで一段そだてる', uses:2}},
+  {id:'c07', art:1, kind:7, col:'#3E8FE0', nm:'勝負師レイ', role:'賭博王', rar:'S',
+   line:'ゾロ目？　出すものだよ。',
+   st:{toll:60,mini:74,special:60,fortune:82,build:56,gauge:90,buyout:62},
+   sk:{nm:'双六の理', ds:'次のサイコロが必ずゾロ目になる（もう一回振れる）', uses:3}},
+  {id:'c08', art:2, kind:10, col:'#C0392B', nm:'怪盗ノワール', role:'宝石泥棒', rar:'S',
+   line:'いただくわ。あとで返すかは、気分。',
+   st:{toll:64,mini:80,special:70,fortune:76,build:54,gauge:72,buyout:86},
+   sk:{nm:'夜想の手', ds:'宝箱をひらく。金額は運しだい（最大2.6倍）', uses:3}},
+  {id:'c09', art:7, kind:5, col:'#5E8A3C', nm:'大地のガルド', role:'岩の守人', rar:'A',
+   line:'動かぬものが、いちばん強い。',
+   st:{toll:70,mini:52,special:54,fortune:46,build:76,gauge:50,buyout:58},
+   sk:{nm:'岩盤工事', ds:'自分の街をひとつ、ただで一段そだてる', uses:2}},
+  {id:'c10', art:5, kind:0, col:'#F0E0A8', nm:'聖女アルテア', role:'光の導き手', rar:'SS',
+   line:'あなたの負債、わたしが背負います。',
+   st:{toll:78,mini:66,special:88,fortune:86,build:72,gauge:68,buyout:82},
+   sk:{nm:'聖域の盾', ds:'次に払う通行料が0になる（相手の街も凍る）', uses:3}},
+  {id:'c11', art:4, kind:2, col:'#6BB2D2', nm:'疾風のシン', role:'影の刺客', rar:'S',
+   line:'間合いは、こちらが決める。',
+   st:{toll:66,mini:78,special:58,fortune:60,build:54,gauge:92,buyout:66},
+   sk:{nm:'影渡り', ds:'好きなマスへ移動する', uses:3}},
+  {id:'c12', art:2, kind:6, col:'#4FA86A', nm:'森詠みのフィナ', role:'森の射手', rar:'A',
+   line:'風がぜんぶ教えてくれる。',
+   st:{toll:56,mini:70,special:64,fortune:68,build:52,gauge:66,buyout:50},
+   sk:{nm:'森の恵み', ds:'その場で給料を受け取り、次の給料も2倍になる', uses:2}},
+  {id:'c13', art:1, kind:4, col:'#C98A3A', nm:'海賊王バルド', role:'海の商人', rar:'S',
+   line:'海の上では、おれが法だ。',
+   st:{toll:76,mini:72,special:56,fortune:64,build:60,gauge:70,buyout:88},
+   sk:{nm:'略奪の宴', ds:'相手全員から所持金の16%を奪う', uses:2}},
+  {id:'c14', art:3, kind:8, col:'#E0405A', nm:'紅竜のヴェル', role:'竜の姫', rar:'SS',
+   line:'地価も、わたしが決めるの。',
+   st:{toll:96,mini:62,special:60,fortune:58,build:80,gauge:74,buyout:68},
+   sk:{nm:'竜脈の高騰', ds:'自分の街ぜんぶの通行料が2ターン1.6倍になる', uses:2}},
+  {id:'c15', art:6, kind:1, col:'#B8C0D8', nm:'時計師クロノ', role:'時の管理人', rar:'S',
+   line:'一手だけ、巻き戻します。',
+   st:{toll:58,mini:64,special:84,fortune:78,build:66,gauge:88,buyout:72},
+   sk:{nm:'秒針の停止', ds:'次のサイコロの出目を自分で選べる', uses:3}},
+  {id:'c16', art:5, kind:10, col:'#C08AD0', nm:'砂漠のシャハラ', role:'踊る占い師', rar:'S',
+   line:'砂は、いつも正直よ。',
+   st:{toll:62,mini:82,special:72,fortune:88,build:58,gauge:76,buyout:64},
+   sk:{nm:'黄金の砂', ds:'宝箱をひらく。金額は運しだい（最大2.6倍）', uses:3}},
+  {id:'c17', art:7, kind:9, col:'#E0762A', nm:'熱血のレン', role:'拳闘士', rar:'A',
+   line:'正面から行く。それだけだ。',
+   st:{toll:66,mini:74,special:48,fortune:52,build:56,gauge:64,buyout:54},
+   sk:{nm:'渾身の一撃', ds:'一番資産のある相手を監獄へ送る', uses:2}},
+  {id:'c18', art:0, kind:3, col:'#3EA8E0', nm:'海淵のマリナ', role:'海の女王', rar:'S',
+   line:'潮が満ちれば、すべて私のもの。',
+   st:{toll:72,mini:60,special:80,fortune:70,build:68,gauge:62,buyout:76},
+   sk:{nm:'満ち潮', ds:'総資産の14%を現金で受け取る', uses:2}},
+  {id:'c19', art:4, kind:4, col:'#8A3A6A', nm:'夜宴のヴィクター', role:'夜の貴族', rar:'SS',
+   line:'いただくのは、血ではなく利子です。',
+   st:{toll:88,mini:58,special:74,fortune:80,build:62,gauge:72,buyout:94},
+   sk:{nm:'血税の宴', ds:'相手全員から所持金の19%を奪う', uses:2}},
+  {id:'c20', art:6, kind:2, col:'#C8CCE8', nm:'月読のルナ', role:'月の巫女', rar:'S',
+   line:'月の道を、お通しします。',
+   st:{toll:60,mini:66,special:76,fortune:84,build:54,gauge:70,buyout:60},
+   sk:{nm:'月の径', ds:'好きなマスへ移動する', uses:3}},
+  {id:'c21', art:7, kind:3, col:'#C9A03A', nm:'大商人ドン・バロ', role:'金の亡者', rar:'S',
+   line:'ぜんぶ、値段がついてますよ。',
+   st:{toll:70,mini:54,special:86,fortune:72,build:78,gauge:52,buyout:90},
+   sk:{nm:'資産の換金', ds:'総資産の14%を現金で受け取る', uses:2}},
+  {id:'c22', art:5, kind:5, col:'#D8A030', nm:'整備士ハナ', role:'鉄の職人', rar:'A',
+   line:'一晩で建てちゃうよ。',
+   st:{toll:54,mini:66,special:60,fortune:56,build:80,gauge:58,buyout:52},
+   sk:{nm:'突貫の腕', ds:'自分の街をひとつ、ただで一段そだてる', uses:2}},
+  {id:'c23', art:6, kind:0, col:'#9A7FE0', nm:'結晶王アメジスト', role:'結晶の支配者', rar:'SS',
+   line:'砕けぬものに、税は届かぬ。',
+   st:{toll:90,mini:60,special:92,fortune:74,build:84,gauge:66,buyout:78},
+   sk:{nm:'結晶の壁', ds:'次に払う通行料が0になる（相手の街も凍る）', uses:3}},
+  {id:'c24', art:2, kind:6, col:'#E06A4A', nm:'空賊のエル', role:'空の旅人', rar:'A',
+   line:'下を見てる暇はないよ！',
+   st:{toll:58,mini:72,special:58,fortune:66,build:50,gauge:74,buyout:56},
+   sk:{nm:'追い風', ds:'その場で給料を受け取り、次の給料も2倍になる', uses:2}}
 ];
 const cardById = id => CARDPOOL.find(c=>c.id===id);
 
