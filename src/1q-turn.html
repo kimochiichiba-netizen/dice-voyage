@@ -238,6 +238,10 @@ html.fx-lite #diceui .dkt-halo,html.fx-lite #diceui #push,html.fx-lite .dkt-art{
 @media (prefers-reduced-motion:reduce){
   #diceui .dkt-halo,#diceui #push,.dkt-art,#diceui .oddeven.dkt-on::before{animation:none}
 }
+/* スマホ（html.fx-mob）：ゲージ・奇数偶数・案内の入場は both で最後の形のまま残り、ずっと別の層になる。
+   光の輪・奇数偶数の光と一緒に止める（iPhone の WebKit は層を CSS の大きさ×3×3 の画素で持つ。1k-fx.html） */
+html.fx-mob #diceui.dkt-in #gauge,html.fx-mob #diceui.dkt-in #odd,html.fx-mob #diceui.dkt-in #even,html.fx-mob #diceui.dkt-in .dkt-cap,
+html.fx-mob #diceui .dkt-halo,html.fx-mob #diceui .oddeven::before,html.fx-mob #diceui .oddeven.dkt-on::before{animation:none!important}
 
 /* ══════════ 横長スマホ（高さ560px未満）：主な文字 26px 以上・本文 22px 以上・押せる範囲 96px 以上 ══════════ */
 @media (max-height:560px){

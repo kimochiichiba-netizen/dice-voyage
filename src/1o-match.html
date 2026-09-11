@@ -547,4 +547,14 @@ html.fx-lite .dkm-ld-shoot,html.fx-lite .dkm-ld-spark,html.fx-lite .dkm-vs-glow{
 @media (prefers-reduced-motion:reduce){
   .dkm-ld-shoot,.dkm-ld-spark,.dkm-arcdot{display:none}
 }
+/* スマホ（html.fx-mob）：試合の入口（VS・ローディング・盤の上の順番決め）で動き続ける飾りと、
+   both で最後の形のまま残る入場を止める。盤の canvas に重なる板なので、下で動く物があると上の中身がすべて層になる
+   （iPhone の WebKit は層を CSS の大きさ×3×3 の画素で持つ。1k-fx.html の説明）。止めると絵の上に残る光のしまは消す */
+html.fx-mob .dkm-vs-glow,html.fx-mob .dkm-pin-ring,html.fx-mob .dkm-dots i,
+html.fx-mob .dkm-vs-mapbox,html.fx-mob .dkm-vs-band,html.fx-mob .dkm-vs-seat.in,
+html.fx-mob .dkm-tw0,html.fx-mob .dkm-tw1,html.fx-mob .dkm-tw2,html.fx-mob .dkm-lw0,html.fx-mob .dkm-lw1,html.fx-mob .dkm-ld-glint,
+html.fx-mob .dkm-ld-dice,html.fx-mob .dkm-ld-halo,html.fx-mob .dkm-ld-diceref,
+html.fx-mob .dkm-fslot,html.fx-mob .dkm-fcard::before,html.fx-mob .dkm-ff-burst,html.fx-mob .dkm-you:not(.out){animation:none!important}
+html.fx-mob .dkm-world-shine,html.fx-mob .dkm-vs-edge u,html.fx-mob .dkm-ld-water::after,html.fx-mob .dkm-ld-shoot,
+html.fx-mob .dkm-ld-spark,html.fx-mob .dkm-fc-gloss{display:none!important}
 </style>

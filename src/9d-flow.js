@@ -211,7 +211,8 @@ function dkfOnline(){
 /* マップの色（lake・slab）で菱形の盤を描く。乱数は使わない */
 function dkfDrawBoard(cv, map){
   if(!cv || !cv.getContext || !map) return;
-  var g = cv.getContext('2d'), W = cv.width, H = cv.height;
+  /* スマホは CPU で描く（GPU の canvas は別の層になり、上に重なるマップ名・角の札もすべて層になる） */
+  var g = cv.getContext('2d', (typeof DKFX === 'object' && DKFX && DKFX.mob) ? { willReadFrequently: true } : undefined), W = cv.width, H = cv.height;
   var cx = W / 2, cy = H * 0.40, A = W * 0.40, B = A * 0.5, D = 24, w = 0.17, L = (1 - 2 * w) / 7;
   var P = function(u, v){ return [cx + (u - v) * A, cy - B + (u + v) * B]; };
   var poly = function(pts, fill, stroke, lw){
@@ -391,6 +392,24 @@ function dkfBuildMap(){
 function dkFlowMap(){
   dkfBuildMap();
   screenTo('setup');
+}
+/* 起動時：旧 #setup を空にするだけ（見えない画面の canvas・要素を起動時に作らない）。
+   mapSig を空にしておくので、#setup を開いた時（dkFlowMap か 'screen' イベント）に作る */
+function dkfClearSetup(){
+  var el = document.getElementById('setup'); if(!el) return;
+  el.innerHTML = '';
+  DKF_S.mapSig = '';
+}
+/* マップ選択を離れたら、盤の小さな絵（canvas 640×380 ×3）の画素を返す。ワイプが終わってから。次に開く時に作り直す */
+function dkfFreeMapLater(){
+  clearTimeout(DKF_S.freeT);
+  DKF_S.freeT = setTimeout(function(){
+    var el = document.getElementById('setup');
+    if(!el || el.classList.contains('on')) return;
+    var cvs = el.querySelectorAll('canvas.dkf-mcv'); if(!cvs.length) return;
+    cvs.forEach(function(c){ c.width = 0; c.height = 0; });
+    DKF_S.mapSig = '';
+  }, 900);
 }
 /* カルーセルの並び（中央＝cfg.mapId）を反映する。画面ができる前は何もしない */
 function renderMaps(){
@@ -986,9 +1005,10 @@ function dkfWireEnter(){
 (function(){
   try{
     dkfSyncCfg();
-    dkfBuildMap();                       // 旧 #setup（select・#mapList・#seatList）を消してマップ選択を作っておく
+    dkfClearSetup();                     // 旧 #setup（select・#mapList・#seatList）を消す。マップ選択は初めて開く時に作る
     dkOn('screen', function(e){
-      if(!e || e.id !== 'setup') return;
+      if(!e) return;
+      if(e.id !== 'setup'){ if(e.changed) dkfFreeMapLater(); return; }
       if(e.changed && DKF_S.mapSig !== dkfMapSig()) dkfBuildMap();
       if(e.changed) dkfTickerStart();
     });

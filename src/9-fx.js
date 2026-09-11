@@ -12,9 +12,11 @@
 
 var DKFX = {
   reduced: false,          // 端末の「視差効果を減らす」
-  lite: false,             // 設定「演出：控えめ」（localStorage 'dv_fx'）
+  lite: false,             // 設定「演出：控えめ」（localStorage 'dv_fx'）。スマホは保存が無ければ控えめで始める
+  mob: false,              // スマホ（iOS・タッチ・短い辺が 560px 以下）。html.fx-mob。画素のメモリを増やす演出を止める
+  worldOff: false,         // 不透明な画面（.screen）が出ていて、盤の canvas を描かなくてよい間 true（DKFX.scrSync）
   skip: false,             // 早送り中（fxWait が 1/4 になる）
-  cv: null, ctx: null, k: 1, parts: [], raf: 0, last: 0, spr: null,
+  cv: null, ctx: null, k: 1, cvOn: false, parts: [], raf: 0, last: 0, spr: null,
   timers: {}, o: {}, mseq: 0, seed: 0,
   press: '.dkbtn,.btn,.dktab,.dkrb,.dkitem,.dkic,.dkback,.dkclose,.dkplus,.dkstabs .s,.dktab2 .t,'
        + '.mapcard,.chcard,.ocard,.rm-go,.rm-item,.rm-mbtn,.dk-enter,.dk-rb,.fx-seg button,[data-fx-press]',
@@ -84,7 +86,8 @@ var DKFX = {
     catch(e){ try{ el.animate(kf, { duration:150 }); }catch(e2){} }
   },
 
-  /* ── 共有 canvas（バースト・コイン・紙吹雪） ── */
+  /* ── 共有 canvas（バースト・コイン・紙吹雪） ──
+     粒を飛ばす時だけ画素を持つ（1600×900 で 5.5MB）。粒が0個になったら release で 0×0 にして隠す */
   ensure: function(){
     var st = DKFX.stage(); if(!st) return null;
     var cv = document.getElementById('fxCanvas');
@@ -93,13 +96,43 @@ var DKFX = {
       st.appendChild(cv);
     }
     var k = Math.max(0.5, Math.min(1, DKFX.scale() * (window.devicePixelRatio || 1)));
-    if(cv !== DKFX.cv || Math.abs(k - DKFX.k) > 0.01 || !DKFX.ctx){
-      DKFX.cv = cv; DKFX.k = k;
+    if(cv !== DKFX.cv || !DKFX.cvOn || Math.abs(k - DKFX.k) > 0.01 || !DKFX.ctx){
+      DKFX.cv = cv; DKFX.k = k; DKFX.cvOn = true;
       cv.width = Math.round(1600 * k); cv.height = Math.round(900 * k);
+      cv.style.display = '';
       DKFX.ctx = cv.getContext('2d');
     }
     if(!DKFX.spr) DKFX.sprites();
     return DKFX.ctx;
+  },
+  release: function(){
+    var cv = DKFX.cv; if(!cv || !DKFX.cvOn) return;
+    DKFX.cvOn = false;
+    cv.width = 0; cv.height = 0; cv.style.display = 'none';
+  },
+  /* 画面（.screen）が出ている間の印を #stage に付ける。
+     dk-scr＝何かの画面が出ている／dk-scr-op＝不透明な画面が出ている（下の盤は見えない）／
+     dk-scr-ch＝盤の部品（HUD・プレートなど）を隠す（不透明な画面の下、スマホは透ける画面＝結果の下でも）。
+     iPhone の WebKit は、合成される盤の canvas に重なる要素をすべて別の層（CSS の大きさ×3×3 の画素）にするので、
+     見えない盤と盤の部品は描かない（CSS は 1k-fx.html）。frame() は worldOff の間 盤を描かない */
+  scrSync: function(){
+    var st = DKFX.stage(); if(!st) return;
+    var on = null, ch = st.children;
+    for(var i = 0; i < ch.length; i++){
+      if(ch[i].classList.contains('screen') && ch[i].classList.contains('on')){ on = ch[i]; break; }
+    }
+    var op = false;
+    if(on){
+      var cs = getComputedStyle(on), a = 1, m = /rgba?\(([^)]*)\)/.exec(cs.backgroundColor || '');
+      if(m){ var p = m[1].split(','); if(p.length > 3) a = parseFloat(p[3]); }
+      else if(cs.backgroundColor === 'transparent') a = 0;
+      op = !(a < 1) || !!(cs.backgroundImage && cs.backgroundImage !== 'none');
+    }
+    if(st.classList.contains('dk-scr') !== !!on) st.classList.toggle('dk-scr', !!on);
+    if(st.classList.contains('dk-scr-op') !== op) st.classList.toggle('dk-scr-op', op);
+    var chh = op || (DKFX.mob && !!on);
+    if(st.classList.contains('dk-scr-ch') !== chh) st.classList.toggle('dk-scr-ch', chh);
+    DKFX.worldOff = op;
   },
   sprites: function(){
     var mk = function(){ var c = document.createElement('canvas'); c.width = 48; c.height = 48; return c; };
@@ -145,11 +178,12 @@ var DKFX = {
   clearParts: function(){
     var P = DKFX.parts; DKFX.parts = [];
     P.forEach(function(q){ if(q.mode === 'c' && q.done) q.done(); });
-    if(DKFX.ctx) DKFX.ctx.clearRect(0, 0, DKFX.cv.width, DKFX.cv.height);
+    if(DKFX.ctx && DKFX.cvOn) DKFX.ctx.clearRect(0, 0, DKFX.cv.width, DKFX.cv.height);
+    DKFX.release();
   },
   tick: function(){
     var F = DKFX; F.raf = 0;
-    var ctx = F.ctx; if(!ctx) return;
+    var ctx = F.ctx; if(!ctx || !F.cvOn) return;
     var now = performance.now(), dt = Math.max(0, Math.min(50, now - (F.last || now))); F.last = now;
     ctx.setTransform(F.k, 0, 0, F.k, 0, 0);
     ctx.clearRect(0, 0, 1600, 900);
@@ -162,7 +196,7 @@ var DKFX = {
     F.parts = keep;
     ctx.globalCompositeOperation = 'source-over';
     if(keep.length) F.raf = requestAnimationFrame(F.tick);
-    else { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, F.cv.width, F.cv.height); F.last = 0; }
+    else { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, F.cv.width, F.cv.height); F.last = 0; F.release(); }
   },
   draw: function(ctx, q, x, y, sz, rot){
     ctx.save();
@@ -208,6 +242,12 @@ var DKFX = {
     if(!t || t.querySelector(':scope > .fx-tlayer')) return;
     var L = document.createElement('div');
     L.className = 'fx-tlayer'; L.setAttribute('aria-hidden', 'true');
+    if(DKFX.mob){
+      /* スマホ：動く層を作らない（絵は #title の背景にある。ボタンの光は止まった形で置く） */
+      L.innerHTML = '<div class="fx-tglow fx-g1"></div><div class="fx-tglow fx-g2"></div>';
+      t.insertBefore(L, t.firstChild);
+      return;
+    }
     var h = '<div class="fx-tbg"></div>';
     [[455, 95], [1180, 110], [240, 610]].forEach(function(p, i){
       h += '<i class="fx-twinkle" style="left:' + p[0] + 'px;top:' + p[1] + 'px;animation-delay:' + (-i * 0.9).toFixed(1) + 's"></i>';
@@ -283,7 +323,8 @@ function fxWait(ms){
 /* 画面の入場。[data-fx] を DOM の順に 45ms 間隔（data-fx-step で変更、10個で頭打ち）。
    値 rise|riseL|riseR|pop|popBig|deal|hero|none。[data-fx] が1つも無い画面は既定のセレクタで付ける */
 function fxEnter(el){
-  if(!el || el.nodeType !== 1 || DKFX.reduced) return;
+  /* スマホは入場しない（入場中は動く要素がすべて別の層になり、画素のメモリが一時に跳ね上がる） */
+  if(!el || el.nodeType !== 1 || DKFX.reduced || DKFX.mob) return;
   var list = el.querySelectorAll('[data-fx]'), auto = false;
   if(!list.length){ list = el.querySelectorAll(DKFX.autoSel); auto = true; }
   var base = parseInt(el.getAttribute('data-fx-step'), 10) || 45, i = 0, maxD = 0;
@@ -319,9 +360,10 @@ function fxAmbient(el, opt){
   opt = opt || {};
   var n = (opt.motes === undefined) ? 12 : Math.max(0, opt.motes | 0);
   if(DKFX.lite || DKFX.small()) n = Math.min(n, 6);
+  if(DKFX.mob) n = 0;       // スマホ：動く粒・斜めの光は作らない（下で動くと、上に重なる中身がすべて別の層になる）
   a = document.createElement('div');
   a.className = 'fx-amb'; a.setAttribute('aria-hidden', 'true');
-  var h = '<i class="fx-blob"></i><i class="fx-blob fx-b2"></i><i class="fx-ray"></i>';
+  var h = '<i class="fx-blob"></i><i class="fx-blob fx-b2"></i>' + (DKFX.mob ? '' : '<i class="fx-ray"></i>');
   for(var i = 0; i < n; i++){
     h += '<i class="fx-mote" style="left:' + (5 + DKFX.rnd() * 90).toFixed(1) + '%;top:' + (60 + DKFX.rnd() * 40).toFixed(1)
        + '%;animation-duration:' + (7 + DKFX.rnd() * 5).toFixed(1) + 's;animation-delay:-' + (DKFX.rnd() * 10).toFixed(1) + 's"></i>';
@@ -641,23 +683,51 @@ newGame = function(){
 /* ══════════ 起動 ══════════ */
 (function(){
   try{
-    try{ var v = localStorage.getItem('dv_fx'); DKFX.lite = (v === 'lite' || v === '1' || v === 'true'); }catch(e){}
+    var v = null;
+    try{ v = localStorage.getItem('dv_fx'); }catch(e){}
+    /* スマホ（iOS・タッチ・短い辺 560px 以下）：iPhone の WebKit は動く要素とその上に重なる要素を
+       CSS の大きさ×3×3 の画素で持つ（#stage の縮小は効かない）ので、画素のメモリを増やす演出を止める
+       （html.fx-mob。CSS は 1k-fx.html ほか）。演出の設定が保存されていなければ「控えめ」で始める */
+    DKFX.mob = (typeof dvMobile === 'function') ? dvMobile()
+      : !!(/iP(hone|ad|od)/.test(navigator.userAgent || '') || (navigator.maxTouchPoints || 0) > 0);
+    document.documentElement.classList.toggle('fx-mob', DKFX.mob);
+    DKFX.lite = (v === 'lite' || v === '1' || v === 'true') || (v === null && DKFX.mob);
     var mq = window.matchMedia ? matchMedia('(prefers-reduced-motion: reduce)') : null;
     DKFX.reduced = !!(mq && mq.matches);
     if(mq && mq.addEventListener) mq.addEventListener('change', function(){ DKFX.reduced = !!mq.matches; });
     document.documentElement.classList.toggle('fx-lite', DKFX.lite);
     var st = DKFX.stage();
     if(st){
-      DKFX.ensure();
       if(!st.querySelector(':scope > .fx-flash')){
         var f = document.createElement('div'); f.className = 'fx-flash'; f.id = 'fxFlash'; f.setAttribute('aria-hidden', 'true');
         st.appendChild(f);
       }
       DKFX.layer();
       st.addEventListener('pointerdown', DKFX.ripple, true);
+      /* 画面の出し入れを見張る（#stage の直下の子の出入りと、.screen の class だけを見る） */
+      if(window.MutationObserver){
+        var watch = null;
+        var mo = new MutationObserver(function(recs){
+          var need = false;
+          for(var i = 0; i < recs.length; i++){
+            var r = recs[i];
+            if(r.type === 'childList'){ need = true; Array.prototype.forEach.call(r.addedNodes, watch); }
+            else if(r.target && r.target.classList && r.target.classList.contains('screen')) need = true;
+          }
+          if(need){ try{ DKFX.scrSync(); }catch(e){ console.error('[WP0]', e); } }
+        });
+        watch = function(n){
+          if(n && n.nodeType === 1 && n.classList.contains('screen') && !n._fxObs){
+            n._fxObs = 1; mo.observe(n, { attributes:true, attributeFilter:['class'] });
+          }
+        };
+        mo.observe(st, { childList:true });
+        Array.prototype.forEach.call(st.children, watch);
+      }
+      DKFX.scrSync();
     }
     DKFX.titleFx();
-    window.addEventListener('resize', function(){ try{ if(DKFX.cv) DKFX.ensure(); }catch(e){} });
+    window.addEventListener('resize', function(){ try{ if(DKFX.cv && DKFX.cvOn) DKFX.ensure(); }catch(e){} });
     document.addEventListener('visibilitychange', function(){ if(document.hidden) DKFX.clearParts(); });
   }catch(e){ console.error('[WP0]', e); }
 })();

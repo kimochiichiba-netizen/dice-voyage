@@ -339,7 +339,14 @@ function dktWatch(on){
   }
 }
 
-/* ══════════ ゲージを描く（毎フレーム。#gauge に 2倍の解像度で） ══════════ */
+/* スマホ：ゲージの画素を盤の canvas と同じ細かさ（ステージの縮尺×devicePixelRatio、1〜2倍）に合わせる。
+   iPhone 横は 1.25 倍で足りる（2倍の 1120×428 は要らない） */
+function dktGaugeFit(){
+  var k = (typeof cv !== 'undefined' && cv && cv.width) ? Math.max(1, Math.min(2, cv.width / 1600)) : 1;
+  var w = Math.round(DKT_GW * k);
+  if(gcv.width !== w){ gcv.width = w; gcv.height = Math.round(DKT_GH * k); }
+}
+/* ══════════ ゲージを描く（毎フレーム。#gauge に 2倍の解像度で。スマホは dktGaugeFit の細かさ） ══════════ */
 function drawGauge(T){
   if(typeof gcv === 'undefined' || !gcv || !gctx) return;
   var I = DKT_G.inp, on = !!gaugeOn && !!G;
@@ -350,6 +357,7 @@ function drawGauge(T){
     return;
   }
   DKT_G.drawn = true;
+  if(typeof DKFX === 'object' && DKFX && DKFX.mob) dktGaugeFit();
   var now = performance.now(), k = gcv.width / DKT_GW, A = DKT_ARC;
   g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, gcv.width, gcv.height);
   g.setTransform(k, 0, 0, k, 0, 0);
@@ -1002,7 +1010,10 @@ if(DKT_useSkill0){
 /* ══════════ 起動：サイコロUIの部品をそろえる ══════════ */
 (function(){
   try{
-    if(typeof gcv !== 'undefined' && gcv){ gcv.width = DKT_GW * 2; gcv.height = DKT_GH * 2; }
+    if(typeof gcv !== 'undefined' && gcv){
+      var gk = (typeof DKFX === 'object' && DKFX && DKFX.mob) ? 1 : 2;     // スマホは描く時に dktGaugeFit が合わせる
+      gcv.width = DKT_GW * gk; gcv.height = DKT_GH * gk;
+    }
     var ui = document.getElementById('diceui'), push = document.getElementById('push');
     if(ui && push){
       if(!ui.querySelector('.dkt-halo')){

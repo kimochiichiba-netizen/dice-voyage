@@ -1478,6 +1478,28 @@ function dkbInfo(pi){
 }
 
 /* ══════════ 起動：代入ラッパと DOM ══════════ */
+/* スマホ：盤のまわりの減光（.dkb-vignette と同じ radial-gradient(125% 100%, 透明 56% → rgba(10,5,0,.46) 100%)）を
+   盤の canvas に描く。DOM の膜は画面いっぱいの層（iPhone で約49MB）になるので出さない（1k-fx.html）。
+   暗くなるのは楕円の外＝四隅の 296×97 の内側だけなので、1/4 の大きさで作った絵から四隅 300×100 を貼る */
+function dkbVignette(g){
+  var V = DKB_S.vg;
+  if(!V){
+    V = DKB_S.vg = document.createElement('canvas'); V.width = 400; V.height = 225;
+    var c = V.getContext('2d');
+    c.setTransform(1, 0, 0, 0.45, 0, 0);            // 横の半径 2000・縦の半径 900 の楕円を、縦を 0.45 倍した円で描く
+    var gr = c.createRadialGradient(200, 250, 0, 200, 250, 500);
+    gr.addColorStop(0, 'rgba(10,5,0,0)'); gr.addColorStop(0.56, 'rgba(10,5,0,0)'); gr.addColorStop(1, 'rgba(10,5,0,.46)');
+    c.fillStyle = gr; c.fillRect(0, 0, 400, 500);
+  }
+  var k = (typeof cv !== 'undefined' && cv && cv.width) ? cv.width / 1600 : 1;
+  g.save();
+  g.setTransform(k, 0, 0, k, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+  g.drawImage(V, 0, 0, 75, 25, 0, 0, 300, 100);
+  g.drawImage(V, 325, 0, 75, 25, 1300, 0, 300, 100);
+  g.drawImage(V, 0, 200, 75, 25, 0, 800, 300, 100);
+  g.drawImage(V, 325, 200, 75, 25, 1300, 800, 300, 100);
+  g.restore();
+}
 var DKB_O = {};
 (function(){
   try{
@@ -1498,6 +1520,12 @@ var DKB_O = {};
     drawLake = function(ctx, map, T){
       var r = DKB_O.drawLake.apply(this, arguments);
       try{ dkbLakeSkin(ctx, map, T); }catch(e){ dkbErr('lake', e); }
+      return r;
+    };
+    DKB_O.celOverlay = celOverlay;
+    celOverlay = function(ctx2, now){
+      var r = DKB_O.celOverlay.apply(this, arguments);
+      try{ if(G && typeof DKFX === 'object' && DKFX && DKFX.mob) dkbVignette(ctx2); }catch(e){ dkbErr('vignette', e); }
       return r;
     };
     DKB_O.drawDice = drawDice;

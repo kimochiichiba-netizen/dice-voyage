@@ -580,4 +580,10 @@ html.fx-lite #chip .dkb-rays,html.fx-lite #chip .dkb-rays2,html.fx-lite #plate .
 @media (prefers-reduced-motion:reduce){
   #chip .dkb-rays,#chip .dkb-rays2,#plate .bd::after,.dkb-hud.dkb-myturn .dkb-turn,.dkb-hud.dkb-myturn .dkb-pwrap::before{animation:none!important}
 }
+/* スマホ（html.fx-mob）：盤の上で動き続ける小物を止める（ティッカーの文字・総額の光・手番の札と光）。
+   iPhone の WebKit では動く物が1つずつ別の層になり、盤の canvas に重なる HUD などの層もそこで分かれて増える
+   （1k-fx.html の説明）。吹き出し・値上げの札は、常に別の層にする宣言（will-change）をやめる */
+html.fx-mob #stage #tickerText,html.fx-mob #plate .bd::after,html.fx-mob .dkb-hud.dkb-myturn .dkb-turn,
+html.fx-mob .dkb-hud.dkb-myturn .dkb-pwrap::before{animation:none!important}
+html.fx-mob .dkb-bub,html.fx-mob #stage #raise{will-change:auto!important}
 </style>
