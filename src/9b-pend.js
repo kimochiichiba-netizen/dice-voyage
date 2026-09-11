@@ -4,18 +4,45 @@
    ──────────────────────────────────────────────────────────────
    ・宣言し直す関数は showPend / showGacha / doGacha だけ（§5）。
      ほかは dkp で始まる内部関数。状態は DKP_S（使う時に作る）。
-   ・ペンダントの4タブ（ペンダント／強化／合成／図鑑）と、キューブの引く演出。
-   ・遊びの結果（強化・合成・キューブの抽選）は Math.random。
+   ・ペンダントの4タブ（ペンダント／強化／合成／図鑑）。
+   ・v10（WP16a）: ガチャ＝タブ「キャラクターカード」「ペンダント」（J39）、各レーンの［提供割合］と
+     「あと n 回で確定」（G13）、ラッキーマイレージ、キューブ＝対戦の報酬の箱（J40。showGacha('cube')）。
+     キューブの中身は WP12a の dkGiveCube / dkOpenCube（C21）、SV.luckyMile は C26。
+   ・遊びの結果（強化・合成・ガチャの抽選）は Math.random。
      見た目だけの乱数は DKFX.rnd()（自動対戦の種を乱さないため）。
    ・DOM に触る初期化は最後の IIFE だけ。
    ══════════════════════════════════════════════════════════════ */
 
 var DKP_S = null;      // 画面の状態
 var DKP_N = 0;         // SVG のグラデーション id の連番
+/* ペンダントガチャ（本家の値段。等級の割合は当作の数字＝［提供割合］で全部見せる） */
+var DKP_PL = {
+  pspecial: { nm:'スペシャルペンダント', cur:'💎', one:40, five:180, w:{ A:0.30, S:0.50, SS:0.20 }, col:'special', feat:true,
+              ds:'今週の注目ペンダントが出やすい' },
+  pnormal:  { nm:'ノーマルペンダント', cur:'🪙', one:10000, five:40000, w:{ A:0.88, S:0.12, SS:0 }, col:'normal',
+              ds:'Aクラス以上のペンダントから1個獲得' },
+  ppremium: { nm:'プレミアムペンダント', cur:'💎', one:25, five:100, w:{ A:0.60, S:0.34, SS:0.06 }, col:'premium', lucky:true,
+              ds:'Sクラス以上が出やすい・1個ごとにラッキーマイレージ +1点' }
+};
+/* カードパックの説明（値段と割合は 5-meta.js の LANES） */
+var DKP_LDS = { normal:'Aクラス以上のカードから1枚獲得', special:'S+クラスが出るカードパック', premium:'Sクラス以上が出やすい・4時間ごとに1回無料' };
+/* ラッキーマイレージの交換（10点の段が一番上の等級になるよう S+ 確定） */
+var DKP_LUCKY = [
+  { k:'l1',  need:1,  nm:'Aクラス以上確定',  w:{ A:0.70, S:0.25, SS:0.05 } },
+  { k:'l3',  need:3,  nm:'Sクラス以上確定',  w:{ A:0,    S:0.85, SS:0.15 } },
+  { k:'l10', need:10, nm:'S+クラス確定',     w:{ A:0,    S:0,    SS:1 } }
+];
+/* キューブの種類（ウッド＜シルバー＜ゴールド＜ダイヤ） */
+var DKP_CUBEK = {
+  wood:   { nm:'ウッドキューブ',   s:'ウッド',   c:['#F0CD98', '#B9814A', '#6E4418'], e:'#FBE3B8' },
+  silver: { nm:'シルバーキューブ', s:'シルバー', c:['#FAFCFF', '#C3D0DE', '#6E8196'], e:'#FFFFFF' },
+  gold:   { nm:'ゴールドキューブ', s:'ゴールド', c:['#FFF5C8', '#F0B92C', '#A56C06'], e:'#FFF6D0' },
+  dia:    { nm:'ダイヤキューブ',   s:'ダイヤ',   c:['#EDFCFF', '#86DAF7', '#2A78BC'], e:'#F2FDFF' }
+};
 
 function dkpS(){
   if(!DKP_S) DKP_S = { tab:'pend', sel:null, sort:'rar', prevTab:'', upTgt:null, mats:[],
-    mixA:null, mixB:null, mixRes:null, busy:false, pull:null, scr:'', after:null };
+    mixA:null, mixB:null, mixRes:null, busy:false, pull:null, scr:'', after:null, gtab:'card', cres:null };
   return DKP_S;
 }
 
@@ -32,9 +59,33 @@ function dkpTrg(t){
     onRoll:'サイコロを振る時' })[t] || '対戦中';
 }
 function dkpSrc(r){
-  if(r === 'SS') return 'キューブ（スペシャル・プレミアム）／Sの+7を2つ合成';
-  if(r === 'S')  return 'キューブ／Aの+7を2つ合成';
-  return 'キューブ／出席簿の5日目';
+  if(r === 'SS') return 'ペンダントガチャ（スペシャル・プレミアム）／Sの+7を2つ合成';
+  if(r === 'S')  return 'ペンダントガチャ／Aの+7を2つ合成';
+  return 'ペンダントガチャ／カードパックのおまけ';
+}
+/* 装着中のカードで開いている枠の数（C06 dkPendSlots。A2・S/S+4） */
+function dkpSlotsOpen(){
+  var n = 4;
+  try{ if(typeof dkPendSlots === 'function') n = dkPendSlots(SV.equip); }catch(e){ n = 4; }
+  n = Math.floor(+n);
+  return (n >= 0 && n <= 4) ? n : 4;
+}
+/* 枠 i を開けるのに要る等級の文言（例「Sクラス以上のカードで開放」） */
+function dkpLockTx(i){
+  var rs = ['A', 'S', 'SS'];
+  for(var k = 0; k < rs.length; k++){
+    var c = CARDPOOL.filter(function(x){ return x.rar === rs[k]; })[0], n = 4;
+    try{ if(c && typeof dkPendSlots === 'function') n = +dkPendSlots(c.id); }catch(e){}
+    if(c && n > i) return dkpRarNm(rs[k]) + 'クラス以上のカードで開放';
+  }
+  return 'この枠は使えません';
+}
+function dkpLuckyN(){ var v = +SV.luckyMile; return (v > 0 && isFinite(v)) ? Math.floor(v) : 0; }
+/* プレミアムペンダントの無料（4時間ごと。カードパックの SV.freeAt とは別） */
+function dkpPFreeLeft(){
+  var at = +SV.pfreeAt; if(!(at > 0) || !isFinite(at)) at = 0;
+  var ms = 4 * 3600 * 1000 - (Date.now() - at);
+  return ms <= 0 ? 0 : ms;
 }
 function dkpOwn(id){ return !!(SV.pendants && SV.pendants[id] && pendById(id)); }
 function dkpLv(id){
@@ -65,7 +116,7 @@ function dkpOnScr(id){
 }
 function dkpBusy(on){
   var S = dkpS(); S.busy = !!on;
-  ['pend', 'gacha'].forEach(function(id){
+  ['pend', 'gacha', 'cube'].forEach(function(id){
     var el = document.getElementById(id); if(el) el.classList.toggle('dkp-busy', !!on);
   });
 }
@@ -197,32 +248,91 @@ function dkpTabIcon(k){
   return '';
 }
 function dkpLaneCol(k){
-  if(k === 'normal')  return { top:'#F2F8FF', left:'#A9C4E0', right:'#5E7A98', glow:'rgba(150,200,255,.34)' };
-  if(k === 'special') return { top:'#FFB4A6', left:'#D8392C', right:'#86160E', glow:'rgba(255,96,72,.3)' };
-  return { top:'#FFF3BE', left:'#F0B92C', right:'#A56C06', glow:'rgba(255,208,96,.4)' };
+  if(k === 'normal')  return { a:'#F4F9FF', b:'#A9C4E0', c:'#4E6A88', gem:'#8FD2FF', glow:'rgba(150,200,255,.34)' };
+  if(k === 'special') return { a:'#FFB4A6', b:'#D8392C', c:'#7A120A', gem:'#FFD24D', glow:'rgba(255,96,72,.3)' };
+  return { a:'#FFF3BE', b:'#F0B92C', c:'#9A6406', gem:'#FF6A5E', glow:'rgba(255,208,96,.4)' };
 }
-function dkpCubeIcon(k){
-  var c = dkpLaneCol(k);
-  return '<svg viewBox="0 0 60 60" aria-hidden="true">'
-    + '<path d="M30 6 L52 18 L30 30 L8 18 Z" fill="' + c.top + '"/>'
-    + '<path d="M8 18 L30 30 V54 L8 42 Z" fill="' + c.left + '"/>'
-    + '<path d="M52 18 L30 30 V54 L52 42 Z" fill="' + c.right + '"/>'
-    + '<path d="M30 6 L52 18 V42 L30 54 L8 42 V18 Z" fill="none" stroke="#FFE08A" stroke-width="2.6" stroke-linejoin="round"/>'
-    + '<path d="M8 18 L30 30 L52 18 M30 30 V54" fill="none" stroke="#FFE08A" stroke-width="1.6"/>'
-    + '<path d="M30 12 l1.6 4 4 1.6 -4 1.6 -1.6 4 -1.6 -4 -4 -1.6 4 -1.6z" fill="#FFFFFF"/></svg>';
+function dkpStar4(x, y, r){
+  var q = (r * 0.28).toFixed(1);
+  return '<path d="M' + x + ' ' + (y - r) + ' L' + (x + +q) + ' ' + (y - +q) + ' L' + (x + r) + ' ' + y + ' L' + (x + +q) + ' ' + (y + +q)
+    + ' L' + x + ' ' + (y + r) + ' L' + (x - +q) + ' ' + (y + +q) + ' L' + (x - r) + ' ' + y + ' L' + (x - +q) + ' ' + (y - +q) + ' Z" fill="#FFFFFF"/>';
 }
-function dkpCubeFace(k){
-  if(k === 'premium') return dkpCrest();
-  if(k === 'special') return '<svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50 10 L86 42 L50 92 L14 42 Z" fill="#FFE0D6" stroke="#5A0A06" stroke-width="4" stroke-linejoin="round"/>'
-    + '<path d="M14 42 H86 M50 10 L36 42 L50 92 L64 42 Z" fill="none" stroke="#5A0A06" stroke-width="2.6" stroke-linejoin="round"/>'
-    + '<path d="M50 10 L36 42 H64 Z" fill="rgba(255,255,255,.55)"/></svg>';
-  return '<svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50 8 L86 29 V71 L50 92 L14 71 V29 Z" fill="rgba(255,255,255,.35)" stroke="#1E3656" stroke-width="4" stroke-linejoin="round"/>'
-    + '<path d="M50 8 V92 M14 29 L86 71 M86 29 L14 71" stroke="#1E3656" stroke-width="3" opacity=".75"/>'
-    + '<circle cx="50" cy="50" r="12" fill="#FFFFFF" stroke="#1E3656" stroke-width="3"/></svg>';
+/* カードパック（ギザギザの封・後ろにカード2枚・王冠の紋） */
+function dkpPackSVG(k){
+  var n = ++DKP_N, g = 'dkpk' + n, c = dkpLaneCol(k), top = 'M22 27', bot = '', i, w = 7.6;
+  for(i = 0; i < 10; i++) top += ' L' + (22 + w * (i + .5)).toFixed(1) + ' 20 L' + (22 + w * (i + 1)).toFixed(1) + ' 27';
+  for(i = 10; i > 0; i--) bot += ' L' + (22 + w * (i - .5)).toFixed(1) + ' 131 L' + (22 + w * (i - 1)).toFixed(1) + ' 124';
+  return '<svg viewBox="0 0 120 140" aria-hidden="true" focusable="false"><defs>'
+    + '<linearGradient id="' + g + 'a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + c.a + '"/><stop offset=".48" stop-color="' + c.b + '"/><stop offset="1" stop-color="' + c.c + '"/></linearGradient>'
+    + '<linearGradient id="' + g + 'b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF7DC"/><stop offset=".5" stop-color="#E7B94A"/><stop offset="1" stop-color="#8A5A08"/></linearGradient></defs>'
+    + '<rect x="18" y="18" width="60" height="90" rx="7" transform="rotate(-16 48 63)" fill="#F4E3BD" stroke="#4A2E06" stroke-width="3"/>'
+    + '<rect x="42" y="16" width="60" height="90" rx="7" transform="rotate(14 72 61)" fill="#FBEFD2" stroke="#4A2E06" stroke-width="3"/>'
+    + '<path d="' + top + ' L98 124' + bot + ' Z" fill="url(#' + g + 'a)" stroke="#2A1604" stroke-width="3.2" stroke-linejoin="round"/>'
+    + '<rect x="22" y="27" width="76" height="9" fill="url(#' + g + 'b)"/><rect x="22" y="115" width="76" height="9" fill="url(#' + g + 'b)"/>'
+    + '<path d="M22 64 L58 36 L76 36 L22 92 Z" fill="#FFFFFF" opacity=".2"/>'
+    + '<circle cx="60" cy="76" r="25" fill="rgba(24,12,2,.55)" stroke="url(#' + g + 'b)" stroke-width="3.4"/>'
+    + '<path d="M45 84 L47 66 L55 74 L60 60 L65 74 L73 66 L75 84 Z" fill="url(#' + g + 'b)" stroke="#3A2405" stroke-width="2" stroke-linejoin="round"/>'
+    + '<circle cx="60" cy="77" r="3.4" fill="' + c.gem + '" stroke="#FFF3C8" stroke-width="1.2"/>'
+    + dkpStar4(90, 46, 7) + '</svg>';
+}
+/* 宝箱（ペンダントガチャ。帯の色でレーンを見分ける） */
+function dkpChestSVG(k){
+  var n = ++DKP_N, g = 'dkpx' + n, c = dkpLaneCol(k);
+  return '<svg viewBox="0 0 140 130" aria-hidden="true" focusable="false"><defs>'
+    + '<linearGradient id="' + g + 'w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#B07A44"/><stop offset=".55" stop-color="#7A4C22"/><stop offset="1" stop-color="#4A2C10"/></linearGradient>'
+    + '<linearGradient id="' + g + 'b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + c.a + '"/><stop offset=".5" stop-color="' + c.b + '"/><stop offset="1" stop-color="' + c.c + '"/></linearGradient>'
+    + '<radialGradient id="' + g + 'g" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFF6C8"/><stop offset=".45" stop-color="rgba(255,220,130,.55)"/><stop offset="1" stop-color="rgba(255,200,90,0)"/></radialGradient></defs>'
+    + '<ellipse cx="70" cy="52" rx="60" ry="42" fill="url(#' + g + 'g)"/>'
+    + '<path d="M18 60 Q18 22 70 20 Q122 22 122 60 Z" fill="url(#' + g + 'w)" stroke="#2A1604" stroke-width="3" stroke-linejoin="round"/>'
+    + '<path d="M33 60 L33 32 Q37 26 44 24 L44 60 Z M96 24 Q103 26 107 32 L107 60 L96 60 Z" fill="url(#' + g + 'b)" stroke="#2A1604" stroke-width="2"/>'
+    + '<rect x="15" y="56" width="110" height="10" rx="3" fill="url(#' + g + 'b)" stroke="#2A1604" stroke-width="2.4"/>'
+    + '<rect x="20" y="66" width="100" height="46" rx="5" fill="url(#' + g + 'w)" stroke="#2A1604" stroke-width="3"/>'
+    + '<path d="M20 80 H120 M20 96 H120" stroke="rgba(30,14,2,.35)" stroke-width="2"/>'
+    + '<rect x="33" y="66" width="11" height="46" fill="url(#' + g + 'b)"/><rect x="96" y="66" width="11" height="46" fill="url(#' + g + 'b)"/>'
+    + '<rect x="15" y="108" width="110" height="10" rx="3" fill="url(#' + g + 'b)" stroke="#2A1604" stroke-width="2.4"/>'
+    + '<rect x="58" y="58" width="24" height="30" rx="5" fill="url(#' + g + 'b)" stroke="#2A1604" stroke-width="2.4"/>'
+    + '<circle cx="70" cy="70" r="4" fill="#2A1604"/><rect x="68.5" y="72" width="3" height="9" rx="1.5" fill="#2A1604"/>'
+    + '<circle cx="70" cy="39" r="9" fill="' + c.gem + '" stroke="#FFF3C8" stroke-width="2.4"/><circle cx="67" cy="36" r="3" fill="#FFFFFF" opacity=".7"/>'
+    + dkpStar4(26, 28, 7) + dkpStar4(116, 38, 6) + '</svg>';
+}
+/* キューブ（報酬の箱。種類で色が変わる） */
+function dkpCubeSVG(kind, dim){
+  var K = DKP_CUBEK[kind] || DKP_CUBEK.wood, c = dim ? ['#5A4A36', '#3A2E20', '#241A10'] : K.c, e = dim ? '#8A7250' : K.e;
+  var hex = 'M30 5 L53 17.5 V42.5 L30 55 L7 42.5 V17.5 Z';
+  return '<svg viewBox="0 0 60 60" aria-hidden="true" focusable="false">'
+    + '<path d="' + hex + '" fill="#2A1604" stroke="#2A1604" stroke-width="5" stroke-linejoin="round"/>'
+    + '<path d="M30 5 L53 17.5 L30 30 L7 17.5 Z" fill="' + c[0] + '"/>'
+    + '<path d="M7 17.5 L30 30 V55 L7 42.5 Z" fill="' + c[1] + '"/>'
+    + '<path d="M53 17.5 L30 30 V55 L53 42.5 Z" fill="' + c[2] + '"/>'
+    + (kind === 'wood' && !dim ? '<path d="M11 26 L26 34 M11 33 L26 41 M34 34 L49 26 M34 41 L49 33" stroke="rgba(80,44,12,.45)" stroke-width="1.6"/>' : '')
+    + (kind === 'dia' && !dim ? '<path d="M30 5 L30 30 M18.5 11.2 L41.5 23.7 M41.5 11.2 L18.5 23.7" stroke="rgba(255,255,255,.55)" stroke-width="1.2"/>' : '')
+    + '<path d="' + hex + '" fill="none" stroke="' + e + '" stroke-width="2.2" stroke-linejoin="round"/>'
+    + '<path d="M7 17.5 L30 30 L53 17.5 M30 30 V55" fill="none" stroke="' + e + '" stroke-width="1.3" opacity=".8"/>'
+    + (dim ? '' : dkpStar4(21, 14, 4.2)) + '</svg>';
+}
+/* 文字ロゴの両脇の小さなサイコロ（絵のロゴと同じ飾り） */
+function dkpDieMini(){
+  return '<svg viewBox="0 0 40 40" aria-hidden="true" focusable="false"><path d="M20 3 L36 11 L20 19 L4 11 Z" fill="#FFF7E6" stroke="#3A2405" stroke-width="2"/>'
+    + '<path d="M4 11 L20 19 V37 L4 29 Z" fill="#E8CFA8" stroke="#3A2405" stroke-width="2"/><path d="M36 11 L20 19 V37 L36 29 Z" fill="#C9A070" stroke="#3A2405" stroke-width="2"/>'
+    + '<ellipse cx="20" cy="11" rx="3" ry="1.8" fill="#C9302C"/><circle cx="9" cy="19" r="1.8" fill="#3A2405"/><circle cx="15" cy="29" r="1.8" fill="#3A2405"/>'
+    + '<circle cx="25" cy="22" r="1.8" fill="#3A2405"/><circle cx="31" cy="27" r="1.8" fill="#3A2405"/></svg>';
+}
+/* 文字ロゴ（素材の無い画面：ガチャ・キューブ・キャラクターカード）を絵のロゴに寄せる */
+function dkpLogo(el, main, sub){
+  var lg = el && el.querySelector('.dkhd .dklogo.dktext'); if(!lg) return;
+  lg.classList.add('dkp-lg');
+  lg.innerHTML = '<span class="dkp-lgd">' + dkpDieMini() + '</span><span class="dkp-lgw">'
+    + (sub ? '<small>' + esc(sub) + '</small>' : '') + '<b>' + esc(main) + '</b><i>DICE KINGDOM</i></span>'
+    + '<span class="dkp-lgd r">' + dkpDieMini() + '</span>';
 }
 function dkpDieIcon(){
   return '<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="5" y="5" width="30" height="30" rx="7" fill="#FFFDF4" stroke="#3A2405" stroke-width="2.6"/>'
     + '<circle cx="13" cy="13" r="3" fill="#3A2405"/><circle cx="20" cy="20" r="3.2" fill="#C9302C"/><circle cx="27" cy="27" r="3" fill="#3A2405"/></svg>';
+}
+function dkpLockSVG(){
+  return '<svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path d="M15 21V15a9 9 0 0118 0v6" fill="none" stroke="#C8952F" stroke-width="4.2" stroke-linecap="round"/>'
+    + '<rect x="10" y="20" width="28" height="22" rx="5" fill="#E7B94A" stroke="#2A1604" stroke-width="2.4"/>'
+    + '<circle cx="24" cy="29" r="3" fill="#3A2405"/><path d="M24 30V36" stroke="#3A2405" stroke-width="3" stroke-linecap="round"/></svg>';
 }
 function dkpCrack(){
   return '<svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50 6 L44 28 L57 40 L40 57 L53 69 L46 94 M44 28 L26 34 M57 40 L76 35 M40 57 L20 66 M53 69 L72 79"'
@@ -308,8 +418,7 @@ function dkpUpTry(tgtId, matId){
   if(!SV.fail.pend || typeof SV.fail.pend !== 'object') SV.fail.pend = {};
   if(ok){ SV.pendants[tgtId].lv = lv + 1; SV.fail.pend[tgtId] = 0; dkpBookMax(tgtId); }
   else SV.fail.pend[tgtId] = dkpFail(tgtId) + 1;
-  try{ var td = DKCORE_today(); td.pup = (td.pup | 0) + 1; }catch(e){}
-  if(SV.stat) SV.stat.pup = (SV.stat.pup | 0) + 1;
+  /* 回数はここで数えない（WP1#2）：'pend:up' の ok を見て、ミッション側が ptry＝試行・pup＝成功で数える（二重に数えない） */
   saveNow();
   dkEmit('pend:up', { id:tgtId, lv:dkpLv(tgtId), ok:ok });
   return { ok:ok, lv:dkpLv(tgtId), cost:cost, rate:rate, mat:matId };
@@ -377,8 +486,13 @@ function dkpMix(a, b){
 function dkpEquip(id, slot){
   if(!dkpOwn(id)) return false;
   if(SV.slots.indexOf(id) >= 0) return true;
-  if(slot === undefined || slot === null){ slot = SV.slots.indexOf(null); if(slot < 0) return false; }
-  slot = slot | 0; if(slot < 0 || slot > 3) return false;
+  var open = dkpSlotsOpen();
+  if(slot === undefined || slot === null){
+    slot = -1;
+    for(var i = 0; i < open; i++) if(!pendById(SV.slots[i])){ slot = i; break; }
+    if(slot < 0) return false;
+  }
+  slot = slot | 0; if(slot < 0 || slot >= open) return false;
   SV.slots[slot] = id; saveNow();
   return true;
 }
@@ -462,6 +576,9 @@ function showPend(tab){
   el.classList.toggle('dkp-busy', !!S.busy);
   dkWire(el, function(id){ var s = dkpS(); if(s.busy) return; s.tab = id; s.mixRes = null; showPend(); });
   el.onclick = dkpPendClick;
+  var tabs = el.querySelector('.dktabs');
+  if(tabs) tabs.insertAdjacentHTML('beforeend', '<button class="dkp-lkchip" data-dkp-act="pgacha" data-fx="riseL"><i>ラッキー<br>マイレージ</i>'
+    + '<b>×' + dkpLuckyN() + '<small>点</small></b></button>');
   dkpFxTag(el);
   dkpWheelAll(el);
   screenTo('pend');
@@ -481,13 +598,13 @@ function dkpEmptyInv(msg){
               : '<div class="dkp-heromed">' + dkpMedal(PENDANTS[1], { size:220, cls:'dkp-float' }) + '</div>')
     + '</div>'
     + '<div class="dkp-nonetx"><b class="dkp-ttl">' + esc(msg) + '</b>'
-    +   '<p>キューブ（ガチャ）でカードを引くと、1枚ごとに 18% の確率でペンダントもいっしょに手に入ります。出席簿の5日目にももらえます。</p>'
-    +   '<button class="dkbtn gd fx-primary dkp-big" data-dkp-act="gacha">キューブへ</button></div>'
+    +   '<p>ガチャの「ペンダント」で手に入ります。カードパックからも、1枚ごとに 18% の確率でいっしょに出ます。</p>'
+    +   '<button class="dkbtn gd fx-primary dkp-big" data-dkp-act="pgacha">ペンダントガチャへ</button></div>'
     + '</section>';
 }
 function dkpTrgWarn(){
-  var by = {}, msg = '';
-  SV.slots.forEach(function(id){ var p = pendById(id); if(!p) return; (by[p.trg] = by[p.trg] || []).push(p); });
+  var by = {}, msg = '', open = dkpSlotsOpen();
+  SV.slots.forEach(function(id, i){ var p = pendById(id); if(!p || i >= open) return; (by[p.trg] = by[p.trg] || []).push(p); });
   Object.keys(by).some(function(k){
     if(by[k].length < 2) return false;
     msg = by[k].map(dkpShort).join('と') + 'は同じ「' + dkpTrg(k) + '」の系統です。確率の高い方だけ発動します';
@@ -499,26 +616,30 @@ function dkpBodyPend(){
   var S = dkpS(), own = dkpOwnList(S.sort);
   if(S.sel && !dkpOwn(S.sel)) S.sel = null;
   if(!S.sel && own.length) S.sel = own[0].id;
-  var nEq = SV.slots.filter(function(x){ return !!pendById(x); }).length;
+  var open = dkpSlotsOpen(), card = cardById(SV.equip), face = card ? (dkCharImg('t' + card.id.slice(1)) || dkCharImg(card.id)) : '';
   var slots = SV.slots.map(function(pid, i){
-    var p = pendById(pid);
+    var p = pendById(pid), lock = i >= open;
+    if(!p && lock) return '<div class="dkp-slot dkp-empty dkp-lock" data-fx="riseL"><span class="dkp-sno">' + (i + 1) + '</span>'
+      + '<span class="dkp-hole dkp-lk">' + dkpLockSVG() + '</span><div class="dkp-si"><b class="dkp-snm">ロック中</b>'
+      + '<p class="dkp-sds">' + esc(dkpLockTx(i)) + '</p></div></div>';
     if(!p) return '<div class="dkp-slot dkp-empty" data-fx="riseL"><span class="dkp-sno">' + (i + 1) + '</span>'
       + '<span class="dkp-hole"><i></i></span><div class="dkp-si"><b class="dkp-snm">空き枠</b>'
-      + '<p class="dkp-sds">右の一覧からえらんで［装備する］</p></div></div>';
+      + '<p class="dkp-sds">右の一覧からえらんで［装着］</p></div></div>';
     var lv = dkpLv(p.id);
-    return '<div class="dkp-slot r' + p.rar + (p.id === S.sel ? ' on' : '') + '" data-dkp-act="sel" data-dkp-id="' + p.id + '" data-fx="riseL" id="dkpSlot' + i + '">'
+    return '<div class="dkp-slot r' + p.rar + (p.id === S.sel ? ' on' : '') + (lock ? ' dkp-lock' : '') + '" data-dkp-act="sel" data-dkp-id="' + p.id + '" data-fx="riseL" id="dkpSlot' + i + '">'
       + '<span class="dkp-sno">' + (i + 1) + '</span>'
-      + dkpMedal(p, { size:92, plus:lv - 1 })
+      + dkpMedal(p, { size:92, plus:lv - 1 }) + (lock ? '<span class="dkp-lkon">' + dkpLockSVG() + '</span>' : '')
       + '<div class="dkp-si"><div class="dkp-snr"><span class="dkp-rtag sm r' + p.rar + '">' + dkpRarNm(p.rar) + '</span><b class="dkp-snm">' + esc(p.nm) + '</b></div>'
-      +   '<p class="dkp-sds">' + esc(p.ds) + '</p>'
-      +   '<span class="dkp-sp"><i>' + esc(dkpTrg(p.trg)) + '</i>発動 <b>' + dkpPct(dkpEffP(p.id, lv)) + '%</b></span></div>'
-      + '<button class="dkbtn dkp-off" data-dkp-act="off" data-dkp-slot="' + i + '">外す</button>'
+      +   '<p class="dkp-sds">' + esc(lock ? 'この枠は今のカードでは効果が出ません（' + dkpLockTx(i) + '）' : p.ds) + '</p>'
+      +   (lock ? '' : '<span class="dkp-sp"><i>' + esc(dkpTrg(p.trg)) + '</i>発動 <b>' + dkpPct(dkpEffP(p.id, lv)) + '%</b></span>') + '</div>'
+      + '<button class="dkbtn dkp-off" data-dkp-act="off" data-dkp-slot="' + i + '">解除</button>'
       + '</div>';
   }).join('');
   var warn = dkpTrgWarn();
   var left = '<section class="fx-panel dkp-eqp" data-fx="riseL"><i class="fx-edge"></i>'
-    + '<header class="dkp-ph"><span class="dkp-crest">' + dkpCrest() + '</span><b class="dkp-ttl">装備スロット</b>'
-    +   '<span class="dkp-cnt"><b>' + nEq + '</b> / 4</span></header>'
+    + '<header class="dkp-ph"><span class="dkp-eqf"' + (face ? ' style="background-image:url(' + face + ')"' : '') + '>' + (face ? '' : dkpCrest()) + '</span>'
+    +   '<b class="dkp-ttl">' + (card ? dkpRarNm(card.rar) + ' クラス装着中' : 'カード未装着') + '</b>'
+    +   '<span class="dkp-cnt">スロット <b>' + open + '</b>個開放</span></header>'
     + '<div class="dkp-slots">' + slots + '</div>'
     + (warn ? '<p class="dkp-warn">' + esc(warn) + '</p>'
             : '<p class="dkp-hint">同じ系統のペンダントは、確率の高い方だけが発動します</p>')
@@ -533,14 +654,14 @@ function dkpBodyPend(){
       + (p.rar === 'SS' ? '<i class="dkp-gl"></i>' : '')
       + dkpMedal(p, { size:84, plus:lv - 1, rt:true })
       + (d ? '<span class="dkp-dup">×' + d + '</span>' : '')
-      + (eq ? '<span class="dkp-eqtag">装備中</span>' : '')
+      + (eq ? '<span class="dkp-eqtag">着用中</span>' : '')
       + '<b class="dkp-cnm">' + esc(dkpShort(p)) + '</b></div>';
   }).join('');
   var right = '<section class="fx-panel dkp-inv" data-fx="riseR"><i class="fx-edge"></i>'
     + '<header class="dkp-ph"><div class="fx-seg dkp-seg" style="--si:' + si + '"><i class="thumb"></i>'
     +   seg.map(function(x){ return '<button aria-pressed="' + (x[0] === S.sort) + '" data-dkp-act="sort" data-dkp-v="' + x[0] + '">' + x[1] + '</button>'; }).join('')
     +   '</div><span class="dkp-own">所有 <b>' + own.length + '</b> / ' + PENDANTS.length + '</span>'
-    +   '<button class="dkbtn gd dkp-mini" data-dkp-act="gacha">キューブ</button></header>'
+    +   '<button class="dkbtn gd dkp-mini" data-dkp-act="pgacha">ペンダントガチャ</button></header>'
     + '<div class="dkp-grid" data-fx-step="30">' + cells + '</div>'
     + dkpDetail(pendById(S.sel))
     + '</section>';
@@ -564,10 +685,10 @@ function dkpDetail(p){
     +   '<p class="dkp-dmax">+7 にすると <b>' + dkpPct(max) + '%</b>　・　' + esc(dkpTrg(p.trg)) + '　・　重なり ' + d + '</p>'
     +   (same && slot < 0 ? '<p class="dkp-warn sm">装備中の' + esc(dkpShort(same)) + 'と同じ系統です（高い方だけ発動）</p>' : '')
     +   '<div class="dkp-dbtns">'
-    +     (slot >= 0 ? '<button class="dkbtn dkp-off" data-dkp-act="off" data-dkp-slot="' + slot + '">外す</button>'
-                     : '<button class="dkbtn gr fx-primary green" data-dkp-act="eq" data-dkp-id="' + p.id + '">装備する</button>')
+    +     (slot >= 0 ? '<button class="dkbtn dkp-off" data-dkp-act="off" data-dkp-slot="' + slot + '">解除</button>'
+                     : '<button class="dkbtn gr fx-primary green" data-dkp-act="eq" data-dkp-id="' + p.id + '">装着</button>')
     +     '<button class="dkbtn gd" data-dkp-act="goup" data-dkp-id="' + p.id + '"' + (lv >= 8 ? ' disabled' : '') + '>' + (lv >= 8 ? '+7 最大' : '強化へ') + '</button>'
-    +     '<button class="dkbtn dkp-sell" data-dkp-act="sell" data-dkp-id="' + p.id + '">売る <i class="dkcoin dkp-ci"></i>' + dkpFmt(price) + '</button>'
+    +     '<button class="dkbtn dkp-sell" data-dkp-act="sell" data-dkp-id="' + p.id + '">売却 <i class="dkcoin dkp-ci"></i>' + dkpFmt(price) + '</button>'
     +   '</div>'
     + '</div></div>';
 }
@@ -584,7 +705,7 @@ function dkpBodyUp(){
   var S = dkpS(), own = dkpOwnList('rar');
   if(!own.length) return '<section class="fx-panel dkp-forge" data-fx="riseL"><i class="fx-edge"></i>'
     + '<header class="dkp-ph"><b class="dkp-ttl">強化</b></header>'
-    + '<p class="dkp-hint big">強化するペンダントがありません。<br>まずはキューブで手に入れましょう。</p></section>'
+    + '<p class="dkp-hint big">強化するペンダントがありません。<br>まずはペンダントガチャで手に入れましょう。</p></section>'
     + dkpEmptyInv('強化するペンダントがありません');
   if(!S.upTgt || !dkpOwn(S.upTgt)) S.upTgt = (S.sel && dkpOwn(S.sel)) ? S.sel : own[0].id;
   dkpMatsFix();
@@ -628,7 +749,7 @@ function dkpBodyUp(){
         + dkpMedal(o.p, { size:56, rt:true }) + '<b class="dkp-pn">×' + Math.max(0, o.left) + '</b>'
         + '<em class="dkp-pr' + (o.ok ? '' : ' ng') + '">' + (o.ok ? '成功 ' + dkpPct(dkpRate(t.id, o.p.id)) + '%' : '+5から不可') + '</em></div>';
     }).join('')
-    : '<p class="dkp-hint">重なり（同じペンダントの2つ目から）がありません。キューブで集めましょう。</p>';
+    : '<p class="dkp-hint">重なり（同じペンダントの2つ目から）がありません。ペンダントガチャで集めましょう。</p>';
   var right = '<section class="fx-panel dkp-upr" data-fx="riseR"><i class="fx-edge"></i>'
     + '<h4 class="dkp-sub">強化するペンダント</h4>'
     + '<div class="dkp-sw"><div class="dkp-strip" data-dkp-wheel="1">' + strip + '</div></div>'
@@ -667,11 +788,13 @@ function dkpBodyMix(){
     : '<div class="dkp-orb' + (up ? ' r' + up : '') + '" id="dkpOrb"><i class="fx-halo dkp-halo"></i><span class="dkp-q">?</span>'
       + '<b class="dkp-orbl">' + (up ? dkpRarNm(up) + ' が生まれる' : '1段上の等級') + '</b></div>';
   var left = '<section class="fx-panel dkp-alt" data-fx="riseL"><i class="fx-edge"></i>'
-    + '<header class="dkp-ph"><b class="dkp-ttl">合成</b><span class="dkp-note">+7 の同じ等級を2つ → 1段上を1つ</span></header>'
+    + '<header class="dkp-ph"><b class="dkp-ttl">合成</b><span class="dkp-note">+7 の同じ等級を2つ → 1段上を1つ</span>'
+    +   '<button class="dkp-oddsb" data-dkp-act="odds" data-dkp-v="pmix">提供割合</button></header>'
     + '<div class="dkp-altar2" id="dkpAltar2">' + dkpSocket(a, 'a') + orb + dkpSocket(b, 'b') + '</div>'
     + '<p class="dkp-mwarn">合成すると <b>+0</b> にもどります。いまの2つより弱くなります</p>'
     + '<div class="dkp-cost"><i class="dkcoin dkp-ci"></i><b>' + (rar ? dkpFmt(dkpMixCost(rar)) : '6,000 ／ 12,000') + '</b><span>G</span>'
     +   '<em>' + (rar ? (rar === 'A' ? 'A → S' : 'S → S+') : 'A → S ／ S → S+') + '</em></div>'
+    + dkpLeftLine(up)
     + '<button class="dkbtn gd fx-primary dkp-go" data-dkp-act="mixgo"' + (why ? ' disabled' : '') + '>合成する</button>'
     + '<p class="dkp-why' + (why ? ' on' : '') + '">' + esc(why || '2つとも使います（重なりがあれば +0 の1つが残ります）') + '</p>'
     + '</section>';
@@ -787,6 +910,8 @@ function dkpPendClick(e){
   if(a === 'sell'){ dkpDoSell(id, t); return; }
   if(a === 'sort'){ if(S.sort !== v){ S.sort = v; dkpSfx('click'); showPend(); } return; }
   if(a === 'gacha'){ dkpSfx('click'); showGacha(); return; }
+  if(a === 'pgacha'){ dkpSfx('click'); showGacha('pend'); return; }
+  if(a === 'odds'){ dkpSfx('click'); dkpOdds(v); return; }
   if(a === 'goup'){ dkpSfx('click'); S.tab = 'up'; S.upTgt = id; S.mats = []; showPend(); return; }
   if(a === 'tgt'){ if(S.upTgt !== id){ dkpSfx('click'); S.upTgt = id; S.mats = []; showPend(); } return; }
   if(a === 'mat'){ dkpAddMat(id); return; }
@@ -804,14 +929,14 @@ function dkpDoOff(slot, btn){
   var p = pendById(SV.slots[slot]); if(!p) return;
   dkpUnequip(slot);
   dkpSfx('click');
-  toast('R', '📿', p.nm, (slot + 1) + '番の枠から外しました', 1500);
+  toast('R', '📿', p.nm, (slot + 1) + '番の枠から解除しました', 1500);
   showPend();
 }
 function dkpSlotModal(p){
   return '<div class="modal"><div class="fx-panel dkp-modal">'
     + '<h3 class="dkp-mh">入れ替える枠をえらんでください</h3>'
-    + '<p class="dkp-mp">「' + esc(p.nm) + '」と入れ替わります（えらんだ枠は外れます）</p>'
-    + '<div class="dkp-mslots">' + SV.slots.map(function(id, i){
+    + '<p class="dkp-mp">「' + esc(p.nm) + '」と入れ替わります（えらんだ枠のペンダントは解除されます）</p>'
+    + '<div class="dkp-mslots">' + SV.slots.slice(0, dkpSlotsOpen()).map(function(id, i){
         var q = pendById(id);
         return '<button class="dkp-mbtn" data-act="s' + i + '"><span class="dkp-sno">' + (i + 1) + '</span>'
           + (q ? dkpMedal(q, { size:72, plus:dkpLv(q.id) - 1 }) + '<b>' + esc(dkpShort(q)) + '</b>' : '<b>空き</b>') + '</button>';
@@ -822,7 +947,9 @@ function dkpSlotModal(p){
 async function dkpDoEquip(id){
   var S = dkpS(), p = pendById(id);
   if(!p || !dkpOwn(id) || SV.slots.indexOf(id) >= 0) return;
-  var k = SV.slots.indexOf(null);
+  var k = -1, open = dkpSlotsOpen();
+  for(var i = 0; i < open; i++) if(!pendById(SV.slots[i])){ k = i; break; }
+  if(open <= 0){ dkpSfx('warn'); toast('R', '📿', 'ペンダントの枠がありません', dkpLockTx(0), 2000); return; }
   if(k < 0){
     dkpSfx('click');
     dkpBusy(true);
@@ -938,9 +1065,17 @@ async function dkpFxFly(i){
 async function dkpFxUp(r, i, tgt){
   var alt = document.getElementById('dkpAltar');
   if(alt){
-    alt.classList.remove('dkp-ok', 'dkp-ng'); void alt.offsetWidth;
-    alt.classList.add(r.ok ? 'dkp-ok' : 'dkp-ng');
-    var md = alt.querySelector('.dkp-medal');
+    /* 再生し直しは el.animate（void offsetWidth でレイアウトを起こさない） */
+    alt.classList.toggle('dkp-ng', !r.ok);
+    var md = alt.querySelector('.dkp-medal'), fl = alt.querySelector('.dkp-okfl'), ck = alt.querySelector('.dkp-crack');
+    try{
+      if(r.ok){
+        if(fl && fl.animate) fl.animate([{ opacity:1, transform:'scale(.6)' }, { opacity:0, transform:'scale(1.35)' }], { duration:620, easing:'cubic-bezier(.4,0,1,1)' });
+        if(md && md.animate) md.animate([{ transform:'scale(1)' }, { transform:'scale(1.16)' }, { transform:'scale(1)' }], { duration:320, easing:'cubic-bezier(.34,1.56,.64,1)' });
+      } else if(ck && ck.animate){
+        ck.animate([{ opacity:1, transform:'scale(1.08)' }, { opacity:1, transform:'scale(1)', offset:.7 }, { opacity:0, transform:'scale(1)' }], { duration:560, easing:'linear' });
+      }
+    }catch(e){}
     if(r.ok){
       fxFlash();
       fxBurst(md || alt, { kind:'star', n:24, power:1.15 });
@@ -1021,61 +1156,86 @@ function dkpDoClaim(k, btn){
   dkWallet();
 }
 
-/* ══════════ キューブ（ガチャ） ══════════ */
-function dkpLaneKey(k){ return (typeof LANES === 'object' && LANES[k]) ? k : 'premium'; }
+/* ══════════ ガチャ（J39・G13）：タブ「キャラクターカード」「ペンダント」 ══════════ */
+function dkpIsPL(k){ return !!DKP_PL[k]; }
+function dkpLaneOf(k){ return DKP_PL[k] || LANES[k] || null; }
+function dkpLaneNm(k){ return DKP_PL[k] ? DKP_PL[k].nm : (LANES[k] ? LANES[k].nm + 'カードパック' : ''); }
+function dkpLaneKeys(tab){ return tab === 'pend' ? ['pspecial', 'pnormal', 'ppremium'] : ['special', 'normal', 'premium']; }
+function dkpFreeMs(k){ return k === 'premium' ? freeLeft() : k === 'ppremium' ? dkpPFreeLeft() : -1; }
 function dkpCur(L){ return L.cur === '💎' ? '<i class="dkgem dkp-ci"></i>' : '<i class="dkcoin dkp-ci"></i>'; }
-function showGacha(lane){
-  var S = dkpS();
-  if(typeof lane === 'string' && LANES[lane] && !S.busy){ dkLane = lane; S.pull = null; }
-  dkLane = dkpLaneKey(dkLane);
-  if(!S.busy && S.pull && S.pull.phase !== 'done') S.pull = null;
-  var k = dkLane, L = LANES[k], free = (k === 'premium' && freeLeft() === 0), c = dkpLaneCol(k);
-  var tabs = Object.keys(LANES).map(function(x){ return { id:x, ic:dkpCubeIcon(x), nm:LANES[x].nm }; });
-  var f = featureCard(), fimg = dkCharImg(f.id);
-  var fOk = (L.w[f.rar] || 0) > 0;
-  var faces = '';
-  for(var i = 1; i <= 6; i++) faces += '<i class="dkp-f' + i + '">' + dkpCubeFace(k) + '</i>';
-  var vault = '<div class="dkp-vault" id="gStage" data-fx="rise" style="--dkp-lglow:' + c.glow + '">'
-    + '<i class="dkp-arch"></i><div class="fx-rays"></div><i class="dkp-rainbow"></i>'
-    + '<div class="fx-ribbon ' + (k === 'special' ? 'red' : k === 'normal' ? 'blue' : 'gold') + ' dkp-vt"><b>' + esc(L.nm) + 'キューブ</b></div>'
-    + '<div class="dkp-cubepos"><i class="dkp-cglow"></i><div class="dkp-cubefl"><div class="dkp-cube">' + faces + '</div></div></div>'
-    + '<i class="dkp-floor"></i>'
-    + (fOk ? '<div class="dkp-feat"><span class="dkp-fthumb"' + (fimg ? ' style="background-image:url(' + fimg + ')"' : '') + '></span>'
-      + '<div><i>今週の注目カード</i><b>' + esc(f.nm) + '</b></div><em>出やすさ 2倍</em></div>' : '')
-    + '<p class="dkp-tap">タップで早送り</p>'
-    + '</div>';
-  var rows = [['SS', 'S+'], ['S', 'S'], ['A', 'A']].map(function(r){
-    var w = L.w[r[0]] || 0;
-    return '<div class="dkp-rr r' + r[0] + '"><span class="dkp-rtag r' + r[0] + '">' + r[1] + '</span>'
-      + '<span class="dkp-bar"><i style="--w:' + Math.max(w > 0 ? 3 : 0, dkpPct(w)) + '%"></i></span><b>' + dkpPct(w) + '%</b></div>';
-  }).join('');
+/* 今週の注目ペンダント（S と S+ から週替わり。スペシャルで同じ等級の中の2倍） */
+function dkpFeatPend(){
+  var L = PENDANTS.filter(function(p){ return p.rar !== 'A'; }), i = 0;
+  try{ i = weekIndex(); }catch(e){ i = 0; }
+  return L[((i % L.length) + L.length) % L.length];
+}
+function dkpTile(k){
+  var L = dkpLaneOf(k), pl = dkpIsPL(k), col = pl ? L.col : k, ms = dkpFreeMs(k), free = ms === 0;
   var off = Math.round((1 - L.five / (L.one * 5)) * 100);
-  var panel = '<section class="fx-panel dkp-lane" data-fx="riseR"><i class="fx-edge"></i>'
-    + '<header class="dkp-ph"><span class="dkp-lic">' + dkpCubeIcon(k) + '</span><b class="dkp-ttl">' + esc(L.nm) + '</b>'
-    +   '<span class="dkp-lcur">' + dkpCur(L) + (L.cur === '💎' ? 'ダイヤ' : 'ゴールド') + 'で引く</span></header>'
-    + '<p class="dkp-lds">' + esc(L.ds) + '</p>'
-    + '<div class="dkp-rates">' + rows + '</div>'
-    + dkpOdds(L)
-    + '<p class="dkp-bonus">カード1枚ごとに、ペンダント <b>18%</b>・サイコロ <b>4%</b> のおまけ</p>'
-    + dkpLineup(k)
-    + (k === 'premium'
-      ? '<div class="dkp-free' + (free ? ' dkp-now' : '') + '" id="gFree">' + (free ? 'いま無料で引けます' : '次の無料まで ' + mmss(freeLeft())) + '</div>'
-      : '<div class="dkp-free dkp-nf">持っているカードが出たら「重なり」になり、強化に使えます</div>')
-    + '<div class="dkp-lbtns">'
-    +   '<button class="dkbtn ' + (free ? 'gr fx-primary green dkp-free1' : 'gr') + ' dkp-b1" data-lane="' + k + '" data-n="1">'
-    +     (free ? '無料で1回' : '1回 ' + dkpCur(L) + dkpFmt(L.one)) + '</button>'
-    +   '<div class="dkp-b5w"><button class="dkbtn gd fx-primary dkp-b5" data-lane="' + k + '" data-n="5">5連 ' + dkpCur(L) + dkpFmt(L.five) + '</button>'
-    +     (off > 0 ? '<em class="dkp-off5">' + off + '%お得</em>' : '') + '</div>'
-    + '</div>'
+  var rt = ['SS', 'S', 'A'].filter(function(r){ return (L.w[r] || 0) > 0; }).map(function(r){
+    return '<span class="dkp-tr r' + r + '"><i>' + dkpRarNm(r) + '</i>' + dkpPct(L.w[r]) + '%</span>'; }).join('');
+  var fp = (pl && L.feat) ? dkpFeatPend() : null;
+  return '<section class="dkp-tile dkp-c-' + col + '" data-fx="deal">'
+    + '<header class="dkp-tth"><b>' + esc(dkpLaneNm(k)) + '</b></header>'
+    + '<div class="dkp-tart"><i class="dkp-tglow"></i>' + (pl ? dkpChestSVG(col) : dkpPackSVG(col))
+    +   (fp ? '<span class="dkp-tfeat">' + dkpMedal(fp, { size:58 }) + '<em>注目</em></span>' : '')
+    +   '<button class="dkp-oddsb dkp-toddsb" data-dkp-act="odds" data-dkp-v="' + k + '">提供割合</button></div>'
+    + '<p class="dkp-tds">' + esc(pl ? L.ds : (DKP_LDS[k] || '')) + '</p>'
+    + '<div class="dkp-trates">' + rt + '</div>'
+    + (ms >= 0 ? '<div class="dkp-tfr' + (free ? ' dkp-now' : '') + '" id="' + (pl ? 'gFreeP' : 'gFree') + '">' + (free ? 'いま無料で引けます' : '無料まで ' + mmss(ms)) + '</div>' : '')
+    + '<div class="dkp-tbtns">'
+    +   '<button class="dkbtn ' + (free ? 'gr fx-primary green' : 'gd') + ' dkp-t1" data-lane="' + k + '" data-n="1">' + (free ? '無料で1回' : '1回 ' + dkpCur(L) + dkpFmt(L.one)) + '</button>'
+    +   '<span class="dkp-t5w"><button class="dkbtn gd dkp-t5" data-lane="' + k + '" data-n="5">5連 ' + dkpCur(L) + dkpFmt(L.five) + '</button>'
+    +   (off > 0 ? '<em class="dkp-off5">' + off + '%お得</em>' : '') + '</span></div>'
     + '</section>';
-  var el = dkMake('gacha', 'quest',
-      dkHead('gacha', { title:'キューブ' })
-    + dkTabs(tabs, k)
-    + '<div class="dkbody dkp-body dkp-gbody">' + vault + panel + '</div>');
-  el.classList.add('dkp-scr', 'dkp-l-' + k);
+}
+function dkpCardBar(){
+  var f = featureCard(), fimg = dkCharImg(f.id);
+  var top = CARDPOOL.filter(function(c){ return c.rar === 'SS'; });
+  return '<section class="dkp-gbar dkp-cbar" data-fx="rise">'
+    + '<div class="dkp-feat"><span class="dkp-fthumb"' + (fimg ? ' style="background-image:url(' + fimg + ')"' : '') + '></span>'
+    +   '<div><i>今週の注目カード</i><b>' + esc(f.nm) + '</b></div><em>同じ等級で2倍</em></div>'
+    + '<p class="dkp-bonus">カード1枚ごとに、ペンダント <b>18%</b>・サイコロ <b>4%</b> もいっしょに出ます</p>'
+    + '<div class="dkp-line"><span class="dkp-linet">S+ の顔ぶれ</span><div class="dkp-lthumbs">' + top.slice(0, 6).map(function(c){
+        var img = dkCharImg(c.id);
+        return '<span class="dkp-lth r' + c.rar + '"' + (img ? ' style="background-image:url(' + img + ')"' : '') + '>' + (img ? '' : '<b>' + esc(c.nm.slice(0, 1)) + '</b>') + '</span>';
+      }).join('') + '</div></div>'
+    + '</section>';
+}
+function dkpLuckyBar(){
+  var n = dkpLuckyN(), pips = '', i;
+  for(i = 0; i < 10; i++) pips += '<i class="' + (i < n ? 'on' : '') + (i === 0 || i === 2 || i === 9 ? ' mk' : '') + '"></i>';
+  return '<section class="dkp-gbar dkp-lucky" data-fx="rise">'
+    + '<div class="dkp-lkh"><b>ラッキーマイレージ</b><span>×<em id="dkpLuckyN">' + n + '</em>点</span>'
+    +   '<button class="dkp-oddsb" data-dkp-act="odds" data-dkp-v="lucky">提供割合</button></div>'
+    + '<div class="dkp-lkm"><div class="dkp-lkp">' + pips + '</div><p>プレミアムペンダントを1個引くたびに +1点</p></div>'
+    + '<div class="dkp-lkbtns">' + DKP_LUCKY.map(function(x){
+        var ok = n >= x.need;
+        return '<button class="dkbtn ' + (ok ? 'gr' : 'gd') + ' dkp-lkb" data-dkp-act="lucky" data-dkp-v="' + x.k + '"' + (ok ? '' : ' disabled') + '>'
+          + '<b>' + x.need + '点</b><span>' + esc(x.nm) + '</span></button>';
+      }).join('') + '</div></section>';
+}
+/* showGacha(arg)：arg なし＝いまのタブ／'card'・'pend'＝タブ／LANES・DKP_PL のキー＝そのタブ／'cube'＝キューブ画面（J40） */
+function showGacha(arg){
+  var S = dkpS();
+  if(arg === 'cube') return dkpShowCube();
+  if(typeof arg === 'string' && !S.busy){
+    if(arg === 'card' || arg === 'pend'){ S.gtab = arg; S.pull = null; }
+    else if(DKP_PL[arg] || arg === 'lucky'){ S.gtab = 'pend'; S.pull = null; }
+    else if(LANES[arg]){ S.gtab = 'card'; S.pull = null; }
+  }
+  var tab = S.gtab === 'pend' ? 'pend' : 'card';
+  if(!S.busy && S.pull && S.pull.phase !== 'done') S.pull = null;
+  var tabs = [ { id:'card', ic:dkpPackSVG('premium'), nm:'キャラクター<br>カード', badge:(freeLeft() === 0 ? '!' : '') },
+               { id:'pend', ic:dkpMedalSVG(PENDANTS[1]), nm:'ペンダント', badge:((dkpPFreeLeft() === 0 || dkpLuckyN() >= 1) ? '!' : '') } ];
+  var el = dkMake('gacha', 'quest', dkHead('gacha', { title:'ガチャ' }) + dkTabs(tabs, tab)
+    + '<div class="dkbody dkp-body dkp-gbody dkp-g' + tab + '"><div class="dkp-tiles">' + dkpLaneKeys(tab).map(dkpTile).join('') + '</div>'
+    + (tab === 'pend' ? dkpLuckyBar() : dkpCardBar()) + '<div class="dkp-rvst" id="gStage"></div></div>');
+  el.classList.add('dkp-scr');
   el.classList.toggle('dkp-busy', !!S.busy);
-  dkWire(el, function(id){ var s = dkpS(); if(s.busy) return; s.pull = null; dkLane = id; showGacha(); });
+  dkWire(el, function(id){ var s = dkpS(); if(s.busy) return; s.pull = null; s.gtab = (id === 'pend') ? 'pend' : 'card'; showGacha(); });
   el.onclick = dkpGachaClick;
+  dkpLogo(el, 'ガチャ');
   dkpFxTag(el);
   if(typeof gachaTimer !== 'undefined' && gachaTimer){ clearInterval(gachaTimer); gachaTimer = null; }
   try{ bgm('gacha'); }catch(e){}
@@ -1083,30 +1243,15 @@ function showGacha(lane){
   dkEvery('dkpFree', dkpFreeTick, 1000);
   if(S.pull) dkpRevSync();
 }
-/* 5連で、いちばん上の等級が1枚以上出る確率（うそのない数字を見せる） */
-function dkpOdds(L){
-  var top = (L.w.SS > 0) ? 'SS' : 'S', w = L.w[top] || 0, p5 = 1 - Math.pow(1 - w, 5);
-  return '<p class="dkp-odds">5連で ' + dkpRarNm(top) + ' が1枚以上出る確率 <b>' + dkpPct(p5) + '%</b></p>';
-}
-/* そのキューブでいちばん上の等級に出るカード（顔ぶれを見せる） */
-function dkpLineup(k){
-  var L = LANES[k], top = (L.w.SS > 0) ? 'SS' : 'S';
-  var list = CARDPOOL.filter(function(c){ return c.rar === top; });
-  var more = Math.max(0, list.length - 6);
-  return '<div class="dkp-line"><span class="dkp-linet">' + dkpRarNm(top) + ' の顔ぶれ</span><div class="dkp-lthumbs">'
-    + list.slice(0, 6).map(function(c){
-        var img = dkCharImg(c.id);
-        return '<span class="dkp-lth r' + c.rar + '"' + (img ? ' style="background-image:url(' + img + ')"' : '') + '>'
-          + (img ? '' : '<b>' + esc(c.nm.slice(0, 1)) + '</b>') + '</span>';
-      }).join('')
-    + (more ? '<span class="dkp-lmore">ほか ' + more + '人</span>' : '') + '</div></div>';
-}
 function dkpFreeTick(){
-  var f = document.getElementById('gFree'); if(!f) return;
-  var ms = freeLeft(), txt = ms === 0 ? 'いま無料で引けます' : '次の無料まで ' + mmss(ms);
-  if(f.textContent !== txt) f.textContent = txt;
-  var S = dkpS();
-  if(ms === 0 && !f.classList.contains('dkp-now') && !S.busy && !S.pull && dkpOnScr('gacha')) showGacha();
+  var S = dkpS(), re = false;
+  [['gFree', freeLeft], ['gFreeP', dkpPFreeLeft]].forEach(function(o){
+    var f = document.getElementById(o[0]); if(!f) return;
+    var ms = o[1](), txt = ms === 0 ? 'いま無料で引けます' : '無料まで ' + mmss(ms);
+    if(f.textContent !== txt) f.textContent = txt;
+    if(ms === 0 && !f.classList.contains('dkp-now')) re = true;
+  });
+  if(re && !S.busy && !S.pull && dkpOnScr('gacha')) showGacha();
 }
 function dkpGachaClick(e){
   var S = dkpS();
@@ -1117,57 +1262,183 @@ function dkpGachaClick(e){
   }
   if(!t || t.disabled || !this.contains(t)) return;
   if(t.hasAttribute('data-lane')){ doGacha(t.getAttribute('data-lane'), +t.getAttribute('data-n'), t); return; }
-  var a = t.getAttribute('data-dkp-act');
+  var a = t.getAttribute('data-dkp-act'), v = t.getAttribute('data-dkp-v');
+  if(a === 'odds'){ dkpSfx('click'); dkpOdds(v); return; }
+  if(a === 'lucky'){ doGacha('lucky:' + v, 1, t); return; }
   if(a === 'again' && S.pull){ doGacha(S.pull.lane, S.pull.n, t); return; }
   if(a === 'close'){ dkpSfx('click'); S.pull = null; showGacha(); return; }
 }
-/* 引く。料金・抽選・grant・saveNow は 5-meta.js の doGacha と同じ順に呼ぶ（乱数の順番をそろえる） */
+
+/* ══════════ 提供割合（G13）：合計がちょうど 100.00% になるよう最大剰余で丸める ══════════ */
+function dkpRound(ps){
+  var bp = ps.map(function(p){ return Math.max(0, +p || 0) * 10000; }), fl = bp.map(Math.floor);
+  var tot = ps.reduce(function(a, b){ return a + Math.max(0, +b || 0); }, 0);
+  if(Math.abs(tot - 1) > 1e-6) return bp.map(function(v){ return Math.round(v) / 100; });
+  var left = 10000 - fl.reduce(function(a, b){ return a + b; }, 0);
+  var ord = bp.map(function(v, i){ return [v - fl[i], i]; }).sort(function(a, b){ return b[0] - a[0]; });
+  for(var i = 0; i < ord.length && left > 0; i++, left--) fl[ord[i][1]]++;
+  return fl.map(function(v){ return v / 100; });
+}
+function dkpP2(v){ return (+v).toFixed(2) + '%'; }
+/* レーン k の1個ごとの確率（注目の2倍を入れた後の数字） */
+function dkpOddsItems(k){
+  var pl = dkpIsPL(k), L = dkpLaneOf(k), out = [];
+  if(!L) return out;
+  var src = pl ? PENDANTS : CARDPOOL, f = pl ? (L.feat ? dkpFeatPend() : null) : featureCard();
+  ['SS', 'S', 'A'].forEach(function(r){
+    var w = L.w[r] || 0, pool = src.filter(function(x){ return x.rar === r; });
+    if(!pool.length || !(w > 0)) return;
+    var fin = !!(f && f.rar === r), tot = pool.length + (fin ? 1 : 0);
+    pool.forEach(function(x){
+      var isF = fin && x.id === f.id;
+      out.push({ kind:pl ? 'pend' : 'card', id:x.id, nm:x.nm, rar:r, p:w * (isF ? 2 : 1) / tot, feat:isF });
+    });
+  });
+  return out;
+}
+function dkpAimRows(pool, cur){
+  var rows = [];
+  for(var k = 1; k <= 10; k++){
+    var p = k >= 10 ? 1 : Math.max(k * 0.1, 1 / Math.max(1, pool));
+    rows.push({ c:[k + '回目', (Math.round(p * 1000) / 10) + '%'], on:k === cur });
+  }
+  return rows;
+}
+function dkpOddsHTML(o){
+  var h = '<div class="modal"><div class="fx-panel dkp-modal dkp-odds">'
+    + '<h3 class="dkp-mh">' + esc(o.title) + '</h3>' + (o.sub ? '<p class="dkp-mp">' + esc(o.sub) + '</p>' : '')
+    + '<div class="dkp-obody">';
+  (o.blocks || []).forEach(function(b){
+    h += '<section class="dkp-oblk">' + (b.hd ? '<h4 class="dkp-sub">' + esc(b.hd) + '</h4>' : '');
+    if(b.grades){
+      var gr = dkpRound(b.grades.map(function(x){ return x[1]; }));
+      h += '<div class="dkp-ogr">' + b.grades.map(function(x, i){
+        return '<span class="dkp-og"><span class="dkp-rtag sm r' + x[0] + '">' + dkpRarNm(x[0]) + '</span>クラス<b>' + dkpP2(gr[i]) + '</b></span>'; }).join('') + '</div>';
+    }
+    if(b.items){
+      var ip = dkpRound(b.items.map(function(x){ return x.p; }));
+      h += '<div class="dkp-oitems">' + b.items.map(function(x, i){
+        var pp = x.kind === 'pend' ? pendById(x.id) : null, img = pp ? '' : (dkCharImg('t' + String(x.id).slice(1)) || dkCharImg(x.id));
+        var ic = pp ? dkpMedal(pp, { size:40 }) : '<span class="dkp-oth"' + (img ? ' style="background-image:url(' + img + ')"' : '') + '></span>';
+        return '<div class="dkp-oi r' + x.rar + '" data-p="' + ip[i].toFixed(2) + '">' + ic
+          + '<span class="dkp-oinm"><span class="dkp-rtag sm r' + x.rar + '">' + dkpRarNm(x.rar) + '</span>' + esc(pp ? dkpShort(pp) : x.nm) + (x.feat ? '<em>注目 ×2</em>' : '') + '</span>'
+          + '<b>' + dkpP2(ip[i]) + '</b></div>';
+      }).join('') + '</div><p class="dkp-osum">合計 <b>' + dkpP2(ip.reduce(function(a, c){ return a + c; }, 0)) + '</b></p>';
+    }
+    if(b.table){
+      h += '<table class="dkp-otbl"><tr>' + b.table.head.map(function(x){ return '<th>' + esc(x) + '</th>'; }).join('') + '</tr>'
+        + b.table.rows.map(function(r){ return '<tr' + (r.on ? ' class="on"' : '') + '>' + r.c.map(function(x){ return '<td>' + esc(x) + '</td>'; }).join('') + '</tr>'; }).join('') + '</table>';
+    }
+    if(b.notes) h += '<ul class="dkp-rules">' + b.notes.map(function(x){ return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
+    h += '</section>';
+  });
+  return h + '</div><div class="dkp-mrow"><button class="dkbtn dkp-wood" data-act="ok">閉じる</button></div></div></div>';
+}
+/* 提供割合の表を開く（レーン・ラッキーマイレージ・ペンダント合成） */
+function dkpOdds(v){
+  var o = null, L, pl;
+  if(DKP_PL[v] || LANES[v]){
+    pl = dkpIsPL(v); L = dkpLaneOf(v);
+    var notes = pl ? ['同じペンダントが出たら「重なり」になり、強化の素材に使えます']
+                   : ['カード1枚ごとに、ペンダント 18%（8種から等しく・各 2.25%）とサイコロ 4%（まだ持っていないサイコロ。全部持っていれば 2,000G）がいっしょに出ます',
+                      '持っているカードが出たら「重なり」になり、強化の素材に使えます'];
+    if(!pl) notes.unshift('今週の注目カード「' + featureCard().nm + '」は、同じ等級の中で2倍出やすくなっています（表の数字に入っています）');
+    if(pl && L.feat) notes.unshift('今週の注目ペンダント「' + dkpFeatPend().nm + '」は、同じ等級の中で2倍出やすくなっています（表の数字に入っています）');
+    if(pl && L.lucky) notes.push('1個引くたびにラッキーマイレージが1点たまります');
+    notes.push('1回でも5連でも、無料でも、同じ割合です');
+    o = { title:dkpLaneNm(v) + '　提供割合', blocks:[
+      { hd:'等級ごと', grades:['SS', 'S', 'A'].map(function(r){ return [r, L.w[r] || 0]; }) },
+      { hd:(pl ? 'ペンダントごと' : 'カードごと'), items:dkpOddsItems(v) }, { notes:notes } ] };
+  } else if(v === 'lucky'){
+    o = { title:'ラッキーマイレージ　提供割合', blocks:DKP_LUCKY.map(function(x){
+      var its = [];
+      ['SS', 'S', 'A'].forEach(function(r){
+        var pool = PENDANTS.filter(function(p){ return p.rar === r; });
+        pool.forEach(function(p){ if(x.w[r] > 0) its.push({ kind:'pend', id:p.id, nm:p.nm, rar:r, p:x.w[r] / pool.length }); });
+      });
+      return { hd:x.need + '点　' + x.nm, grades:['SS', 'S', 'A'].filter(function(r){ return x.w[r] > 0; }).map(function(r){ return [r, x.w[r]]; }), items:its };
+    }).concat([{ notes:['プレミアムペンダントを1個引くたびに1点たまります', '交換すると、その点数が減ります'] }]) };
+  } else if(v === 'pmix'){
+    var pS = PENDANTS.filter(function(p){ return p.rar === 'S'; }), pSS = PENDANTS.filter(function(p){ return p.rar === 'SS'; });
+    o = { title:'ペンダント合成　提供割合', blocks:[
+      { hd:'A → S', items:pS.map(function(p){ return { kind:'pend', id:p.id, nm:p.nm, rar:'S', p:1 / pS.length }; }) },
+      { hd:'S → S+（狙いなし）', items:pSS.map(function(p){ return { kind:'pend', id:p.id, nm:p.nm, rar:'SS', p:1 / pSS.length }; }) },
+      { hd:'S → S+ の狙い', table:{ head:['回数', '狙いが出る確率'], rows:dkpAimRows(pSS.length, dkpAim() ? ((SV.pity && SV.pity.pend) | 0) + 1 : 0) },
+        notes:['k 回目に狙いが出る確率 ＝ k × 10% と 1 ÷ ' + pSS.length + '（S+ の種類数）の大きい方', '10回目は必ず狙いが出ます。狙いが出たら数え直します',
+               '狙いが出なかった時は、狙い以外の S+ から等しく出ます'] } ] };
+  }
+  if(o) modal(dkpOddsHTML(o));
+}
+/* 合成ボタンの上の「あと n 回で確定」（S → S+ だけ） */
+function dkpLeftLine(up){
+  var aim = dkpAim(), pity = (SV.pity && SV.pity.pend) | 0;
+  if(up !== 'SS' && !aim) return '';
+  return '<p class="dkp-left">' + (aim ? 'あと <b>' + Math.max(1, 10 - pity) + '</b> 回で確定（今回 <b>' + dkpPct(dkpAimChance()) + '%</b>）'
+                                       : '狙いを決めると、10回目で確定') + '</p>';
+}
+/* ══════════ 引く ══════════
+   カードパックは料金・抽選・grant・saveNow を 5-meta.js の doGacha と同じ順に呼ぶ（乱数の順番をそろえる）。
+   lane＝LANES のキー（カード）／DKP_PL のキー（ペンダント）／'lucky:l1'・'lucky:l3'・'lucky:l10'（ラッキーマイレージの交換） */
 async function doGacha(lane, n, btn){
   var S = dkpS();
   if(S.busy) return;
-  lane = LANES[lane] ? lane : 'normal';
-  n = (+n === 5) ? 5 : 1;
-  var L = LANES[lane] || LANES.normal;
-  var free = (lane === 'premium' && n === 1 && freeLeft() === 0);
-  var cost = free ? 0 : (n === 1 ? L.one : L.five);
+  var lk = null;
+  if(typeof lane === 'string' && lane.indexOf('lucky:') === 0){
+    lk = DKP_LUCKY.filter(function(x){ return 'lucky:' + x.k === lane; })[0];
+    if(!lk) return;
+  }
+  var pl = !lk && !!DKP_PL[lane];
+  if(!lk && !pl && !LANES[lane]) lane = 'normal';
+  n = lk ? 1 : ((+n === 5) ? 5 : 1);
+  var L = lk ? { nm:'ラッキーマイレージ', w:lk.w, cur:'', one:0, five:0 } : dkpLaneOf(lane);
+  var free = !lk && n === 1 && ((lane === 'premium' && freeLeft() === 0) || (lane === 'ppremium' && dkpPFreeLeft() === 0));
+  var cost = (lk || free) ? 0 : (n === 1 ? L.one : L.five);
   var isGem = L.cur === '💎';
-  var have = isGem ? SV.gem : SV.gold;
-  if(!free && have < cost){
-    toast('R', L.cur, (isGem ? 'ダイヤ' : 'ゴールド') + 'が足りません',
-          isGem ? '出席簿とミッションで増やせます' : 'ゲームに勝つと増えます', 2400);
-    dkpSfx('bad');
-    if(btn && btn.nodeType === 1) fxShake(btn, 260);
-    return;
+  if(lk && dkpLuckyN() < lk.need){
+    toast('R', '🍀', 'ラッキーマイレージが足りません', 'あと ' + (lk.need - dkpLuckyN()) + '点（プレミアムペンダント1個で1点）', 2400);
+    dkpSfx('bad'); if(btn && btn.nodeType === 1) fxShake(btn, 260); return;
+  }
+  if(!lk && !free && (isGem ? SV.gem : SV.gold) < cost){
+    toast('R', L.cur, (isGem ? 'ダイヤ' : 'ゴールド') + 'が足りません', isGem ? '出席簿とミッションで増やせます' : 'ゲームに勝つと増えます', 2400);
+    dkpSfx('bad'); if(btn && btn.nodeType === 1) fxShake(btn, 260); return;
   }
   dkpBusy(true);
   var got = [];
   try{
-    if(!free){ if(isGem) SV.gem -= cost; else SV.gold -= cost; }
-    if(free) SV.freeAt = Date.now();
+    if(lk) SV.luckyMile = dkpLuckyN() - lk.need;
+    else if(!free){ if(isGem) SV.gem -= cost; else SV.gold -= cost; }
+    if(free){ if(pl) SV.pfreeAt = Date.now(); else SV.freeAt = Date.now(); }
     for(var i = 0; i < n; i++){
       var rar = rollLane(L.w);
-      var pool = CARDPOOL.filter(function(c){ return c.rar === rar; });
-      var f = featureCard();
-      if(f.rar === rar) pool.push(f);
-      var c = pool.length ? pool[(Math.random() * pool.length) | 0] : CARDPOOL[0];
-      var g = grant(c) || {};
-      got.push({ c:c, g:g });
+      if(pl || lk){
+        var pp = PENDANTS.filter(function(p){ return p.rar === rar; }), fp = (pl && L.feat) ? dkpFeatPend() : null;
+        if(fp && fp.rar === rar) pp.push(fp);
+        var pd = pp.length ? pp[(Math.random() * pp.length) | 0] : PENDANTS[0];
+        got.push({ kind:'pend', id:pd.id, rar:pd.rar, p:pd, g:(dkGivePend(pd.id) || { id:pd.id, fresh:false, dup:0 }) });
+      } else {
+        var pool = CARDPOOL.filter(function(c){ return c.rar === rar; }), f = featureCard();
+        if(f.rar === rar) pool.push(f);
+        var c = pool.length ? pool[(Math.random() * pool.length) | 0] : CARDPOOL[0];
+        got.push({ kind:'card', id:c.id, rar:c.rar, c:c, g:(grant(c) || {}) });
+      }
     }
+    if(pl && L.lucky) SV.luckyMile = dkpLuckyN() + n;
     saveNow();
-    dkEmit('gacha:pull', { lane:lane, n:n, got:got.map(function(o){ return { id:o.c.id, rar:o.c.rar, card:o.g.card || null,
-      pend:o.g.pend || null, die:o.g.die || null, gold:o.g.gold || 0 }; }) });
+    dkEmit('gacha:pull', { lane:lane, n:n, kind:(pl || lk) ? 'pend' : 'card', got:got.map(function(o){
+      return o.kind === 'pend' ? { id:o.id, rar:o.rar, card:null, pend:o.g, die:null, gold:0 }
+                               : { id:o.id, rar:o.rar, card:o.g.card || null, pend:o.g.pend || null, die:o.g.die || null, gold:o.g.gold || 0 }; }) });
   } catch(e){
-    console.error('[WP1]', e);
+    console.error('[WP16a]', e);
     dkpBusy(false);
     return;
   }
-  var best = got.some(function(o){ return o.c.rar === 'SS'; }) ? 'SS' : got.some(function(o){ return o.c.rar === 'S'; }) ? 'S' : 'A';
-  var P = { lane:lane, n:n, got:got, best:best, phase:'charge', flipped:0, free:free, kind:isGem ? 'gem' : 'coin',
-            from:(S.pull && S.pull.phase === 'done') ? 'again' : 'idle' };
+  var best = got.some(function(o){ return o.rar === 'SS'; }) ? 'SS' : got.some(function(o){ return o.rar === 'S'; }) ? 'S' : 'A';
+  var P = { lane:lane, n:n, got:got, best:best, phase:'charge', flipped:0, free:free, cost:cost, kind:lk ? '' : (isGem ? 'gem' : 'coin'),
+            pl:!!(pl || lk), col:lk ? 'premium' : (pl ? L.col : lane), lucky:lk ? lk.k : '' };
   S.pull = P;
-  dkLane = lane;
+  S.gtab = P.pl ? 'pend' : 'card';
   try{ await dkpReveal(P); }
-  catch(e){ console.error('[WP1]', e); }
+  catch(e){ console.error('[WP16a]', e); }
   finally {
     DKFX.skip = false;
     if(S.pull === P){ P.phase = 'done'; P.flipped = P.n; }
@@ -1181,9 +1452,9 @@ async function doGacha(lane, n, btn){
 function dkpSeenAll(got){
   var fresh = 0;
   got.forEach(function(o){
-    if(dkMarkSeen(o.c.id)) fresh++;
-    if(o.g && o.g.pend && dkMarkSeen(o.g.pend.id)) fresh++;
-    if(o.g && o.g.die && dkMarkSeen(o.g.die.id)) fresh++;
+    if(dkMarkSeen(o.id)) fresh++;
+    if(o.kind === 'card' && o.g && o.g.pend && dkMarkSeen(o.g.pend.id)) fresh++;
+    if(o.kind === 'card' && o.g && o.g.die && dkMarkSeen(o.g.die.id)) fresh++;
   });
   if(fresh) toast('R', '📖', '図鑑に新しく登録', fresh + '件　+' + dkpFmt(fresh * 200) + 'G', 2400);
 }
@@ -1191,26 +1462,17 @@ function dkpGEl(sel){ var st = document.getElementById('gStage'); return st ? st
 async function dkpReveal(P){
   var S = dkpS();
   var alive = function(){ return S.pull === P && dkpOnScr('gacha') && !!document.getElementById('gStage'); };
-  var cube0 = dkpGEl('.dkp-cubepos'), r0 = (cube0 && P.from === 'idle' && dkpOnScr('gacha')) ? cube0.getBoundingClientRect() : null;
   showGacha();
   if(!alive()) return;
   if(DKFX.reduced){ P.phase = 'done'; P.flipped = P.n; dkpRevSync(); return; }
-  var cube = dkpGEl('.dkp-cubepos');
-  if(cube && r0){
-    var r1 = cube.getBoundingClientRect(), k = DKFX.scale() || 1;
-    var dx = (r0.left - r1.left) / k, dy = (r0.top - r1.top) / k;
-    if(Math.abs(dx) + Math.abs(dy) > 2 && cube.animate){
-      try{ cube.animate([{ transform:'translate(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px)' }, { transform:'translate(0,0)' }],
-                        { duration:420, easing:'cubic-bezier(.16,1,.3,1)' }); }catch(e){}
-    }
-  }
-  if(!P.free) fxCoins(fxWalletEl(P.kind), cube || { x:800, y:470 }, { kind:P.kind, n:(P.n === 5 ? 10 : 6), spread:50 });
+  var art = dkpGEl('.dkp-rvart');
+  if(P.kind && !P.free) fxCoins(fxWalletEl(P.kind), art || { x:800, y:470 }, { kind:P.kind, n:(P.n === 5 ? 10 : 6), spread:50 });
   dkWallet();
   dkpSfx('gachaRoll', P.best === 'SS' ? 1 : P.best === 'S' ? 0.5 : 0);
   await fxWait(450);
   if(!alive()) return;
   P.phase = 'burst'; dkpRevSync();
-  var at = dkpGEl('.dkp-cubepos') || { x:800, y:470 };
+  var at = dkpGEl('.dkp-rvart') || { x:800, y:470 };
   fxFlash();
   fxBurst(at, { kind:'star', n:28, power:1.4 });
   if(P.best === 'SS'){
@@ -1222,7 +1484,6 @@ async function dkpReveal(P){
   await fxWait(260);
   if(!alive()) return;
   P.phase = 'deal0'; dkpRevSync();
-  var rv = dkpGEl('.dkp-rv'); if(rv) void rv.offsetWidth;
   await fxWait(30);
   P.phase = 'deal'; dkpRevSync();
   dkpSfx('cardIn');
@@ -1231,7 +1492,7 @@ async function dkpReveal(P){
   for(var i = 0; i < P.n; i++){
     if(!alive()) return;
     var it = P.got[i];
-    if(it.c.rar === 'SS' && !DKFX.skip){
+    if(it.rar === 'SS' && !DKFX.skip){
       var sl = dkpGEl('.dkp-ps[data-i="' + i + '"] .pullcard');
       if(sl) fxShake(sl, 300);
       dkpSfx('diceShake', 1);
@@ -1241,12 +1502,12 @@ async function dkpReveal(P){
     P.flipped = i + 1; dkpRevSync();
     var card = dkpGEl('.dkp-ps[data-i="' + i + '"] .pullcard');
     if(card){
-      if(it.c.rar === 'SS'){
+      if(it.rar === 'SS'){
         fxBurst(card, { kind:'conf', n:26, power:1.1 });
         fxBurst(card, { kind:'star', n:14, power:.9 });
         fxPopText(card, 'S+ 獲得！', { tone:'gold', size:54 });
         dkpSfx('gachaRare');
-      } else if(it.c.rar === 'S'){
+      } else if(it.rar === 'S'){
         fxBurst(card, { kind:'star', n:16, power:.9, color:'#C9A0F0' });
         dkpSfx('diceDouble');
       } else {
@@ -1259,6 +1520,7 @@ async function dkpReveal(P){
   if(!alive()) return;
   P.phase = 'done'; dkpRevSync();
 }
+function dkpFresh(o){ return !!(o && (o.kind === 'pend' ? (o.g && o.g.fresh) : (o.g && o.g.card && o.g.card.fresh))); }
 /* 引いた結果の層を、状態 P から作る・合わせる（何度呼んでもよい。作り直された画面にも追いつく） */
 function dkpRevSync(){
   var S = dkpS(), P = S.pull, g = document.getElementById('gacha'), st = document.getElementById('gStage');
@@ -1266,12 +1528,21 @@ function dkpRevSync(){
   var on = !!P;
   g.classList.toggle('dkp-rev', on);
   g.classList.toggle('dkp-fast', !!(on && DKFX.skip));
-  if(!on){ var old = st.querySelector(':scope > .dkp-rv'); if(old) old.remove(); st.className = 'dkp-vault'; return; }
+  if(!on){ if(st.firstChild) st.innerHTML = ''; st.className = 'dkp-rvst'; return; }
   var ph = P.phase;
   st.classList.toggle('dkp-charge', ph === 'charge');
   st.classList.toggle('dkp-burst', ph === 'burst');
   st.classList.toggle('dkp-gone', ph !== 'charge' && ph !== 'burst');
   st.classList.toggle('dkp-ss', P.best === 'SS' && ph !== 'charge');
+  var art = st.querySelector(':scope > .dkp-rvart');
+  if(!art || art._dkpP !== P){
+    if(art) art.remove();
+    art = document.createElement('div');
+    art.className = 'dkp-rvart';
+    art._dkpP = P;
+    art.innerHTML = '<i class="dkp-rvglow"></i>' + (P.pl ? dkpChestSVG(P.col) : dkpPackSVG(P.col));
+    st.appendChild(art);
+  }
   var rv = st.querySelector(':scope > .dkp-rv');
   if(!rv || rv._dkpP !== P){
     if(rv) rv.remove();
@@ -1290,8 +1561,7 @@ function dkpRevSync(){
     var pc = ps.querySelector('.pullcard');
     if(pc && fl && !pc.classList.contains('flipped')){
       pc.classList.add('flipped');
-      var it = P.got[i];
-      if(it && it.g && it.g.card && it.g.card.fresh && !pc.querySelector('.fx-new')){
+      if(dkpFresh(P.got[i]) && !pc.querySelector('.fx-new')){
         var nw = document.createElement('span'); nw.className = 'fx-new dkp-new'; nw.textContent = 'NEW!';
         pc.querySelector('.fx-front').appendChild(nw);
       }
@@ -1302,37 +1572,161 @@ function dkpRevSync(){
 function dkpRevHTML(P){
   var w = P.n === 1 ? 250 : 214, gap = 26;
   var cards = P.got.map(function(o, i){
-    var c = o.c, img = dkCharImg(c.id), dx = ((P.n - 1) / 2 - i) * (w + gap);
-    var chips = '';
-    if(o.g && o.g.card && !o.g.card.fresh) chips += '<span class="dkp-chip dup">重なり +1</span>';
-    if(o.g && o.g.pend){ var pp = pendById(o.g.pend.id);
-      if(pp) chips += '<span class="dkp-chip pd">' + dkpMedal(pp, { size:34 }) + '<b>' + esc(dkpShort(pp)) + '</b>' + (o.g.pend.fresh ? '<em>NEW</em>' : '<em>重なり</em>') + '</span>'; }
-    if(o.g && o.g.die){ var dd = dieById(o.g.die.id);
-      chips += '<span class="dkp-chip di">' + dkpDieIcon() + '<b>' + esc(String(dd.nm).replace(/の?サイコロ$/, '') || dd.nm) + '</b><em>NEW</em></span>'; }
-    if(o.g && o.g.gold) chips += '<span class="dkp-chip go"><i class="dkcoin dkp-ci"></i><b>+' + dkpFmt(o.g.gold) + 'G</b></span>';
+    var dx = ((P.n - 1) / 2 - i) * (w + gap), chips = '', front;
+    if(o.kind === 'pend'){
+      var p = o.p;
+      if(o.g && !o.g.fresh) chips += '<span class="dkp-chip dup">重なり +1</span>';
+      front = '<div class="fx-face fx-front dkp-pfr"><i class="dkp-pfrays"></i><div class="dkp-pfm">' + dkpMedal(p, { size:(P.n === 1 ? 176 : 146) }) + '</div>'
+        + '<span class="dkp-pcrt r' + p.rar + '">' + dkpRarNm(p.rar) + '</span>'
+        + '<div class="dkp-pcnm"><b>' + esc(dkpShort(p)) + '</b><i>' + esc(dkpTrg(p.trg)) + '</i></div></div>';
+    } else {
+      var c = o.c, img = dkCharImg(c.id);
+      if(o.g && o.g.card && !o.g.card.fresh) chips += '<span class="dkp-chip dup">重なり +1</span>';
+      if(o.g && o.g.pend){ var pp = pendById(o.g.pend.id);
+        if(pp) chips += '<span class="dkp-chip pd">' + dkpMedal(pp, { size:34 }) + '<b>' + esc(dkpShort(pp)) + '</b>' + (o.g.pend.fresh ? '<em>NEW</em>' : '<em>重なり</em>') + '</span>'; }
+      if(o.g && o.g.die){ var dd = dieById(o.g.die.id);
+        chips += '<span class="dkp-chip di">' + dkpDieIcon() + '<b>' + esc(String(dd.nm).replace(/の?サイコロ$/, '') || dd.nm) + '</b><em>NEW</em></span>'; }
+      if(o.g && o.g.gold) chips += '<span class="dkp-chip go"><i class="dkcoin dkp-ci"></i><b>+' + dkpFmt(o.g.gold) + 'G</b></span>';
+      front = '<div class="fx-face fx-front">'
+        + (img ? '<div class="dkp-pcart" style="background-image:url(' + img + ')"></div>' : '<div class="dkp-pcart dkp-pcph"><b>' + esc(c.nm.slice(0, 1)) + '</b></div>')
+        + (c.rar === 'SS' ? '<i class="dkp-pcsh"></i>' : '')
+        + '<span class="dkp-pcrt r' + c.rar + '">' + (RAR[c.rar] ? RAR[c.rar].nm : c.rar) + '</span>'
+        + '<div class="dkp-pcnm"><b>' + esc(c.nm) + '</b><i>' + esc(c.role) + '</i></div></div>';
+    }
     return '<div class="dkp-ps" data-i="' + i + '" style="--dx:' + dx.toFixed(1) + 'px;--dr:' + ((i - (P.n - 1) / 2) * -4).toFixed(1) + 'deg;--i:' + i + '">'
-      + '<div class="pullcard fx-flip3d r' + c.rar + '">'
-      +   '<div class="fx-face fx-back">' + dkpCrest() + '</div>'
-      +   '<div class="fx-face fx-front">'
-      +     (img ? '<div class="dkp-pcart" style="background-image:url(' + img + ')"></div>'
-                 : '<div class="dkp-pcart dkp-pcph"><b>' + esc(c.nm.slice(0, 1)) + '</b></div>')
-      +     (c.rar === 'SS' ? '<i class="dkp-pcsh"></i>' : '')
-      +     '<span class="dkp-pcrt r' + c.rar + '">' + (RAR[c.rar] ? RAR[c.rar].nm : c.rar) + '</span>'
-      +     '<div class="dkp-pcnm"><b>' + esc(c.nm) + '</b><i>' + esc(c.role) + '</i></div>'
-      +   '</div>'
-      + '</div>'
-      + '<div class="dkp-px">' + chips + '</div>'
-      + '</div>';
+      + '<div class="pullcard fx-flip3d r' + o.rar + '"><div class="fx-face fx-back">' + dkpCrest() + '</div>' + front + '</div>'
+      + '<div class="dkp-px">' + chips + '</div></div>';
   }).join('');
-  var L = LANES[P.lane] || LANES.normal, isGem = L.cur === '💎';
-  var nNew = P.got.filter(function(o){ return o.g && o.g.card && o.g.card.fresh; }).length;
-  var nDup = P.got.length - nNew;
-  var price = P.n === 1 ? L.one : L.five;
-  return '<div class="dkp-rvhd"><div class="fx-ribbon ' + (P.best === 'SS' ? 'red' : 'gold') + '"><b>' + (P.best === 'SS' ? 'S+ 獲得！' : L.nm + 'キューブ 開封') + '</b></div></div>'
+  var nNew = P.got.filter(dkpFresh).length, nDup = P.got.length - nNew, again = '';
+  if(P.lucky){
+    var lk = DKP_LUCKY.filter(function(x){ return x.k === P.lucky; })[0];
+    if(lk && dkpLuckyN() >= lk.need) again = '<button class="dkbtn gd fx-primary dkp-again" data-dkp-act="again">もう1回 ' + lk.need + '点</button>';
+  } else {
+    var L = dkpLaneOf(P.lane) || LANES.normal, isGem = L.cur === '💎';
+    again = '<button class="dkbtn gd fx-primary dkp-again" data-dkp-act="again">もう1回 ' + (isGem ? '<i class="dkgem dkp-ci"></i>' : '<i class="dkcoin dkp-ci"></i>')
+      + dkpFmt(P.n === 1 ? L.one : L.five) + '</button>';
+  }
+  var head = P.best === 'SS' ? 'S+ 獲得！' : P.lucky ? 'ラッキーマイレージ' : (dkpLaneNm(P.lane) + (P.pl ? ' 獲得' : ' 開封'));
+  return '<div class="dkp-rvhd"><div class="fx-ribbon ' + (P.best === 'SS' ? 'red' : 'gold') + '"><b>' + esc(head) + '</b></div></div>'
     + '<div class="dkp-row">' + cards + '</div>'
-    + '<div class="dkp-rvft"><span class="dkp-sum">NEW <b>' + nNew + '</b>　重なり <b>' + nDup + '</b></span>'
-    +   '<button class="dkbtn gd fx-primary dkp-again" data-dkp-act="again">もう1回 ' + (isGem ? '<i class="dkgem dkp-ci"></i>' : '<i class="dkcoin dkp-ci"></i>') + dkpFmt(price) + '</button>'
-    +   '<button class="dkbtn dkp-wood" data-dkp-act="close">とじる</button></div>';
+    + '<div class="dkp-rvft"><span class="dkp-sum">NEW <b>' + nNew + '</b>　重なり <b>' + nDup + '</b></span>' + again
+    + '<button class="dkbtn dkp-wood" data-dkp-act="close">閉じる</button></div>';
+}
+/* ══════════ キューブ（J40）：対戦の報酬の箱。押すとすぐ開く（待ち時間・クローバーなし） ══════════
+   SV.cubes と中身は WP12a（C21 dkGiveCube / dkOpenCube。最大7個）。ここは置き場と開ける演出だけ */
+function dkpCubeKind(k){ return DKP_CUBEK[k] ? k : ((k === 'diamond' || k === 'dk') ? 'dia' : 'wood'); }
+function dkpCubes(){
+  var a = Array.isArray(SV.cubes) ? SV.cubes : [];
+  return a.map(function(c, i){
+    if(c && typeof c === 'object') return { id:(c.id !== undefined && c.id !== null) ? c.id : i, kind:dkpCubeKind(c.kind) };
+    if(typeof c === 'string') return { id:i, kind:dkpCubeKind(c) };
+    return null;
+  }).filter(function(c){ return !!c; }).slice(0, 7);
+}
+function dkpShowCube(){
+  var S = dkpS(), list = dkpCubes(), res = S.cres, slots = '', i;
+  for(i = 0; i < 7; i++){
+    var c = list[i];
+    if(!c){ slots += '<div class="dkp-cslot dkp-cempty"><span class="dkp-cico">' + dkpCubeSVG('wood', true) + '</span><b>空き</b></div>'; continue; }
+    slots += '<button class="dkp-cslot dkp-k-' + c.kind + '" data-dkp-act="copen" data-dkp-v="' + i + '" id="dkpCs' + i + '">'
+      + '<span class="dkp-cico">' + dkpCubeSVG(c.kind) + '</span><b>' + esc(DKP_CUBEK[c.kind].s) + '</b><em>タップで開ける</em></button>';
+  }
+  var none = !list.length && !res, big = res ? res.kind : (list[0] ? list[0].kind : 'wood');
+  var stage = '<section class="fx-panel dkp-cstage' + (res ? ' dkp-cdone' : '') + '" data-fx="riseL"><i class="fx-edge"></i>'
+    + '<header class="dkp-ph"><b class="dkp-ttl">キューブオープン</b><span class="dkp-note">待ち時間なし・すぐ開きます</span></header>'
+    + '<div class="dkp-cped" id="dkpCPed"><i class="fx-halo dkp-halo"></i><i class="dkp-cfloor"></i>'
+    +   '<div class="dkp-cbig' + (none ? ' dkp-cnone' : '') + '" id="dkpCBig">' + dkpCubeSVG(big, none) + '</div></div>'
+    + (res ? dkpCubeResHTML(res) : '<p class="dkp-ctx">' + (list.length ? '右のキューブを押すと、その場で開きます' : 'キューブはプレイ後の結果報酬として獲得できます') + '</p>')
+    + '</section>';
+  var shelf = '<section class="fx-panel dkp-cshelf" data-fx="riseR"><i class="fx-edge"></i>'
+    + '<header class="dkp-ph"><b class="dkp-ttl">所持キューブ</b><span class="dkp-cnt"><b>' + list.length + '</b> / 7</span></header>'
+    + '<div class="dkp-cgrid">' + slots + '</div>'
+    + '<ul class="dkp-rules"><li>最大7個まで持てます。8個目が届くと、いちばん古いキューブを自動で開けて中身を受け取ります</li>'
+    +   '<li>ウッド＜シルバー＜ゴールド＜ダイヤの順に、良いアイテムが出やすくなります</li></ul></section>';
+  var el = dkMake('cube', 'quest', dkHead('cube', { title:'キューブ' })
+    + dkTabs([ { id:'cube', ic:dkpCubeSVG('gold'), nm:'キューブ' }, { id:'gacha', ic:dkpPackSVG('premium'), nm:'ガチャ' } ], 'cube')
+    + '<div class="dkbody dkp-body dkp-cbody">' + stage + shelf + '</div>');
+  el.classList.add('dkp-scr');
+  el.classList.toggle('dkp-busy', !!S.busy);
+  dkWire(el, function(id){ var s = dkpS(); if(s.busy) return; if(id === 'gacha'){ s.cres = null; showGacha(); } });
+  el.onclick = dkpCubeClick;
+  dkpLogo(el, 'キューブ');
+  dkpFxTag(el);
+  try{ bgm('gacha'); }catch(e){}
+  screenTo('cube');
+}
+function dkpCubeClick(e){
+  var S = dkpS(); if(S.busy) return;
+  var t = (e.target && e.target.closest) ? e.target.closest('[data-dkp-act]') : null;
+  if(!t || t.disabled || !this.contains(t)) return;
+  var a = t.getAttribute('data-dkp-act');
+  if(a === 'copen'){ dkpCubeOpen(+t.getAttribute('data-dkp-v'), t); return; }
+  if(a === 'cok'){ dkpSfx('click'); S.cres = null; dkpShowCube(); return; }
+}
+function dkpItemNm(it){
+  var k = String(it.kind || '');
+  return ({ key:'ゴールドキー', ticket:'入場券', frame:'名札の枠', cube:'キューブ', card:'カード', pend:'ペンダント', die:'サイコロ' })[k] || k;
+}
+/* 中身の札（dkOpenCube の戻り値は grant と同じ形。gem・items があっても出す） */
+function dkpCubeResHTML(res){
+  var o = res.got || {}, ch = [], cd = o.card && cardById(o.card.id), pd = o.pend && pendById(o.pend.id);
+  if(cd){
+    var img = dkCharImg('t' + cd.id.slice(1)) || dkCharImg(cd.id);
+    ch.push('<div class="dkp-crw r' + cd.rar + '"><span class="dkp-crimg"' + (img ? ' style="background-image:url(' + img + ')"' : '') + '></span>'
+      + '<div><b>' + esc(cd.nm) + '</b><em>' + dkpRarNm(cd.rar) + 'クラス・' + (o.card.fresh ? 'NEW' : '重なり +1') + '</em></div></div>');
+  }
+  if(pd) ch.push('<div class="dkp-crw r' + pd.rar + '">' + dkpMedal(pd, { size:64 }) + '<div><b>' + esc(dkpShort(pd)) + '</b><em>'
+    + dkpRarNm(pd.rar) + 'ペンダント・' + (o.pend.fresh ? 'NEW' : '重なり +1') + '</em></div></div>');
+  if(o.die && o.die.id){ var dd = dieById(o.die.id); ch.push('<div class="dkp-crw"><span class="dkp-crdie">' + dkpDieIcon() + '</span><div><b>' + esc(dd.nm) + '</b><em>サイコロ・NEW</em></div></div>'); }
+  if(+o.gold > 0) ch.push('<div class="dkp-crw"><i class="dkcoin dkp-crcur"></i><div><b>' + dkpFmt(o.gold) + ' ゴールド</b><em>ゴールド</em></div></div>');
+  if(+o.gem > 0) ch.push('<div class="dkp-crw"><i class="dkgem dkp-crcur"></i><div><b>ダイヤ ' + dkpFmt(o.gem) + '</b><em>ダイヤ</em></div></div>');
+  (Array.isArray(o.items) ? o.items : []).forEach(function(it){
+    if(it && it.kind) ch.push('<div class="dkp-crw"><span class="dkp-crdie">' + dkpCubeSVG('gold') + '</span><div><b>' + esc(dkpItemNm(it)) + '</b><em>×' + ((it.n | 0) || 1) + '</em></div></div>');
+  });
+  if(!ch.length) ch.push('<div class="dkp-crw"><div><b>中身は空でした</b><em>次のキューブに期待しましょう</em></div></div>');
+  return '<div class="dkp-cres"><div class="fx-ribbon gold dkp-crib"><b>キューブオープン！</b></div>'
+    + '<div class="dkp-crws">' + ch.join('') + '</div>'
+    + '<button class="dkbtn gd fx-primary dkp-cok" data-dkp-act="cok">OK</button></div>';
+}
+/* 開ける：先に dkOpenCube（中身の付与とセーブは WP12a）→ 箱が台座へ飛ぶ・揺れる・光って中身 */
+async function dkpCubeOpen(i, btn){
+  var S = dkpS(); if(S.busy) return;
+  var c = dkpCubes()[i]; if(!c) return;
+  var r = null;
+  try{ r = (typeof dkOpenCube === 'function') ? dkOpenCube(c.id) : null; }catch(e){ console.error('[WP16a]', e); r = null; }
+  if(!r || typeof r !== 'object'){ dkpSfx('warn'); toast('R', '📦', 'キューブを開けられませんでした', 'もう一度お試しください', 1800); dkpShowCube(); return; }
+  dkpBusy(true);
+  try{
+    var big = document.getElementById('dkpCBig'), from = btn ? fxPt(btn.querySelector('.dkp-cico') || btn) : null;
+    if(big){ big.innerHTML = dkpCubeSVG(c.kind); big.classList.remove('dkp-cnone'); }
+    if(btn) btn.classList.add('dkp-cused');
+    if(from && big && big.animate && !DKFX.reduced){
+      var to = fxPt(big);
+      try{ big.animate([{ transform:'translate(' + (from.x - to.x).toFixed(1) + 'px,' + (from.y - to.y).toFixed(1) + 'px) scale(.35)' }, { transform:'translate(0,0) scale(1)' }],
+        { duration:380, easing:'cubic-bezier(.16,1,.3,1)' }); }catch(e){}
+      dkpSfx('cardIn');
+      await fxWait(380);
+    }
+    dkpSfx('gachaRoll', c.kind === 'dia' ? 1 : c.kind === 'gold' ? 0.6 : 0.2);
+    if(big && big.animate && !DKFX.reduced){
+      try{ big.animate([{ transform:'rotate(0)' }, { transform:'rotate(-7deg) scale(.95)' }, { transform:'rotate(7deg) scale(.93)' },
+        { transform:'rotate(-6deg) scale(.92)' }, { transform:'rotate(5deg) scale(.92)' }, { transform:'rotate(0) scale(1.1)' }], { duration:520, easing:'linear' }); }catch(e){}
+      await fxWait(520);
+    }
+    fxFlash();
+    fxBurst(big || { x:560, y:430 }, { kind:'star', n:26, power:1.3 });
+    if(c.kind === 'gold' || c.kind === 'dia'){ fxBurst(big || { x:560, y:430 }, { kind:'conf', n:30, power:1.2 }); dkpSfx('gachaRare'); }
+    else dkpSfx('coinBurst');
+  } catch(e){ console.error('[WP16a]', e); }
+  finally {
+    S.cres = { kind:c.kind, got:r };
+    dkpBusy(false);
+  }
+  dkpShowCube();
+  var box = document.querySelector('#cube .dkp-crws');
+  if(+(r.gold || 0) > 0 && box) fxCoins(box, fxWalletEl('gold'), { kind:'coin', n:10 }).then(function(){ dkWallet(); });
+  else dkWallet();
+  try{ if(r.card && r.card.id) dkMarkSeen(r.card.id); if(r.pend && r.pend.id) dkMarkSeen(r.pend.id); if(r.die && r.die.id) dkMarkSeen(r.die.id); }catch(e){}
 }
 
 /* ══════════ 起動 ══════════ */
@@ -1342,6 +1736,7 @@ function dkpRevHTML(P){
       var S = dkpS();
       S.scr = (o && o.id) || '';
       if(S.scr !== 'gacha' && !S.busy) S.pull = null;
+      if(S.scr !== 'cube' && !S.busy) S.cres = null;
     });
-  }catch(e){ console.error('[WP1]', e); }
+  }catch(e){ console.error('[WP16a]', e); }
 })();

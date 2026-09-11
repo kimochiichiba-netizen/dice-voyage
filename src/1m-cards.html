@@ -554,6 +554,60 @@
 .dkc-modal .dkc-medal.dkc-pS{background:radial-gradient(circle at 35% 30%,#FBF3FF,#D6B8FF 40%,#8A58D8 70%,#3E1480)}
 #cards .dkc-alcards .dkc-item{justify-content:flex-start}
 #cards .dkc-alcards .dkc-face{flex:1 1 auto;height:auto;min-height:78px;background-size:190% auto,100% 100%;background-position:50% 28%,center}
+/* ══════ v10（WP16a）：静かに（常時アニメは1画面8個まで）・能力値の上乗せ・再合成・サイコロの能力と粒 ══════ */
+#cards::after,#dice::after{animation:none;opacity:.85}
+#cards > .fx-amb > .fx-mote,#dice > .fx-amb > .fx-mote,#cards > .fx-amb > .fx-ray,#dice > .fx-amb > .fx-ray,
+#cards .fx-edge::after,#dice .fx-edge::after,#cards .dkbar i::after,#dice .dkbar i::after{display:none}
+#cards .dkbtn:not(.fx-primary)::after,#dice .dkbtn:not(.fx-primary)::after,#cards .dktab .nw,#dice .dktab .nw,
+#cards .dktab.on .dkc-svg,#dice .dktab.on .dkc-svg,#cards .dkc-fr::after,#dice .dkc-fr::after,#dice .dkc-item.on .dkc-dface img,
+#cards .dkc-arw,#cards .dkc-arw2,#cards .dkc-expbar em,#cards .dkc-ms.dkc-can .dkc-msic,#cards .fx-card.rSS::after,
+#cards .dkc-backin::after,#cards .dkc-mixslot .fx-gloss::after,#cards .dkc-upcard .fx-gloss::after,
+#dice .dkc-pedring::after,#dice .dkc-pl10 .dkc-pedglow,#dice .dkc-dcimg img,
+.dkc-modal .dkbtn::after,.dkc-modal .fx-gloss::after,.dkc-modal .fx-card.rSS::after,.dkc-modal .dkc-big{animation:none}
+#cards .dkc-expbar em{opacity:.85}
+#dice .dkc-pl10 .dkc-pedglow{opacity:.5}
+/* 能力値：基本値＋装着中のサイコロの青い +N（J58） */
+#cards .dkc-st b{min-width:96px;text-align:right;white-space:nowrap}
+#cards .dkc-plus{margin-left:4px;font-style:normal;font-family:var(--pop);font-size:16px;color:#8FD2FF;-webkit-text-stroke:3px #0C2A52;paint-order:stroke fill}
+#cards .dkc-plb{position:absolute;top:0;bottom:0;border-radius:0 10px 10px 0;background:linear-gradient(180deg,#CDEBFF 0 26%,#3E9BEC 52%,#1B63B8)}
+#cards .dkc-plnote{margin:0;font-size:16px;color:#C9DDF0}
+#cards .dkc-plnote em{font-style:normal;font-weight:900;color:#8FD2FF}
+/* 合成：「あと n 回で確定」・提供割合・再合成（J57） */
+#cards .dkc-mhd .dkp-oddsb{margin-left:auto}
+#cards .dkc-left{padding:6px 10px;border-radius:10px;text-align:center;font-size:17px;font-weight:900;color:#F0DCA8;
+  background:linear-gradient(180deg,rgba(255,214,110,.14),rgba(255,214,110,.04));border:1px solid rgba(255,214,110,.4)}
+#cards .dkc-left b{font-family:var(--pop);font-weight:400;font-size:24px;color:#FFE27A;-webkit-text-stroke:3px #3A2405;paint-order:stroke fill}
+.dkc-modal .dkc-remix{color:#EAF8FF;-webkit-text-stroke:4px rgba(8,30,60,.85);background:linear-gradient(180deg,#8FD2FF 0 8%,#2E8BE0 34%,#14559E 74%,#0B2C5E);border:3px solid #0B2C5E}
+.dkc-modal .dkc-remix .dkc-ico{width:26px;height:26px}
+.dkc-modal .dkc-rmnote{margin:0;font-size:16px;color:#C9B894}
+.dkc-modal .dkc-pick2{display:flex;gap:46px;justify-content:center;align-items:flex-start}
+.dkc-modal .dkc-pk2{display:flex;flex-direction:column;align-items:center;gap:10px}
+.dkc-modal .dkc-pk2t{padding:2px 14px;border-radius:9px;font-size:18px;font-weight:900;color:#3A2405;background:linear-gradient(180deg,#FFF0BE,#E8B23A);border:2px solid #8A6206}
+.dkc-modal .dkc-pk2 .dkc-bt{min-width:200px;height:62px;font-size:26px}
+/* サイコロの能力（J42）：Lv1値 / MAX値 */
+#dice .dkc-abhd{display:flex;align-items:baseline;gap:10px;padding-bottom:2px}
+#dice .dkc-abhd span{font-family:var(--pop);font-size:19px;color:#FFE9B5}
+#dice .dkc-abhd em{margin-left:auto;font-style:normal;font-size:16px;font-weight:900;color:#C9B894}
+#dice .dkc-dnone{padding:10px 12px;border-radius:10px;font-size:17px;line-height:1.45;color:#E6D4AE;background:rgba(0,0,0,.22);border:1px solid rgba(196,150,70,.3)}
+#dice .dkc-dth span{font-size:16px;color:#C9B894}
+#dice .dkc-dch{grid-template-columns:1fr auto}
+#dice .dkc-dcr{display:flex;align-items:baseline;justify-content:space-between;gap:6px;flex-wrap:wrap}
+#dice .dkc-dcr span{font-size:16px;font-weight:900;color:#E6D4AE}
+#dice .dkc-dcr b{font-family:var(--pop);font-size:17px;color:#F0DCA8;white-space:nowrap}
+#dice .dkc-dcr em{font-style:normal;color:#FFD44A}
+/* サイコロの粒（G05）：図鑑の見本・演出を見る */
+#dice .dkc-dfx{width:100%;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 6px;border-radius:10px;background:rgba(143,210,255,.08);border:1px solid rgba(143,210,255,.3)}
+#dice .dkc-dfxi{display:flex;gap:4px}
+#dice .dkc-dfxi img{width:28px;height:28px;display:block}
+#dice .dkc-dfx span{font-size:16px;line-height:1.25;color:#DCEEFF;text-align:center}
+#dice .dkc-dcards{grid-template-columns:repeat(5,minmax(0,1fr))}
+#dice .dkc-dcard{min-width:0}
+#dice .dkc-dfx b{font-family:var(--pop);font-weight:400;margin-right:6px;color:#8FD2FF}
+#dice .dkc-mile{flex-wrap:wrap;justify-content:center;align-items:center}
+#dice .dkc-fxbtn{height:48px;font-size:20px;padding:0 16px}
+.dkc-fxp{position:absolute;left:0;top:0;width:34px;height:34px;pointer-events:none;z-index:2}
+.dkc-fxp img{width:100%;height:100%;display:block}
+
 /* ══════ 横長スマホ（高さ560px未満）：文字を大きく・押せる範囲を96px以上に ══════ */
 @media (max-height:560px){
   #cards .dktab .tx,#dice .dktab .tx{font-size:26px}
@@ -710,6 +764,28 @@
   #cards .dkc-planrow.dkc-full span{font-size:22px}
   #dice .dkc-kwopt em{font-size:26px}
   .dkc-modal .dkc-aimop small{font-size:26px}
+  /* v10（WP16a） */
+  #cards .dkc-plus{font-size:22px}
+  #cards .dkc-plnote{font-size:22px}
+  #cards .dkc-st b{min-width:124px}
+  #cards .dkc-left{font-size:22px}
+  #cards .dkc-left b{font-size:28px}
+  .dkc-modal .dkc-rmnote{font-size:22px}
+  .dkc-modal .dkc-pk2t{font-size:22px}
+  .dkc-modal .dkc-pk2 .dkc-bt{height:84px;font-size:30px}
+  .dkc-modal .dkc-remix .dkc-ico{width:30px;height:30px}
+  #dice .dkc-abhd span{font-size:26px}
+  #dice .dkc-abhd em,#dice .dkc-dnone,#dice .dkc-dth span,#dice .dkc-dcr span,#dice .dkc-dfx span{font-size:22px}
+  #dice .dkc-dcr b{font-size:24px}
+  #dice .dkc-dfxi img{width:34px;height:34px}
+  #dice .dkc-fxbtn{height:64px;font-size:26px}
+  #dice .dkc-dcds{display:none}
+  #dice .dkc-dcimg{height:112px}
+  #dice .dkc-dcimg img{width:112px;height:112px}
+  /* 強化の素材の丸（WP2#1）：1つを 96px の升に入れ、透明な当たり判定も 96×100px（となりと重ならない） */
+  #cards .dkc-upinfo{width:490px}
+  #cards .dkc-slots{display:grid;grid-template-columns:repeat(5,96px);gap:0;justify-items:center}
+  #cards .dkc-slot.dkc-fill::after{width:96px;height:100px}
 }
 @media (prefers-reduced-motion:reduce){
   #cards .dkc-stage > .dkc-big,#cards .dkc-upcard,#cards .dkc-mixres > .dkc-big,#dice .dkc-hero,#dice .dkc-pdie,#dice .dkc-ghost,
