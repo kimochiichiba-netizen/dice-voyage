@@ -1,12 +1,18 @@
 /* ══════════════════════════════════════════════════════════════
-   ダイスキングダム — オンライン対戦（7-online.js）
+   ダイスキングダム — オンライン対戦（7-online.js / v10 WP13b）
    ──────────────────────────────────────────────────────────────
    ・サーバを持たない。ブラウザ同士を直接つなぐ（WebRTC / PeerJS）。
      合図（シグナリング）だけ PeerJS の公開ブローカーを借りる。鍵も登録も不要。
-   ・盤面は送らない。「誰が何をしたか」だけを送り、各端末が同じ手順で同じ結果を出す。
-     そのため乱数はホストが決めた種から全員で共有する（xorshift32）。
-     さらに操作1つごとに種を振り直すので、片側だけで起きた乱数消費（演出など）が
-     次の操作までに必ず消える＝ズレが積み上がらない。
+   ・盤面は送らない。「誰が何を選んだか」だけを送り、各端末が同じ手順で同じ結果を出す。
+     乱数はホストが決めた種から全員で共有する（xorshift32）。操作1つごとに種を振り直す。
+   ・操作には通し番号を打つ。先に届いた操作は「その選択の所まで手順が来た時」に使う
+     （端末ごとに演出の速さが違っても、同じ所で同じ操作を使う＝ずれない）。
+   ・操作には host の盤面の要約（hash）と、前の操作から変わった所（差分）を付ける。
+     要約が合わない端末は、その場で host の盤面に合わせ直す（往復なし）。
+   ・人間の選択の期限は30秒（SPEED は掛けない）。切れたら host がその席を「自動」にして、
+     CPU の判断で続ける。自動の席・抜けた席は host が決める（待たない）。
+   ・エモートといいねは、手順とは別の軽い知らせで配る（3秒に1回・いいね1試合10回）。
+   ・4人まで。5人目は入れない（観戦者は作らない）。
    ・オンラインを使わないときは、既存コードに一切さわらない（差し替えは開始時だけ）。
    ・Artifact 版（game.html）は外部接続が止められるので、読み込み失敗＝黙ってオフライン。
    ・Date.now / new Date は使わない。
@@ -17,8 +23,24 @@ function dvOnlineBoot(){
   /* 読み上げやすい字だけ。0/1/O/I/L は入れない */
   var ALPHA     = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
   var IDPREFIX  = 'dvkg';        // 公開ブローカー上での当ゲームの名前空間
-  var MAXSEAT   = 4;
+  var MAXSEAT   = 4;             // 本家どおり4人まで（観戦者は作らない）
   var TURN_TAGS = ['roll','skill','item','cpuitem'];
+  var WAIT_MS   = 30000;         // 人間の選択の期限（本家の持ち時間。SPEED は掛けない）
+  var GRACE_MS  = 1500;          // host の見張りは本人の端末の期限より少しあと（通信の遅れのぶん）
+  var EMO_GAP   = 3000;          // エモートは3秒に1回
+  var EMO_MAX   = 4;             // 1回に選べるエモートの数
+  var LIKE_MAX  = 10;            // いいねは1試合10回
+  var MISS_MAX  = 6;             // 手順のずれが続いたら、先の操作を捨てて合わせ直す
+  /* host が配るルール（無い項目は null を送り、ゲスト側の古い値を消す） */
+  var CFG_KEYS  = ['mapId','turns','timeLimit','cash','ai','n','team','shake','turnTimer','cls'];
+  /* 盤面の差分に入れない物（見た目だけ・大きくて変わらない物・端末ごとの時計） */
+  var SKIP_P = { render:1, hopY:1, squash:1, offx:1, offy:1, face:1, stats:1, skill:1, pend:1, pendLv:1, ch:1 };
+  var SKIP_G = { map:1, tiles:1, players:1, phase:1, running:1, dktLoop:1, dkbInit:1, dkbLikes:1,
+                 lastTick:1, clock:1, alarm:1, olLikes:1 };
+  /* 期限切れ・抜けた時に host が代わりに出す答え（CPU の弱い判断。null/false は「やめる」） */
+  var FALLBACK = { tile:-1, build:[], buyout:false, mini:{ c:'stop' }, jam:false, jail:'dbl', travel:false,
+                   fortune:'ok', angel:true, coupon:true, guard:true, oebuy:false,
+                   swap:null, bonus3:null, crystal:null, roulette:null, start:null };
 
   var OL = {
     lib:false, peer:null, me:'', hostId:'', host:false, code:'',
@@ -26,20 +48,27 @@ function dvOnlineBoot(){
     hostConn:null,
     members:[],          // ロビーの顔ぶれ [{pid,name,ready,prof}]
     seats:[],            // 試合中の席 [{name,kind,pid,alive,prof}]
-    prof:null,
+    prof:null, rules:null,
     on:false,            // ロビーに入っている
     started:false,       // 試合が始まっている
+    trying:false,        // 部屋をつくっている途中
     seed:0, week:0,
     nextSeq:0,           // ホストが配る通し番号
-    applySeq:0,          // 自分が次に適用する番号
-    gap:{},              // 飛んできた先の操作の置き場
-    w:null,              // いま待っている選択 {seat,tags,res}
+    recvSeq:0,           // 次に受け取る番号（ここまでは列 q に並んでいる）
+    applySeq:0,          // 次に使う番号
+    dataN:0,             // 使った「選択」の数（ゲストの答えがどの選択の物かを見る）
+    q:[], gap:{}, doQ:{},
+    w:null,              // いま待っている選択
     rng:null, real:Math.random,
     diceQ:null,
     orig:{},
-    waitBox:null,
-    resyncing:false,
-    seen:{}, beatIn:0, beatOut:0, wantN:0    // 生存確認（performance.now はこの端末の中だけで使う）
+    waitBox:null, waitOf:null, waitT:0, busySeat:-1,
+    resyncing:false, pumping:false, applying:false,
+    mir:null, heals:0, miss:0,
+    autoPend:{}, inLocal:{}, localPick:null,
+    emoAt:{}, likes:{}, likeG:null, tuSent:false,
+    cfg0:null, hooked:false, waitMs:WAIT_MS,
+    seen:{}, beatIn:0, beatOut:0, wantN:0
   };
 
   /* ══════════ 生存確認 ══════════
@@ -121,15 +150,12 @@ function dvOnlineBoot(){
   function bcast(msg, exceptPid){
     for(var k in OL.conns){ if(k !== exceptPid) sendTo(OL.conns[k], msg); }
   }
-  function toHost(msg){
-    if(OL.host) onData(OL.me, msg); else sendTo(OL.hostConn, msg);
-  }
 
   function wire(conn){
     OL.seen[conn.peer] = nowMs();
     conn.on('data', function(m){
       OL.seen[conn.peer] = nowMs();
-      try{ onData(conn.peer, m); }catch(e){}
+      try{ onData(conn.peer, m); }catch(e){ console.error('[WP13b]', e); }
     });
     conn.on('close', function(){ gone(conn.peer); });
     conn.on('error', function(){ gone(conn.peer); });
@@ -157,17 +183,25 @@ function dvOnlineBoot(){
           if(OL.seats[i].pid === pid && OL.seats[i].alive) ctl('drop', i);
       } else pushRoom();
     } else if(pid === OL.hostId){
-      if(OL.started) note('ホストとの接続が切れました', 'ここからはCPUが進めます');
-      else leave(true);
+      if(OL.started){
+        /* host が居ないと誰も手順を進められない。止まった盤を見せ続けず、ここで終える */
+        note('ホストとの接続が切れました', 'この対戦はここで終わりです');
+        if(typeof dkbQuit === 'function'){ try{ dkbQuit(); }catch(e){ console.error('[WP13b]', e); } }
+        if(OL.on || OL.started){ try{ if(G){ G.over = true; G.running = false; } }catch(e){} leave(true); goHome(); }
+      } else {
+        leave(true);
+        backToEntry('ホストとの接続が切れました。もう一度つないでください。');
+      }
     }
   }
 
   /* ══════════ ロビー ══════════ */
+  function prim(v){ return (typeof v === 'number' || typeof v === 'boolean' || typeof v === 'string') ? v : (v ? 1 : 0); }
   function myProfile(name){
-    var id = (typeof SV !== 'undefined' && SV.equip) ? SV.equip : CARDPOOL[0].id;
-    var o  = (typeof SV !== 'undefined' && SV.cards && SV.cards[id]) ? SV.cards[id] : {lv:1};
-    /* ペンダントの強化値とサイコロの Lv も配る（端末ごとの保存データで確率がずれないように） */
     var hasSV = (typeof SV !== 'undefined' && SV);
+    var id = (hasSV && SV.equip) ? SV.equip : CARDPOOL[0].id;
+    var o  = (hasSV && SV.cards && SV.cards[id]) ? SV.cards[id] : {lv:1};
+    /* ペンダントの強化値・サイコロの Lv と極も配る（端末ごとの保存データで確率がずれないように） */
     var pendLv = {};
     if(hasSV && SV.slots) SV.slots.slice(0,4).forEach(function(pid){
       var q = SV.pendants && SV.pendants[pid];
@@ -175,40 +209,67 @@ function dvOnlineBoot(){
     });
     var dieId = (hasSV && SV.die && SV.dice && SV.dice[SV.die]) ? SV.die : 'd0';
     var dieLv = (hasSV && SV.dice && SV.dice[dieId]) ? Math.max(1, Math.min(10, (SV.dice[dieId] | 0) || 1)) : 1;
+    var kw = (hasSV && dieLv >= 10 && SV.kiwami && typeof SV.kiwami[dieId] === 'string') ? SV.kiwami[dieId] : null;
+    /* 持ち込み品（部屋で買った物。C07 の SV.carry={oe,sal,dbl,magic}） */
+    var c = hasSV ? SV.carry : null, carry = null;
+    if(c && typeof c === 'object'){
+      carry = { oe:prim(c.oe), sal:prim(c.sal), dbl:prim(c.dbl),
+                magic:(typeof c.magic === 'string' && c.magic) ? c.magic.slice(0, 12) : null };
+      if(!carry.oe && !carry.sal && !carry.dbl && !carry.magic) carry = null;
+    }
     return {
       name: String(name||'プレイヤー').slice(0,10),
       cardId: id, lv: o.lv || 1,
-      slots: (typeof SV !== 'undefined' && SV.slots) ? SV.slots.slice(0,4) : [],
-      bag:   (typeof SV !== 'undefined' && SV.bag)   ? SV.bag.slice(0,3)   : [],
-      die:   (typeof SV !== 'undefined' && SV.die)   ? SV.die              : 'd0',
-      pendLv: pendLv, dieId: dieId, dieLv: dieLv
+      slots: (hasSV && SV.slots) ? SV.slots.slice(0,4) : [],
+      bag:   (hasSV && SV.bag)   ? SV.bag.slice(0,3)   : [],
+      die:   (hasSV && SV.die)   ? SV.die              : 'd0',
+      pendLv: pendLv, dieId: dieId, dieLv: dieLv, dieKw: kw,
+      carry: carry,
+      rp: hasSV ? (SV.rp | 0) : 0             // ともだちランキング（リーグ）に出す
     };
+  }
+
+  function goHome(){ if(typeof showHome === 'function') showHome(); else screenTo('title'); }
+  /* 入口の画面（#online）へ戻して、理由を出す */
+  function backToEntry(msg){
+    var el = document.getElementById('online');
+    if(!el){ goHome(); if(msg) note('オンライン', msg); return; }
+    screenTo('online');
+    var jb = el.querySelector('#olJoinBox'), m = el.querySelector('#olMsg');
+    if(jb && jb.style.display === 'none') jb.style.display = 'block';
+    if(m) m.textContent = msg || '';
+  }
+  function hostMsg(t, bad){
+    var m = document.getElementById('olHostMsg');
+    if(m){ m.textContent = t || ''; m.classList.toggle('bad', !!bad); }
   }
 
   function openOnline(){
     if(!OL.lib) return;
+    styleOnce();
     var nm = (typeof SV !== 'undefined' && SV.name) ? SV.name : 'あなた';
     var el = mkScreen('online',
       '<div style="max-width:680px;margin:0 auto;padding:28px 8px;text-align:center">'
       + '<h2 style="font-family:var(--pop);font-size:30px;color:#FFE9B5;margin:0 0 6px">オンラインで遊ぶ</h2>'
-      + '<p style="color:#9FB6CC;font-size:13.5px;margin:0 0 22px;line-height:1.8">'
+      + '<p style="color:#9FB6CC;font-size:16px;margin:0 0 22px;line-height:1.8">'
       +   '合言葉を伝えるだけで、はなれた友達と同じ盤で遊べます。<br>'
       +   'アプリの登録も、アカウントもいりません。最大4人・足りない席はCPUが入ります。</p>'
-      + '<div style="margin:0 0 20px"><label style="color:#9FB6CC;font-size:13px;margin-right:8px">なまえ</label>'
+      + '<div style="margin:0 0 20px"><label style="color:#9FB6CC;font-size:16px;margin-right:8px">なまえ</label>'
       +   '<input id="olName" type="text" maxlength="10" value="' + esc(nm) + '" '
-      +   'style="font-size:16px;padding:8px 12px;border-radius:8px;border:1px solid #33507a;'
+      +   'style="font-size:18px;padding:8px 12px;border-radius:8px;border:1px solid #33507a;'
       +   'background:#0b1729;color:#EAF2FF;width:190px;text-align:center"></div>'
       + '<div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">'
       +   '<button class="btn gold" id="olHost">部屋をつくる</button>'
       +   '<button class="btn gold" id="olJoin">部屋に入る</button></div>'
+      + '<div id="olHostMsg" class="ol-hmsg" role="status" aria-live="polite"></div>'
       + '<div id="olJoinBox" style="display:none;margin-top:20px">'
-      +   '<div style="color:#9FB6CC;font-size:13px;margin-bottom:8px">友達から聞いた4文字を入れてください</div>'
+      +   '<div style="color:#9FB6CC;font-size:16px;margin-bottom:8px">友達から聞いた4文字を入れてください</div>'
       +   '<input id="olCode" type="text" maxlength="4" placeholder="KAME" '
       +   'style="font-family:var(--pop);font-size:34px;letter-spacing:12px;padding:8px 10px 8px 22px;'
       +   'width:230px;text-align:center;text-transform:uppercase;border-radius:10px;'
       +   'border:1px solid #33507a;background:#0b1729;color:#FFD24D">'
       +   '<div style="margin-top:14px"><button class="btn gold" id="olGo">つなぐ</button></div>'
-      +   '<div id="olMsg" style="color:#9FB6CC;font-size:13px;margin-top:12px;min-height:20px"></div></div>'
+      +   '<div id="olMsg" style="color:#9FB6CC;font-size:16px;margin-top:12px;min-height:20px"></div></div>'
       + '<div style="margin-top:26px"><button class="btn ghost" id="olBack">もどる</button></div>'
       + '</div>');
     el.querySelector('#olHost').onclick = function(){ SFX.click(); startHost(); };
@@ -223,7 +284,7 @@ function dvOnlineBoot(){
       SFX.click(); el.querySelector('#olMsg').textContent = 'つないでいます…';
       startGuest(c);
     };
-    el.querySelector('#olBack').onclick = function(){ SFX.click(); leave(false); screenTo('title'); };
+    el.querySelector('#olBack').onclick = function(){ SFX.click(); leave(false); goHome(); };
     screenTo('online');
   }
 
@@ -233,14 +294,22 @@ function dvOnlineBoot(){
   }
 
   function startHost(){
+    if(OL.trying || OL.on) return;
+    OL.trying = true;
+    hostMsg('部屋をつくっています…', false);
     OL.prof = myProfile(nameNow());
     tryHost(0);
   }
-  /* 部屋がつくれなかった時。黙ってタイトルへ戻すと「押しても何も起きない」に見えるので理由を出す。
-     （待ち合わせ場所＝PeerJS の公開ブローカーが落ちている時にここへ来る） */
+  /* 部屋がつくれなかった時（待ち合わせ場所＝PeerJS の公開ブローカーが落ちている時など）。
+     タイトルへ飛ばさず、入口（#online）に理由を出す。「部屋をつくる」をもう一度押せる。 */
   function hostFailed(){
-    leave(false); screenTo('title');
-    note('部屋がつくれませんでした', '待ち合わせ場所につながりません。少し待ってからもう一度どうぞ');
+    OL.trying = false;
+    leave(true);
+    var el = document.getElementById('online');
+    var why = '部屋がつくれませんでした。待ち合わせ場所（つなぐための案内役）に届きません。少し待ってからもう一度どうぞ。';
+    if(el && el.querySelector('#olHostMsg')){ screenTo('online'); hostMsg(why, true); }
+    else goHome();
+    note('部屋がつくれませんでした', '待ち合わせ場所につながりません');
   }
   function tryHost(tries){
     if(tries > 6){ hostFailed(); return; }
@@ -250,11 +319,19 @@ function dvOnlineBoot(){
     var settled = false;
     p.on('open', function(id){
       if(settled) return; settled = true;
+      OL.trying = false; hostMsg('', false);
       OL.peer = p; OL.me = id; OL.hostId = id; OL.host = true; OL.code = code; OL.on = true;
       OL.members = [{pid:id, name:OL.prof.name, ready:true, prof:OL.prof}];
       startBeat();
       p.on('connection', function(c){
-        if(OL.started || OL.members.length >= MAXSEAT){ try{ c.close(); }catch(e){} return; }
+        /* 自分＋つながっている人で満員なら入れない（5人目は入れない・観戦者は作らない） */
+        if(OL.started || Object.keys(OL.conns).length + 1 >= MAXSEAT){
+          c.on('open', function(){
+            sendTo(c, {t:'full', started:OL.started ? 1 : 0});
+            setTimeout(function(){ try{ c.close(); }catch(e){} }, 600);
+          });
+          return;
+        }
         OL.conns[c.peer] = c;
         wire(c);                                 // data は open 前でも取りこぼさない
       });
@@ -313,18 +390,40 @@ function dvOnlineBoot(){
   }
 
   function leave(silent){
-    OL.on = false; OL.started = false;
+    /* 自分が選んでいる途中の画面（ポップアップ・エリア選び・サイコロ）を閉じてから抜ける */
+    var w0 = OL.w;
+    if(w0 && !w0.done && w0.mine){ w0.cancelled = true; cancelLocal(w0); }
+    OL.on = false; OL.started = false; OL.trying = false;
     stopBeat(); OL.seen = {};
     uninstall();
     try{ if(OL.peer) OL.peer.destroy(); }catch(e){}
-    OL.peer = null; OL.conns = {}; OL.hostConn = null; OL.members = []; OL.seats = [];
-    OL.w = null; OL.gap = {}; OL.nextSeq = 0; OL.applySeq = 0;
+    OL.peer = null; OL.conns = {}; OL.hostConn = null; OL.members = []; OL.seats = []; OL.rules = null;
+    resetSeq();
+    hideWait();
+    restoreCfg();                     // 部屋（オフライン）の設定をオンラインの前に戻す
     if(!silent){ /* 何も出さない（静かに戻す） */ }
+  }
+
+  /* 部屋に出すルール（host のもの） */
+  function rulesNow(){
+    var map = (typeof MAPS !== 'undefined') ? (MAPS.find(function(m){ return m.id === cfg.mapId; }) || MAPS[0]) : null;
+    return { map:(map && map.name) || '', turns:cfg.turns | 0, min:Math.round((cfg.timeLimit | 0) / 60),
+             team:!!cfg.team && wantN() === 4, shake:!!cfg.shake };
+  }
+  function rulesText(R){
+    if(!R) return '';
+    var a = [];
+    if(R.map) a.push(R.map);
+    a.push('制限ターン ' + R.turns);
+    if(R.min > 0) a.push('時間 ' + R.min + '分');
+    if(R.team) a.push('チーム戦');
+    if(R.shake) a.push('揺らすあり');
+    return a.join('・');
   }
 
   function pushRoom(){
     if(!OL.host) return;
-    bcast({t:'room', code:OL.code, members:OL.members.map(function(m){
+    bcast({t:'room', code:OL.code, rules:rulesNow(), members:OL.members.map(function(m){
       return {pid:m.pid, name:m.name, ready:m.ready};
     })});
     renderRoom();
@@ -333,6 +432,7 @@ function dvOnlineBoot(){
   function showRoom(){ renderRoom(); screenTo('olroom'); }
 
   function renderRoom(){
+    styleOnce();
     var i, rows = '';
     var list = OL.members;
     for(i=0;i<MAXSEAT;i++){
@@ -342,48 +442,51 @@ function dvOnlineBoot(){
         rows += '<div style="display:flex;align-items:center;gap:12px;padding:11px 14px;margin:7px 0;'
              + 'border-radius:10px;background:rgba(12,26,46,.75);border:1px solid #24406a">'
              + '<span style="width:12px;height:12px;border-radius:50%;background:' + col + '"></span>'
-             + '<b style="flex:1;text-align:left;color:#EAF2FF;font-size:15px">' + esc(m.name)
-             + (m.pid === OL.me ? '<span style="color:#8FA9C4;font-size:12px">（あなた）</span>' : '') + '</b>'
-             + '<span style="font-size:12.5px;color:' + (m.ready ? '#7DE08A' : '#FFD24D') + '">'
+             + '<b style="flex:1;text-align:left;color:#EAF2FF;font-size:18px">' + esc(m.name)
+             + (m.pid === OL.me ? '<span style="color:#8FA9C4;font-size:16px">（あなた）</span>' : '') + '</b>'
+             + '<span style="font-size:16px;color:' + (m.ready ? '#7DE08A' : '#FFD24D') + '">'
              + (m.ready ? '準備OK' : '接続中…') + '</span></div>';
       } else {
         rows += '<div style="display:flex;align-items:center;gap:12px;padding:11px 14px;margin:7px 0;'
              + 'border-radius:10px;background:rgba(12,26,46,.35);border:1px dashed #24406a;opacity:.6">'
              + '<span style="width:12px;height:12px;border-radius:50%;background:' + col + ';opacity:.4"></span>'
-             + '<b style="flex:1;text-align:left;color:#8FA9C4;font-size:14px">空席</b>'
-             + '<span style="font-size:12.5px;color:#8FA9C4">CPUが入ります</span></div>';
+             + '<b style="flex:1;text-align:left;color:#8FA9C4;font-size:17px">待機中</b>'
+             + '<span style="font-size:16px;color:#8FA9C4">CPUが入ります</span></div>';
       }
     }
+    var R = OL.host ? rulesNow() : OL.rules;
     var el = mkScreen('olroom',
       '<div style="max-width:640px;margin:0 auto;padding:22px 8px;text-align:center">'
-      + '<div style="color:#9FB6CC;font-size:13px;margin-bottom:4px">あいことば</div>'
+      + '<div style="color:#9FB6CC;font-size:16px;margin-bottom:4px">あいことば</div>'
       + '<div style="font-family:var(--pop);font-size:58px;letter-spacing:14px;color:#FFD24D;'
       +   'text-shadow:0 4px 0 rgba(0,0,0,.5);margin-bottom:6px;padding-left:14px">' + esc(OL.code) + '</div>'
-      + '<div style="color:#8FA9C4;font-size:12.5px;margin-bottom:20px">'
+      + '<div style="color:#8FA9C4;font-size:16px;margin-bottom:20px">'
       +   'この4文字を友達に伝えてください（電話でも口頭でもOK）</div>'
       + rows
+      /* ルールの行。host は人数の下の1行にまとめる（行を増やすとボタンが画面の下にはみ出す） */
+      + ((R && !OL.host) ? '<div class="ol-rules" style="margin-top:12px;font-size:20px;font-weight:700;color:#F4E3BD">ルール　' + esc(rulesText(R)) + '</div>' : '')
       + (OL.host
-          ? '<div style="margin-top:16px;color:#9FB6CC;font-size:13px">'
+          ? '<div style="margin-top:16px;color:#9FB6CC;font-size:16px">'
             + '人数　'
             + [2,3,4].map(function(v){
                 return '<button class="btn ghost olN" data-n="' + v + '"'
                   + (wantN() === v ? ' style="border-color:#FFD24D;color:#FFD24D"' : '')
                   + '>' + v + '人</button>';
               }).join(' ')
-            + '<div style="margin-top:6px;font-size:12px">'
-            + '人が足りない席はCPUが入ります（いまは人が ' + list.length + ' 人）</div></div>'
+            + '<div class="ol-rules" style="margin-top:6px;font-size:16px">'
+            + esc(rulesText(R)) + '　足りない席はCPU</div></div>'
           : '')
       + '<div style="margin-top:22px;display:flex;gap:14px;justify-content:center">'
       +   '<button class="btn ghost" id="olQuit">やめる</button>'
       +   (OL.host ? '<button class="btn gold" id="olStart">はじめる</button>'
-                   : '<span style="align-self:center;color:#9FB6CC;font-size:13px">'
+                   : '<span style="align-self:center;color:#9FB6CC;font-size:16px">'
                      + 'ホストが「はじめる」を押すまで待ってください</span>')
       + '</div></div>');
-    el.querySelector('#olQuit').onclick = function(){ SFX.click(); leave(false); screenTo('title'); };
+    el.querySelector('#olQuit').onclick = function(){ SFX.click(); leave(false); goHome(); };
     if(OL.host){
       el.querySelector('#olStart').onclick = function(){ SFX.click(); hostStart(); };
       el.querySelectorAll('.olN').forEach(function(b){
-        b.onclick = function(){ SFX.click(); OL.wantN = +b.dataset.n; renderRoom(); };
+        b.onclick = function(){ SFX.click(); OL.wantN = +b.dataset.n; pushRoom(); };
       });
     }
   }
@@ -412,12 +515,16 @@ function dvOnlineBoot(){
         prof:{name:cpuName[i % 4], cardId:c.id, lv:(cfg.ai === 2 ? 12 : cfg.ai === 1 ? 6 : 1),
               slots:[], bag:[], die:'d0'}});
     }
+    var rc = {};
+    CFG_KEYS.forEach(function(k){ var v = cfg[k]; rc[k] = (v === undefined) ? null : v; });
+    rc.n = n;
+    if(n !== 4) rc.team = false;              // チーム戦は4人（席0,2 対 1,3）の時だけ
     var info = {
       t:'start',
       seed: ((OL.real()*4294967296) >>> 0),
       week: weekIndexRaw(),
       seats: seats,
-      cfg: {mapId:cfg.mapId, turns:cfg.turns, timeLimit:cfg.timeLimit, cash:cfg.cash, ai:cfg.ai, n:n}
+      cfg: rc
     };
     bcast(info);
     beginGame(info);
@@ -427,16 +534,47 @@ function dvOnlineBoot(){
     return OL.orig.weekIndex ? OL.orig.weekIndex() : weekIndex();
   }
 
+  /* オンラインの前の設定を覚えておき、終わったら戻す（部屋の席が「あなた＋ともだち」に化けないように） */
+  function saveCfg(){
+    if(OL.cfg0) return;                       // まだ戻していない（前の試合の結果から続けて始めた）
+    try{ OL.cfg0 = JSON.parse(JSON.stringify(cfg)); }catch(e){ OL.cfg0 = null; }
+  }
+  function restoreCfg(){
+    var c = OL.cfg0; if(!c) return;
+    OL.cfg0 = null;
+    try{
+      var sp = cfg.speed;
+      Object.keys(cfg).forEach(function(k){ if(!(k in c)) delete cfg[k]; });
+      Object.keys(c).forEach(function(k){ cfg[k] = c[k]; });
+      if(sp !== undefined) cfg.speed = sp;    // アニメの速さは端末の設定のまま
+    }catch(e){ console.error('[WP13b]', e); }
+  }
+  function hookScreens(){
+    if(OL.hooked || typeof dkOn !== 'function') return;
+    OL.hooked = true;
+    dkOn('screen', function(p){
+      if(!p || !OL.cfg0 || OL.started) return;
+      if(['home','title','dkclass','setup','room','map'].indexOf(p.id) >= 0) restoreCfg();
+    });
+  }
+
   function beginGame(info){
+    saveCfg();
+    hookScreens();
     OL.seed = info.seed >>> 0;
     OL.week = info.week;
     OL.seats = info.seats;
-    OL.nextSeq = 0; OL.applySeq = 0; OL.gap = {}; OL.w = null;
-    cfg.mapId = info.cfg.mapId; cfg.turns = info.cfg.turns; cfg.timeLimit = info.cfg.timeLimit;
-    cfg.cash = info.cfg.cash; cfg.ai = info.cfg.ai; cfg.n = info.cfg.n;
-    cfg.seats = OL.seats.map(function(s){
-      return {name:s.name, kind:(s.kind === 'cpu' ? 'cpu' : 'human'), ch:-1, cardId:s.prof.cardId};
+    resetSeq();
+    var c = info.cfg || {};
+    Object.keys(c).forEach(function(k){
+      if(k === 'speed' || k === 'seats') return;
+      if(c[k] === null) delete cfg[k]; else cfg[k] = c[k];
     });
+    /* cfg.seats は画面の表示用（VS 画面の YOU など）。p.kind は全端末で同じ 'human' */
+    cfg.seats = OL.seats.map(function(s){
+      return {name:s.name, kind:(s.kind === 'cpu' ? 'cpu' : (s.pid === OL.me ? 'you' : 'human')), ch:-1, cardId:s.prof.cardId};
+    });
+    OL.likes = {}; OL.emoAt = {}; OL.likeG = null; OL.tuSent = false;
     OL.started = true;
     install();
     reseed(0);
@@ -444,24 +582,37 @@ function dvOnlineBoot(){
   }
 
   function mySeat(){
-    for(var i=0;i<OL.seats.length;i++) if(OL.seats[i].alive && OL.seats[i].pid === OL.me) return i;
+    for(var i=0;i<OL.seats.length;i++){
+      var s = OL.seats[i];
+      if(s && s.alive && s.kind === 'human' && s.pid === OL.me) return i;
+    }
     return -1;
   }
+  /* その席を決めるのはどの端末か。CPU・抜けた席・自動の席は host（host は自動の席を待たない） */
   function ownerOf(seat){
     var s = OL.seats[seat];
-    if(!s) return OL.hostId;
-    return (s.kind === 'human' && s.alive) ? s.pid : OL.hostId;
+    if(!s || s.kind !== 'human' || !s.alive) return OL.hostId;
+    var p = G && G.players && G.players[seat];
+    if(p && p.auto) return OL.hostId;
+    return s.pid;
   }
   function isMine(seat){ return ownerOf(seat) === OL.me; }
+  /* その席の人がこの端末にいるか（自動かどうかは問わない） */
+  function seatHere(seat){ var s = OL.seats[seat]; return !!(s && s.kind === 'human' && s.alive && s.pid === OL.me); }
 
   async function runGame(){
     SPEED = cfg.speed;
+    try{ await vsScreen(); }catch(e){ console.error('[WP13b]', e); }
     await loadingPhase();
     await hideAllScreens();
+    reseed(0);                        // 演出で消えた乱数をそろえてから盤を作る
     newGame();
-    camReset(); updHUD(); bgm('game');
+    camReset(); updHUD();
+    try{ await dkOrderOnBoard(); }catch(e){ console.error('[WP13b]', e); }   // 順番は最初の乱数で決まる（全端末で同じ）
+    if(!G || G.over || !OL.started) return;
+    bgm('game');
     var w = thisWeek();
-    await band('オンライン対戦スタート！', G.map.name + ' — のこり ' + cfg.turns + ' ターン', 1400);
+    await band('オンライン対戦スタート！', G.map.name + ' — 制限ターン ' + cfg.turns, 1400);
     await cutIn('THIS WEEK', w.ic + ' ' + w.nm, w.ds);
     turnLoop();
   }
@@ -469,97 +620,287 @@ function dvOnlineBoot(){
   /* ══════════ 受信 ══════════ */
   function onData(pid, m){
     if(!m || !m.t) return;
-    if(m.t === 'hb') return;
-    if(m.t === 'hello'){
+    var t = m.t;
+    if(t === 'hb') return;
+    if(t === 'hello'){
       if(!OL.host || OL.started) return;
       var found = false, i;
       for(i=0;i<OL.members.length;i++) if(OL.members[i].pid === pid) found = true;
-      if(!found && OL.members.length < MAXSEAT)
-        OL.members.push({pid:pid, name:m.prof.name, ready:true, prof:m.prof});
+      if(!found){
+        if(OL.members.length >= MAXSEAT){              // 同時に入ってきた5人目
+          sendTo(OL.conns[pid], {t:'full', started:0});
+          var cc = OL.conns[pid];
+          delete OL.conns[pid];
+          setTimeout(function(){ try{ if(cc) cc.close(); }catch(e){} }, 600);
+          return;
+        }
+        OL.members.push({pid:pid, name:String((m.prof && m.prof.name) || 'プレイヤー').slice(0,10), ready:true, prof:m.prof || {}});
+      }
       pushRoom();
       return;
     }
-    if(m.t === 'room'){
+    if(t === 'full'){
+      if(OL.host) return;
+      leave(true);
+      backToEntry(m.started ? 'その部屋はもう対戦が始まっています。' : 'その部屋は満員です（4人まで）。別の部屋をつくってください。');
+      return;
+    }
+    if(t === 'room'){
       OL.code = m.code;
-      OL.members = m.members.map(function(x){ return {pid:x.pid, name:x.name, ready:x.ready, prof:null}; });
+      OL.rules = m.rules || null;
+      OL.members = (m.members || []).map(function(x){ return {pid:x.pid, name:x.name, ready:x.ready, prof:null}; });
       renderRoom();
       return;
     }
-    if(m.t === 'start'){ if(!OL.host) beginGame(m); return; }
-    if(m.t === 'do'){                       // ゲストの操作 → ホストが番号を打って全員へ
-      if(!OL.host) return;
-      stamp(m.seat, m.tag, m.v);
+    if(t === 'start'){ if(!OL.host) beginGame(m); return; }
+    if(t === 'do'){ hostDo(pid, m); return; }
+    if(t === 'auto'){ if(OL.host) hostAuto(pid, m); return; }
+    if(t === 'emo'){ gotEmo(pid, m); return; }
+    if(t === 'like'){ gotLike(pid, m); return; }
+    if(t === 'act'){ if(!OL.host) enqueue(m.a); return; }
+    if(t === 'need'){
+      if(!OL.host || !OL.started) return;
+      sendTo(OL.conns[pid], {t:'state', seq:OL.recvSeq, n:OL.dataN, f:flatten()});
       return;
     }
-    if(m.t === 'act'){ applyAct(m.a); return; }
-    if(m.t === 'need'){
-      if(!OL.host) return;
-      sendTo(OL.conns[pid], {t:'state', seq:OL.applySeq, snap:snapshot()});
-      return;
-    }
-    if(m.t === 'state'){ restore(m.snap, m.seq); return; }
+    if(t === 'state'){ if(!OL.host) restoreState(m); return; }
   }
 
   /* ══════════ 操作の番号づけと適用 ══════════ */
+  function resetSeq(){
+    OL.nextSeq = 0; OL.recvSeq = 0; OL.applySeq = 0; OL.dataN = 0;
+    OL.q = []; OL.gap = {}; OL.doQ = {}; OL.autoPend = {}; OL.inLocal = {};
+    if(OL.w){ clearTimeout(OL.w.timer); clearTimeout(OL.w.own); OL.w.done = true; }   // 前の試合の待ちは捨てる
+    OL.w = null; OL.mir = null; OL.heals = 0; OL.miss = 0; OL.localPick = null; OL.resyncing = false;
+  }
+  /* host が番号を打って全員へ。選択（seat>=0）には盤面の要約と差分を付ける */
   function stamp(seat, tag, v){
-    var a = {seq:OL.nextSeq++, seat:seat, tag:tag, v:v, h:hashState()};
+    var a = {seq:OL.nextSeq++, seat:seat, tag:tag, v:v, k:OL.dataN};
+    if(seat >= 0 && G){
+      a.h = hashState();
+      var cur = flatten();
+      if(!OL.mir) a.f = cur;
+      else { var d = diffFlat(OL.mir, cur); if(d) a.d = d; }
+      OL.mir = cur;
+    }
     bcast({t:'act', a:a});
-    applyAct(a);
+    enqueue(a);
   }
   function ctl(tag, v){ if(OL.host) stamp(-1, tag, v); }
 
-  function applyAct(a){
-    if(!OL.started) return;
-    if(a.seq < OL.applySeq) return;                       // 二重に来た
-    if(a.seq > OL.applySeq){                              // 番号が飛んだ
-      OL.gap[a.seq] = a;
-      askResync();
-      return;
-    }
-    if(!OL.host && a.h !== undefined && a.h !== hashState()){
-      askResync();                                        // 盤面がずれた
-    }
-    OL.applySeq = a.seq + 1;
-    reseed(a.seq);                                        // ここで全端末の乱数がそろう
-    if(a.seat < 0){ doCtl(a); drain(); return; }
-    var w = OL.w;
-    if(w && w.seat === a.seat && w.tags.indexOf(a.tag) >= 0){
-      OL.w = null; hideWait();
-      w.res(a);
-    } else {
-      askResync();
-    }
-    drain();
+  /* 届いた操作を番号順に並べる（飛んだ番号は置いておく） */
+  function enqueue(a){
+    if(!OL.started || !a || typeof a.seq !== 'number') return;
+    if(a.seq < OL.recvSeq) return;                        // 二重に来た
+    if(a.seq > OL.recvSeq){ OL.gap[a.seq] = a; askResync(); return; }
+    OL.q.push(a); OL.recvSeq++;
+    while(OL.gap[OL.recvSeq]){ var nx = OL.gap[OL.recvSeq]; delete OL.gap[OL.recvSeq]; OL.q.push(nx); OL.recvSeq++; }
+    pump();
   }
-  function drain(){
-    var nx = OL.gap[OL.applySeq];
-    if(nx){ delete OL.gap[OL.applySeq]; applyAct(nx); }
+  /* 手順が次の選択まで来ていれば、並んでいる操作を使う */
+  function pump(){
+    if(OL.pumping) return;
+    OL.pumping = true;
+    try{
+      while(OL.started && OL.q.length){
+        var w = OL.w;
+        if(!w || w.done) break;                           // まだその選択の所まで来ていない
+        var a = OL.q[0];
+        if(a.seat < 0){ OL.q.shift(); OL.applySeq = a.seq + 1; doCtl(a); continue; }
+        if(a.seat === w.seat && w.tags.indexOf(a.tag) >= 0){
+          OL.q.shift(); OL.applySeq = a.seq + 1; OL.miss = 0;
+          consume(a, w);
+          continue;
+        }
+        if(drift(w, a)) continue;
+        break;
+      }
+    } finally { OL.pumping = false; }
+  }
+  function consume(a, w){
+    OL.dataN++;
+    for(var k in OL.doQ) if(+k < OL.dataN) delete OL.doQ[k];
+    if(a.f) OL.mir = a.f;
+    else if(a.d && OL.mir){ for(var key in a.d) OL.mir[key] = a.d[key]; }
+    if(!OL.host && a.h !== undefined && a.h !== hashState()) heal(a);
+    reseed(a.seq);                                        // ここで全端末の乱数がそろう
+    finishW(w, a);
+  }
+  function finishW(w, a){
+    w.done = true;
+    clearTimeout(w.timer); clearTimeout(w.own);
+    if(OL.w === w) OL.w = (w.outer && !w.outer.done) ? w.outer : null;
+    if(OL.waitOf === w) hideWait();
+    w.res(a);
+  }
+  /* 手順がずれた（盤面のずれで、ある端末だけ別の選択に来た）。
+     まず盤面を合わせてもらい、自分の選択は既定の答えで進めて次の選択で合わせ直す。
+     何度もずれる時は、先の操作のほうを捨てる。→ 先頭を捨てたら true */
+  function drift(w, a){
+    OL.miss++;
+    askResync();
+    if(OL.miss >= MISS_MAX){ OL.q.shift(); OL.applySeq = a.seq + 1; OL.miss = 0; return true; }
+    var v = null;
+    try{ v = fallbackValue(w); }catch(e){ v = null; }
+    if(w.mine){ w.cancelled = true; cancelLocal(w); }
+    finishW(w, {seq:a.seq, seat:w.seat, tag:w.tags[0], v:v, local:true});
+    return false;
   }
   function doCtl(a){
     if(a.tag === 'drop'){
-      var i = a.v, s = OL.seats[i];
+      var i = a.v | 0, s = OL.seats[i];
       if(s && s.alive){
         s.alive = false; s.kind = 'cpu';
-        if(G && G.players[i]) G.players[i].kind = 'cpu';
-        if(cfg.seats[i]) cfg.seats[i].kind = 'cpu';
+        if(G && G.players[i]){ G.players[i].kind = 'cpu'; G.players[i].auto = false; }
+        if(cfg.seats && cfg.seats[i]) cfg.seats[i].kind = 'cpu';
         note(s.name + ' さんの接続が切れました', 'この席はCPUが引き継ぎます');
-        renderItems();
+        try{ renderItems(); }catch(e){}
       }
-      if(OL.host && OL.w && OL.w.seat === i) setTimeout(function(){ fallback(OL.w); }, 60);
+      var w = OL.w;
+      if(w && !w.done && w.seat === i){
+        if(w.mine){ w.cancelled = true; cancelLocal(w); }
+        if(OL.host) hostAnswer(w);
+      }
       return;
     }
-    if(a.tag === 'timeup'){ if(G && !G.over) timeUp(); return; }
+    if(a.tag === 'auto'){ applyAuto(a.v); return; }
+    if(a.tag === 'timeup'){
+      var w0 = OL.w;
+      if(w0 && !w0.done){
+        w0.cancelled = true;
+        if(w0.mine) cancelLocal(w0);
+        w0.done = true; clearTimeout(w0.timer); clearTimeout(w0.own);
+        OL.w = null;
+      }
+      hideWait();
+      if(G && !G.over) timeUp();
+      return;
+    }
   }
-  function fallback(w){
-    if(!w || !OL.host || OL.w !== w) return;
-    var tag = w.tags[0], v = null;
-    if(tag === 'roll'){ v = cpuRollChoice(w.seat); tag = 'roll'; }
-    else if(tag === 'tile')   v = -1;
-    else if(tag === 'build')  v = [];
-    else if(tag === 'buyout') v = false;
-    else if(tag === 'mini')   v = {c:'stop', s:1000000};
-    else if(tag === 'jam')    v = false;
-    stamp(w.seat, tag, v);
+
+  /* ══════════ 自動プレイ（G12・J60・C14） ══════════ */
+  function applyAuto(v){
+    v = v || {};
+    var s = v.s | 0, p = G && G.players && G.players[s];
+    delete OL.autoPend[s];
+    if(!p || p.out) return;
+    var on = !!v.on, was = !!p.auto;
+    OL.applying = true;
+    try{
+      var f = OL.orig.dkSetAuto || (typeof dkSetAuto === 'function' ? dkSetAuto : null);
+      if(f) f(s, on, v.why || 'manual'); else p.auto = on;
+    }catch(e){ console.error('[WP13b]', e); }
+    finally{ OL.applying = false; }
+    if(was !== !!p.auto){
+      if(seatHere(s)){
+        note(on ? '自動プレイになりました' : '手動に戻しました',
+             on ? (v.why === 'timeout' ? '30秒のあいだ操作が無かったので、CPUが代わりに進めます' : 'HUD の［自動］を押すと手動に戻せます') : '');
+      } else if(on && OL.seats[s]){
+        note(OL.seats[s].name + ' さんが自動プレイになりました', v.why === 'timeout' ? '時間切れのため、CPUが代わりに進めます' : '');
+      }
+    }
+    /* 自動になった席の選択を待っていたら、host が代わりに答える（本人の画面は閉じる） */
+    var w = OL.w;
+    if(p.auto && w && !w.done && w.seat === s){
+      if(w.mine){ w.cancelled = true; cancelLocal(w); }
+      if(OL.host) hostAnswer(w);
+    }
+  }
+  function requestAuto(seat, on, why){
+    if(!OL.started) return;
+    var m = {t:'auto', s:seat, on:on ? 1 : 0, why:String(why || 'manual').slice(0, 12)};
+    if(OL.host) hostAuto(OL.me, m); else sendTo(OL.hostConn, m);
+  }
+  function hostAuto(pid, m){
+    if(!OL.host || !OL.started || !G || !m) return;
+    var si = m.s | 0, s = OL.seats[si], p = G.players[si];
+    if(!s || !p || s.kind !== 'human' || !s.alive || p.out) return;
+    if(s.pid !== pid) return;                             // よその席は切り替えられない
+    var on = !!m.on;
+    if(OL.autoPend[si] === on) return;
+    if(OL.autoPend[si] === undefined && !!p.auto === on) return;
+    OL.autoPend[si] = on;
+    ctl('auto', {s:si, on:on ? 1 : 0, why:m.why || 'manual'});
+  }
+  /* 画面の［自動プレイ］や手番のリングから呼ばれる。オンラインでは host に頼み、全員が同じ所で切り替える */
+  function olSetAuto(pi, on, why){
+    if(OL.applying || !(OL.started && G && !G.over))
+      return OL.orig.dkSetAuto ? OL.orig.dkSetAuto(pi, on, why) : undefined;
+    if(!seatHere(pi)) return;                             // よその席は host が決める
+    requestAuto(pi, !!on, why || 'manual');
+  }
+
+  /* ══════════ host の期限と代わりの答え ══════════ */
+  function armDeadline(w){
+    if(!OL.host || w.mine || w.done) return;
+    var s = OL.seats[w.seat], p = G && G.players && G.players[w.seat];
+    if(!s || s.kind !== 'human' || !s.alive || (p && p.auto)) return;
+    w.timer = setTimeout(function(){ hostTimeout(w); }, (OL.waitMs || WAIT_MS) + GRACE_MS);
+  }
+  function hostTimeout(w){
+    if(!OL.started || OL.w !== w || w.done) return;
+    var s = w.seat, p = G && G.players && G.players[s];
+    if(p && !p.auto && OL.autoPend[s] !== true){
+      OL.autoPend[s] = true;
+      ctl('auto', {s:s, on:1, why:'timeout'});          // → applyAuto → hostAnswer
+    }
+    if(OL.w === w && !w.done) hostAnswer(w);
+  }
+  /* 自分の端末の期限（本人が放置した時。host は自分の席もここで見る） */
+  function ownTimer(w){
+    var s = OL.seats[w.seat], p = G && G.players && G.players[w.seat];
+    if(!s || s.kind !== 'human' || !s.alive || !p || p.auto || p.kind === 'cpu') return;
+    w.own = setTimeout(function(){
+      if(!w.done && !w.cancelled && OL.started) requestAuto(w.seat, true, 'timeout');
+    }, OL.waitMs || WAIT_MS);
+  }
+  function hostAnswer(w){
+    if(!OL.host || !w || w.done || w.sent) return;
+    var v = null;
+    try{ v = fallbackValue(w); }catch(e){ console.error('[WP13b]', e); v = null; }
+    w.sent = true;
+    stamp(w.seat, w.tags[0], jsonSafe(v));
+  }
+  function fallbackValue(w){
+    var tag = w.tags[0], s = w.seat;
+    if(TURN_TAGS.indexOf(tag) >= 0) return cpuRollChoice(s);
+    if(tag === 'dice'){
+      if(w.pure){ try{ return w.pure(); }catch(e){} }
+      return preRoll(s, null, false, 0);
+    }
+    if(tag === 'sell') return sellFallback(s);
+    if(Object.prototype.hasOwnProperty.call(FALLBACK, tag)) return jsonSafe(FALLBACK[tag]);
+    return null;
+  }
+  /* 払えない時：いちばん安い都市を1つ売る（足りなければ次の問いでまた1つ） */
+  function sellFallback(pi){
+    var best = -1, bv = 1e18;
+    for(var i = 0; i < G.tiles.length; i++){
+      var t = G.tiles[i];
+      if(!t || t.type !== 'city' || t.owner !== pi) continue;
+      var v = 0;
+      try{ v = (typeof sellValue === 'function') ? sellValue(t) : (t.base || 0); }catch(e){ v = t.base || 0; }
+      if(v < bv){ bv = v; best = i; }
+    }
+    return best >= 0 ? {sell:[best]} : {bankrupt:true};
+  }
+  /* ゲストの答え：その選択の番（k）の物だけ受け取る。host がまだその選択に来ていなければ置いておく */
+  function hostDo(pid, m){
+    if(!OL.host || !OL.started || !m) return;
+    var si = m.seat | 0;
+    if(ownerOf(si) !== pid) return;                       // その席の持ち主だけ（自動・抜けた席は host）
+    var k = (typeof m.k === 'number') ? m.k : OL.dataN;
+    if(k < OL.dataN) return;                              // もう決まった選択（期限切れのあとに届いた等）
+    OL.doQ[k] = {seat:si, tag:m.tag, v:m.v};
+    takeDo(OL.w);
+  }
+  function takeDo(w){
+    if(!OL.host || !w || w.done || w.sent) return;
+    var m = OL.doQ[OL.dataN];
+    if(!m || m.seat !== w.seat || w.tags.indexOf(m.tag) < 0) return;
+    delete OL.doQ[OL.dataN];
+    w.sent = true;
+    stamp(m.seat, m.tag, m.v);
   }
 
   function askResync(){
@@ -569,167 +910,366 @@ function dvOnlineBoot(){
     setTimeout(function(){ OL.resyncing = false; }, 1500);
   }
 
-  /* ══════════ 盤面の要約と丸ごと同期 ══════════ */
+  /* ══════════ 盤面の要約・差分・合わせ直し ══════════ */
   function hashState(){
-    if(!G) return 0;
+    if(!G || !G.tiles) return 0;
     var h = 2166136261, i, t, p;
-    var add = function(n){ h = Math.imul(h ^ (n|0), 16777619) >>> 0; };
+    var add = function(n){ h = Math.imul(h ^ (n | 0), 16777619) >>> 0; };
+    var num = function(v){ return (v === undefined || v === null || v === false) ? -1 : (v === true ? 1 : (+v || 0)); };
+    var str = function(s){ s = (s === undefined || s === null) ? '' : String(s); add(s.length + 1); for(var k = 0; k < s.length; k++) add(s.charCodeAt(k)); };
     for(i=0;i<G.tiles.length;i++){
       t = G.tiles[i];
       add(i); add((t.owner === undefined ? -1 : t.owner) + 2);
-      add(t.lv|0); add(t.landmark?1:0); add(t.frozen|0); add(t.olym|0);
+      add(t.lv | 0); add(t.landmark ? 1 : 0); add(t.frozen | 0); add(t.olym | 0);
+      add(num(t.bm) + 2); add(num(t.ice) + 2); add(t.visits | 0);
+      add(t.slide ? 1 : 0); add(t.sand ? 1 : 0); add(num(t.plague) + 2);
     }
     for(i=0;i<G.players.length;i++){
       p = G.players[i];
-      add(Math.round(p.cash/1000)); add(p.pos|0); add(p.laps|0);
-      add(p.jail|0); add(p.out?1:0); add(p.items.length);
+      add(Math.round((+p.cash || 0) / 1000)); add(p.pos | 0); add(p.laps | 0);
+      add(p.jail | 0); add(p.out ? 1 : 0); add(p.items ? p.items.length : 0);
+      add(p.odd | 0); add(p.even | 0); add(num(p.team) + 2); str(p.fcard);
+      add(p.auto ? 1 : 0); add(p.forceDouble | 0); add(p.pay2 | 0); add(p.travel ? 1 : 0); add(p.escapeTix | 0);
     }
-    add(G.turn|0); add(G.turnsLeft|0); add(Math.round(G.infl*10));
+    add(G.turn | 0); add(G.turnsLeft | 0); add(Math.round((+G.infl || 1) * 10));
+    add(num(G.festN) + 2); add(num(G.festTile) + 2); add(G.oeShared ? 1 : 0);
     return h >>> 0;
   }
-  function snapshot(){
-    if(!G) return null;
-    return {
-      tiles: G.tiles.map(function(t){
-        return {o:(t.owner === undefined ? -1 : t.owner), l:t.lv|0, m:t.landmark?1:0,
-                f:t.frozen|0, y:t.olym|0, x:t.x2?1:0};
-      }),
-      players: G.players.map(function(p){
-        return {c:p.cash, p:p.pos, la:p.laps, j:p.jail, o:p.out?1:0, d:p.dblRun,
-                od:p.odd, ev:p.even, it:p.items.slice(), sl:p.skillLeft, mn:p.mana,
-                ft:p.freeToll, hb:p.halfBuild, sx:p.salaryX2, fd:p.forceDouble,
-                ce:p.chooseEye, tu:p.tollUp, jm:p.jam, k:p.kind};
-      }),
-      turn:G.turn, left:G.turnsLeft, infl:G.infl, over:G.over?1:0, clock:G.clock
-    };
+  /* 盤面を「t<番号>.<項目>」「p<席>.<項目>」「g.<項目>」の平らな表にする。
+     数・文字・真偽・null はそのまま、配列や物は JSON（頭に \u0001）。新しい項目も自動で入る */
+  function flatVal(v){
+    if(v === null) return null;
+    var ty = typeof v;
+    if(ty === 'number') return isFinite(v) ? v : 0;
+    if(ty === 'string' || ty === 'boolean') return v;
+    if(ty !== 'object') return undefined;
+    if(v.nodeType || v === window) return undefined;
+    try{ return '\u0001' + JSON.stringify(v); }catch(e){ return undefined; }
   }
-  function restore(s, seq){
-    if(!s || !G) return;
-    var i;
-    for(i=0;i<s.tiles.length && i<G.tiles.length;i++){
-      var a = s.tiles[i], t = G.tiles[i];
-      if(t.type !== 'city') continue;
-      t.owner = a.o; t.lv = a.l; t.landmark = !!a.m; t.frozen = a.f; t.olym = a.y; t.x2 = !!a.x;
+  function unflat(v){ return (typeof v === 'string' && v.charCodeAt(0) === 1) ? JSON.parse(v.slice(1)) : v; }
+  function flatten(){
+    var o = {}, own = Object.prototype.hasOwnProperty, k, v;
+    if(!G || !G.tiles) return o;
+    G.tiles.forEach(function(t, i){
+      for(k in t){ if(!own.call(t, k)) continue; v = flatVal(t[k]); if(v !== undefined) o['t' + i + '.' + k] = v; }
+    });
+    G.players.forEach(function(p, i){
+      for(k in p){ if(!own.call(p, k) || SKIP_P[k]) continue; v = flatVal(p[k]); if(v !== undefined) o['p' + i + '.' + k] = v; }
+    });
+    for(k in G){ if(!own.call(G, k) || SKIP_G[k]) continue; v = flatVal(G[k]); if(v !== undefined) o['g.' + k] = v; }
+    return o;
+  }
+  function diffFlat(a, b){
+    var d = null;
+    for(var k in b){ if(b[k] !== a[k]){ if(!d) d = {}; d[k] = b[k]; } }
+    return d;
+  }
+  function restoreFlat(f){
+    if(!f || !G || !G.tiles) return;
+    var k, m, obj, key, v;
+    for(k in f){
+      m = /^([tpg])(\d*)\.(.+)$/.exec(k); if(!m) continue;
+      key = m[3];
+      if(m[1] === 't') obj = G.tiles[+m[2]];
+      else if(m[1] === 'p'){ if(SKIP_P[key]) continue; obj = G.players[+m[2]]; }
+      else { if(SKIP_G[key]) continue; obj = G; }
+      if(!obj) continue;
+      try{ v = unflat(f[k]); }catch(e){ continue; }
+      obj[key] = v;
     }
-    for(i=0;i<s.players.length && i<G.players.length;i++){
-      var b = s.players[i], p = G.players[i];
-      p.cash = b.c; p.pos = b.p; p.laps = b.la; p.jail = b.j; p.out = !!b.o; p.dblRun = b.d;
-      p.odd = b.od; p.even = b.ev; p.items = b.it.slice(); p.skillLeft = b.sl; p.mana = b.mn;
-      p.freeToll = b.ft; p.halfBuild = b.hb; p.salaryX2 = b.sx; p.forceDouble = b.fd;
-      p.chooseEye = b.ce; p.tollUp = b.tu; p.jam = b.jm; p.kind = b.k;
+  }
+  function refreshAll(){
+    try{ boardChanged(); }catch(e){}
+    try{ updHUD(); }catch(e){}
+    try{ if(typeof renderItems === 'function') renderItems(); }catch(e){}
+  }
+  /* 要約が合わない：host の盤面の写し（差分を積んだもの）に合わせる。それでも合わなければ丸ごと */
+  function heal(a){
+    if(OL.mir){
+      restoreFlat(OL.mir);
+      OL.heals++;
+      refreshAll();
+      if(hashState() === a.h) return;
     }
-    G.turn = s.turn; G.turnsLeft = s.left; G.infl = s.infl; G.clock = s.clock;
-    OL.applySeq = seq; OL.gap = {};
-    boardChanged(); updHUD(); renderItems();
+    askResync();
+  }
+  function restoreState(m){
+    if(!m || !G || !m.f){ OL.resyncing = false; return; }
+    OL.mir = m.f;
+    restoreFlat(m.f);
+    OL.recvSeq = OL.applySeq = (m.seq | 0);
+    OL.dataN = (m.n | 0);
+    OL.q = []; OL.gap = {};
+    refreshAll();
     note('同期しなおしました', '盤面をホストに合わせました');
     OL.resyncing = false;
   }
+  function jsonSafe(v){
+    if(v === undefined) return null;
+    try{ return JSON.parse(JSON.stringify(v)); }catch(e){ return null; }
+  }
 
-  /* ══════════ 待ちの表示 ══════════ */
+  /* ══════════ 待ちの表示（#olwait：だれが何を選んでいるか・のこり秒のリング） ══════════ */
+  var CSS = ''
+    + '#olwait{position:absolute;left:50%;bottom:96px;z-index:60;display:none;pointer-events:none;align-items:center;gap:14px;'
+    +   'transform:translateX(-50%);padding:9px 28px 9px 10px;border-radius:999px;white-space:nowrap;'
+    +   'background:linear-gradient(180deg,#34568E 0%,#18305C 52%,#0A1634 100%);border:3px solid #D9A93E;'
+    +   'box-shadow:0 0 0 2px rgba(24,12,0,.6),0 12px 26px rgba(0,0,0,.55),inset 0 2px 0 rgba(255,240,190,.4),inset 0 -6px 12px rgba(0,0,0,.35);'
+    +   'color:#FFF6E0;font:900 22px/1.25 var(--pop,"Mochiy Pop One"),"Noto Sans JP",sans-serif;text-shadow:0 2px 0 rgba(0,0,0,.6)}'
+    + '#olwait.on{display:flex;animation:olwIn .34s cubic-bezier(.2,1.5,.4,1) both}'
+    + '#olwait .olw-t b{display:inline-block;margin-right:2px;padding:1px 12px 3px;border-radius:10px;color:#FFFFFF;'
+    +   'background:linear-gradient(180deg,rgba(255,255,255,.28),rgba(0,0,0,.18)),var(--olc,#C9302C);'
+    +   'box-shadow:0 2px 0 rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.45);text-shadow:0 2px 0 rgba(0,0,0,.55)}'
+    + '@media (max-height:560px){#olwait{font-size:26px;bottom:104px}#olwait .olw-r{width:54px;height:54px}'
+    +   '#olwait .olw-r svg{left:5px;top:5px;width:44px;height:44px}#olwait .olw-r i{font-size:21px}}'
+    + '#olwait .olw-r{position:relative;flex:none;width:46px;height:46px;border-radius:50%;'
+    +   'background:radial-gradient(circle at 34% 28%,#FFF8DA,#EAB94A 46%,#8A5A0C 100%);'
+    +   'box-shadow:0 2px 0 rgba(0,0,0,.4),inset 0 -3px 5px rgba(0,0,0,.35)}'
+    + '#olwait .olw-r svg{position:absolute;left:4px;top:4px;width:38px;height:38px;transform:rotate(-90deg)}'
+    + '#olwait .olw-r circle{fill:none;stroke-width:5}'
+    + '#olwait .olw-r .k{stroke:rgba(40,22,4,.55)}'
+    + '#olwait .olw-r .f{stroke:#3FA2FF;stroke-linecap:round;stroke-dasharray:100;stroke-dashoffset:0;'
+    +   'animation:olwRing var(--olw-ms,30000ms) linear var(--olw-d,0ms) forwards}'
+    + '#olwait .olw-r i{position:absolute;inset:0;display:grid;place-items:center;font:900 18px/1 "Noto Sans JP",sans-serif;'
+    +   'font-style:normal;color:#3A2405;text-shadow:0 1px 0 rgba(255,250,220,.6)}'
+    + '#olwait.late{border-color:#FF7A5A}'
+    + '#olwait.late .olw-r .f{stroke:#FF5A5A}'
+    + '@keyframes olwIn{from{transform:translateX(-50%) scale(.7)}to{transform:translateX(-50%) scale(1)}}'
+    + '@keyframes olwRing{to{stroke-dashoffset:100}}'
+    + 'html.fx-mob #olwait.on,html.fx-mob #olwait .olw-r .f{animation:none}'
+    + '.ol-hmsg{grid-column:1 / -1;min-height:30px;margin:6px 0 0;font:900 20px/1.5 "Noto Sans JP",sans-serif;color:#FFE3A8;text-align:center}'
+    + '.ol-hmsg.bad{color:#FFB9A6}'
+    + '.ol-rules{margin-top:12px}';
+  function styleOnce(){
+    if(document.getElementById('olStyle')) return;
+    var st = document.createElement('style');
+    st.id = 'olStyle'; st.textContent = CSS;
+    document.head.appendChild(st);
+  }
   function waitEl(){
-    if(!OL.waitBox){
+    if(!OL.waitBox || !OL.waitBox.isConnected){
+      styleOnce();
       var d = document.createElement('div');
       d.id = 'olwait';
-      d.style.cssText = 'position:absolute;left:50%;bottom:86px;transform:translateX(-50%);'
-        + 'padding:9px 20px;border-radius:999px;background:rgba(8,18,34,.92);border:1px solid #33507a;'
-        + 'color:#EAF2FF;font-size:14px;z-index:60;display:none;pointer-events:none;'
-        + 'box-shadow:0 6px 18px rgba(0,0,0,.5)';
+      d.setAttribute('role', 'status');
       var host = document.getElementById('stage') || document.body;
       host.appendChild(d);
       OL.waitBox = d;
     }
     return OL.waitBox;
   }
-  function showWait(seat, msg){
-    var s = OL.seats[seat];
-    var e = waitEl();
-    e.innerHTML = '⏳ <b style="color:' + PCOL[seat] + '">' + esc(s ? s.name : '相手')
-      + '</b> さんが' + esc(msg || '考えています') + '…';
-    e.style.display = 'block';
+  function busy(seat, text){
+    if(typeof dkBusyTag !== 'function') return;
+    try{ dkBusyTag(seat, text); }catch(e){ console.error('[WP13b]', e); }
   }
-  function hideWait(){ if(OL.waitBox) OL.waitBox.style.display = 'none'; }
+  /* よその人間の選択を待つ間だけ出す（CPU・自動の席は host がすぐ決めるので出さない） */
+  function showWait(seat, msg, w){
+    var s = OL.seats[seat], p = G && G.players && G.players[seat];
+    if(!s || s.kind !== 'human' || !s.alive || (p && p.auto)) return;
+    var e = waitEl();
+    var ms = OL.waitMs || WAIT_MS;
+    var used = w ? Math.max(0, Math.min(ms, nowMs() - w.t0)) : 0;
+    e.style.setProperty('--olc', PCOL[seat] || '#FFD24D');
+    e.innerHTML = '<span class="olw-r" style="--olw-ms:' + ms + 'ms;--olw-d:-' + Math.round(used) + 'ms" aria-hidden="true">'
+      + '<svg viewBox="0 0 38 38"><circle class="k" cx="19" cy="19" r="16" pathLength="100"/>'
+      + '<circle class="f" cx="19" cy="19" r="16" pathLength="100"/></svg><i>' + Math.ceil((ms - used) / 1000) + '</i></span>'
+      + '<span class="olw-t"><b>' + esc(s.name) + '</b> さんが' + esc(msg || '考えています') + '…</span>';
+    e.classList.remove('late');
+    e.classList.add('on');
+    OL.waitOf = w || null;
+    busy(seat, (s.name || '') + ' さんが' + (msg || '考えています'));
+    OL.busySeat = seat;
+    clearInterval(OL.waitT);
+    var t0 = nowMs() - used, num = e.querySelector('.olw-r i');
+    OL.waitT = setInterval(function(){
+      var left = Math.max(0, Math.ceil((ms - (nowMs() - t0)) / 1000));
+      if(num && num.textContent !== String(left)) num.textContent = left;
+      e.classList.toggle('late', left <= 5);
+    }, 250);
+  }
+  function hideWait(){
+    clearInterval(OL.waitT); OL.waitT = 0;
+    if(OL.waitBox) OL.waitBox.classList.remove('on', 'late');
+    OL.waitOf = null;
+    if(OL.busySeat >= 0){ busy(OL.busySeat, null); OL.busySeat = -1; }
+  }
   function note(a, b){ toast('L', '📡', a, b || '', 2600); }
 
   /* ══════════ 選択を1つ取る（ここが同期の入口） ══════════ */
-  function waitFor(seat, tags){
-    return new Promise(function(res){ OL.w = {seat:seat, tags:tags, res:res}; });
+  /* 待ちを登録する。先に届いていた操作・ゲストの答えがあれば、ここで使う */
+  function waitFor(seat, tags, local, mine, opt){
+    var w = {seat:seat, tags:tags, local:local || null, pure:(opt && opt.pure) || null, mine:!!mine,
+             k:OL.dataN, t0:nowMs(), done:false, cancelled:false, sent:false, timer:0, own:0, res:null, outer:null};
+    w.pr = new Promise(function(r){ w.res = r; });
+    if(OL.w && !OL.w.done) w.outer = OL.w;
+    OL.w = w;
+    armDeadline(w);
+    pump();
+    if(!w.done) takeDo(w);
+    return w;
   }
-  function sendAct(seat, tag, v){
-    var pr = waitFor(seat, [tag]);
-    if(OL.host) stamp(seat, tag, v); else sendTo(OL.hostConn, {t:'do', seat:seat, tag:tag, v:v});
-    return pr;
+  function send(w, tag, v){
+    if(!w || w.done || w.sent) return;
+    w.sent = true;
+    v = jsonSafe(v);
+    if(OL.host) stamp(w.seat, tag, v);
+    else sendTo(OL.hostConn, {t:'do', seat:w.seat, tag:tag, v:v, k:w.k});
   }
-  /* 自分の席なら local() を動かして結果を配る。よその席なら黙って待つ。 */
-  async function ask(seat, tag, local, hint){
-    if(isMine(seat)){
-      var v = await local();
-      var a = await sendAct(seat, tag, v);
-      return a.v;
+  /* 本人の画面の選択を閉じる（期限切れ・自動・抜けた時。答えは host が出す） */
+  function cancelLocal(w){
+    try{
+      if(OL.localPick){ var f = OL.localPick; OL.localPick = null; f({tag:'cancel'}); }
+      if(typeof DKT_G === 'object' && DKT_G && DKT_G.pick && typeof dktPickEnd === 'function') dktPickEnd(-1);
+      var pe = document.getElementById('pickeye');
+      if(pe && pe.classList.contains('on')){ var b0 = pe.querySelector('button'); if(b0) b0.click(); }
+      var mw = document.getElementById('modalWrap');
+      if(mw && mw.classList.contains('on')){
+        var bs = Array.prototype.slice.call(mw.querySelectorAll('[data-act]')).filter(function(b){ return !b.disabled; });
+        var pref = ['no', 'cancel', 'close', 'stop', 'skip', 'ok'], pick = null;
+        for(var i = 0; i < pref.length && !pick; i++){
+          for(var j = 0; j < bs.length; j++) if(bs[j].getAttribute('data-act') === pref[i]){ pick = bs[j]; break; }
+        }
+        if(!pick) for(var k = 0; k < bs.length; k++) if(bs[k].getAttribute('data-act') !== 'bankrupt'){ pick = bs[k]; break; }
+        if(pick) pick.click();
+      }
+    }catch(e){ console.error('[WP13b]', e); }
+  }
+  /* 自分の席なら local() を動かして結果を配る。よその席なら待つ。
+     自分の端末で選んでいる途中の小さな選択（local の中の dvAsk）は配らずにその場で決める */
+  async function ask(seat, tag, local, hint, opt){
+    if((OL.inLocal[seat] | 0) > 0) return Promise.resolve().then(local);
+    var mine = isMine(seat);
+    var w = waitFor(seat, [tag], local, mine, opt);
+    if(!w.done){
+      if(!mine) showWait(seat, hint, w);
+      else runLocal(w, tag, local);
     }
-    showWait(seat, hint);
-    var b = await waitFor(seat, [tag]);
-    hideWait();
-    return b.v;
+    var a = await w.pr;
+    if(!a.local) reseed(a.seq);        // 待っている間に消えた乱数を捨てて、全端末で同じ所から続ける
+    return a.v;
   }
+  function runLocal(w, tag, local){
+    var s = w.seat, p = G && G.players && G.players[s];
+    ownTimer(w);
+    if(p && p.auto) autoWatch(w);
+    OL.inLocal[s] = (OL.inLocal[s] | 0) + 1;
+    var out = function(){ OL.inLocal[s] = Math.max(0, (OL.inLocal[s] | 0) - 1); };
+    Promise.resolve().then(local).then(function(v){
+      out();
+      if(!w.done && !w.cancelled) send(w, tag, v);
+    }, function(e){
+      out();
+      console.error('[WP13b]', e);
+      if(!w.done && !w.cancelled) send(w, tag, fallbackValue(w));
+    });
+  }
+
+  /* ══════════ 自動の人に画面を出さない（C14 の安全網） ══════════
+     自動の席の選択で、その選択が開いた画面（ポップアップ・エリア選び・出目えらび）が
+     1秒たっても開いたままなら、閉じて CPU の弱い判断で答える。
+     選択より前から開いていた画面（ボーナスゲームの台など）は数えない。 */
+  var AUTO_UI_MS = 1000;
+  function uiSig(){
+    var mw = document.getElementById('modalWrap'), body = document.getElementById('modalBody');
+    var on = !!(mw && mw.classList.contains('on'));
+    var pk = (typeof DKT_G === 'object' && DKT_G && DKT_G.pick) ? DKT_G.pick : null;
+    var pe = document.getElementById('pickeye');
+    return { m:on ? ((body || mw).firstElementChild || mw) : null, p:pk ? (pk.seq || pk) : null,
+             e:!!(pe && pe.classList.contains('on')) };
+  }
+  function uiNew(s0){
+    var s = uiSig();
+    return !!((s.m && s.m !== s0.m) || (s.p && s.p !== s0.p) || (s.e && !s0.e) || OL.localPick);
+  }
+  function autoWatch(w){
+    var s0 = uiSig(), t0 = nowMs();
+    var iv = setInterval(function(){
+      if(w.done || w.sent || w.cancelled || !OL.started){ clearInterval(iv); return; }
+      if(nowMs() - t0 < AUTO_UI_MS || !uiNew(s0)) return;
+      clearInterval(iv);
+      w.cancelled = true;
+      cancelLocal(w);
+      send(w, w.tags[0], fallbackValue(w));
+    }, 200);
+  }
+  /* オフライン：自動の席で画面が開いたら、同じように閉じて答える（dvAsk の約束の安全網） */
+  function autoGuard(seat, tag, run){
+    var w = {seat:seat, tags:[tag]};
+    return new Promise(function(res){
+      var done = false, s0 = uiSig(), t0 = nowMs();
+      var fin = function(v){ if(done) return; done = true; clearInterval(iv); res(v); };
+      var iv = setInterval(function(){
+        if(done) return;
+        if(!G || G.over){ fin(fallbackValue(w)); return; }
+        if(nowMs() - t0 < AUTO_UI_MS || !uiNew(s0)) return;
+        cancelLocal(w);
+        fin(fallbackValue(w));
+      }, 200);
+      Promise.resolve().then(run).then(fin, function(e){ console.error('[WP13b]', e); fin(fallbackValue(w)); });
+    });
+  }
+  function autoSeat(seat){
+    var p = G && !G.over && G.players && G.players[seat];
+    if(!p || p.kind === 'cpu') return false;
+    try{ return (typeof dkIsAuto === 'function') ? !!dkIsAuto(seat) : !!p.auto; }catch(e){ return !!p.auto; }
+  }
+
   /* §6 の契約 dvAsk：人間や CPU の選択を1つ取る。
-     オンライン中は、選ぶ人の端末で local() を動かし、その結果を全員に配る（値は JSON にできる物だけ）。 */
+     オンライン中は、選ぶ人の端末で local() を動かし、その結果を全員に配る（値は JSON にできる物だけ）。
+     オフラインは元の dvAsk（9g-turn.js が宣言し直していればそれ）に任せる */
+  OL.baseAsk = window.dvAsk;
+  OL.baseDice = window.dvQueueDice;
   window.dvAsk = function(seat, tag, local, hint){
-    if(OL.started && G && !G.over) return ask(seat, tag, function(){ return Promise.resolve().then(local); }, hint);
-    return Promise.resolve().then(local);
+    if(OL.started && G && !G.over) return ask(seat, tag, local, hint);
+    var base = OL.baseAsk;
+    var run = function(){ return (typeof base === 'function') ? base(seat, tag, local, hint) : Promise.resolve().then(local); };
+    return autoSeat(seat) ? autoGuard(seat, tag, run) : run();
   };
   /* §6 の契約 dvQueueDice：オンライン中は、振る人の端末で目を決めて OL.diceQ に積む */
   window.dvQueueDice = function(seat, force, impact, target){
-    if(!(OL.started && G && !G.over)) return Promise.resolve();
-    return ask(seat, 'dice', function(){ return Promise.resolve(preRoll(seat, force, impact, target)); },
-      'サイコロを振っています').then(function(v){ OL.diceQ = Array.isArray(v) ? v.slice() : null; });
+    if(!(OL.started && G && !G.over)){
+      return (typeof OL.baseDice === 'function') ? Promise.resolve(OL.baseDice(seat, force, impact, target)) : Promise.resolve();
+    }
+    var pure = function(){ return preRoll(seat, force, impact, target); };
+    return ask(seat, 'dice', function(){ return pure(); }, 'サイコロを振っています', {pure:pure})
+      .then(function(v){ OL.diceQ = Array.isArray(v) ? v.slice() : null; });
   };
+  /* この端末がその席の選択を決めるか（オフラインは全部この端末）。SV を動かす処理を本人だけにする時に使う */
+  window.dvIsMine = function(seat){ return (OL.started && G && !G.over) ? isMine(seat) : true; };
 
   /* ══════════ 差し替える関数たち ══════════ */
+  function usesAsk(fn){
+    try{ return /\bdvAsk\s*\(/.test(Function.prototype.toString.call(fn)); }catch(e){ return false; }
+  }
   function install(){
     if(OL.orig.installed) return;
     OL.orig = {
       installed:true, random:Math.random,
-      rollPair:window.rollPair, takeRoll:window.takeRoll, jailTurn:window.jailTurn,
-      pickTile:window.pickTile, maybeBuyout:window.maybeBuyout, buyUI:window.buyUI,
-      aiBuy:window.aiBuy,
-      miniGame:window.miniGame, shakePhase:window.shakePhase, useItem:window.useItem,
-      tickClock:window.tickClock, weekIndex:window.weekIndex, newGame:window.newGame,
-      finish:window.finish
+      rollPair:window.rollPair, takeRoll:window.takeRoll, pickTile:window.pickTile,
+      shakePhase:window.shakePhase, useItem:window.useItem, tickClock:window.tickClock,
+      weekIndex:window.weekIndex, newGame:window.newGame, finish:window.finish, dkSetAuto:window.dkSetAuto
     };
     OL.real = OL.orig.random;
     Math.random        = sharedRandom;
     window.rollPair    = olRollPair;
     window.takeRoll    = olTakeRoll;
-    window.jailTurn    = olJailTurn;
-    window.pickTile    = olPickTile;
-    window.maybeBuyout = olMaybeBuyout;
-    window.buyUI       = olBuyUI;
-    window.aiBuy       = olBuyUI;        // CPUの買う・建てるもホストが決めて全員へ配る
-    window.miniGame    = olMiniGame;
-    window.shakePhase  = olShakePhase;
+    /* 中で dvAsk を使う版なら、そのまま任せる（包むと同じ選択を2回配ってしまう） */
+    if(typeof OL.orig.pickTile === 'function' && !usesAsk(OL.orig.pickTile)) window.pickTile = olPickTile;
+    if(typeof OL.orig.shakePhase === 'function' && !usesAsk(OL.orig.shakePhase)) window.shakePhase = olShakePhase;
     window.useItem     = olUseItem;
     window.tickClock   = olTickClock;
-    window.weekIndex   = function(){ return OL.week; };
+    /* 週替わりは端末の時計に依存させない（ホストの週を全員が使う。時刻を渡した時はその時刻で） */
+    window.weekIndex   = function(t){ return (typeof t === 'number' && OL.orig.weekIndex) ? OL.orig.weekIndex(t) : OL.week; };
     window.newGame     = olNewGame;
     window.finish      = olFinish;
+    if(typeof OL.orig.dkSetAuto === 'function') window.dkSetAuto = olSetAuto;
   }
   function uninstall(){
     if(!OL.orig.installed) return;
-    Math.random        = OL.orig.random;
-    window.rollPair    = OL.orig.rollPair;
-    window.takeRoll    = OL.orig.takeRoll;
-    window.jailTurn    = OL.orig.jailTurn;
-    window.pickTile    = OL.orig.pickTile;
-    window.maybeBuyout = OL.orig.maybeBuyout;
-    window.buyUI       = OL.orig.buyUI;
-    window.aiBuy       = OL.orig.aiBuy;
-    window.miniGame    = OL.orig.miniGame;
-    window.shakePhase  = OL.orig.shakePhase;
-    window.useItem     = OL.orig.useItem;
-    window.tickClock   = OL.orig.tickClock;
-    window.weekIndex   = OL.orig.weekIndex;
-    window.newGame     = OL.orig.newGame;
-    window.finish      = OL.orig.finish;
+    var O = OL.orig;
+    Math.random = O.random;
+    ['rollPair','takeRoll','pickTile','shakePhase','useItem','tickClock','weekIndex','newGame','finish','dkSetAuto']
+      .forEach(function(k){ if(O[k] !== undefined) window[k] = O[k]; });
     OL.orig = {}; OL.rng = null; OL.diceQ = null;
     hideWait();
   }
@@ -747,173 +1287,231 @@ function dvOnlineBoot(){
     return OL.orig.rollPair(force, forceDouble, die);
   }
 
-  /* 週替わりイベントは端末の時計に依存させない（ホストの値を全員が使う） */
-
+  /* 時間切れは host が決めて全員へ（各端末の時計のずれで決着の場所が変わらないように） */
   function olTickClock(dt){
-    if(!G || G.over || !cfg.timeLimit) return;
-    if(!G.running) return;
-    G.clock -= dt/1000;
-    if(G.clock <= 0){ G.clock = 0; if(!G.over && OL.host) ctl('timeup'); }
-    var m = Math.floor(G.clock/60), s = Math.floor(G.clock%60);
-    var el = $('#pClock');
-    var txt = m + ':' + String(s).padStart(2,'0');
-    if(el.textContent !== txt){ el.textContent = txt; if(G.clock < 60) el.classList.add('warn'); }
+    if(!G || G.over || !cfg.timeLimit || !G.running) return;
+    if(G.clock - dt / 1000 > 0) return OL.orig.tickClock(dt);
+    G.clock = 0;
+    if(OL.host && !OL.tuSent){ OL.tuSent = true; ctl('timeup'); }
+    var el = document.getElementById('pClock');
+    if(el && el.textContent !== '0:00'){ el.textContent = '0:00'; el.classList.add('warn'); }
   }
 
-  /* 席ごとの持ち物は「自分の保存データ」ではなく、配られた情報から作る */
+  /* 席ごとの持ち物は「自分の保存データ」ではなく、配られた情報から作る。
+     初期化は C07 の dkInitPlayers（持ち込み・奇数/偶数・フォーチュンカード）に任せる。ITEMS と奇数/偶数2回は配らない */
   function olNewGame(){
     var map = MAPS.find(function(m){ return m.id === cfg.mapId; }) || MAPS[0];
+    var seats = OL.seats.slice(0, cfg.n);
     G = {
       map: map, tiles: buildTiles(map),
-      players: OL.seats.slice(0, cfg.n).map(function(s, i){
-        var pr = s.prof;
+      players: seats.map(function(s, i){
+        var pr = s.prof || {};
+        var cpu = s.kind === 'cpu';
         var card = cardById(pr.cardId) || CARDPOOL[i % CARDPOOL.length];
-        var slots = (s.kind === 'cpu') ? [] : pr.slots;
-        var items = pr.bag.slice(0, 3);
-        var pool = ITEMS.slice();
-        while(items.length < 2 && pool.length)
-          items.push(pool.splice((Math.random()*pool.length)|0, 1)[0].id);
+        var slots = cpu ? [] : (Array.isArray(pr.slots) ? pr.slots : []);
         var pend;
-        if(s.kind === 'cpu'){
+        if(cpu){
           var n = cfg.ai === 2 ? 3 : cfg.ai === 1 ? 2 : 1, pp = PENDANTS.slice();
           pend = [];
           for(var k=0;k<n && pp.length;k++) pend.push(pp.splice((Math.random()*pp.length)|0, 1)[0]);
         } else pend = slots.map(pendById).filter(Boolean);
         return {
-          name:s.name, kind:(s.kind === 'cpu' ? 'cpu' : 'human'), ch:card.art, card:card.id,
-          stats:cardStats(card.id, pr.lv, slots), cardLv:pr.lv,
+          name:s.name, kind:(cpu ? 'cpu' : 'human'), ch:card.art, card:card.id,
+          stats:cardStats(card.id, pr.lv || 1, slots), cardLv:pr.lv || 1,
           skill:card.sk, skillKind:(card.kind === undefined ? 0 : card.kind),
           skillPow:(card.rar === 'SS' ? 0.18 : card.rar === 'S' ? 0.12 : 0.08),
           cash:cfg.cash, pos:0, laps:0, jail:0, out:false, dblRun:0,
-          odd:2, even:2, items:items,
+          odd:0, even:0, items:[],
           skillLeft:card.sk.uses, mana:0,
           freeToll:0, halfBuild:0, salaryX2:0, forceDouble:0, chooseEye:0, tollUp:0,
           render:tileCenter(0), hopY:0, squash:1, offx:0, offy:0, face:1, jam:3,
           pend:pend, pboost:{},
-          pendLv:(s.kind === 'cpu') ? {} : (pr.pendLv || {}),
-          dieId:(s.kind === 'cpu') ? 'd0' : (pr.dieId || pr.die || 'd0'),
-          dieLv:(s.kind === 'cpu') ? 1 : Math.max(1, Math.min(10, (pr.dieLv | 0) || 1))
+          pendLv:cpu ? {} : (pr.pendLv || {}),
+          dieId:cpu ? 'd0' : (pr.dieId || pr.die || 'd0'),
+          dieLv:cpu ? 1 : Math.max(1, Math.min(10, (pr.dieLv | 0) || 1)),
+          dieKw:cpu ? null : (pr.dieKw || null),
+          fcard:null, pay2:0, skillP:0, auto:false, autoWeak:false
         };
       }),
       turn:0, turnsLeft:cfg.turns, over:false, winner:-1, winReason:'', alarm:null,
       infl:1, reach:-1, winX:1, clock:cfg.timeLimit, lastTick:0, ev:{}
     };
-    thisWeek().apply(G);
+    thisWeek().apply(G);                  // オフラインの newGame と同じ順（今週 → 持ち込み）
+    var carry = seats.map(function(s){ return (s.kind === 'human' && s.prof && s.prof.carry) ? s.prof.carry : null; });
+    try{ if(typeof dkInitPlayers === 'function') dkInitPlayers(G, carry); }catch(e){ console.error('[WP13b]', e); }
+    var eq = true;
+    G.players.forEach(function(p, i){
+      if(!Array.isArray(p.items)) p.items = [];
+      if(p.fcard === undefined) p.fcard = null;
+      if(p.carry === undefined) p.carry = carry[i] || null;
+      if(p.pay2 === undefined) p.pay2 = 0;
+      if(p.skillP === undefined) p.skillP = 0;
+      if(p.auto === undefined) p.auto = false;
+      if(cfg.team && p.team === undefined) p.team = i % 2;
+      if((p.odd | 0) !== (p.even | 0)) eq = false;
+    });
+    if(G.oeShared === undefined && eq) G.oeShared = true;
+    useUpCarry();
     destPin = null; stepPreview = null; diceAnim = null; fxList.length = 0;
+  }
+  /* 自分の持ち込み品はこの試合で使い切り（オフラインの newGame が SV.bag を空にするのと同じ） */
+  function useUpCarry(){
+    try{
+      var me = mySeat(); if(me < 0) return;
+      var pr = OL.seats[me] && OL.seats[me].prof;
+      if(!pr || !pr.carry || typeof SV !== 'object' || !SV || !SV.carry || typeof SV.carry !== 'object') return;
+      Object.keys(SV.carry).forEach(function(k){
+        SV.carry[k] = (k === 'magic') ? null : (typeof SV.carry[k] === 'boolean' ? false : 0);
+      });
+      if(typeof saveNow === 'function') saveNow();
+    }catch(e){ console.error('[WP13b]', e); }
   }
 
   /* ── サイコロを振る（手番の人だけが決めて、目そのものを配る） ──
      1組目の決め方は doRoll と同じ順：ダブル確定 → ゲージインパクト（合計＝target）→ ふつう */
   function preRoll(pi, force, impact, target){
     var p = G.players[pi], die = dieOf(pi);
+    var roll = OL.orig.rollPair || rollPair;       // 配られた目の列ではなく、本物の2個振り
     var wantDbl = p.forceDouble > 0 && force !== 'odd';
-    var first = wantDbl ? OL.orig.rollPair(force, true, die)
+    var first = wantDbl ? roll(force, true, die)
       : (impact && target >= 2 && target <= 12) ? dkGaugePair(target, die, force)
-      : OL.orig.rollPair(force, false, die);
-    return [ first, OL.orig.rollPair(force, false, DICE[0]) ];
+      : roll(force, false, die);
+    return [ first, roll(force, false, DICE[0]) ];
   }
+  /* CPU・自動の人の振り方（ねらいの強さ .6/1/1.3。時間切れの自動は弱く、奇数/偶数を使わない） */
   function cpuRollChoice(pi){
     var p = G.players[pi], force = null;
-    if(cfg.ai >= 1 && (p.odd > 0 || p.even > 0)){
-      var so = bestParity(pi,'odd'), se = bestParity(pi,'even'), sn = avgScore(pi);
-      if(p.odd > 0 && so > sn + (cfg.ai === 2 ? 6 : 16) && so >= se) force = 'odd';
-      else if(p.even > 0 && se > sn + (cfg.ai === 2 ? 6 : 16)) force = 'even';
+    var lvl = (p.kind === 'cpu') ? (cfg.ai | 0) : (p.autoWeak ? 0 : 1);
+    lvl = Math.max(0, Math.min(2, lvl));
+    if(lvl >= 1 && (p.odd | 0) > 0 && (p.even | 0) > 0 && typeof bestParity === 'function' && typeof avgScore === 'function'){
+      var so = bestParity(pi, 'odd'), se = bestParity(pi, 'even'), sn = avgScore(pi), mg = (lvl === 2 ? 6 : 16);
+      if(so > sn + mg && so >= se) force = 'odd';
+      else if(se > sn + mg) force = 'even';
     }
-    var impact = cfg.ai === 2 ? Math.random() < 0.55 : cfg.ai === 1 ? Math.random() < 0.3 : Math.random() < 0.1;
-    /* CPU は「一番得をする合計」をねらう（当たれば誤差の範囲で出る） */
+    var pImp = (typeof dktImpactP === 'function') ? dktImpactP(p, dieOf(pi)) : 0.3;
+    var impact = Math.random() < Math.min(0.97, pImp * [0.6, 1, 1.3][lvl]);
     var target = (impact && typeof dktCpuTarget === 'function') ? dktCpuTarget(pi, force) : 0;
     var eye = (p.chooseEye > 0 && typeof dktBestTotal === 'function') ? dktBestTotal(pi, null) : 0;
     if(eye){ force = null; impact = false; target = 0; }
-    return {force:force, impact:impact, eye:eye, target:target, dice:preRoll(pi, force, impact, target)};
+    return {force:force, impact:impact, eye:eye, target:target, dice:preRoll(pi, force, impact, target),
+            pp:{odd:p.odd | 0, even:p.even | 0}};
   }
 
-  /* 手番の人の操作を1つ取る（能力・アイテム・サイコロのどれか） */
-  function localTurnAction(pi){
+  /* 手番の人の操作を1つ取る（サイコロ・能力のどれか）。w が先に決まったら何もしない */
+  function localTurnAction(pi, w){
     var p = G.players[pi];
-    if(p.kind === 'cpu'){
+    if(p.kind === 'cpu' || p.auto){
       return (async function(){
         stepPreview = {from:p.pos, max:12};
-        gaugeSweet = 0.5; gaugeHalf = 0.055 + statRate(p,'gauge')*0.075;
-        gaugeOn = true; $('#diceui').classList.add('on');
+        gaugeOn = true; try{ $('#diceui').classList.add('on'); }catch(e){}
         await wait(750);
-        if(p.mana >= 100 && p.skillLeft > 0 && cfg.ai >= 1 && Math.random() < 0.7)
-          return {tag:'skill', v:1};
-        if(cfg.ai >= 1 && p.items.length && Math.random() < 0.25){
-          var k = (Math.random()*p.items.length)|0, id = p.items[k];
-          if(id === 'angel' || id === 'half' || id === 'salary' || id === 'double')
-            return {tag:'cpuitem', v:k};
-        }
+        if(w.done || w.cancelled) return null;
         return {tag:'roll', v:cpuRollChoice(pi)};
       })();
     }
-    /* 人間：9g-turn.js のサイコロUI（長押しゲージ・奇数/偶数のモード）で決め、目まで決めてから配る */
+    /* 人間：9g-turn.js のサイコロUI（長押しゲージ・奇数/偶数のモード）で決め、目まで決めてから配る。
+       UI の中の小さな選択（奇数/偶数の追加購入 'oebuy' など）は配らずに決め、回数は pp で一緒に配る */
+    OL.inLocal[pi] = (OL.inLocal[pi] | 0) + 1;
     return new Promise(function(res){
-      OL.localPick = function(o){ OL.localPick = null; dktInputCancel(o); };
-      dkRollInput(pi).then(function(o){
+      var fin = function(x){ OL.inLocal[pi] = Math.max(0, (OL.inLocal[pi] | 0) - 1); res(x); };
+      OL.localPick = function(o){ OL.localPick = null; try{ dktInputCancel(o); }catch(e){} };
+      Promise.resolve(dkRollInput(pi)).then(function(o){
         OL.localPick = null;
-        if(o && o.tag === 'skill'){ res({tag:'skill', v:1}); return; }
-        if(o && o.tag === 'item'){ res(o); return; }
-        o = o || {};
+        if(w.done || w.cancelled || !o || o.tag === 'cancel'){ fin(null); return; }
+        if(o.tag === 'skill'){ fin({tag:'skill', v:1}); return; }
+        if(o.tag === 'item'){ fin(o); return; }
         var eye = o.eye || 0, force = eye ? null : (o.force || null);
         var impact = !eye && !!o.impact, target = impact ? (o.target || 0) : 0;
-        res({tag:'roll', v:{force:force, impact:impact, eye:eye, target:target,
-                            dice:preRoll(pi, force, impact, target)}});
-      });
+        fin({tag:'roll', v:{force:force, impact:impact, eye:eye, target:target,
+                            dice:preRoll(pi, force, impact, target), pp:{odd:p.odd | 0, even:p.even | 0}}});
+      }, function(e){ console.error('[WP13b]', e); fin(null); });
     });
+  }
+  async function turnAct(pi){
+    var mine = isMine(pi);
+    var w = waitFor(pi, TURN_TAGS, null, mine);
+    if(!w.done){
+      if(!mine){
+        showWait(pi, 'サイコロを振ろうとしています', w);
+        try{ $('#skillBtn').onclick = null; }catch(e){}
+      } else {
+        ownTimer(w);
+        localTurnAction(pi, w).then(function(o){
+          if(w.done || w.cancelled) return;
+          if(!o){ if(isMine(pi)) send(w, 'roll', cpuRollChoice(pi)); return; }
+          send(w, o.tag, o.v);
+        }, function(e){
+          console.error('[WP13b]', e);
+          if(!w.done && !w.cancelled) send(w, 'roll', cpuRollChoice(pi));
+        });
+      }
+    }
+    var a = await w.pr;
+    if(!a.local) reseed(a.seq);
+    return a;
   }
 
   async function applyRoll(pi, v){
     var p = G.players[pi];
-    gaugeOn = false; $('#diceui').classList.remove('on'); stepPreview = null;
-    if(v.force === 'odd')  p.odd--;
-    if(v.force === 'even') p.even--;
+    v = v || {};
+    gaugeOn = false; try{ $('#diceui').classList.remove('on'); }catch(e){} stepPreview = null;
+    /* UI の中で奇数/偶数を買い足した人は、その回数に合わせる（本人の端末で決まった数） */
+    if(v.pp && typeof v.pp === 'object'){
+      p.odd = Math.max(0, Math.min(99, v.pp.odd | 0));
+      p.even = Math.max(0, Math.min(99, v.pp.even | 0));
+    }
+    var force = (v.force === 'odd' || v.force === 'even') ? v.force : null;
+    if(force){
+      if(!((p[force] | 0) > 0)) force = null;
+      else { p.odd = Math.max(0, (p.odd | 0) - 1); p.even = Math.max(0, (p.even | 0) - 1); }   // 奇数/偶数は共通の回数（両方−1）
+    }
     var fixed = 0;
-    if(p.chooseEye > 0){ p.chooseEye--; fixed = v.eye || 0; }
-    OL.diceQ = (v.dice || []).slice();
-    try { return await doRoll(pi, v.force, !!v.impact, fixed, v.target || 0); }
+    if(v.eye && p.chooseEye > 0){ p.chooseEye--; fixed = v.eye | 0; force = null; }
+    OL.diceQ = Array.isArray(v.dice) ? v.dice.slice() : null;
+    try { return await doRoll(pi, force, !!v.impact && !fixed, fixed, v.target || 0); }
     finally { OL.diceQ = null; }
   }
 
   function applyCpuItem(pi, k){
-    var p = G.players[pi], id = p.items[k];
+    var p = G.players[pi], id = p.items && p.items[k];
     if(!id) return;
     p.items.splice(k, 1); renderItems();
     var it = itemById(id);
-    toast('L', it.ic, 'CPUがアイテム使用', it.nm, 2000);
+    if(it) toast('L', it.ic, 'CPUがアイテム使用', it.nm, 2000);
     if(id === 'angel')  p.freeToll++;
     if(id === 'half')   p.halfBuild++;
     if(id === 'salary') p.salaryX2++;
     if(id === 'double') p.forceDouble++;
   }
 
+  function cancelled(){ return {a:1, b:1, total:2, isDbl:false, cancelled:true}; }
   async function olTakeRoll(pi){
-    var guard = 0;
+    var p = G.players[pi], guard = 0;
     while(guard++ < 12){
-      var a;
-      if(isMine(pi)){
-        var o = await localTurnAction(pi);
-        a = await sendAct(pi, o.tag, o.v);
-      } else {
-        showWait(pi, 'サイコロを振ろうとしています');
-        $('#skillBtn').onclick = null;
-        a = await waitFor(pi, TURN_TAGS);
-        hideWait();
+      if(!G || G.over || p.out) return cancelled();
+      var a = await turnAct(pi);
+      if(!G || G.over || p.out) return cancelled();
+      if(a.tag === 'skill'){
+        await useSkill(pi);
+        /* 能力で監獄へ飛んだ・破産した・決着した時は、もう振らない（9g-turn.js の takeRoll と同じ） */
+        if(!G || G.over || p.out || p.jail > 0 || p.travel) return cancelled();
+        continue;
       }
-      if(a.tag === 'skill'){ await useSkill(pi); continue; }
-      if(a.tag === 'item'){ await OL.orig.useItem(pi, a.v); continue; }
+      if(a.tag === 'item'){
+        await OL.orig.useItem(pi, a.v);
+        if(!G || G.over || p.out || p.jail > 0) return cancelled();
+        continue;
+      }
       if(a.tag === 'cpuitem'){ applyCpuItem(pi, a.v); continue; }
       return await applyRoll(pi, a.v);
     }
-    return applyRoll(pi, {force:null, impact:false, eye:0, dice:preRoll(pi, null)});
+    return cancelled();
   }
-
-  /* 無人島は 9g-turn.js の jailTurn に任せる（3択は dvAsk、サイコロは dvQueueDice で全員にそろう） */
-  function olJailTurn(pi){ return OL.orig.jailTurn(pi); }
 
   function olPickTile(pi, msg, filter){
     return ask(pi, 'tile',
       function(){ return OL.orig.pickTile(pi, msg, filter); },
-      'マスを選んでいます');
+      'エリアを選んでいます');
   }
 
   function olUseItem(pi, k){
@@ -926,162 +1524,105 @@ function dvOnlineBoot(){
     return OL.orig.useItem(pi, k);
   }
 
+  /* 揺らす（妨害）：押したかどうかと当たりを配る。回数は全端末で同じように減らす */
   function olShakePhase(me){
-    return ask(me, 'jam',
-      function(){ return OL.orig.shakePhase(me); },
-      '建設をじゃまするか考えています');
-  }
-
-  /* 買収は本体の maybeBuyout に任せる（確認は dvAsk(pi,'buyout') で全員にそろう） */
-  function olMaybeBuyout(pi, i){ return OL.orig.maybeBuyout(pi, i); }
-
-  /* 建てる：どれを選んだかだけを配り、計算は各端末で同じようにやる */
-  function pickBuild(pi, i){
-    var t = G.tiles[i], p = G.players[pi];
-    var own = t.owner === pi;
-    return new Promise(function(res){
-      var wrap = $('#modalWrap'), body = $('#modalBody');
-      body.innerHTML = buildHTML(i, pi);
-      wrap.classList.add('on');
-      var sel = [];
-      var has = function(k){ return sel.indexOf(k) >= 0; };
-      var sumEl = body.querySelector('#bSum');
-      var cards = Array.from(body.querySelectorAll('.bcard'));
-      /* 本家どおり、最初から選ばれている札（.bcard.sel）から始める */
-      cards.forEach(function(c){
-        if(c.classList.contains('sel') && !c.classList.contains('dis') && !c.classList.contains('own')) sel.push(+c.dataset.k);
+    var p = G.players[me], before = p ? (p.jam | 0) : 0;
+    return ask(me, 'jam', function(){
+      return Promise.resolve(OL.orig.shakePhase(me)).then(function(win){
+        return {w:!!win, u:!!(p && (p.jam | 0) < before)};
       });
-      var costOf = function(k){ return +cards.find(function(c){ return +c.dataset.k === k; }).dataset.c; };
-      var recalc = function(){
-        var s = 0, j;
-        for(j=0;j<sel.length;j++) s += costOf(sel[j]);
-        sumEl.textContent = yen(s);
-        body.querySelector('#bOk').disabled = (sel.length === 0 || s > p.cash);
-        sumEl.style.color = s > p.cash ? '#C0261A' : '#B2411C';
-      };
-      cards.forEach(function(cd){
-        var k = +cd.dataset.k;
-        if(cd.classList.contains('dis') || cd.classList.contains('own')) return;
-        cd.onclick = function(){
-          if(k > 0 && !own && !has(0)){
-            sel.push(0); cards.find(function(c){ return +c.dataset.k === 0; }).classList.add('sel');
-          }
-          if(k > 0 && k < 4){
-            for(var j = (own ? t.lv+1 : 1); j < k; j++){
-              var cc = cards.find(function(c){ return +c.dataset.k === j; });
-              if(cc && !cc.classList.contains('own') && !has(j)){ sel.push(j); cc.classList.add('sel'); }
-            }
-          }
-          if(has(k)){ sel.splice(sel.indexOf(k), 1); cd.classList.remove('sel'); }
-          else { sel.push(k); cd.classList.add('sel'); }
-          SFX.click(); recalc();
-        };
-      });
-      recalc();
-      body.querySelectorAll('[data-act]').forEach(function(b){
-        b.onclick = function(){
-          SFX.click(); wrap.classList.remove('on');
-          res(b.dataset.act === 'ok' ? sel.slice().sort() : []);
-        };
-      });
+    }, '揺らすか考えています').then(function(v){
+      if(v && typeof v === 'object'){ if(p) p.jam = Math.max(0, before - (v.u ? 1 : 0)); return !!v.w; }
+      return !!v;
     });
   }
-  function planBuild(pi, i){
-    /* CPUの手（ホストだけが計算して配る）。元の aiBuy と同じ考え方 */
-    var t = G.tiles[i], p = G.players[pi], lvl = cfg.ai;
-    var own = t.owner === pi;
-    var disc = statMul(p,'build',0.3) * (p.halfBuild > 0 ? 0.5 : 1) * ((G.ev && G.ev.buildX) || 1);
-    var reserve = [300000, 180000, 90000][lvl];
-    var sel = [], spend = 0, lvTarget = t.lv, k, c;
-    /* 観光地は建物を建てられない＝土地だけ（ほかの観光地を持っていれば無理をしてでも買う） */
-    if(t.tour){
-      if(own) return [];
-      var tp = Math.round(t.base*disc);
-      var mineT = G.tiles.filter(function(x){ return x.tour && x.owner === pi; }).length;
-      return (p.cash - tp >= (mineT >= 1 ? 0 : reserve)) ? [0] : [];
-    }
-    if(!own){
-      var price = Math.round(t.base*disc);
-      var mineG = CITY_SLOTS[t.g].filter(function(j){ return G.tiles[j].owner === pi; }).length;
-      var urgent = mineG >= 1 || G.players.some(function(q, qi){
-        return qi !== pi && !q.out &&
-          CITY_SLOTS[t.g].filter(function(j){ return G.tiles[j].owner === qi; }).length >= 2; });
-      if(p.cash - price < (urgent ? 0 : reserve)) return [];
-      sel.push(0); spend += price;
-    }
-    var near = CITY_SLOTS[t.g].filter(function(j){ return G.tiles[j].owner === pi; }).length;
-    var block = G.players.some(function(q, qi){
-      return qi !== pi && !q.out &&
-        CITY_SLOTS[t.g].filter(function(j){ return G.tiles[j].owner === qi; }).length >= 2; });
-    var aggr = (near >= 1 || block) ? 1 : 0;
-    var mx = maxLvOf(p);
-    for(k = (own ? t.lv+1 : 1); k <= mx; k++){
-      c = Math.round(BUILD[k].cost(t.base)*disc);
-      /* 蓄えは崩してよいが、所持金より多くは払えない（0円が下限。ここが無いと所持金がマイナスになった） */
-      if(p.cash - spend - c < Math.max(0, reserve - aggr*1500000)) break;
-      if(lvl === 0 && k > 1) break;
-      if(lvl === 1 && k > 2 && !aggr) break;
-      spend += c; lvTarget = k; sel.push(k);
-    }
-    if(lvl === 2 && lvTarget === 3 && near >= 1){
-      c = Math.round(BUILD[4].cost(t.base)*disc);
-      if(p.cash - spend - c > reserve){ sel.push(4); }
-    }
-    return sel;
-  }
-  async function olBuyUI(pi, i){
-    var t = G.tiles[i], p = G.players[pi];
-    var own = t.owner === pi;
-    var cpu = p.kind === 'cpu';
-    if(!own && t.owner >= 0) return;
-    if(own && t.landmark){
-      if(!cpu) toast('R','🗼','ランドマーク完成済み', t.name + ' はこれ以上建てられません', 1800);
-      return;
-    }
-    var sel = await ask(pi, 'build', function(){
-      return cpu ? Promise.resolve(planBuild(pi, i)) : pickBuild(pi, i);
-    }, cpu ? '建てる場所を考えています' : '買うか考えています');
-    if(!sel || !sel.length) return;
-    var disc = statMul(p,'build',0.3) * (p.halfBuild > 0 ? 0.5 : 1) * ((G.ev && G.ev.buildX) || 1);
-    var has = function(k){ return sel.indexOf(k) >= 0; };
-    var spend = 0, j;
-    for(j=0;j<sel.length;j++){
-      var k = sel[j];
-      spend += (k === 0) ? Math.round(t.base*disc) : Math.round(BUILD[k].cost(t.base)*disc);
-    }
-    /* 人間プレイヤーは「ゆらす」で邪魔できる（CPUの建設だけ） */
-    if(cpu){
-      var me = G.players.findIndex(function(q){ return q.kind !== 'cpu' && !q.out; });
-      if(me >= 0 && me !== pi && G.players[me].jam > 0){
-        var jammed = await olShakePhase(me);
-        if(jammed){
-          var top = -1;
-          for(j=0;j<sel.length;j++) if(sel[j] > 0 && sel[j] < 4 && sel[j] > top) top = sel[j];
-          sel = sel.filter(function(k2){ return k2 !== 4 && k2 !== top; });
-          spend = Math.round(spend*0.5);
-          if(!sel.length){ toast('L','✋','じゃま成功！','建設を止めました', 2200); return; }
-        }
-      }
-    }
-    if(spend > p.cash) return;                 // 念のため：所持金を超える投資はしない
-    if(p.halfBuild > 0) p.halfBuild--;
-    give(pi, -spend);
-    if(has(0) || own) t.owner = pi;
-    [1,2,3].forEach(function(k){ if(has(k)) t.lv = Math.max(t.lv, k); });
-    if(has(4)) t.landmark = true;
-    if(cpu){
-      toast('L','🏗',(has(0) ? '購入' : '建設') + '：' + t.name, yen(spend) + ' を投資しました', 2000);
-      news(p.name + ' が ' + t.name + ' に ' + yen(spend) + ' を投資！');
-      await growAnim(i);
-    } else {
-      await growAnim(i);
-      await deedCard(i, spend);
-    }
-    checkWin();
-  }
 
-  /* ボーナスゲームは本体の miniGame に任せる（人間の入力は dvAsk(pi,'mini') で全員にそろう） */
-  function olMiniGame(pi){ return OL.orig.miniGame(pi); }
+  /* ══════════ エモートといいね（C15・G06・G21） ══════════
+     手順とは別の軽い知らせ。送った本人の端末ですぐ出し、host が部屋の全員へ配る。
+     CPU など、この端末の人でない席は、各端末が同じ出来事で同じように出す（配らない）。 */
+  function freshCounts(){ if(OL.likeG !== G){ OL.likeG = G; OL.likes = {}; OL.emoAt = {}; } }
+  function cleanEmo(list){
+    if(!Array.isArray(list)) list = [list];
+    var out = [];
+    for(var i = 0; i < list.length && out.length < EMO_MAX; i++){
+      var e = list[i];
+      if(typeof e !== 'string') continue;
+      e = e.replace(/[<>&"'`]/g, '').slice(0, 12);
+      if(e) out.push(e);
+    }
+    return out;
+  }
+  function emoOk(seat){
+    var t = nowMs(), last = OL.emoAt[seat];
+    if(last !== undefined && t - last < EMO_GAP) return false;
+    OL.emoAt[seat] = t;
+    return true;
+  }
+  function showEmo(seat, list){
+    if(typeof dkEmoteShow !== 'function') return;
+    try{ dkEmoteShow(seat, list.slice()); }catch(e){ console.error('[WP13b]', e); }
+  }
+  function likeN(seat){ return OL.likes[seat] | 0; }
+  function likeTotal(){ var s = 0; for(var k in OL.likes) s += OL.likes[k] | 0; return s; }
+  function showLike(seat){
+    if(typeof dkLikeShow !== 'function') return;
+    try{ dkLikeShow(seat, likeN(seat), likeTotal()); }catch(e){ console.error('[WP13b]', e); }
+  }
+  function onlineNow(){ return !!(OL.started && G && !G.over); }
+  /* window.dvSendEmote(seat, list)：seat＝送る人の席。4個まで・3秒に1回。出したら true */
+  window.dvSendEmote = function(seat, list){
+    freshCounts();
+    seat = seat | 0; list = cleanEmo(list);
+    if(!list.length || !emoOk(seat)) return false;
+    showEmo(seat, list);
+    if(onlineNow() && seatHere(seat)){
+      var m = {t:'emo', s:seat, e:list};
+      if(OL.host) bcast(m); else sendTo(OL.hostConn, m);
+    }
+    return true;
+  };
+  /* window.dvSendLike(seat)：seat＝いいねを送る人の席。1試合10回まで。
+     全員の端末で dkLikeShow(seat, その人の累計, 部屋の合計)。送れたら true */
+  window.dvSendLike = function(seat){
+    freshCounts();
+    seat = seat | 0;
+    if(likeN(seat) >= LIKE_MAX) return false;
+    OL.likes[seat] = likeN(seat) + 1;
+    showLike(seat);
+    if(onlineNow() && seatHere(seat)){
+      var m = {t:'like', s:seat};
+      if(OL.host) bcast(m); else sendTo(OL.hostConn, m);
+    }
+    return true;
+  };
+  function gotEmo(pid, m){
+    if(!onlineNow() || !m) return;
+    freshCounts();
+    var si = m.s | 0, list = cleanEmo(m.e);
+    if(!list.length) return;
+    if(OL.host){
+      var s = OL.seats[si];
+      if(!s || s.pid !== pid) return;                    // 他人の席のふりはできない
+      if(!emoOk(si)) return;
+      showEmo(si, list);
+      bcast({t:'emo', s:si, e:list}, pid);
+    } else if(!seatHere(si)) showEmo(si, list);
+  }
+  function gotLike(pid, m){
+    if(!onlineNow() || !m) return;
+    freshCounts();
+    var si = m.s | 0;
+    if(OL.host){
+      var s = OL.seats[si];
+      if(!s || s.pid !== pid || likeN(si) >= LIKE_MAX) return;
+      OL.likes[si] = likeN(si) + 1;
+      showLike(si);
+      bcast({t:'like', s:si}, pid);
+    } else if(!seatHere(si) && likeN(si) < LIKE_MAX){
+      OL.likes[si] = likeN(si) + 1;
+      showLike(si);
+    }
+  }
 
   /* ══════════ タイトルにボタンを足す（読み込めた時だけ） ══════════ */
   function addButton(){
@@ -1104,8 +1645,13 @@ function dvOnlineBoot(){
   window.DV_OL = OL;
   window.DV_OL_API = {
     open:openOnline, host:startHost, join:startGuest, begin:beginGame,
-    apply:applyAct, hash:hashState, snap:snapshot, seed:function(s, q){ OL.seed = s; reseed(q||0); },
-    rng:function(){ return OL.rng; }, mkCode:mkCode, cleanCode:cleanCode, leave:leave
+    apply:enqueue, hash:hashState, snap:flatten, restore:restoreFlat,
+    seed:function(s, q){ OL.seed = s; reseed(q||0); },
+    rng:function(){ return OL.rng; }, mkCode:mkCode, cleanCode:cleanCode, leave:leave,
+    profile:myProfile, onData:onData, reset:resetSeq, gone:gone,
+    waitFor:function(seat, tags){ return waitFor(seat, tags, null, false).pr; },
+    mySeat:mySeat, isMine:isMine, ownerOf:ownerOf, auto:requestAuto, room:showRoom,
+    showWait:function(seat, msg){ showWait(seat, msg, null); }, hideWait:hideWait
   };
 }
 dvOnlineBoot();
