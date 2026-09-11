@@ -1,0 +1,719 @@
+<style>
+/* ══════════════════════════════════════════════════════════════
+   ダイスキングダム — カード・サイコロ画面（1m-cards.html / WP2）
+   ・セレクタは #cards / #dice / .dkc- だけ。動かすのは transform と opacity だけ。
+   ・入場 keyframe は from だけ（0% で opacity を下げない）。
+   ══════════════════════════════════════════════════════════════ */
+
+/* ══════ 等級の色（放射グラデ＋multiply で白地をなじませる） ══════ */
+#cards .dkc-rA,#cards .dkc-aA,#dice .dkc-rA,.dkc-modal .dkc-rA,.dkc-modal .dkc-aA{
+  --dkc-rg:radial-gradient(ellipse 85% 75% at 50% 38%,#F6FCFF 0%,#C4E3FF 34%,#6AA8E6 76%,#2B5C9A 100%);--dkc-rc:#6FB8F5}
+#cards .dkc-rS,#cards .dkc-aS,#dice .dkc-rS,.dkc-modal .dkc-rS,.dkc-modal .dkc-aS{
+  --dkc-rg:radial-gradient(ellipse 85% 75% at 50% 38%,#FDF7FF 0%,#E2CBFF 34%,#A273E6 76%,#4A2388 100%);--dkc-rc:#B98AF0}
+#cards .dkc-rSS,#cards .dkc-aSS,#dice .dkc-rSS,.dkc-modal .dkc-rSS,.dkc-modal .dkc-aSS{
+  --dkc-rg:radial-gradient(ellipse 85% 75% at 50% 38%,#FFFDF0 0%,#FFE7A6 34%,#EAAE34 76%,#80520A 100%);--dkc-rc:#FFD24D}
+#cards .dkc-rX{--dkc-rg:radial-gradient(circle at 50% 45%,#3A2A14,#140C04);--dkc-rc:#7A5A22}
+
+/* ══════ 画面の器 ══════ */
+#cards .dkc-body,#dice .dkc-body{gap:14px}
+#cards .dkc-main,#dice .dkc-main{gap:14px}
+#cards .dklogo.dktext b{font-size:56px;letter-spacing:.12em;color:#FFD44A;-webkit-text-stroke:6px #2A1604;paint-order:stroke fill;
+  text-shadow:0 3px 0 #C98A12,0 6px 0 #6B4408,0 10px 14px rgba(0,0,0,.55)}
+#cards .dktab .ic .dkc-svg,#dice .dktab .ic .dkc-svg{width:52px;height:52px;display:block}
+#cards .dktab .tx,#dice .dktab .tx{font-size:21px}
+#cards .dktab.on .dkc-svg,#dice .dktab.on .dkc-svg{animation:dkcIconBob 2.4s ease-in-out infinite}
+@keyframes dkcIconBob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-4px) rotate(-4deg)}}
+/* タブを変えた時だけ、中身がすっと上がる（作り直しのたびには動かさない） */
+#cards .dkc-swap > *,#dice .dkc-swap > *{animation:dkcSwap .38s cubic-bezier(.16,1,.3,1) both}
+#cards .dkc-swap > *:nth-child(2),#dice .dkc-swap > *:nth-child(2){animation-delay:.05s}
+#cards .dkc-swap > *:nth-child(3),#dice .dkc-swap > *:nth-child(3){animation-delay:.1s}
+@keyframes dkcSwap{from{transform:translateY(18px) scale(.985)}}
+#cards.dkc-busy .dkc-body,#dice.dkc-busy .dkc-body{pointer-events:none}
+
+/* 小さな道具 */
+#cards .dkc-svg,#dice .dkc-svg,.dkc-modal .dkc-svg{width:1em;height:1em;display:inline-block;vertical-align:-.14em;overflow:visible}
+#cards .dkc-ico,#dice .dkc-ico,.dkc-modal .dkc-ico{display:inline-block;width:.95em;height:.95em;vertical-align:-.12em;margin-right:.18em;flex:0 0 auto}
+#cards .dkc-rar,#dice .dkc-rar,.dkc-modal .dkc-rar{display:inline-block;font-family:var(--caps);font-weight:900;line-height:1;
+  font-size:34px;color:#FFD44A;-webkit-text-stroke:4px #2A1604;paint-order:stroke fill;text-shadow:0 2px 0 #C98A12,0 4px 0 rgba(40,24,4,.5)}
+#cards .dkc-rar.dkc-gS,#dice .dkc-rar.dkc-gS,.dkc-modal .dkc-rar.dkc-gS{color:#E6CCFF;text-shadow:0 2px 0 #7A4AB8,0 4px 0 rgba(30,10,50,.5)}
+#cards .dkc-rar.dkc-gA,#dice .dkc-rar.dkc-gA,.dkc-modal .dkc-rar.dkc-gA{color:#CDEBFF;text-shadow:0 2px 0 #2E6FB8,0 4px 0 rgba(10,30,60,.5)}
+#cards .dkc-rar.sm,#dice .dkc-rar.sm{font-size:20px;-webkit-text-stroke-width:3px;margin-right:6px}
+
+/* ══════ ステージ（主役の置き場） ══════ */
+#cards .dkc-stage,#dice .dkc-stage{display:flex;align-items:center;justify-content:center;isolation:isolate;
+  background:radial-gradient(ellipse 60% 55% at 50% 58%,rgba(255,196,96,.2),rgba(255,196,96,0) 70%),
+             radial-gradient(ellipse 90% 80% at 50% 50%,rgba(20,12,4,0),rgba(10,6,2,.45))}
+#cards .dkc-stage > .fx-rays,#dice .dkc-stage > .fx-rays{opacity:.55;z-index:0}
+#cards .dkc-stage > .fx-rays.dkc-hot{opacity:.95}
+#cards .dkc-floor{position:absolute;left:18%;right:18%;bottom:5%;height:70px;border-radius:50%;z-index:0;pointer-events:none;
+  background:radial-gradient(closest-side,rgba(255,214,120,.45),rgba(255,180,60,.12) 60%,transparent)}
+
+/* ══════ 大きいカード ══════ */
+#cards .dkc-big,.dkc-modal .dkc-big{position:relative;z-index:2;width:330px;height:486px;flex:0 0 auto}
+#cards .dkc-stage > .dkc-big{animation:dkcFloat 6s ease-in-out infinite}
+@keyframes dkcFloat{0%,100%{transform:translateY(0) rotate(-.4deg)}50%{transform:translateY(-12px) rotate(.4deg)}}
+#cards .dkc-big > .in,.dkc-modal .dkc-big > .in{display:flex;flex-direction:column}
+#cards .dkc-bighd,.dkc-modal .dkc-bighd{height:52px;flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:0 14px;
+  background:linear-gradient(180deg,#2E1E0A,#120B04);border-bottom:2px solid rgba(255,214,110,.45)}
+#cards .dkc-bignm,.dkc-modal .dkc-bignm{margin-left:auto;font-family:var(--pop);font-size:21px;color:#FFE9B5;white-space:nowrap;
+  -webkit-text-stroke:3px #241604;paint-order:stroke fill;overflow:hidden;text-overflow:ellipsis}
+#cards .dkc-art,.dkc-modal .dkc-art{flex:1;min-height:0;position:relative;
+  background-color:#E8D9B8;background-repeat:no-repeat,no-repeat;
+  background-size:cover,100% 100%;background-position:50% 86%,center;background-blend-mode:multiply,normal;
+  box-shadow:inset 0 0 26px rgba(40,20,0,.35)}
+#cards .dkc-art::after,.dkc-modal .dkc-art::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,0) 30%,rgba(0,0,0,0) 70%,rgba(20,10,0,.3))}
+#cards .dkc-ph,.dkc-modal .dkc-ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--pop);font-size:120px;color:rgba(80,50,10,.35)}
+#cards .dkc-lvhex{position:absolute;right:10px;bottom:10px;z-index:2;width:74px;height:82px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;line-height:1;
+  background:linear-gradient(180deg,#9FD4FA,#2E8BE0 52%,#14559E);
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);filter:drop-shadow(0 3px 5px rgba(0,0,0,.6))}
+#cards .dkc-lvhex i{font-style:normal;font-family:var(--caps);font-size:16px;color:#E6F6FF;-webkit-text-stroke:2px #0C2A52;paint-order:stroke fill}
+#cards .dkc-lvhex b{font-family:var(--pop);font-size:32px;color:#fff;-webkit-text-stroke:4px #0C2A52;paint-order:stroke fill}
+#cards .dkc-bigft,.dkc-modal .dkc-bigft{height:46px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+  font-size:18px;font-weight:900;color:#F0DCA8;letter-spacing:.06em;background:linear-gradient(180deg,#4A3517,#241708)}
+#cards .dkc-big.dkc-sseen .dkc-art,.dkc-modal .dkc-big.dkc-sseen .dkc-art{filter:grayscale(1) brightness(.92)}
+#cards .dkc-big.dkc-mid{width:252px;height:372px}
+#cards .dkc-big.dkc-sm,.dkc-modal .dkc-big.dkc-sm{width:196px;height:288px}
+#cards .dkc-big.dkc-sm .dkc-bighd,.dkc-modal .dkc-big.dkc-sm .dkc-bighd{height:42px;padding:0 10px}
+#cards .dkc-big.dkc-sm .dkc-rar,.dkc-modal .dkc-big.dkc-sm .dkc-rar{font-size:26px}
+#cards .dkc-big.dkc-sm .dkc-bignm,.dkc-modal .dkc-big.dkc-sm .dkc-bignm{font-size:17px}
+#cards .dkc-big.dkc-sm .dkc-bigft,.dkc-modal .dkc-big.dkc-sm .dkc-bigft{height:34px;font-size:16px}
+#cards .dkc-big.dkc-sm .dkc-lvhex{width:52px;height:58px}
+#cards .dkc-big.dkc-sm .dkc-lvhex b{font-size:22px}
+/* 封をされたカード（未発見）・裏面 */
+#cards .dkc-seal,#cards .dkc-back{border-radius:16px;padding:5px;
+  background:linear-gradient(152deg,#8A7250,#4A3517 40%,#2A1C08 70%,#6E5326)}
+#cards .dkc-sealin,#cards .dkc-backin{height:100%;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  background:radial-gradient(circle at 50% 42%,#3A2A14,#140C04 70%);border:2px solid rgba(255,214,110,.25);position:relative;overflow:hidden}
+#cards .dkc-sealin b{font-family:var(--pop);font-size:30px;color:#8A7250;letter-spacing:.2em}
+#cards .dkc-sealq{display:block;width:96px;height:96px;border-radius:50%;position:relative;
+  background:radial-gradient(circle at 38% 30%,#6E5326,#2A1C08 70%);border:3px solid #7A5A22;box-shadow:inset 0 0 18px rgba(0,0,0,.7)}
+#cards .dkc-sealq::before{content:"";position:absolute;left:50%;top:50%;width:34px;height:48px;margin:-28px 0 0 -17px;
+  border:7px solid #B8955A;border-bottom:none;border-left:none;border-radius:0 22px 0 0;transform:skewX(-6deg)}
+#cards .dkc-sealq::after{content:"";position:absolute;left:50%;bottom:16px;width:11px;height:11px;margin-left:-6px;border-radius:50%;background:#B8955A}
+#cards .dkc-back.dkc-bS{background:linear-gradient(160deg,#F2E2FF,#B07CE8 40%,#5A2A9E 70%,#E0C8FF)}
+#cards .dkc-back.dkc-bSS{background:var(--fx-gold-metal)}
+#cards .dkc-back.dkc-bA{background:linear-gradient(160deg,#DDF1FF,#6FB8F5 40%,#1B5A9E 70%,#A8DCFF)}
+#cards .dkc-backin b{font-family:var(--caps);font-size:52px;color:#FFD44A;-webkit-text-stroke:5px #2A1604;paint-order:stroke fill}
+#cards .dkc-backin::after{content:"";position:absolute;top:-10%;bottom:-10%;width:30%;left:0;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);animation:fxShine 3.6s ease-in-out infinite}
+
+/* ══════ 右の詳細パネル ══════ */
+#cards .dkc-det,#dice .dkc-det{gap:9px;min-height:0}
+#cards .dkc-det .hd .nm,#dice .dkc-det .hd .nm{font-size:30px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#cards .dkc-det .hd .lv small,#dice .dkc-det .hd .lv small{font-size:16px;opacity:.75}
+#cards .dkc-det .hd .lv.dkc-lvq,#dice .dkc-det .hd .lv.dkc-lvq{background:linear-gradient(180deg,#D8D0C4,#8C8276);border-color:#4A443C;color:#2A241C}
+#cards .dkc-exprow{display:flex;align-items:center;gap:10px}
+#cards .dkc-expl{font-family:var(--caps);font-size:18px;color:#F0DCA8;width:48px}
+#cards .dkc-exprow .dkbar{flex:1;height:20px}
+#cards .dkc-exprow b{font-family:var(--pop);font-size:19px;color:#FFE9B5;min-width:108px;text-align:right}
+#cards .dkc-ef .ic .dkc-svg{width:40px;height:40px}
+#cards .dkc-ef p,#dice .dkc-ef p{font-size:16px;line-height:1.45}
+#cards .dkc-line{font-size:16px;margin:0}
+#cards .dkc-stats,#dice .dkc-dbars{display:flex;flex-direction:column;gap:6px}
+#cards .dkc-st,#dice .dkc-st{gap:10px}
+#cards .dkc-st .dkbar{height:20px}
+#cards .dkc-st .l,#dice .dkc-st .l{width:170px}
+#cards .dkc-det .btns,#dice .dkc-det .btns{margin-top:auto}
+#cards .dkc-bt,#dice .dkc-bt{height:66px;font-size:27px;flex:1}
+#cards .dkc-bt2,#dice .dkc-bt2,.dkc-modal .dkc-bt2{height:52px;font-size:21px;padding:0 18px;flex:0 0 auto}
+#cards .dkc-why,#dice .dkc-why{font-size:17px;line-height:1.4;font-weight:900;color:#FF9E8C;text-align:center;
+  padding:6px 10px;border-radius:9px;background:rgba(90,10,8,.35);border:1px solid rgba(255,120,100,.35)}
+
+/* ══════ 下の帯（横スクロール・端に続きのフェード） ══════ */
+#cards .dkc-bottom,#dice .dkc-bottom{height:190px}
+#cards .dkc-cnt,#dice .dkc-cnt{font-size:16px;line-height:1.35}
+#cards .dkc-cnt b,#dice .dkc-cnt b{font-size:24px}
+#cards .dkc-strip,#dice .dkc-strip{position:relative;flex:1;min-width:0;align-self:stretch;display:flex;align-items:center}
+#cards .dkc-row,#dice .dkc-row{flex:1;min-width:0;padding:16px 14px 10px;gap:12px;scroll-behavior:auto;
+  scrollbar-width:thin;scrollbar-color:#C8952F #241708}
+#cards .dkc-row::-webkit-scrollbar,#dice .dkc-row::-webkit-scrollbar{height:8px}
+#cards .dkc-row::-webkit-scrollbar-thumb,#dice .dkc-row::-webkit-scrollbar-thumb{background:linear-gradient(90deg,#C8952F,#7C5410);border-radius:6px}
+#cards .dkc-fade,#dice .dkc-fade{position:absolute;top:8px;bottom:8px;width:84px;z-index:3;pointer-events:none;opacity:0;
+  transition:opacity .25s ease}
+#cards .dkc-fl,#dice .dkc-fl{left:0;background:linear-gradient(90deg,rgba(26,16,5,.96),rgba(26,16,5,0))}
+#cards .dkc-fr,#dice .dkc-fr{right:0;background:linear-gradient(270deg,rgba(26,16,5,.96),rgba(26,16,5,0))}
+#cards .dkc-fade::after,#dice .dkc-fade::after{content:"";position:absolute;top:50%;width:20px;height:20px;margin-top:-12px;
+  border:solid #FFD44A;border-width:0 6px 6px 0;filter:drop-shadow(0 2px 2px rgba(0,0,0,.7))}
+#cards .dkc-fl::after,#dice .dkc-fl::after{left:18px;transform:rotate(135deg)}
+#cards .dkc-fr::after,#dice .dkc-fr::after{right:18px;transform:rotate(-45deg);animation:dkcNudge 1.4s ease-in-out infinite}
+@keyframes dkcNudge{0%,100%{transform:translateX(0) rotate(-45deg)}50%{transform:translateX(6px) rotate(-45deg)}}
+#cards .dkc-strip.dkc-mL .dkc-fl,#cards .dkc-strip.dkc-mR .dkc-fr,
+#dice .dkc-strip.dkc-mL .dkc-fl,#dice .dkc-strip.dkc-mR .dkc-fr{opacity:1}
+
+/* ── 小さいカード（帯・図鑑・アルバム） ── */
+#cards .dkc-item,#dice .dkc-item{flex:0 0 auto;width:142px;position:relative;border-radius:14px;cursor:pointer;
+  padding:6px 6px 7px;display:flex;flex-direction:column;align-items:center;gap:3px;
+  background:linear-gradient(180deg,#4C381A,#2A1C08 60%,#1A1004);border:3px solid var(--dkc-rc,#7A5A22);
+  box-shadow:0 4px 0 rgba(0,0,0,.45),inset 0 2px 0 rgba(255,220,150,.18);
+  transition:transform .18s cubic-bezier(.16,1,.3,1),filter .16s}
+#cards .dkc-item:hover,#dice .dkc-item:hover{transform:translateY(-5px);filter:brightness(1.12)}
+#cards .dkc-item:active,#dice .dkc-item:active{transform:translateY(2px) scale(.97)}
+#cards .dkc-item.on,#dice .dkc-item.on{border-color:#FFE9A8;transform:translateY(-6px);
+  box-shadow:0 4px 0 rgba(0,0,0,.45),0 0 0 3px rgba(255,214,110,.55),0 0 24px 6px rgba(255,200,80,.55);
+  animation:fxSelPop 260ms cubic-bezier(.34,1.56,.64,1)}
+#cards .dkc-item.dkc-dim,#dice .dkc-item.dkc-dim{filter:grayscale(.7) brightness(.66)}
+#cards .dkc-item.dkc-dim:hover,#dice .dkc-item.dkc-dim:hover{filter:grayscale(.5) brightness(.8)}
+#cards .dkc-face,.dkc-modal .dkc-face{position:relative;display:block;width:124px;height:96px;border-radius:10px;overflow:hidden;
+  background-color:#E8D9B8;background-repeat:no-repeat,no-repeat;background-size:178% auto,100% 100%;
+  background-position:50% 30%,center;background-blend-mode:multiply,normal;
+  box-shadow:inset 0 0 0 2px rgba(0,0,0,.35),inset 0 -14px 18px rgba(20,10,0,.35)}
+#cards .dkc-sunseen .dkc-face,#cards .dkc-rX .dkc-face,.dkc-modal .dkc-sunseen .dkc-face{background:radial-gradient(circle at 50% 42%,#3A2A14,#140C04 75%);display:flex;align-items:center;justify-content:center}
+#cards .dkc-face .dkc-sealq,.dkc-modal .dkc-face .dkc-sealq{width:58px;height:58px;transform:scale(.62)}
+#cards .dkc-sseen .dkc-face{filter:grayscale(1) brightness(.85)}
+#cards .dkc-irar{position:absolute;left:4px;top:3px;font-family:var(--caps);font-size:17px;line-height:1;color:#FFD44A;
+  -webkit-text-stroke:3px #2A1604;paint-order:stroke fill}
+#cards .dkc-rS .dkc-irar{color:#E6CCFF} #cards .dkc-rA .dkc-irar{color:#CDEBFF}
+#cards .dkc-dup{position:absolute;right:4px;bottom:3px;font-family:var(--pop);font-size:18px;line-height:1;color:#fff;
+  -webkit-text-stroke:3px #241604;paint-order:stroke fill}
+#cards .dkc-ilv,#dice .dkc-ilv{font-family:var(--pop);font-size:19px;line-height:1.1;color:#FFEDBC;-webkit-text-stroke:3px #241604;paint-order:stroke fill;
+  display:flex;align-items:center;gap:4px}
+#cards .dkc-ilv em,#dice .dkc-ilv em{font-style:normal;font-family:var(--caps);font-size:16px;color:#3A2405;-webkit-text-stroke:0;
+  padding:1px 5px;border-radius:6px;background:linear-gradient(180deg,#FFF0BE,#E8B23A)}
+#cards .dkc-ilv.dkc-miss,#dice .dkc-ilv.dkc-miss{color:#C9B894;font-size:17px}
+#cards .dkc-inm,#dice .dkc-inm{font-size:16px;line-height:1.25;color:#EBD9B2;text-align:center;max-width:128px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#cards .dkc-eq,#dice .dkc-eq{position:absolute;left:50%;top:-13px;transform:translateX(-50%);z-index:4;white-space:nowrap;
+  font-size:16px;font-weight:900;color:#3A2405;padding:1px 10px;border-radius:8px;
+  background:linear-gradient(180deg,#FFF0BE,#E8B23A);border:2px solid #8A6206;box-shadow:0 2px 3px rgba(0,0,0,.5)}
+#cards .dkc-pk{position:absolute;right:-8px;top:-10px;z-index:5;width:36px;height:36px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-family:var(--pop);font-size:22px;color:#fff;
+  background:linear-gradient(180deg,#8FD2FF,#2E8BE0 55%,#0B2C5E);border:2px solid #FFF1D0;box-shadow:0 2px 5px rgba(0,0,0,.5);
+  animation:fxPop 300ms cubic-bezier(.2,1.5,.4,1) both}
+#cards .dkc-why2{position:absolute;left:9px;right:9px;top:54px;z-index:3;padding:3px 4px;border-radius:7px;
+  font-size:16px;line-height:1.2;font-weight:900;color:#FFE4DA;text-align:center;background:rgba(40,8,6,.78)}
+
+/* ══════ 強化 ══════ */
+#cards .dkc-upst{gap:34px}
+#cards .dkc-upcard{position:relative;z-index:2;animation:dkcFloat 6s ease-in-out infinite}
+#cards .dkc-upinfo{position:relative;z-index:2;width:360px;display:flex;flex-direction:column;gap:12px}
+#cards .dkc-lvto{display:flex;align-items:center;gap:14px;font-family:var(--pop);font-size:30px;color:#FFE9B5;
+  -webkit-text-stroke:4px #241604;paint-order:stroke fill}
+#cards .dkc-lvto b{font-size:48px;color:#fff}
+#cards .dkc-lvto .dkc-lvnx b{color:#B8F08A}
+#cards .dkc-arw{width:0;height:0;border:16px solid transparent;border-left:24px solid #FFD44A;border-right:0;
+  filter:drop-shadow(0 2px 0 #7A4A06);animation:dkcNudge2 1.2s ease-in-out infinite}
+@keyframes dkcNudge2{0%,100%{transform:translateX(0)}50%{transform:translateX(6px)}}
+#cards .dkc-expbar{position:relative;height:24px;border-radius:12px;overflow:hidden;background:linear-gradient(180deg,#2A2118,#453A2E);
+  border:2px solid #2A2118;box-shadow:inset 0 3px 6px rgba(0,0,0,.6)}
+#cards .dkc-expbar i{position:absolute;left:0;top:0;bottom:0;border-radius:10px;
+  background:linear-gradient(180deg,#FFEDB0 0 26%,#F2C230 52%,#C08A0E);box-shadow:inset 0 2px 0 rgba(255,255,255,.5)}
+#cards .dkc-expbar em{position:absolute;top:0;bottom:0;border-radius:0 10px 10px 0;
+  background:repeating-linear-gradient(-45deg,rgba(184,240,138,.95) 0 8px,rgba(120,210,80,.95) 8px 16px);animation:dkcPulse 1.1s ease-in-out infinite}
+@keyframes dkcPulse{0%,100%{opacity:.55}50%{opacity:1}}
+#cards .dkc-exptx{font-family:var(--pop);font-size:18px;color:#F0DCA8;text-align:right}
+#cards .dkc-slots{display:flex;gap:8px;margin-top:6px}
+#cards .dkc-slot{position:relative;width:64px;height:64px;border-radius:50%;flex:0 0 auto}
+#cards .dkc-slot.dkc-empty{border:3px dashed rgba(255,214,110,.5);background:rgba(20,12,4,.55)}
+#cards .dkc-slot.dkc-empty i::before,#cards .dkc-slot.dkc-empty i::after{content:"";position:absolute;left:50%;top:50%;background:rgba(255,214,110,.6);border-radius:2px}
+#cards .dkc-slot.dkc-empty i::before{width:22px;height:4px;margin:-2px 0 0 -11px}
+#cards .dkc-slot.dkc-empty i::after{width:4px;height:22px;margin:-11px 0 0 -2px}
+#cards .dkc-slot.dkc-fill{cursor:pointer;border:3px solid var(--dkc-rc);box-shadow:0 0 14px var(--dkc-rc);animation:fxPop 300ms cubic-bezier(.2,1.5,.4,1) both}
+#cards .dkc-slot.dkc-fill .dkc-face{width:100%;height:100%;border-radius:50%;background-size:200% auto,100% 100%;background-position:50% 26%,center}
+#cards .dkc-x2{position:absolute;right:-8px;bottom:-6px;font-family:var(--pop);font-size:18px;color:#fff;padding:0 5px;border-radius:8px;
+  background:linear-gradient(180deg,#A8E877,#3A8C1C);-webkit-text-stroke:3px #123A10;paint-order:stroke fill}
+#cards .dkc-odds{display:flex;gap:8px}
+#cards .dkc-odds span{flex:1;padding:6px 4px;border-radius:9px;text-align:center;font-family:var(--pop);font-size:16px;line-height:1.15;color:#fff;
+  -webkit-text-stroke:3px rgba(20,10,0,.8);paint-order:stroke fill;border:2px solid rgba(255,255,255,.25)}
+#cards .dkc-odds small{display:block;font-size:16px;opacity:.9}
+#cards .dkc-odds .dkc-os{background:linear-gradient(180deg,#8C7A5C,#4A3E2C)}
+#cards .dkc-odds .dkc-og{background:linear-gradient(180deg,#6FCB52,#246A12)}
+#cards .dkc-odds .dkc-oe{background:linear-gradient(180deg,#FFD24D,#A86E08)}
+#cards .dkc-updet,#cards .dkc-mixdet{padding:14px 16px}
+#cards .dkc-mhd,#dice .dkc-mhd{display:flex;align-items:baseline;gap:10px;padding-bottom:6px;border-bottom:1px solid rgba(196,150,70,.34)}
+#cards .dkc-mhd b,#dice .dkc-mhd b{font-family:var(--pop);font-size:26px;color:#FFF0CE;-webkit-text-stroke:3px #241604;paint-order:stroke fill}
+#cards .dkc-mhd small,#dice .dkc-mhd small{font-size:16px;color:#E6D4AE}
+#cards .dkc-mhd em,#dice .dkc-mhd em{margin-left:auto;font-style:normal;font-family:var(--pop);font-size:24px;color:#FFD44A;
+  -webkit-text-stroke:3px #241604;paint-order:stroke fill}
+#cards .dkc-mats{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:2px 4px 2px 0;
+  scrollbar-width:thin;scrollbar-color:#C8952F #241708}
+#cards .dkc-mrow{display:flex;align-items:center;gap:10px;padding:5px 8px;border-radius:12px;flex:0 0 auto;
+  background:linear-gradient(180deg,rgba(255,240,200,.1),rgba(255,240,200,.02));border:2px solid rgba(196,150,70,.28)}
+#cards .dkc-mrow.on{border-color:var(--dkc-rc);background:linear-gradient(90deg,rgba(255,214,110,.22),rgba(255,214,110,.04))}
+#cards .dkc-face.sm{width:56px;height:56px;border-radius:50%;flex:0 0 auto;background-size:200% auto,100% 100%;background-position:50% 26%,center}
+#cards .dkc-mtx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+#cards .dkc-mtx b{font-size:18px;color:#FFE9B5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#cards .dkc-mtx span{font-size:16px;color:#E6D4AE;white-space:nowrap;display:flex;align-items:center}
+#cards .dkc-mtx em{font-style:normal;font-weight:900;color:#B8F08A;margin-left:4px}
+#cards .dkc-sep{display:inline-block;width:1px;height:14px;background:rgba(230,212,174,.4);margin:0 8px}
+#cards .dkc-have{font-family:var(--pop);font-size:18px;color:#F0DCA8;min-width:40px;text-align:right}
+#cards .dkc-pm{display:flex;align-items:center;gap:6px}
+#cards .dkc-pm b{min-width:26px;text-align:center;font-family:var(--pop);font-size:24px;color:#fff;-webkit-text-stroke:3px #241604;paint-order:stroke fill}
+#cards .dkc-pmb{position:relative;width:46px;height:46px;border-radius:11px;cursor:pointer;font-family:var(--pop);font-size:28px;line-height:1;
+  color:#3A2405;border:2px solid #7A5206;background:linear-gradient(180deg,#FFF3C8,#F2C230 55%,#A9761A);
+  box-shadow:0 3px 0 rgba(0,0,0,.45),inset 0 2px 0 rgba(255,255,255,.6);transition:transform .1s}
+#cards .dkc-pmb:active{transform:translateY(2px) scale(.95)}
+#cards .dkc-pmb:disabled{filter:grayscale(.8) brightness(.6);cursor:default}
+#cards .dkc-none{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center}
+#cards .dkc-none p{margin:0;font-size:18px;line-height:1.6;color:#E6D4AE}
+#cards .dkc-none .dkc-bt{flex:0 0 auto;width:240px}
+#cards .dkc-plan,#dice .dkc-plan{display:flex;flex-direction:column;gap:4px;padding:8px 10px;border-radius:11px;
+  background:linear-gradient(180deg,rgba(0,0,0,.28),rgba(0,0,0,.12));border:1px solid rgba(196,150,70,.3)}
+#cards .dkc-planrow,#dice .dkc-planrow{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+#cards .dkc-planrow span,#dice .dkc-planrow span{font-size:16px;color:#E6D4AE;min-width:92px}
+#cards .dkc-planrow b,#dice .dkc-planrow b{font-family:var(--pop);font-size:22px;color:#FFE9B5;display:inline-flex;align-items:center}
+#cards .dkc-planrow small,#dice .dkc-planrow small{font-size:16px;color:#C9B894}
+#cards .dkc-planrow.dkc-full span{min-width:0;font-size:17px;line-height:1.4}
+#cards .dkc-note{font-size:16px;color:#FFC870}
+
+/* ══════ 合成 ══════ */
+#cards .dkc-mixst{flex-direction:column;gap:18px}
+#cards .dkc-mixrow{position:relative;z-index:2;display:flex;align-items:center;gap:14px}
+#cards .dkc-mixslot{position:relative;width:196px;height:288px;flex:0 0 auto;cursor:pointer}
+#cards .dkc-mixslot.dkc-empty{cursor:default;border-radius:16px;border:3px dashed rgba(255,214,110,.45);background:rgba(20,12,4,.5);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+#cards .dkc-mixslot.dkc-empty i{width:54px;height:54px;border-radius:50%;border:3px solid rgba(255,214,110,.4);position:relative}
+#cards .dkc-mixslot.dkc-empty i::before,#cards .dkc-mixslot.dkc-empty i::after{content:"";position:absolute;left:50%;top:50%;background:rgba(255,214,110,.6)}
+#cards .dkc-mixslot.dkc-empty i::before{width:24px;height:4px;margin:-2px 0 0 -12px}
+#cards .dkc-mixslot.dkc-empty i::after{width:4px;height:24px;margin:-12px 0 0 -2px}
+#cards .dkc-mixslot.dkc-empty span{font-size:20px;font-weight:900;color:rgba(255,230,170,.7)}
+#cards .dkc-mixslot .dkc-big{animation:fxSelPop 300ms cubic-bezier(.34,1.56,.64,1)}
+#cards .dkc-plus{width:36px;height:36px;position:relative;flex:0 0 auto}
+#cards .dkc-plus::before,#cards .dkc-plus::after{content:"";position:absolute;left:50%;top:50%;background:#FFD44A;border-radius:3px;box-shadow:0 2px 0 #7A4A06}
+#cards .dkc-plus::before{width:36px;height:9px;margin:-4px 0 0 -18px}
+#cards .dkc-plus::after{width:9px;height:36px;margin:-18px 0 0 -4px}
+#cards .dkc-arw2{width:0;height:0;border:24px solid transparent;border-left:36px solid #FFD44A;border-right:0;flex:0 0 auto;
+  filter:drop-shadow(0 3px 0 #7A4A06);animation:dkcNudge2 1.2s ease-in-out infinite}
+#cards .dkc-mixres{position:relative;width:196px;height:288px;flex:0 0 auto}
+#cards .dkc-mixres > .dkc-big{animation:dkcFloat 5s ease-in-out infinite}
+#cards .dkc-aimtag{position:absolute;left:50%;top:-14px;transform:translateX(-50%);z-index:4;padding:2px 14px;border-radius:9px;white-space:nowrap;
+  font-size:18px;font-weight:900;color:#fff;background:linear-gradient(180deg,#FF6A5E,#C9302C);border:2px solid #FFF1D0}
+#cards .dkc-warn{position:relative;z-index:2;max-width:92%;padding:8px 18px;border-radius:10px;text-align:center;
+  font-size:18px;line-height:1.45;font-weight:900;color:#FFB0A0;background:linear-gradient(180deg,rgba(90,10,8,.8),rgba(50,6,4,.8));
+  border:2px solid rgba(255,110,90,.55)}
+#cards .dkc-mixtbl{display:flex;flex-direction:column;gap:6px}
+#cards .dkc-mixtbl > div{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 10px;border-radius:10px;
+  background:rgba(255,240,200,.06);border:1px solid rgba(196,150,70,.25)}
+#cards .dkc-mixtbl span{font-family:var(--pop);font-size:20px;color:#F0DCA8}
+#cards .dkc-mixtbl b{font-family:var(--pop);font-size:22px;color:#FFD44A}
+#cards .dkc-mixtbl em{font-style:normal;font-family:var(--pop);font-size:20px;color:#FFE9B5;display:inline-flex;align-items:center;margin-left:auto}
+#cards .dkc-mixtbl small{width:100%;font-size:16px;color:#C9B894}
+#cards .dkc-aim{padding:8px 10px;border-radius:11px;background:linear-gradient(180deg,rgba(201,48,44,.22),rgba(201,48,44,.06));border:1px solid rgba(255,120,100,.4)}
+#cards .dkc-aimhd{display:flex;align-items:center;gap:10px}
+#cards .dkc-aimhd b{font-family:var(--pop);font-size:20px;color:#FFB0A0}
+#cards .dkc-aimhd span{flex:1;min-width:0;font-size:18px;font-weight:900;color:#FFE9B5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#cards .dkc-aimp{font-size:17px;color:#F0DCA8;margin-top:4px}
+#cards .dkc-aimp b{font-family:var(--pop);font-size:24px;color:#FFD44A}
+#cards .dkc-aimp small{display:block;font-size:16px;color:#C9B894}
+
+/* ══════ 図鑑 ══════ */
+#cards .dkc-tbook{flex-direction:row}
+#cards .dkc-bookL{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px;padding:14px 16px}
+#cards .dkc-msbar{position:relative;height:112px;flex:0 0 auto}
+#cards .dkc-mstrack{position:absolute;left:60px;right:60px;top:26px;height:14px;border-radius:7px;background:linear-gradient(180deg,#2A2118,#453A2E);
+  border:2px solid #2A2118;box-shadow:inset 0 2px 4px rgba(0,0,0,.6);overflow:hidden}
+#cards .dkc-mstrack i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(180deg,#FFEDB0,#F2C230 52%,#C08A0E)}
+#cards .dkc-ms{position:absolute;top:0;width:150px;margin-left:-75px;display:flex;flex-direction:column;align-items:center;gap:3px;
+  left:calc(60px + (100% - 120px) * var(--p,0))}
+#cards .dkc-msic{width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:30px;
+  background:radial-gradient(circle at 35% 30%,#5A4220,#1A1004);border:3px solid #7A5A22;box-shadow:0 3px 0 rgba(0,0,0,.4)}
+#cards .dkc-msic .dkc-ico{width:34px;height:34px;margin:0}
+#cards .dkc-ms b{font-family:var(--pop);font-size:18px;color:#FFE9B5;-webkit-text-stroke:3px #241604;paint-order:stroke fill}
+#cards .dkc-msnm{font-size:16px;line-height:1.2;color:#C9B894;text-align:center;white-space:nowrap}
+#cards .dkc-ms.dkc-can .dkc-msic{border-color:#FFE9A8;box-shadow:0 0 18px 4px rgba(255,200,80,.6);animation:dkBadge 1.6s ease-in-out infinite}
+#cards .dkc-ms.dkc-got .dkc-msic{filter:grayscale(.6) brightness(.8)}
+#cards .dkc-ms .dkc-bt2{height:40px;font-size:20px;padding:0 12px}
+#cards .dkc-grid{flex:1;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(6,1fr);gap:10px 8px;
+  padding:14px 4px 6px;align-content:start;scrollbar-width:thin;scrollbar-color:#C8952F #241708}
+#cards .dkc-grid .dkc-item{width:auto}
+#cards .dkc-grid .dkc-face{width:100%;height:68px}
+#cards .dkc-grid .dkc-item{padding:5px 5px 6px}
+#cards .dkc-bookR{width:470px}
+#cards .dkc-bookcard{display:flex;justify-content:center;padding:4px 0}
+#cards .dkc-booktx p{margin:0 0 6px;font-size:17px;line-height:1.55;color:#E6D4AE}
+#cards .dkc-booktx b{display:inline-block;margin-right:8px;padding:0 8px;border-radius:6px;font-size:16px;color:#3A2405;background:linear-gradient(180deg,#FFF0BE,#E8B23A)}
+
+/* ══════ アルバム ══════ */
+#cards .dkc-talbum{flex-direction:column}
+#cards .dkc-albwrap,#dice .dkc-dbwrap{flex:1;min-width:0;display:flex;flex-direction:column;gap:12px}
+#cards .dkc-albnote{display:flex;align-items:center;gap:16px;padding:10px 18px;border-radius:14px;flex:0 0 auto;
+  background:linear-gradient(90deg,rgba(40,26,10,.92),rgba(20,12,4,.85));border:3px solid var(--dk-g4)}
+#cards .dkc-albnote b{font-family:var(--pop);font-size:28px;color:#FFD44A;-webkit-text-stroke:4px #2A1604;paint-order:stroke fill}
+#cards .dkc-albnote span{font-size:17px;color:#F0DCA8}
+#cards .dkc-albums{flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:1fr;gap:14px}
+#cards .dkc-album{position:relative;display:flex;flex-direction:column;gap:8px;padding:10px 12px 12px;border-radius:16px;min-height:0;
+  background:linear-gradient(180deg,rgba(52,36,16,.95),rgba(20,12,4,.97)) padding-box,var(--fx-gold-metal) border-box;border:4px solid transparent;
+  box-shadow:0 8px 0 rgba(0,0,0,.3),0 14px 28px rgba(0,0,0,.5)}
+#cards .dkc-album.dkc-can{box-shadow:0 8px 0 rgba(0,0,0,.3),0 0 30px 6px rgba(255,200,80,.55)}
+#cards .dkc-album.dkc-got{filter:saturate(.7)}
+#cards .dkc-alhd{display:flex;align-items:center;gap:10px}
+#cards .dkc-alno{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--pop);font-size:20px;
+  color:#3A2405;background:linear-gradient(180deg,#FFF0BE,#E8B23A);border:2px solid #8A6206}
+#cards .dkc-alhd b{font-family:var(--pop);font-size:22px;color:#FFE9B5;-webkit-text-stroke:3px #241604;paint-order:stroke fill}
+#cards .dkc-alhd em{margin-left:auto;font-style:normal;font-family:var(--pop);font-size:22px;color:#FFD44A}
+#cards .dkc-alcards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;flex:1;min-height:0}
+#cards .dkc-alcards .dkc-item{min-width:0}
+#cards .dkc-alcards .dkc-ilv{font-size:17px}
+#cards .dkc-alcards .dkc-ilv em{display:none}
+#cards .dkc-alcards .dkc-item{width:auto;cursor:default;padding:5px 4px 6px}
+#cards .dkc-alcards .dkc-item:hover{transform:none;filter:none}
+#cards .dkc-alcards .dkc-face{width:100%;height:78px}
+#cards .dkc-alcards .dkc-inm{white-space:normal;max-width:100%;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;min-height:40px}
+#cards .dkc-alft{display:flex;align-items:center;gap:10px}
+#cards .dkc-rw{flex:1;min-width:0;display:flex;align-items:center;gap:6px;font-size:28px}
+#cards .dkc-rw b{font-size:17px;color:#F0DCA8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#cards .dkc-stamp{padding:4px 14px;border-radius:50%;font-family:var(--pop);font-size:20px;color:#C9302C;border:4px solid #C9302C;
+  transform:rotate(-10deg);background:rgba(255,240,230,.12)}
+
+/* ══════ モーダル（強化・合成・受け取りの結果） ══════ */
+.modal.dkc-modal{max-width:92%}
+.dkc-modal .dkc-mbox{position:relative;min-width:520px;max-width:880px;padding:22px 30px 22px;border-radius:18px;text-align:center;
+  background:linear-gradient(180deg,rgba(52,36,16,.97),rgba(20,12,4,.98)) padding-box,var(--fx-gold-metal) border-box;border:5px solid transparent;
+  box-shadow:0 10px 0 rgba(0,0,0,.35),0 20px 44px rgba(0,0,0,.6);display:flex;flex-direction:column;align-items:center;gap:14px}
+.dkc-modal .dkc-mbox.dkc-wide{width:860px}
+.dkc-modal .fx-ribbon{margin-top:-46px}
+.dkc-modal .dkc-mp{margin:0;font-size:19px;line-height:1.55;color:#F0DCA8}
+.dkc-modal .dkc-rwbig{display:flex;align-items:center;gap:16px;padding:12px 22px;border-radius:14px;background:rgba(255,240,200,.08);border:1px solid rgba(196,150,70,.35);text-align:left}
+.dkc-modal .dkc-rwbig b{display:block;font-family:var(--pop);font-size:26px;color:#FFE9B5;-webkit-text-stroke:3px #241604;paint-order:stroke fill}
+.dkc-modal .dkc-rwbig span{display:block;font-size:18px;color:#E6D4AE}
+.dkc-modal .dkc-medal{width:84px;height:84px;font-size:44px}
+.dkc-modal .dkc-dimg{width:120px;height:120px}
+.dkc-modal .dkc-mcard{display:flex;justify-content:center;animation:fxPopBig 520ms cubic-bezier(.2,1.5,.4,1) both}
+.dkc-modal .dkc-mbtns{justify-content:center;gap:14px;margin-top:4px}
+.dkc-modal .dkc-mbtns .dkc-bt{min-width:210px;height:64px;font-size:26px}
+.dkc-modal .dkc-hit{font-family:var(--pop);font-size:40px;color:#FFD44A;-webkit-text-stroke:5px #3A2405;paint-order:stroke fill;
+  text-shadow:0 4px 0 rgba(0,0,0,.4);animation:fxPopBig 480ms cubic-bezier(.2,1.5,.4,1) 200ms both}
+.dkc-modal .dkc-miss2{font-size:20px;font-weight:900;color:#FFB0A0}
+.dkc-modal .dkc-aimgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;width:100%}
+.dkc-modal .dkc-aimgrid.dkc-pgrid{grid-template-columns:repeat(4,1fr)}
+.dkc-modal .dkc-aimop{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 8px;border-radius:14px;cursor:pointer;
+  background:linear-gradient(180deg,#4C381A,#2A1C08 60%,#1A1004);border:3px solid var(--dkc-rc,#7A5A22);color:#FFE9B5;
+  box-shadow:0 4px 0 rgba(0,0,0,.45);transition:transform .16s cubic-bezier(.16,1,.3,1)}
+.dkc-modal .dkc-aimop:hover{transform:translateY(-4px)}
+.dkc-modal .dkc-aimop.on{border-color:#FFE9A8;box-shadow:0 0 0 3px rgba(255,214,110,.55),0 0 22px 5px rgba(255,200,80,.55)}
+.dkc-modal .dkc-aimop .dkc-face{width:150px;height:100px}
+.dkc-modal .dkc-aimop b{font-size:20px;font-weight:900;white-space:nowrap}
+.dkc-modal .dkc-aimop small{font-size:16px;color:#C9B894}
+.dkc-modal .dkc-pop{border-color:#7A5A22}
+.dkc-modal .dkc-pop .dkc-medal{width:66px;height:66px;font-size:34px}
+.dkc-modal .dkc-pop b{font-size:20px}
+
+/* ══════ サイコロ：主役の絵（焼き込みの文字と右端の切れ端は mask で消す） ══════ */
+#dice .dkc-dst{overflow:hidden}
+#dice .dkc-hero{position:relative;height:100%;max-width:100%;aspect-ratio:748/587;z-index:1;
+  background:center/100% 100% no-repeat;
+  -webkit-mask-image:linear-gradient(90deg,#000 0,#000 79%,transparent 86%),radial-gradient(36% 19% at 13% 13%,transparent 60%,#000 100%);
+  -webkit-mask-composite:source-in;mask-image:linear-gradient(90deg,#000 0,#000 79%,transparent 86%),radial-gradient(36% 19% at 13% 13%,transparent 60%,#000 100%);
+  mask-composite:intersect;animation:dkcFloat 6s ease-in-out infinite}
+#dice .dkc-cap{position:absolute;left:4%;top:7%;z-index:3;display:flex;flex-direction:column;gap:2px;pointer-events:none}
+#dice .dkc-cap b{font-size:36px;font-weight:900;line-height:1.35;color:#FFF3D8;letter-spacing:.1em;
+  -webkit-text-stroke:5px rgba(28,16,4,.92);paint-order:stroke fill;text-shadow:0 3px 8px rgba(0,0,0,.6)}
+#dice .dkc-cap b:last-child{padding-left:1.2em;color:#FFE08A}
+
+/* ══════ サイコロの台座（跳ねるサイコロ・軌跡・床の光） ══════ */
+#dice .dkc-dped{flex-direction:column;gap:12px}
+#dice .dkc-ped{position:relative;z-index:2;width:420px;height:380px;flex:0 0 auto}
+#dice .dkc-pedring{position:absolute;left:50%;bottom:10px;width:380px;height:380px;margin-left:-190px;border-radius:50%;
+  background:repeating-conic-gradient(from 0deg,rgba(255,214,110,.55) 0 3deg,transparent 3deg 15deg),
+             radial-gradient(circle,transparent 52%,rgba(255,214,110,.7) 53%,transparent 56%,transparent 64%,rgba(143,210,255,.55) 65%,transparent 68%);
+  transform:translateY(40%) scaleY(.3);transform-origin:50% 50%;opacity:.85}
+#dice .dkc-pedring::after{content:"";position:absolute;inset:0;border-radius:50%;
+  background:repeating-conic-gradient(from 7deg,rgba(143,210,255,.35) 0 2deg,transparent 2deg 22deg);animation:fxSpin 16s linear infinite}
+#dice .dkc-pedtop{position:absolute;left:50%;bottom:44px;width:300px;height:92px;margin-left:-150px;border-radius:50%;
+  background:radial-gradient(ellipse at 50% 38%,#3E5CA8 0%,#1C2D66 55%,#0B143A 100%);
+  box-shadow:0 0 0 6px #C8952F,0 0 0 9px #5A3A04,0 16px 0 2px #2A1C08,0 22px 30px rgba(0,0,0,.6),inset 0 -8px 20px rgba(0,0,0,.5)}
+#dice .dkc-pedglow{position:absolute;left:50%;bottom:52px;width:260px;height:80px;margin-left:-130px;border-radius:50%;opacity:0;pointer-events:none;
+  background:radial-gradient(closest-side,rgba(255,255,255,.95),rgba(255,214,110,.6) 45%,rgba(255,214,110,0))}
+#dice .dkc-pl10 .dkc-pedglow{animation:dkcLand 2.6s ease-out infinite}
+@keyframes dkcLand{0%,58%{opacity:0;transform:scale(.4)}64%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.5)}}
+#dice .dkc-hop{position:absolute;left:50%;bottom:78px;width:220px;height:220px;margin-left:-110px}
+#dice .dkc-pdie,#dice .dkc-ghost{position:absolute;inset:0;width:220px;height:220px;transform-origin:50% 80%;
+  animation:dkcHop 2.6s cubic-bezier(.45,0,.55,1) infinite;filter:drop-shadow(0 10px 10px rgba(0,0,0,.5))}
+#dice .dkc-ghost{filter:brightness(1.7) blur(2px);opacity:.34}
+#dice .dkc-ghost.dkc-g1{animation-delay:.06s} #dice .dkc-ghost.dkc-g2{animation-delay:.12s;opacity:.18}
+@keyframes dkcHop{
+  0%,40%{transform:translateY(0) rotate(0) scale(1)}
+  46%{transform:translateY(6px) scale(1.06,.92)}
+  56%{transform:translateY(-120px) rotate(-150deg) scale(1)}
+  63%{transform:translateY(0) rotate(-270deg) scale(1.08,.9)}
+  70%{transform:translateY(-22px) rotate(-340deg) scale(1)}
+  76%{transform:translateY(0) rotate(-360deg) scale(1.03,.97)}
+  84%,100%{transform:translateY(0) rotate(-360deg) scale(1)}}
+#dice .dkc-kwatk .dkc-pdie{filter:drop-shadow(0 0 6px #FF7A4A) drop-shadow(0 0 18px rgba(255,80,40,.75)) drop-shadow(0 10px 10px rgba(0,0,0,.5))}
+#dice .dkc-kwdef .dkc-pdie{filter:drop-shadow(0 0 6px #7FD0FF) drop-shadow(0 0 18px rgba(60,160,255,.75)) drop-shadow(0 10px 10px rgba(0,0,0,.5))}
+#dice .dkc-kwtag{position:absolute;left:50%;top:6px;transform:translateX(-50%);padding:4px 18px;border-radius:10px;white-space:nowrap;
+  font-family:var(--pop);font-size:22px;color:#fff;-webkit-text-stroke:3px #3A0A06;paint-order:stroke fill;
+  background:linear-gradient(180deg,#FF7A5E,#B8281C);border:2px solid #FFE0B0}
+#dice .dkc-kwdef .dkc-kwtag{background:linear-gradient(180deg,#7FC4F5,#1E63B8);-webkit-text-stroke-color:#0B2C5E}
+#dice .dkc-pips{position:relative;z-index:2;display:flex;gap:10px}
+#dice .dkc-pip{width:26px;height:26px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#5A4A36,#1A1208);border:2px solid #7A5A22}
+#dice .dkc-pip.on{background:radial-gradient(circle at 35% 30%,#FFF6C8,#F2C230 50%,#A86E08);border-color:#FFE9A8;box-shadow:0 0 10px rgba(255,200,80,.7)}
+#dice .dkc-pip.dkc-mk{transform:scale(1.25)}
+#dice .dkc-mile{position:relative;z-index:2;display:flex;gap:12px}
+#dice .dkc-mile span{padding:6px 14px;border-radius:10px;font-size:17px;font-weight:900;color:#C9B894;background:rgba(20,12,4,.7);border:2px solid #5A4420}
+#dice .dkc-mile span b{font-family:var(--pop);font-size:18px;margin-right:8px;color:#F0DCA8}
+#dice .dkc-mile span.on{color:#FFF3D8;border-color:#FFD44A;box-shadow:0 0 14px rgba(255,200,80,.5)}
+#dice .dkc-mile span.on b{color:#FFD44A}
+#dice .dkc-kwcap{position:relative;z-index:2;font-family:var(--pop);font-size:26px;color:#FFE9B5;-webkit-text-stroke:4px #241604;paint-order:stroke fill}
+
+/* ── サイコロの詳細 ── */
+#dice .dkc-dic{background:linear-gradient(180deg,#3A2A12,#140C04)!important;border-color:#C8952F!important}
+#dice .dkc-dic img{width:52px;height:52px}
+#dice .dkc-dnote{font-size:17px;line-height:1.45;font-weight:900;color:#FFE08A;padding:6px 10px;border-radius:9px;
+  background:rgba(255,214,110,.08);border:1px solid rgba(255,214,110,.3)}
+#dice .dkc-sic{display:inline-block;width:26px;height:26px;margin-right:8px;vertical-align:-6px}
+#dice .dkc-sic .dkc-svg{width:26px;height:26px}
+#dice .dkc-st .l{width:236px;font-size:18px}
+#dice .dkc-st .dkbar{height:24px}
+#dice .dkc-st b{width:96px;font-size:21px}
+#dice .dkc-dtbl{display:flex;flex-direction:column;gap:4px;padding:6px 8px;border-radius:11px;background:rgba(0,0,0,.22);border:1px solid rgba(196,150,70,.3)}
+#dice .dkc-dth,#dice .dkc-dtr{display:grid;grid-template-columns:1.7fr 1fr 1fr 1fr;align-items:center;gap:6px}
+#dice .dkc-dth b{font-size:16px;color:#C9B894;text-align:center}
+#dice .dkc-dtr span{font-size:17px;color:#F0DCA8;white-space:nowrap}
+#dice .dkc-dtr b{font-family:var(--pop);font-size:20px;color:#FFE9B5;text-align:center}
+#dice .dkc-dtr b.dkc-nx{color:#B8F08A}
+#dice .dkc-dtr b.dkc-mx{color:#FFD44A}
+#dice .dkc-kwdesc{font-size:17px;line-height:1.55;color:#E6D4AE}
+#dice .dkc-kwdesc b{color:#FFD44A}
+#dice .dkc-kwopts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+#dice .dkc-kwopt{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 10px 12px;border-radius:16px;cursor:pointer;
+  font-family:inherit;color:#FFE9B5;border:3px solid #7A5A22;background:linear-gradient(180deg,#4C381A,#2A1C08 60%,#1A1004);
+  box-shadow:0 5px 0 rgba(0,0,0,.45),inset 0 2px 0 rgba(255,220,150,.2);transition:transform .16s cubic-bezier(.16,1,.3,1)}
+#dice .dkc-kwopt:hover{transform:translateY(-4px)}
+#dice .dkc-kwopt:disabled{cursor:default;filter:grayscale(.8) brightness(.6);transform:none}
+#dice .dkc-kwopt.dkc-katk.on{border-color:#FF8A6A;box-shadow:0 0 0 3px rgba(255,120,90,.5),0 0 26px 6px rgba(255,90,60,.5)}
+#dice .dkc-kwopt.dkc-kdef.on{border-color:#8FD2FF;box-shadow:0 0 0 3px rgba(120,200,255,.5),0 0 26px 6px rgba(60,160,255,.5)}
+#dice .dkc-kwic{display:block;width:64px;height:64px}
+#dice .dkc-kwic .dkc-svg{width:64px;height:64px}
+#dice .dkc-kwopt b{font-family:var(--pop);font-size:26px;-webkit-text-stroke:3px #241604;paint-order:stroke fill}
+#dice .dkc-kwopt span{font-size:17px;color:#F0DCA8}
+#dice .dkc-kwopt em{font-style:normal;font-family:var(--pop);font-size:20px;color:#B8F08A}
+#dice .dkc-kwon{position:absolute;top:-13px;left:50%;transform:translateX(-50%);font-style:normal;white-space:nowrap;padding:1px 10px;border-radius:8px;
+  font-size:16px;font-weight:900;color:#3A2405;background:linear-gradient(180deg,#FFF0BE,#E8B23A);border:2px solid #8A6206}
+
+/* ── サイコロの帯 ── */
+#dice .dkc-dface{position:relative;width:124px;height:96px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 70%,rgba(255,214,110,.28),rgba(20,12,4,0) 70%),linear-gradient(180deg,#2A1C08,#140C04);
+  box-shadow:inset 0 0 0 2px rgba(0,0,0,.35)}
+#dice .dkc-dface img{width:92px;height:92px;filter:drop-shadow(0 4px 4px rgba(0,0,0,.5))}
+#dice .dkc-item.on .dkc-dface img{animation:dkcIconBob 1.8s ease-in-out infinite}
+#dice .dkc-lk{position:absolute;right:4px;bottom:4px;width:34px;height:34px}
+#dice .dkc-lk .dkc-svg{width:34px;height:34px}
+
+/* ── サイコロ図鑑 ── */
+#dice .dkc-tbook{flex-direction:column}
+#dice .dkc-dbtop{flex:0 0 auto;padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+#dice .dkc-drws{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+#dice .dkc-drw{display:flex;align-items:center;gap:12px;padding:8px 14px;border-radius:12px;background:rgba(255,240,200,.06);border:2px solid rgba(196,150,70,.3)}
+#dice .dkc-drw b{font-family:var(--pop);font-size:24px;color:#FFD44A;-webkit-text-stroke:3px #241604;paint-order:stroke fill}
+#dice .dkc-drw span{flex:1;font-size:17px;color:#F0DCA8}
+#dice .dkc-drw em{font-style:normal;font-size:17px;font-weight:900;color:#C9B894}
+#dice .dkc-drw.dkc-can{border-color:#FFD44A;box-shadow:0 0 18px rgba(255,200,80,.45)}
+#dice .dkc-drw.dkc-got{filter:saturate(.6)}
+#dice .dkc-dcards{flex:1;min-height:0;display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+#dice .dkc-dcard{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 10px;border-radius:16px;min-height:0;
+  background:linear-gradient(180deg,rgba(52,36,16,.95),rgba(20,12,4,.97)) padding-box,var(--fx-gold-metal) border-box;border:4px solid transparent;
+  box-shadow:0 8px 0 rgba(0,0,0,.3),0 14px 28px rgba(0,0,0,.5)}
+#dice .dkc-dchd{display:flex;align-items:center;gap:6px;max-width:100%}
+#dice .dkc-dchd b{font-size:19px;font-weight:900;color:#FFE9B5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dice .dkc-dcimg{position:relative;width:170px;height:150px;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 72%,rgba(255,214,110,.35),rgba(0,0,0,0) 62%)}
+#dice .dkc-dcimg img{width:150px;height:150px;animation:dkcFloat 5s ease-in-out infinite}
+#dice .dkc-dlock .dkc-dcimg img{filter:grayscale(.85) brightness(.55)}
+#dice .dkc-dcst{font-family:var(--pop);font-size:20px;color:#FFE9B5}
+#dice .dkc-dlock .dkc-dcst{color:#C9B894}
+#dice .dkc-dcmp{width:100%;display:flex;flex-direction:column;gap:3px;padding:6px;border-radius:10px;background:rgba(0,0,0,.25)}
+#dice .dkc-dch,#dice .dkc-dcr{display:grid;grid-template-columns:40px 1fr 1fr;align-items:center;gap:4px}
+#dice .dkc-dch b{font-size:16px;color:#C9B894;text-align:center}
+#dice .dkc-dcr b{font-family:var(--pop);font-size:17px;color:#F0DCA8;text-align:center}
+#dice .dkc-dcr b.dkc-mx{color:#FFD44A}
+#dice .dkc-dcard .dkc-bt2{margin-top:auto;height:46px;font-size:20px}
+
+/* ══════ 仕上げ（小さい漢字の見出しは縁を細く・影で締める） ══════ */
+#cards .dkc-alhd b,#cards .dkc-mhd b,#dice .dkc-mhd b,#dice .dkc-kwopt b,#cards .dkc-bignm,.dkc-modal .dkc-bignm,
+#dice .dkc-kwcap,#cards .dkc-albnote b,.dkc-modal .dkc-rwbig b,#cards .dkc-lvto,#cards .dkc-ms b{
+  -webkit-text-stroke-width:1.6px;text-shadow:0 2px 0 rgba(20,10,0,.95),0 0 8px rgba(0,0,0,.55)}
+#dice .dkc-grow{display:flex;flex-direction:column;gap:6px;padding:8px 10px;border-radius:11px;background:rgba(0,0,0,.22);border:1px solid rgba(196,150,70,.3)}
+#dice .dkc-growhd{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+#dice .dkc-growhd b{font-family:var(--pop);font-size:19px;color:#FFE9B5}
+#dice .dkc-growhd span{font-size:16px;color:#F0DCA8}
+#dice .dkc-pips2{gap:8px}
+#dice .dkc-pips2 .dkc-pip{width:22px;height:22px}
+#dice .dkc-growft{font-family:var(--pop);font-size:18px;color:#FFE9B5;display:flex;align-items:center}
+#dice .dkc-kwnote{font-size:17px;line-height:1.5;color:#E6D4AE;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.22);border:1px solid rgba(196,150,70,.3)}
+#dice .dkc-kwnote b{display:inline-block;margin-right:8px;padding:0 8px;border-radius:6px;font-size:16px;color:#3A2405;background:linear-gradient(180deg,#FFF0BE,#E8B23A)}
+#dice .dkc-kwopt em.dkc-kwsame{font-family:inherit;font-size:16px;font-weight:900;color:#C9B894}
+#dice .dkc-dcds{margin:0;font-size:16px;line-height:1.45;color:#E6D4AE;text-align:center;min-height:46px}
+#dice .dkc-dcimg{width:190px;height:170px}
+#dice .dkc-dcimg img{width:170px;height:170px}
+#cards .dkc-odds b{display:block;font-size:17px;font-weight:normal}
+#cards .dkc-maxtag{font-family:var(--caps);font-size:30px;color:#3A2405;-webkit-text-stroke:0;padding:4px 14px;border-radius:10px;
+  background:linear-gradient(180deg,#FFF0BE,#E8B23A);border:2px solid #8A6206;text-shadow:none}
+#cards .dkc-aimtag{top:auto;bottom:-14px}
+#dice .dkc-mhd2{border-bottom:0;padding-bottom:0}
+#dice .dkc-mhd2 b{font-size:20px}
+#cards .dklogo.dktext i{font-size:16px}
+#cards .dktab .nw,#dice .dktab .nw{font-size:20px;min-width:30px;height:30px;border-radius:15px}
+.dkc-modal .dkc-aimop small{font-size:20px}
+#dice .dkc-kwopt span,#dice .dkc-kwopt em.dkc-kwsame,#dice .dkc-kwon{font-size:20px}
+#cards .dkc-lvto.dkc-fin .dkc-arw,#cards .dkc-lvto.dkc-fin .dkc-lvnx{visibility:hidden}
+.dkc-modal .dkc-medal .dkc-svg{width:62%;height:62%}
+.dkc-modal .dkc-medal.dkc-pA{background:radial-gradient(circle at 35% 30%,#F2FAFF,#9FD4FA 40%,#2E8BE0 70%,#0B2C5E)}
+.dkc-modal .dkc-medal.dkc-pS{background:radial-gradient(circle at 35% 30%,#FBF3FF,#D6B8FF 40%,#8A58D8 70%,#3E1480)}
+#cards .dkc-alcards .dkc-item{justify-content:flex-start}
+#cards .dkc-alcards .dkc-face{flex:1 1 auto;height:auto;min-height:78px;background-size:190% auto,100% 100%;background-position:50% 28%,center}
+/* ══════ 横長スマホ（高さ560px未満）：文字を大きく・押せる範囲を96px以上に ══════ */
+@media (max-height:560px){
+  #cards .dktab .tx,#dice .dktab .tx{font-size:26px}
+  #cards .dkc-bottom,#dice .dkc-bottom{height:214px}
+  #cards .dkc-cnt,#dice .dkc-cnt{font-size:22px;width:104px}
+  #cards .dkc-cnt b,#dice .dkc-cnt b{font-size:28px}
+  #cards .dkc-row,#dice .dkc-row{padding:18px 12px 8px}
+  #cards .dkc-item,#dice .dkc-item{width:232px;gap:2px}
+  #cards .dkc-face,#dice .dkc-dface{width:212px;height:92px}
+  #cards .dkc-face{background-size:120% auto,100% 100%;background-position:50% 36%,center}
+  #cards .dkc-ilv,#dice .dkc-ilv{font-size:26px}
+  #cards .dkc-ilv em,#dice .dkc-ilv em{font-size:22px}
+  #cards .dkc-ilv.dkc-miss,#dice .dkc-ilv.dkc-miss{font-size:26px}
+  #cards .dkc-inm,#dice .dkc-inm{font-size:26px;max-width:212px}
+  #cards .dkc-eq,#dice .dkc-eq{font-size:22px;top:-16px}
+  #cards .dkc-irar{font-size:24px}
+  #cards .dkc-dup{font-size:26px}
+  #cards .dkc-why2{font-size:22px;top:40px}
+  #cards .dkc-pk{width:44px;height:44px;font-size:26px}
+  /* 詳細はスクロールでき、ボタンは下に残す */
+  #cards .dkc-det,#dice .dkc-det{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+  #cards .dkc-det .btns,#dice .dkc-det .btns{position:sticky;bottom:0;z-index:3;padding-top:8px;
+    background:linear-gradient(180deg,rgba(24,15,5,0),rgba(24,15,5,.96) 30%)}
+  #cards .dkc-det .hd .nm,#dice .dkc-det .hd .nm{font-size:32px}
+  #cards .dkc-det .hd .lv,#dice .dkc-det .hd .lv{font-size:26px}
+  #cards .dkc-det .hd .lv small,#dice .dkc-det .hd .lv small{font-size:22px}
+  #cards .dkc-expl{font-size:22px;width:56px}
+  #cards .dkc-exprow b{font-size:26px;min-width:150px}
+  #cards .dkc-ef b,#dice .dkc-ef b{font-size:26px}
+  #cards .dkc-ef p,#dice .dkc-ef p,#cards .dkc-line{font-size:22px;line-height:1.35}
+  #cards .dkc-st .l,#dice .dkc-st .l{font-size:22px;width:200px}
+  #dice .dkc-st .l{width:260px}
+  #cards .dkc-st b{font-size:26px;width:96px}
+  #dice .dkc-st b{font-size:26px;width:124px}
+  #cards .dkc-bt,#dice .dkc-bt{font-size:28px}
+  #cards .dkc-why,#dice .dkc-why,#dice .dkc-dnote,#dice .dkc-kwdesc{font-size:22px}
+  #cards .dkc-rar,#dice .dkc-rar{font-size:36px}
+  #cards .dkc-rar.sm,#dice .dkc-rar.sm{font-size:26px}
+  /* 主要ボタン：見た目はそのまま、透明な当たり判定で96px以上に */
+  #cards .dkc-bt,#dice .dkc-bt,#cards .dkc-bt2,#dice .dkc-bt2,.dkc-modal .dkc-bt{overflow:visible}
+  #cards .dkc-bt::after,#dice .dkc-bt::after,#cards .dkc-bt2::after,#dice .dkc-bt2::after,.dkc-modal .dkc-bt::after{
+    content:"";display:block;animation:none;background:transparent;left:50%;top:50%;bottom:auto;right:auto;transform:translate(-50%,-50%);
+    width:100%;height:calc(100% + 34px);min-height:96px;z-index:1;pointer-events:auto}
+  #cards .dkc-bt2,#dice .dkc-bt2{font-size:26px;height:62px}
+  /* 強化 */
+  #cards .dkc-upst{gap:18px}
+  #cards .dkc-big.dkc-mid{width:224px;height:330px}
+  #cards .dkc-upinfo{width:380px;gap:8px}
+  #cards .dkc-lvto{font-size:30px} #cards .dkc-lvto b{font-size:52px}
+  #cards .dkc-exptx{font-size:26px}
+  #cards .dkc-slot{width:68px;height:68px}
+  #cards .dkc-odds span,#cards .dkc-odds small{font-size:22px}
+  #cards .dkc-mhd b,#dice .dkc-mhd b{font-size:28px}
+  #cards .dkc-mhd small,#dice .dkc-mhd small{font-size:22px}
+  #cards .dkc-mhd em,#dice .dkc-mhd em{font-size:28px}
+  #cards .dkc-mrow{gap:10px;padding:6px 8px}
+  #cards .dkc-face.sm{width:64px;height:64px}
+  #cards .dkc-mtx b{font-size:26px}
+  #cards .dkc-mtx span{font-size:22px;white-space:normal;flex-wrap:wrap;row-gap:0}
+  #cards .dkc-mtx .dkc-sep{display:none}
+  #cards .dkc-mtx .dkc-ico{margin-left:10px}
+  #cards .dkc-have{font-size:26px;min-width:52px}
+  #cards .dkc-pm{gap:14px}
+  #cards .dkc-pm b{font-size:28px}
+  #cards .dkc-pmb{width:64px;height:64px;font-size:32px}
+  #cards .dkc-pmb::after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:100px;height:100px}
+  #cards .dkc-slot.dkc-fill::after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:76px;height:100px}
+  #cards .dkc-none p{font-size:22px}
+  #cards .dkc-planrow span,#dice .dkc-planrow span,#cards .dkc-planrow small,#dice .dkc-planrow small,#cards .dkc-note{font-size:22px}
+  #cards .dkc-planrow b,#dice .dkc-planrow b{font-size:26px}
+  #cards .dkc-updet .dkc-mats{min-height:170px;flex:1 0 170px}
+  /* 合成 */
+  #cards .dkc-mixslot,#cards .dkc-mixres,#cards .dkc-big.dkc-sm{width:176px;height:260px}
+  #cards .dkc-big.dkc-sm .dkc-bignm{font-size:22px}
+  #cards .dkc-big.dkc-sm .dkc-bigft{font-size:22px}
+  #cards .dkc-mixslot.dkc-empty span{font-size:26px}
+  #cards .dkc-warn{font-size:22px}
+  #cards .dkc-mixtbl span,#cards .dkc-mixtbl em{font-size:26px}
+  #cards .dkc-mixtbl b{font-size:26px}
+  #cards .dkc-mixtbl small,#cards .dkc-aimp,#cards .dkc-aimp small{font-size:22px}
+  #cards .dkc-aimhd b,#cards .dkc-aimhd span{font-size:26px}
+  #cards .dkc-aimp b{font-size:28px}
+  #cards .dkc-aimtag{font-size:22px}
+  /* 大きいカード */
+  #cards .dkc-bignm{font-size:26px}
+  #cards .dkc-bigft{font-size:22px}
+  #cards .dkc-lvhex i{font-size:22px}
+  /* 図鑑 */
+  #cards .dkc-bookR{width:430px}
+  #cards .dkc-msbar{height:150px}
+  #cards .dkc-ms{width:170px;margin-left:-85px}
+  #cards .dkc-ms b{font-size:26px}
+  #cards .dkc-msnm{font-size:22px}
+  #cards .dkc-ms .dkc-bt2{height:52px;font-size:26px}
+  #cards .dkc-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+  #cards .dkc-grid .dkc-inm{max-width:100%}
+  #cards .dkc-grid .dkc-item,#cards .dkc-alcards .dkc-item{width:auto}
+  #cards .dkc-grid .dkc-face{width:100%;height:92px}
+  #cards .dkc-booktx p{font-size:22px}
+  #cards .dkc-booktx b{font-size:22px}
+  #cards .dkc-sealin b{font-size:32px}
+  /* アルバム */
+  #cards .dkc-albnote b{font-size:30px}
+  #cards .dkc-albnote span{font-size:22px}
+  #cards .dkc-albums{grid-template-columns:repeat(2,1fr);grid-auto-rows:auto;overflow-y:auto;align-content:start;scrollbar-width:thin}
+  #cards .dkc-alhd b,#cards .dkc-alhd em{font-size:28px}
+  #cards .dkc-alno{width:42px;height:42px;font-size:26px}
+  #cards .dkc-alcards .dkc-face{min-height:86px}
+  #cards .dkc-alcards .dkc-inm{font-size:22px;min-height:56px}
+  #cards .dkc-alcards .dkc-ilv{font-size:22px}
+  #cards .dkc-rw b{font-size:22px}
+  #cards .dkc-stamp{font-size:26px}
+  /* サイコロ */
+  #dice .dkc-cap b{font-size:40px}
+  #dice .dkc-ped{transform:scale(.86);margin:-26px 0}
+  #dice .dkc-mile span,#dice .dkc-mile span b{font-size:22px}
+  #dice .dkc-kwcap{font-size:30px}
+  #dice .dkc-kwtag{font-size:26px}
+  #dice .dkc-dth b,#dice .dkc-dtr span{font-size:22px}
+  #dice .dkc-dtr b{font-size:26px}
+  #dice .dkc-kwopt b{font-size:30px}
+  #dice .dkc-kwopt span,#dice .dkc-kwopt em{font-size:22px}
+  #dice .dkc-kwon{font-size:22px}
+  #dice .dkc-drw b{font-size:28px}
+  #dice .dkc-drw span,#dice .dkc-drw em{font-size:22px}
+  #dice .dkc-dcards{overflow-y:auto;align-content:start;gap:10px;scrollbar-width:thin}
+  #dice .dkc-dcard{padding:10px 8px;gap:4px}
+  #dice .dkc-dchd .dkc-rar.sm{font-size:26px}
+  #dice .dkc-dchd b{font-size:26px}
+  #dice .dkc-dcst{font-size:26px}
+  #dice .dkc-dch b{font-size:22px}
+  #dice .dkc-dcr b{font-size:24px}
+  #dice .dkc-dcimg{height:130px} #dice .dkc-dcimg img{width:130px;height:130px}
+  /* モーダル */
+  .dkc-modal .dkc-mp,.dkc-modal .dkc-miss2,.dkc-modal .dkc-rwbig span,.dkc-modal .dkc-aimop small{font-size:22px}
+  .dkc-modal .dkc-rwbig b,.dkc-modal .dkc-aimop b{font-size:26px}
+  .dkc-modal .dkc-mbtns .dkc-bt{font-size:28px}
+  .dkc-modal .dkc-mbox.dkc-wide{width:1100px}
+  #dice .dkc-growhd b{font-size:26px} #dice .dkc-growhd span,#dice .dkc-growft,#dice .dkc-kwnote,#dice .dkc-kwnote b,#dice .dkc-dcds{font-size:22px}
+  #dice .dkc-kwopt em.dkc-kwsame{font-size:22px}
+  #cards .dkc-alcards .dkc-ilv{font-size:22px}
+  #cards .dkc-grid .dkc-face{height:92px}
+  #cards .dkc-odds b{font-size:22px}
+  #cards .dkc-rw b{font-size:26px}
+  #dice .dkc-dcr b{font-size:26px}
+  #dice .dkc-dcard .dkc-bt2{font-size:26px;height:62px}
+  #cards .dkc-big.dkc-sm .dkc-bignm{font-size:26px}
+  #dice .dkc-growft{font-size:26px}
+  #cards .dkc-alcards .dkc-ilv,#cards .dkc-alcards .dkc-inm{font-size:26px}
+  #dice .dkc-kwopt span,#dice .dkc-kwopt em.dkc-kwsame,#dice .dkc-kwon{font-size:26px}
+  #cards .dkc-ilv em,#dice .dkc-ilv em{font-size:26px}
+  #cards .dktab .nw,#dice .dktab .nw{font-size:26px;min-width:36px;height:36px;border-radius:18px}
+  #cards .dkc-det .hd .lv small,#dice .dkc-det .hd .lv small{font-size:26px}
+  #cards .dkc-planrow.dkc-full span{font-size:22px}
+  #dice .dkc-kwopt em{font-size:26px}
+  .dkc-modal .dkc-aimop small{font-size:26px}
+}
+@media (prefers-reduced-motion:reduce){
+  #cards .dkc-stage > .dkc-big,#cards .dkc-upcard,#cards .dkc-mixres > .dkc-big,#dice .dkc-hero,#dice .dkc-pdie,#dice .dkc-ghost,
+  #dice .dkc-pedglow,#dice .dkc-pedring::after,#dice .dkc-dcimg img,#cards .dkc-fr::after,#dice .dkc-fr::after{animation:none!important}
+}
+html.fx-lite #dice .dkc-ghost,html.fx-lite #dice .dkc-pedring::after{animation:none}
+</style>
