@@ -187,7 +187,7 @@ function monoOf(G, pi){
   // 観光地独占：本家マップは観光地4つぜんぶ。観光地の無いマップはランドマーク6基で代替
   const tours = G.tiles.filter(t=>t.type==='tour');
   if(tours.length){
-    if(tours.every(t=>t.owner===pi)) return { kind:'land',  label:'観光地独占', col:'#7FE6FF', key:'m', x:5 };
+    if(tours.every(t=>allied(G, t.owner, pi))) return { kind:'land',  label:'観光地独占', col:'#7FE6FF', key:'m', x:5 };
   } else {
     const lm = G.tiles.filter(t=>t.landmark && t.owner===pi).length;
     if(lm >= 6) return { kind:'land',  label:'観光地独占', col:'#7FE6FF', key:'m', x:5 };
@@ -209,10 +209,12 @@ function assetOf(G,pi){
   G.tiles.forEach(t=>{ if((t.type==='city' || t.type==='tour') && t.owner===pi) a += cityValue(t); });
   return a;
 }
-function hasTriple(G, pi, g){ return CITY_SLOTS[g].every(i => G.tiles[i].owner===pi); }
+/* 所有判定：チーム戦（G.team）では味方の街も自分の街として数える（本家の 2:2） */
+function allied(G, a, b){ return a>=0 && b>=0 && (a===b || (!!(G && G.team) && (a%2)===(b%2))); }
+function hasTriple(G, pi, g){ return CITY_SLOTS[g].every(i => allied(G, G.tiles[i].owner, pi)); }
 function hasLine(G, pi, side){
   const idxs=[]; for(let k=1;k<8;k++){ const i=side*8+k; const ty=G.tiles[i].type; if(ty==='city' || ty==='tour') idxs.push(i); }
-  return idxs.length>0 && idxs.every(i=>G.tiles[i].owner===pi);
+  return idxs.length>0 && idxs.every(i=>allied(G, G.tiles[i].owner, pi));
 }
 function yen(n){
   n = Math.round(n);

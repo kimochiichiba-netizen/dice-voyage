@@ -3448,6 +3448,9 @@ button:focus-visible,.tab:focus-visible,.modebtn:focus-visible,.minicard:focus-v
         <div class="panel">
           <h3>② プレイヤー</h3>
           <div class="optrow" style="margin:0 0 11px">
+            <label class="opt">対戦形式
+              <select id="optTeam"><option value="0" selected>個人戦</option><option value="1">チーム戦（2:2）</option></select>
+            </label>
             <label class="opt">人数
               <select id="optPlayers"><option value="2">2人</option><option value="3">3人</option><option value="4" selected>4人</option></select>
             </label>
@@ -3718,7 +3721,7 @@ function monoOf(G, pi){
   // 観光地独占：本家マップは観光地4つぜんぶ。観光地の無いマップはランドマーク6基で代替
   const tours = G.tiles.filter(t=>t.type==='tour');
   if(tours.length){
-    if(tours.every(t=>t.owner===pi)) return { kind:'land',  label:'観光地独占', col:'#7FE6FF', key:'m', x:5 };
+    if(tours.every(t=>allied(G, t.owner, pi))) return { kind:'land',  label:'観光地独占', col:'#7FE6FF', key:'m', x:5 };
   } else {
     const lm = G.tiles.filter(t=>t.landmark && t.owner===pi).length;
     if(lm >= 6) return { kind:'land',  label:'観光地独占', col:'#7FE6FF', key:'m', x:5 };
@@ -3740,10 +3743,12 @@ function assetOf(G,pi){
   G.tiles.forEach(t=>{ if((t.type==='city' || t.type==='tour') && t.owner===pi) a += cityValue(t); });
   return a;
 }
-function hasTriple(G, pi, g){ return CITY_SLOTS[g].every(i => G.tiles[i].owner===pi); }
+/* 所有判定：チーム戦（G.team）では味方の街も自分の街として数える（本家の 2:2） */
+function allied(G, a, b){ return a>=0 && b>=0 && (a===b || (!!(G && G.team) && (a%2)===(b%2))); }
+function hasTriple(G, pi, g){ return CITY_SLOTS[g].every(i => allied(G, G.tiles[i].owner, pi)); }
 function hasLine(G, pi, side){
   const idxs=[]; for(let k=1;k<8;k++){ const i=side*8+k; const ty=G.tiles[i].type; if(ty==='city' || ty==='tour') idxs.push(i); }
-  return idxs.length>0 && idxs.every(i=>G.tiles[i].owner===pi);
+  return idxs.length>0 && idxs.every(i=>allied(G, G.tiles[i].owner, pi));
 }
 function yen(n){
   n = Math.round(n);
@@ -12104,7 +12109,7 @@ function prizeFor(pi){
   const top = Math.round(pot * (C.id===3 ? 0.8 : 0.7));
   return k===0 ? top : k===1 ? pot - top : 0;
 }
-let cfg = { mapId:'lgr', turns:30, timeLimit:1500, cash:3000000, ai:1, speed:1, n:4, cls:0,
+let cfg = { mapId:'lgr', turns:30, timeLimit:1500, cash:3000000, ai:1, speed:1, n:4, cls:0, team:0,
   seats:[{name:'あなた',kind:'you',ch:-1},{name:'CPU ガル',kind:'cpu',ch:-1},
          {name:'CPU リノ',kind:'cpu',ch:-1},{name:'CPU ゼニ',kind:'cpu',ch:-1}] };
 
@@ -12123,15 +12128,22 @@ function newGame(){
   // 参加費（本家のクラス制）。人間の席があるときだけ、ゴールドから引く
   const C = classOf(cfg.cls);
   if(C.fee && cfg.seats.slice(0,cfg.n).some(s=>s.kind!=='cpu')){ SV.gold = Math.max(0, SV.gold - C.fee); saveNow(); }
+  // チーム戦：順番決めのあとも 🔴🔵🔴🔵 と交互に手番が回るように並べ替える（本家と同じ）
+  let seatsIn = cfg.seats.slice(0,cfg.n);
+  if(cfg.team){
+    const A = seatsIn.filter(s=>s.team===0), B = seatsIn.filter(s=>s.team===1);
+    if(A.length===2 && B.length===2) seatsIn = (seatsIn[0].team===0) ? [A[0],B[0],A[1],B[1]] : [B[0],A[0],B[1],A[1]];
+  }
   G = {
-    cls: cfg.cls, map, tiles: buildTiles(map),
-    players: cfg.seats.slice(0,cfg.n).map((s,i)=>{
+    cls: cfg.cls, team: !!cfg.team, map, tiles: buildTiles(map),
+    players: seatsIn.map((s,i)=>{
       const card = cardById(s.cardId) || CARDPOOL[i % CARDPOOL.length];
       const lv = (s.kind!=='cpu' && SV.cards[card.id]) ? SV.cards[card.id].lv
                : (cfg.ai===2 ? 12 : cfg.ai===1 ? 6 : 1);
       const slots = (s.kind!=='cpu' && SV.equip===card.id) ? SV.slots : [];
       return {
-        name:s.name, kind:s.kind, ch: card.art, card: card.id,
+        name:(cfg.team ? (s.team ? '🔵' : '🔴') : '') + s.name, team: cfg.team ? (s.team|0) : -1,
+        kind:s.kind, ch: card.art, card: card.id,
         stats: cardStats(card.id, lv, slots), cardLv: lv,
         skill: card.sk, skillKind: (card.kind===undefined ? 0 : card.kind),
         skillPow: card.rar==='SS' ? 0.18 : card.rar==='S' ? 0.12 : 0.08,
@@ -12925,6 +12937,8 @@ async function resolveInner(pi){
     if(t.owner === pi && (await pendFire(pi,'onOwnLand')) === 'jumped'){ await resolve(pi); return; }
     if(t.owner < 0 || t.owner === pi){
       if(p.kind==='cpu') await aiBuy(pi, i); else await buyUI(pi, i);
+    } else if(G.team && allied(G, t.owner, pi)){
+      toast('L','🤝','味方の街', t.name+' は通行料なし', 1600); await wait(500);
     } else {
       await payToll(pi, i);
       if(G.over || G.players[pi].out) return;
@@ -13432,7 +13446,7 @@ async function angelBlock(tileIdx){
 }
 /* 相手の街を1つ選ぶ。人間はタップ、CPUは score が最大の街。候補が無ければ -1 */
 async function pickEnemyCity(pi, msg, pred, score){
-  const ok = i => G.tiles[i].type==='city' && G.tiles[i].owner>=0 && G.tiles[i].owner!==pi
+  const ok = i => G.tiles[i].type==='city' && G.tiles[i].owner>=0 && !allied(G, G.tiles[i].owner, pi)
                   && !G.players[G.tiles[i].owner].out && (!pred || pred(i));
   const cands = G.tiles.map((t,i)=>ok(i)?i:-1).filter(i=>i>=0);
   if(!cands.length) return -1;
@@ -13475,7 +13489,10 @@ async function chanceCard(pi){
 function checkWin(){
   if(G.over) return false;
   const alive = G.players.filter(p=>!p.out);
-  if(alive.length === 1) return finish(G.players.indexOf(alive[0]),'独り勝ち');
+  if(G.team){
+    const teams = new Set(alive.map(p=>G.players.indexOf(p)%2));
+    if(teams.size === 1) return finish(G.players.indexOf(alive[0]),'相手チーム全員破産');
+  } else if(alive.length === 1) return finish(G.players.indexOf(alive[0]),'独り勝ち');
   // 開始2ラウンドは事故決着させない（3色独占が偶然そろうことはまず無いが保険）
   if(G.turnsLeft > cfg.turns - 2) return false;
   for(let pi=0; pi<G.players.length; pi++){
@@ -13556,10 +13573,10 @@ async function bankrupt(pi, toPi){
 }
 function finish(pi, reason, col){
   if(String(reason).indexOf('独占') >= 0) jingle('mono');
-  showCelebrate(['おめでとうございます！', reason, G.players[pi].name + ' の勝ち！'], 2800);
+  showCelebrate(['おめでとうございます！', reason, winnerName(pi) + ' の勝ち！'], 2800);
   addFx('confetti', SW/2, 0, 3000, null, null, false, {scr:true, w:SW, h:SH, n:110});
   bgm('win');
-  news('🏆 '+G.players[pi].name+' が「'+reason+'」で勝利！');
+  news('🏆 '+winnerName(pi)+' が「'+reason+'」で勝利！');
   G.over = true; G.winner = pi; G.winReason = reason; G.running = false;
   celebrate(pi, reason, col);
   return true;
@@ -13568,7 +13585,7 @@ async function celebrate(pi, reason, col){
   SFX.win();
   $('#cel1').textContent = 'おめでとうございます！';
   $('#cel2').textContent = reason;
-  $('#cel3').textContent = G.players[pi].name + ' の勝ち！';
+  $('#cel3').textContent = winnerName(pi) + ' の勝ち！';
   const l4 = $('#cel4'); if(l4) l4.textContent = 'FORTUNE!';
   $('#celebrate').classList.add('on');
   const f = $('#flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
@@ -13590,7 +13607,7 @@ function showResult(){
   if(!G || G.winner < 0 || !G.players[G.winner]) return;
   bgm('result');
   const rk = rank();
-  $('#resWin').textContent = G.players[G.winner].name + ' の勝利！';
+  $('#resWin').textContent = winnerName(G.winner) + ' の勝利！';
   $('#resReason').textContent = '勝ち方：' + G.winReason;
   const tb = $('#resRows'); tb.innerHTML = '';
   rk.forEach((r,k)=>{
@@ -13607,7 +13624,8 @@ function showResult(){
   bgm('lobby');
   screenTo('result');
   const meSeat = G.players.findIndex(p=>p.kind!=='cpu');
-  grantRewards(meSeat>=0 && G.winner===meSeat, (G.winner===meSeat && G.winX) || 1, meSeat>=0 ? prizeFor(meSeat) : 0);
+  const meWon = meSeat>=0 && (G.winner===meSeat || (G.team && allied(G, G.winner, meSeat)));
+  grantRewards(meWon, (meWon && G.winX) || 1, meSeat>=0 ? prizeFor(meSeat) : 0);
 }
 
 /* ══════════ ターン進行 ══════════ */
@@ -13693,7 +13711,23 @@ function nextTurn(){
   }
   camReset(); updHUD();
 }
-function timeUp(){ const rk = rank(); finish(rk[0].i, 'ターン終了・総資産1位'); }
+function timeUp(){
+  const rk = rank();
+  if(G.team){   // チーム戦は合計資産で決める。勝ちチームの上位が代表
+    const ta = [0,0]; rk.forEach(r=>{ if(r.a>0) ta[r.i%2] += r.a; });
+    const best = ta[0] >= ta[1] ? 0 : 1;
+    const top = rk.find(r=>r.i%2===best) || rk[0];
+    return finish(top.i, 'ターン終了・チーム総資産1位');
+  }
+  finish(rk[0].i, 'ターン終了・総資産1位');
+}
+/* 勝者の呼び名（チーム戦は「チーム」で呼ぶ） */
+function winnerName(pi){
+  const p = G.players[pi];
+  if(!G.team) return p.name;
+  const mates = G.players.filter((q,i)=>i%2===pi%2).map(q=>q.name.replace(/^(🔴|🔵)/,''));
+  return (p.team ? '🔵チーム' : '🔴チーム')+'（'+mates.join('・')+'）';
+}
 async function jailTurn(pi){
   const p = G.players[pi];
   camTo(tileCenter(8).x, tileCenter(8).y, 1.55);
@@ -13740,8 +13774,11 @@ function takeRoll(pi){
     $('#oddN').textContent = p.odd; $('#evenN').textContent = p.even;
     $('#odd').classList.toggle('dim', p.odd<=0);
     $('#even').classList.toggle('dim', p.even<=0);
+    let autoTm = null;
     const clear = ()=>{ $('#push').onclick=null; $('#odd').onclick=null; $('#even').onclick=null;
-      $('#skillBtn').onclick=null; };
+      $('#skillBtn').onclick=null; clearTimeout(autoTm); };
+    // 20秒放置で自動ロール（本家の制限時間）
+    autoTm = setTimeout(()=>{ if($('#push').onclick){ toast('R','⏱','時間切れ','自動でサイコロを振ります',1500); done(null); } }, 20000*SPEED);
     const done = async (force)=>{
       clear();
       const impact = Math.abs(gaugePhase - gaugeSweet) < gaugeHalf;
@@ -14035,8 +14072,8 @@ async function aiBuy(pi, i){
   }
   const near = CITY_SLOTS[t.g].filter(j=>G.tiles[j].owner===pi).length;
   // 誰かがこの色で2つ持っている＝あと1つで独占。そこは意地でも押さえる
-  const block = G.players.some((q,qi)=> qi!==pi && !q.out &&
-    CITY_SLOTS[t.g].filter(j=>G.tiles[j].owner===qi).length >= 2);
+  const block = G.players.some((q,qi)=> !allied(G,qi,pi) && !q.out &&
+    CITY_SLOTS[t.g].filter(j=>allied(G,G.tiles[j].owner,qi)).length >= 2);
   const aggr = (near>=1 || block) ? 1 : 0;
   const mxAi = maxLvOf(p);
   for(let k = (own? t.lv+1 : 1); k<=mxAi; k++){
@@ -14333,10 +14370,12 @@ $('#optTime').onchange    = e => cfg.timeLimit = +e.target.value;
 $('#optCash').onchange    = e => cfg.cash  = +e.target.value;
 $('#optAI').onchange      = e => cfg.ai    = +e.target.value;
 $('#optCls').onchange     = e => cfg.cls   = +e.target.value;
+$('#optTeam').onchange    = e => { cfg.team = +e.target.value; if(cfg.team){ cfg.n = 4; const n=$('#optN'); if(n) n.value='4'; } renderSeats(); };
 $('#optSpeed').onchange   = e => { cfg.speed = +e.target.value; SPEED = cfg.speed; };
 
 async function launch(){
   SPEED = cfg.speed;
+  if(cfg.team){ cfg.n = 4; cfg.seats.forEach((s,i)=>{ s.team = i%2; }); }   // チーム戦は必ず 2:2。組は設定画面の並びで固定
   const C = classOf(cfg.cls);
   if(C.fee > SV.gold){
     toast('R','🪙','ゴールドが足りません', C.nm+'クラスは参加費 '+C.fee.toLocaleString()+'G。入門クラスで始めます', 2800);
@@ -14462,6 +14501,7 @@ setOpt('#optAI',      cfg.ai,        v => cfg.ai = +v);
 setOpt('#optPlayers', cfg.n,         v => { cfg.n = +v; renderSeats(); });
 setOpt('#optTime',    cfg.timeLimit, v => cfg.timeLimit = +v);
 setOpt('#optCls',     cfg.cls,       v => cfg.cls = +v);
+setOpt('#optTeam',    cfg.team,      v => cfg.team = +v);
 setOpt('#optSpeed',   cfg.speed,     v => { cfg.speed = +v; SPEED = cfg.speed; });
 
 try{
