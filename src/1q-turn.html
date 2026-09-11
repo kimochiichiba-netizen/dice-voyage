@@ -1,9 +1,9 @@
 <style>
 /* ══════════════════════════════════════════════════════════════
-   ダイスキングダム — サイコロUI・マス選び・無人島／世界旅行の選択（1q-turn.html / WP6）
+   ダイスキングダム — サイコロUI・マス選び・無人島の選択・持ち時間のリング（1q-turn.html / v9 WP6 → v10 WP13a）
    ──────────────────────────────────────────────────────────────
    さわるセレクタ：#diceui #gauge #push #odd #even .oddeven #pickeye .dkt-*
-   動かすのは transform と opacity だけ。入場 keyframe の 0% で opacity を下げない。
+   動かすのは transform と opacity だけ。入場は el.animate()（9g-turn.js の dktEnter。終わったら残らない）。
    位置は 1600×900 のステージ座標（盤の中心は x=808）。本家 s6/f05・f07 の並び：
    上に弧のゲージ、左右に青い丸の［奇数］［偶数］、その下の真ん中に金縁のピンクの［押す］。
    ══════════════════════════════════════════════════════════════ */
@@ -40,9 +40,9 @@
   -webkit-text-stroke:7px #6E0A36;paint-order:stroke fill;text-shadow:0 4px 0 rgba(80,0,32,.55);pointer-events:none}
 #push .dkt-ps{display:block;font-family:var(--jp);font-weight:900;font-style:normal;font-size:20px;line-height:1;color:#FFE6F3;
   -webkit-text-stroke:3.5px #6E0A36;paint-order:stroke fill;pointer-events:none}
+/* 奇数／偶数のモード：上に「N個残り」、下に大きく「偶数」（本家 v6 t0030） */
 #push.dkt-mode .dkt-pl{color:#FFF3B8}
-#push .dkt-pl.dkt-swap{animation:dktSwap 320ms var(--fx-spring)}
-@keyframes dktSwap{0%{transform:scale(.6)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
+#push.dkt-mode .dkt-ps{order:-1;color:#FFF3B8}
 @keyframes dktPushIdle{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
 @keyframes dktCharge{from{opacity:.55}to{opacity:1}}
 
@@ -78,35 +78,55 @@
   box-shadow:0 7px 0 #0A2548,0 0 0 3px rgba(255,236,150,.85),0 13px 20px rgba(0,0,0,.5),inset 0 -9px 14px rgba(0,20,60,.45)}
 #diceui .oddeven.dkt-on::before{content:"";position:absolute;inset:-12px;border-radius:50%;pointer-events:none;
   box-shadow:0 0 24px 8px rgba(255,214,90,.8);animation:fxBreath 1.1s var(--fx-inout) infinite}
-#diceui .oddeven.dim{opacity:.62;filter:grayscale(.85) brightness(.8)}
+/* 使えない時は不透明な灰色（下の盤の数字が透けない） */
+#diceui .oddeven.dim{opacity:1;filter:grayscale(.9) brightness(.62)}
+/* 使い切った後：押すと追加購入（本家「追加購入可能」） */
+#diceui .oddeven.dkt-buy{pointer-events:auto;cursor:pointer;filter:grayscale(.75) brightness(.78)}
 #diceui .oddeven u{position:absolute;right:-8px;top:-8px;min-width:36px;height:36px;padding:0 8px;border-radius:18px;
   display:flex;align-items:center;justify-content:center;text-decoration:none;
   font-family:var(--pop);font-weight:400;font-size:20px;line-height:1;color:#3A2405;-webkit-text-stroke:0;
   background:linear-gradient(180deg,#FFF3C8,#F2C230 55%,#C8952F);border:2px solid #6B4408;box-shadow:0 2px 0 rgba(0,0,0,.4)}
+/* 「奇数・偶数アイテムすべて使用」「追加購入可能」の小さな札（ボタンの外側） */
+#diceui .dkt-oetag{position:absolute;top:510px;display:none;white-space:nowrap;padding:6px 12px 7px;border-radius:10px;pointer-events:none;
+  font-family:var(--jp);font-weight:900;font-size:18px;line-height:1.28;color:#F2E8D6;
+  background:linear-gradient(180deg,rgba(40,28,10,.9),rgba(16,10,3,.9));border:1px solid rgba(242,194,48,.5);
+  box-shadow:0 4px 10px rgba(0,0,0,.4)}
+#diceui .dkt-oeA{right:1040px;text-align:right}
+#diceui .dkt-oeB{left:1056px;color:#A8E4FF;border-color:rgba(140,210,255,.6)}
+#diceui.dkt-oe0 .dkt-oetag:not(:empty){display:block}
 
-/* ── 出てくる時（transform だけ） ── */
-#diceui.dkt-in #push{animation:dktPopIn 420ms var(--fx-spring) both,dktPushIdle 1.5s var(--fx-inout) 420ms infinite}
-#diceui.dkt-in #odd{animation:dktInL 380ms var(--fx-out) 60ms both}
-#diceui.dkt-in #even{animation:dktInR 380ms var(--fx-out) 60ms both}
-#diceui.dkt-in #gauge{animation:dktGaugeIn 360ms var(--fx-out) both}
-#diceui.dkt-in .dkt-cap{animation:dktCapIn 360ms var(--fx-out) 120ms both}
-@keyframes dktPopIn{0%{transform:scale(.86)}60%{transform:scale(1.06)}100%{transform:scale(1)}}
-@keyframes dktInL{from{transform:translateX(-30px) scale(.9)}}
-@keyframes dktInR{from{transform:translateX(30px) scale(.9)}}
-@keyframes dktGaugeIn{from{transform:translateY(16px) scale(.94)}}
-@keyframes dktCapIn{from{transform:translateX(-50%) translateY(10px) scale(.9)}}
-
-/* 押している間・押した瞬間（入場のアニメより後ろに書く＝同じ強さなら後が勝つ） */
+/* 押している間・押した瞬間 */
 #diceui #push:active,#diceui #push.dkt-hold{transform:scale(.95);animation:none;
   box-shadow:0 4px 0 #5C0A2F,0 8px 16px rgba(0,0,0,.5),inset 0 -8px 18px rgba(90,0,40,.5),inset 0 4px 0 rgba(255,255,255,.3)}
 #diceui #push.dkt-hold::before{opacity:1;animation:dktCharge .3s linear infinite alternate}
 
-/* CPU の手番：ボタンは隠してゲージだけ動かす ／ マス選びの間は隠す */
-#diceui.dkt-watch #push,#diceui.dkt-watch .oddeven,#diceui.dkt-watch .dkt-halo{visibility:hidden}
+/* CPU・自動プレイの手番：ボタンは隠してゲージだけ動かす ／ マス選びの間は隠す */
+#diceui.dkt-watch #push,#diceui.dkt-watch .oddeven,#diceui.dkt-watch .dkt-halo,#diceui.dkt-watch .dkt-oetag{visibility:hidden}
 #stage.dkt-picking #diceui{visibility:hidden}
 
+/* ══════════ 手番の持ち時間のリング（G12。回るのは2枚の半円だけ＝transform） ══════════ */
+.dkt-ring{position:absolute;width:80px;height:80px;border-radius:50%;pointer-events:none;z-index:6;
+  background:radial-gradient(closest-side,#20150a 0 62%,transparent 63%),linear-gradient(160deg,#FFF3C0 0%,#F2C230 45%,#C8821A 100%);
+  box-shadow:0 0 0 3px rgba(40,24,4,.9),0 6px 14px rgba(0,0,0,.5)}
+.dkt-rg{position:absolute;top:0;width:50%;height:100%;overflow:hidden;font-style:normal}
+.dkt-rg-r{right:0}
+.dkt-rg-l{left:0}
+.dkt-rg > i{position:absolute;top:0;width:200%;height:100%;border-radius:50%;
+  animation:dktRg calc(var(--rg,30000ms) / 2) linear forwards}
+.dkt-rg-r > i{right:0;background:linear-gradient(90deg,rgba(22,13,4,.94) 50%,transparent 50%)}
+.dkt-rg-l > i{left:0;background:linear-gradient(90deg,transparent 50%,rgba(22,13,4,.94) 50%);animation-delay:calc(var(--rg,30000ms) / 2)}
+@keyframes dktRg{from{transform:rotate(0deg)}to{transform:rotate(180deg)}}
+.dkt-ring b{position:absolute;inset:13px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 42% 30%,#5A3E14,#1A1005 72%);
+  font-family:var(--pop);font-weight:400;font-size:28px;line-height:1;color:#FFE7A8;-webkit-text-stroke:0}
+.dkt-ring.dkt-late b{color:#FF8E7E}
+.dkt-ring.dkt-late{animation:dktRingLate .5s var(--fx-inout) infinite alternate}
+@keyframes dktRingLate{to{transform:scale(1.08)}}
+#diceui .dkt-ring{left:946px;top:598px}
+.dkt-mod > .dkt-ring{left:auto;right:26px;top:-36px}
+
 /* ══════════ マス選びの案内パネル（湖の中に収める） ══════════ */
-.dkt-pick{position:absolute;left:578px;top:360px;width:460px;z-index:310;display:none;pointer-events:auto;
+.dkt-pick{position:absolute;left:513px;top:356px;width:590px;z-index:310;display:none;pointer-events:auto;
   padding:34px 22px 16px;border-radius:18px;text-align:center;color:#FFF6E2;
   background:
     radial-gradient(120% 80% at 50% 0%,rgba(255,214,120,.18),rgba(255,214,120,0) 60%) padding-box,
@@ -115,9 +135,8 @@
   border:4px solid transparent;
   box-shadow:0 8px 0 rgba(0,0,0,.35),0 18px 36px rgba(0,0,0,.6),inset 0 2px 0 rgba(255,220,150,.22)}
 .dkt-pick::before{content:"";position:absolute;inset:6px;border-radius:12px;pointer-events:none;border:1px solid rgba(196,150,70,.34)}
-.dkt-pick.dkt-on{display:block;animation:dktPickIn 380ms var(--fx-spring) both}
+.dkt-pick.dkt-on{display:block}
 .dkt-pick.dkt-out{animation:dktPickOut 170ms var(--fx-in) both}
-@keyframes dktPickIn{0%{transform:translateY(14px) scale(.88)}60%{transform:translateY(-2px) scale(1.03)}100%{transform:none}}
 @keyframes dktPickOut{to{transform:scale(.94);opacity:0}}
 .dkt-pk-tag{position:absolute;left:50%;top:-26px;transform:translateX(-50%);height:52px;padding:0 56px;white-space:nowrap;
   display:flex;align-items:center;justify-content:center;
@@ -125,7 +144,7 @@
   clip-path:polygon(0 0,100% 0,95% 50%,100% 100%,0 100%,5% 50%)}
 .dkt-pk-tag b{font-family:var(--pop);font-weight:400;font-size:26px;line-height:1;color:#FFF6E2;
   -webkit-text-stroke:5px #5A1206;paint-order:stroke fill}
-.dkt-pk-msg{font-family:var(--pop);font-weight:400;font-size:30px;line-height:1.2;color:#FFF6E2;
+.dkt-pk-msg{font-family:var(--pop);font-weight:400;font-size:27px;line-height:1.25;color:#FFF6E2;
   -webkit-text-stroke:5px #2A1604;paint-order:stroke fill}
 .dkt-pk-note{margin-top:8px;font-size:18px;font-weight:700;line-height:1.35;color:#E9D6A8}
 .dkt-pick.dkt-bad .dkt-pk-note{color:#FFB0A2}
@@ -146,7 +165,7 @@
 .dkt-pk-x:hover{filter:brightness(1.12)}
 .dkt-pk-x:active{transform:translateY(3px) scale(.96)}
 
-/* ══════════ 無人島・世界旅行の選択（モーダルの中身） ══════════ */
+/* ══════════ 選択の画面（モーダルの中身）共通 ══════════ */
 .dkt-mod{position:relative;width:790px;max-width:94%;padding:48px 28px 24px;border-radius:20px;text-align:center;color:#FFF6E2;
   background:
     radial-gradient(120% 70% at 50% 0%,rgba(255,214,120,.16),rgba(255,214,120,0) 60%) padding-box,
@@ -163,41 +182,69 @@
 .dkt-rib b{font-family:var(--pop);font-weight:400;font-size:30px;line-height:1;color:#FFF6E2;
   -webkit-text-stroke:5px #5A1206;paint-order:stroke fill}
 .dkt-rib.dkt-blue b{-webkit-text-stroke-color:#0B2C5E}
-.dkt-lead{margin:4px 0 18px;font-size:22px;font-weight:700;line-height:1.35;color:#F0DCA8}
-.dkt-lead em{font-style:normal;font-family:var(--pop);font-weight:400;color:#FFD44A}
-.dkt-foot{margin-top:16px;font-size:18px;font-weight:700;line-height:1.35;color:#CDB78A}
-.dkt-opts{display:flex;gap:18px;justify-content:center}
-.dkt-opt{position:relative;flex:1 1 0;max-width:236px;min-height:232px;padding:14px 12px 16px;border-radius:16px;cursor:pointer;
-  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:8px;color:#fff;
+.dkt-lead{margin:4px 0 18px;font-size:22px;font-weight:700;line-height:1.4;color:#F0DCA8}
+.dkt-lead em{font-style:normal;font-family:var(--pop);font-weight:400;color:#9FE3FF}
+.dkt-foot{margin-top:16px;font-size:20px;font-weight:700;line-height:1.35;color:#CDB78A}
+.dkt-ic{width:84px;height:84px;flex:0 0 auto;filter:drop-shadow(0 4px 0 rgba(0,0,0,.35))}
+.dkt-gem{display:inline-block;width:34px;height:30px;margin-right:6px;vertical-align:-3px}
+
+/* ══════════ 無人島を脱出（本家 v7 t1000：羊皮紙の台に3段の選択肢） ══════════ */
+.dkt-mod.dkt-jail{width:880px;padding:50px 26px 20px;color:#3A2405;
+  background:
+    radial-gradient(120% 70% at 50% 0%,rgba(255,255,255,.55),rgba(255,255,255,0) 60%) padding-box,
+    linear-gradient(180deg,#F8EACB,#EAD29E) padding-box,
+    var(--fx-gold-metal) border-box}
+.dkt-jail::before{border-color:rgba(138,90,12,.35)}
+.dkt-rows{display:flex;flex-direction:column;gap:12px}
+.dkt-row{position:relative;display:flex;align-items:center;gap:20px;min-height:112px;padding:10px 24px 10px 12px;border-radius:14px;
+  text-align:left;cursor:pointer;color:#3A2405;font:inherit;
   border:3px solid transparent;
-  background:linear-gradient(180deg,#48331A,#1E1407) padding-box,var(--fx-gold-metal) border-box;
-  box-shadow:0 6px 0 rgba(0,0,0,.45),0 12px 22px rgba(0,0,0,.45),inset 0 2px 0 rgba(255,230,170,.25);
+  background:linear-gradient(180deg,#FFFBF0,#F4E4BE) padding-box,linear-gradient(160deg,#C79A45,#8A5A0C 55%,#E2BE6E) border-box;
+  box-shadow:0 5px 0 rgba(90,58,10,.5),0 10px 18px rgba(60,36,6,.28);
   transition:transform var(--fx-t-release) var(--fx-back);animation:dktDeal 420ms var(--fx-spring) both}
-.dkt-opt:nth-child(2){animation-delay:70ms}
-.dkt-opt:nth-child(3){animation-delay:140ms}
-@keyframes dktDeal{from{transform:translateY(26px) scale(.9)}}
-.dkt-opt:hover{transform:translateY(-6px)}
-.dkt-opt:active{transform:translateY(2px) scale(.97)}
-.dkt-opt .dkt-ic{width:84px;height:84px;flex:0 0 auto;filter:drop-shadow(0 4px 0 rgba(0,0,0,.35))}
-.dkt-opt b{font-family:var(--pop);font-weight:400;font-size:26px;line-height:1.1;-webkit-text-stroke:4.5px #2A1604;paint-order:stroke fill}
-.dkt-opt i{font-style:normal;font-weight:700;font-size:20px;line-height:1.3;color:#EBD9B2}
-.dkt-opt i.dkt-amt{font-family:var(--pop);font-weight:400;font-size:32px;line-height:1.1;color:#FFD44A;
-  -webkit-text-stroke:5px #3A2405;paint-order:stroke fill}
-.dkt-opt.dkt-gold{background:linear-gradient(180deg,#5A4015,#241806) padding-box,var(--fx-gold-metal) border-box;
-  box-shadow:0 6px 0 rgba(0,0,0,.45),0 0 22px 4px rgba(255,200,80,.45),inset 0 2px 0 rgba(255,230,170,.3)}
-.dkt-opt.dkt-blue{background:linear-gradient(180deg,#1F3E66,#0B1A30) padding-box,
-  linear-gradient(160deg,#E8F4FF,#7FA9D6 30%,#27466E 60%,#BFD8F2) border-box}
-.dkt-opt.dkt-off{cursor:default;filter:grayscale(.85) brightness(.75);animation:none}
-.dkt-opt.dkt-off:hover,.dkt-opt.dkt-off:active{transform:none}
-.dkt-trav{width:640px}
-.dkt-art{display:block;width:170px;height:118px;margin:2px auto 0;animation:dktFloat 3s var(--fx-inout) infinite}
-@keyframes dktFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-.dkt-fee{display:inline-flex;align-items:baseline;gap:14px;margin:0 0 20px;padding:10px 26px 12px;border-radius:14px;
+.dkt-row:nth-child(2){animation-delay:60ms}
+.dkt-row:nth-child(3){animation-delay:120ms}
+@keyframes dktDeal{from{transform:translateY(22px) scale(.94)}}
+.dkt-row:hover{transform:translateY(-3px)}
+.dkt-row:active{transform:translateY(2px) scale(.985)}
+.dkt-row.dkt-gold{background:linear-gradient(180deg,#FFF7DA,#F7DB92) padding-box,linear-gradient(160deg,#FFF3C0,#C8952F 45%,#8A5A0C 70%,#F3D583) border-box}
+.dkt-row.dkt-blue{background:linear-gradient(180deg,#F2FAFF,#CFE7FA) padding-box,linear-gradient(160deg,#E8F4FF,#5C8EC4 45%,#27466E 70%,#BFD8F2) border-box}
+.dkt-row.dkt-off{cursor:default;filter:grayscale(.75) brightness(.9);animation:none}
+.dkt-row.dkt-off:hover,.dkt-row.dkt-off:active{transform:none}
+.dkt-rico{flex:0 0 136px;height:92px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  background:radial-gradient(80% 60% at 50% 25%,rgba(255,255,255,.55),rgba(255,255,255,0) 70%),linear-gradient(180deg,#F5CF74,#C98A2A);
+  border:2px solid #8A5A0C;box-shadow:inset 0 -6px 10px rgba(110,64,6,.35),0 2px 0 rgba(0,0,0,.25)}
+.dkt-row.dkt-blue .dkt-rico{background:radial-gradient(80% 60% at 50% 25%,rgba(255,255,255,.6),rgba(255,255,255,0) 70%),linear-gradient(180deg,#8FD0FF,#2E7FCB);border-color:#0B2C5E}
+.dkt-rico .dkt-ic{width:58px;height:58px}
+.dkt-rico em{font-style:normal;font-family:var(--jp);font-weight:900;font-size:20px;line-height:1;color:#fff;
+  -webkit-text-stroke:3.5px #5A3A04;paint-order:stroke fill;white-space:nowrap}
+.dkt-row.dkt-blue .dkt-rico em{-webkit-text-stroke-color:#0B2C5E}
+.dkt-rtx{flex:1;display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0}
+.dkt-rtx b{font-family:var(--pop);font-weight:400;font-size:30px;line-height:1.15;color:#3A2405}
+.dkt-rtx > small{font-size:20px;font-weight:700;line-height:1.3;color:#6B4A1A}
+.dkt-rtx > small.dkt-short{color:#B2311C}
+.dkt-fee2{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px}
+.dkt-fee2 strong{font-family:var(--pop);font-weight:400;font-size:34px;line-height:1;color:#B2411C;
+  -webkit-text-stroke:0;text-shadow:0 2px 0 rgba(255,255,255,.7)}
+.dkt-fee2 small{padding:5px 14px 6px;border-radius:999px;font-size:20px;font-weight:900;line-height:1.1;white-space:nowrap;
+  color:#FFE7A8;background:linear-gradient(180deg,#4A3312,#241806);box-shadow:inset 0 1px 0 rgba(255,220,150,.25)}
+.dkt-fee2 small i{font-style:normal;color:#FFD44A}
+.dkt-jail .dkt-foot{margin-top:14px;color:#5A3A10}
+
+/* ══════════ 奇数・偶数アイテムの追加購入 ══════════ */
+.dkt-mod.dkt-oebuy{width:660px}
+.dkt-oepk{display:flex;align-items:center;justify-content:center;gap:16px;margin:0 auto 16px;padding:12px 22px;max-width:460px;border-radius:14px;
+  background:rgba(0,0,0,.3);border:2px solid rgba(143,210,255,.5)}
+.dkt-oepk .dkt-ic{width:96px;height:64px}
+.dkt-oepk div{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left}
+.dkt-oepk b{font-family:var(--pop);font-weight:400;font-size:28px;line-height:1.1;color:#FFF6E2;-webkit-text-stroke:4px #0B2C5E;paint-order:stroke fill}
+.dkt-oepk span{font-size:18px;font-weight:700;color:#CFE6FA}
+.dkt-fee{display:inline-flex;align-items:center;gap:14px;margin:0 0 20px;padding:10px 26px 12px;border-radius:14px;
   background:rgba(0,0,0,.35);border:2px solid rgba(242,194,48,.55)}
 .dkt-fee span{font-size:22px;font-weight:700;color:#EBD9B2}
-.dkt-fee b{font-family:var(--pop);font-weight:400;font-size:40px;line-height:1;color:#FFD44A;
-  -webkit-text-stroke:6px #3A2405;paint-order:stroke fill}
-.dkt-fee i{font-style:normal;font-size:20px;font-weight:700;color:#9FD8FF}
+.dkt-fee b{display:inline-flex;align-items:center;font-family:var(--pop);font-weight:400;font-size:40px;line-height:1;color:#9FE3FF;
+  -webkit-text-stroke:6px #0B2C5E;paint-order:stroke fill}
+.dkt-fee i{font-style:normal;font-size:20px;font-weight:700;color:#CFE6FA}
 .dkt-btns{display:flex;gap:18px;justify-content:center}
 .dkt-btn{position:relative;isolation:isolate;min-width:236px;height:78px;padding:0 20px;border-radius:14px;cursor:pointer;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
@@ -211,6 +258,8 @@
 .dkt-btn.dkt-go{border:3px solid #1F5A0C;background:linear-gradient(180deg,#A8E877 0 8%,#5FBF3A 30%,#3A8C1C 72%,#22610E)}
 .dkt-btn.dkt-go::before{content:"";position:absolute;inset:-6px;border-radius:18px;z-index:-1;pointer-events:none;
   box-shadow:0 0 22px 6px rgba(160,240,110,.6);animation:fxBreath 2.2s var(--fx-inout) infinite}
+.dkt-btn.dkt-go.dkt-dis{cursor:default;filter:grayscale(.9) brightness(.75);font-size:22px}
+.dkt-btn.dkt-go.dkt-dis::before{display:none}
 .dkt-btn.dkt-no{border:3px solid #A98446;background:linear-gradient(180deg,#6E5326,#3E2C11 52%,#271A07);color:#F3E6C8}
 
 /* ══════════ 出目えらび（能力「突撃」・サイコロ改造） ══════════ */
@@ -234,14 +283,14 @@
 #pickeye button:active{transform:translateY(3px) scale(.95);box-shadow:0 2px 0 #5A3A04}
 
 /* ══════════ 控えめ設定・視差を減らす設定 ══════════ */
-html.fx-lite #diceui .dkt-halo,html.fx-lite #diceui #push,html.fx-lite .dkt-art{animation:none}
+html.fx-lite #diceui .dkt-halo,html.fx-lite #diceui #push{animation:none}
 @media (prefers-reduced-motion:reduce){
-  #diceui .dkt-halo,#diceui #push,.dkt-art,#diceui .oddeven.dkt-on::before{animation:none}
+  #diceui .dkt-halo,#diceui #push,#diceui .oddeven.dkt-on::before,.dkt-ring.dkt-late,.dkt-row{animation:none}
 }
-/* スマホ（html.fx-mob）：ゲージ・奇数偶数・案内の入場は both で最後の形のまま残り、ずっと別の層になる。
-   光の輪・奇数偶数の光と一緒に止める（iPhone の WebKit は層を CSS の大きさ×3×3 の画素で持つ。1k-fx.html） */
-html.fx-mob #diceui.dkt-in #gauge,html.fx-mob #diceui.dkt-in #odd,html.fx-mob #diceui.dkt-in #even,html.fx-mob #diceui.dkt-in .dkt-cap,
-html.fx-mob #diceui .dkt-halo,html.fx-mob #diceui .oddeven::before,html.fx-mob #diceui .oddeven.dkt-on::before{animation:none!important}
+/* スマホ（html.fx-mob）：光の輪・奇数偶数の光は止める（iPhone の WebKit は層を CSS の大きさ×3×3 の画素で持つ。1k-fx.html）。
+   ゲージ・奇数偶数・案内の入場は 9g-turn.js の dktEnter がスマホでは動かさない */
+html.fx-mob #diceui .dkt-halo,html.fx-mob #diceui .oddeven::before,html.fx-mob #diceui .oddeven.dkt-on::before,
+html.fx-mob .dkt-row{animation:none!important}
 
 /* ══════════ 横長スマホ（高さ560px未満）：主な文字 26px 以上・本文 22px 以上・押せる範囲 96px 以上 ══════════ */
 @media (max-height:560px){
@@ -251,9 +300,16 @@ html.fx-mob #diceui .dkt-halo,html.fx-mob #diceui .oddeven::before,html.fx-mob #
   #diceui .oddeven{font-size:32px}
   #diceui .oddeven u{font-size:26px;min-width:42px;height:42px;right:-12px;top:-12px}
   #odd::after,#even::after{--gx:0px;--gy:0px}
-  .dkt-pick{left:538px;top:344px;width:540px}
+  #diceui .dkt-oetag{font-size:22px;top:500px}
+  #diceui .dkt-oeA{right:1044px}
+  #diceui .dkt-oeB{left:1052px}
+  .dkt-ring{width:100px;height:100px}
+  .dkt-ring b{inset:16px;font-size:36px}
+  #diceui .dkt-ring{left:934px;top:590px}
+  .dkt-mod > .dkt-ring{top:-48px}
+  .dkt-pick{left:468px;top:340px;width:680px}
   .dkt-pk-tag b{font-size:30px}
-  .dkt-pk-msg{font-size:34px}
+  .dkt-pk-msg{font-size:32px}
   .dkt-pk-note,.dkt-pk-sec{font-size:22px}
   .dkt-pk-sec b{font-size:28px}
   .dkt-pk-x{font-size:26px;height:60px}
@@ -261,14 +317,22 @@ html.fx-mob #diceui .dkt-halo,html.fx-mob #diceui .oddeven::before,html.fx-mob #
     width:calc(100% + 24px);height:96px;pointer-events:auto}
   .dkt-rib b{font-size:34px}
   .dkt-lead,.dkt-foot{font-size:24px}
-  .dkt-opt b{font-size:30px}
-  .dkt-opt i{font-size:24px}
-  .dkt-opt i.dkt-amt{font-size:32px;white-space:nowrap;letter-spacing:-.02em}
+  .dkt-mod.dkt-jail{width:1040px;padding:52px 28px 18px}
+  .dkt-row{min-height:124px;gap:22px}
+  .dkt-rico{flex-basis:156px;height:104px}
+  .dkt-rico em{font-size:24px}
+  .dkt-rtx b{font-size:36px}
+  .dkt-rtx > small,.dkt-fee2 small{font-size:24px}
+  .dkt-fee2 strong{font-size:40px}
+  .dkt-mod.dkt-oebuy{width:820px}
+  .dkt-oepk b{font-size:32px}
+  .dkt-oepk span{font-size:22px}
   .dkt-fee span{font-size:26px}
   .dkt-fee b{font-size:46px}
   .dkt-fee i{font-size:24px}
   .dkt-btn{font-size:30px;height:100px}
   .dkt-btn small{font-size:24px}
+  .dkt-btn.dkt-go.dkt-dis{font-size:26px}
   #pickeye{width:1220px}
   #pickeye .cap{font-size:32px}
   #pickeye button{width:96px;height:96px;font-size:36px}
