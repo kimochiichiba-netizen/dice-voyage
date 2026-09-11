@@ -30,7 +30,13 @@ var DKFX = {
   },
   stage: function(){ return document.getElementById('stage'); },
   small: function(){ try{ return matchMedia('(max-height:560px)').matches; }catch(e){ return false; } },
-  shown: function(el){ return !!(el && el.isConnected && el.getClientRects().length); },
+  /* 見えているか：画面が変わる世代（vg）ごとに1回だけ測る（H12） */
+  vg: 0,
+  shown: function(el){
+    if(!el || !el.isConnected) return false;
+    if(el._fxVg !== DKFX.vg){ el._fxVg = DKFX.vg; el._fxV = el.getClientRects().length > 0; }
+    return el._fxV;
+  },
   fmt: function(v){ return Math.round(v).toLocaleString(); },
   parseNum: function(t){
     var s = String(t == null ? '' : t), neg = /^\s*-/.test(s);
@@ -116,6 +122,7 @@ var DKFX = {
      iPhone の WebKit は、合成される盤の canvas に重なる要素をすべて別の層（CSS の大きさ×3×3 の画素）にするので、
      見えない盤と盤の部品は描かない（CSS は 1k-fx.html）。frame() は worldOff の間 盤を描かない */
   scrSync: function(){
+    DKFX.vg = (DKFX.vg | 0) + 1;
     var st = DKFX.stage(); if(!st) return;
     var on = null, ch = st.children;
     for(var i = 0; i < ch.length; i++){
@@ -248,16 +255,13 @@ var DKFX = {
       t.insertBefore(L, t.firstChild);
       return;
     }
+    /* 常に動くのは8つまで（H9） */
     var h = '<div class="fx-tbg"></div>';
-    [[455, 95], [1180, 110], [240, 610]].forEach(function(p, i){
-      h += '<i class="fx-twinkle" style="left:' + p[0] + 'px;top:' + p[1] + 'px;animation-delay:' + (-i * 0.9).toFixed(1) + 's"></i>';
+    [[455, 95], [1180, 110]].forEach(function(p, i){
+      h += '<i class="fx-twinkle" style="left:' + p[0] + 'px;top:' + p[1] + 'px;animation-delay:' + (-i * 1.3).toFixed(1) + 's"></i>';
     });
     h += '<div class="fx-tglare"><i></i></div>';
-    h += '<div class="fx-tglow fx-g1"><i></i></div><div class="fx-tglow fx-g2"><i></i></div>';
-    for(var i = 0; i < 10; i++){
-      h += '<i class="fx-mote" style="left:' + (4 + DKFX.rnd() * 92).toFixed(1) + '%;top:' + (70 + DKFX.rnd() * 28).toFixed(1)
-         + '%;animation-duration:' + (7 + DKFX.rnd() * 5).toFixed(1) + 's;animation-delay:-' + (DKFX.rnd() * 9).toFixed(1) + 's"></i>';
-    }
+    h += '<div class="fx-tglow fx-g1"><i></i></div><div class="fx-tglow fx-g2"></div><i class="fx-motes"></i>';
     L.innerHTML = h;
     t.insertBefore(L, t.firstChild);
   },
@@ -346,9 +350,11 @@ function fxEnter(el){
     if(d > maxD) maxD = d;
     n.style.setProperty('--fx-d', d + 'ms');
   });
-  el.classList.remove('fx-in');
-  void el.offsetWidth;
-  el.classList.add('fx-in');
+  /* 掛け直しはレイアウトを読まずに（H12） */
+  if(el.classList.contains('fx-in')){
+    el.classList.remove('fx-in');
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ el.classList.add('fx-in'); }); });
+  } else el.classList.add('fx-in');
   clearTimeout(el._fxInT);
   el._fxInT = setTimeout(function(){ el.classList.remove('fx-in'); }, maxD + 1100);
 }
@@ -363,12 +369,9 @@ function fxAmbient(el, opt){
   if(DKFX.mob) n = 0;       // スマホ：動く粒・斜めの光は作らない（下で動くと、上に重なる中身がすべて別の層になる）
   a = document.createElement('div');
   a.className = 'fx-amb'; a.setAttribute('aria-hidden', 'true');
-  var h = '<i class="fx-blob"></i><i class="fx-blob fx-b2"></i>' + (DKFX.mob ? '' : '<i class="fx-ray"></i>');
-  for(var i = 0; i < n; i++){
-    h += '<i class="fx-mote" style="left:' + (5 + DKFX.rnd() * 90).toFixed(1) + '%;top:' + (60 + DKFX.rnd() * 40).toFixed(1)
-       + '%;animation-duration:' + (7 + DKFX.rnd() * 5).toFixed(1) + 's;animation-delay:-' + (DKFX.rnd() * 10).toFixed(1) + 's"></i>';
-  }
-  a.innerHTML = h;
+  /* 金の粒は1枚の層（H9） */
+  a.innerHTML = '<i class="fx-blob"></i><i class="fx-blob fx-b2"></i>' + (DKFX.mob ? '' : '<i class="fx-ray"></i>')
+    + (n > 0 ? '<i class="fx-motes"></i>' : '');
   el.insertBefore(a, el.firstChild);
   return a;
 }
@@ -438,7 +441,7 @@ function fxCount(el, to, opt){
     var fmt = opt.fmt || DKFX.fmt;
     var from = (typeof opt.from === 'number') ? opt.from : DKFX.parseNum(el.textContent);
     to = +to || 0;
-    var dur = (opt.dur === undefined) ? 900 : +opt.dur;
+    var dur = (opt.dur === undefined) ? 800 : +opt.dur;
     var bump = opt.bump !== false;
     var tok = {}; el._fxTok = tok;
     if(el._fxRes){ var pr = el._fxRes; el._fxRes = null; pr(); }
@@ -453,12 +456,12 @@ function fxCount(el, to, opt){
     if(from === to || !(dur > 0) || DKFX.reduced || !DKFX.shown(el)){ finish(); return; }
     el._fxRes = res;
     el.classList.add('fx-counting');
-    var t0 = performance.now();
+    var t0 = performance.now(), lw = -1e9;
     var step = function(){
       if(el._fxTok !== tok) return;
-      var k = Math.min(1, (performance.now() - t0) / dur), e = 1 - Math.pow(1 - k, 4);
+      var now = performance.now(), k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 4);
       if(k >= 1){ finish(); return; }
-      el.textContent = fmt(from + (to - from) * e);
+      if(now - lw >= 33){ lw = now; el.textContent = fmt(from + (to - from) * e); }   // 数字の書き換えは30コマ/秒で十分
       requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
@@ -543,6 +546,42 @@ function fxHudOf(pi){
   }
   return loose;
 }
+/* 絵文字が出ない端末ではメダルを宝石の絵に（WP2#5） */
+function fxMedalFix(root){
+  if(!root || !root.querySelectorAll) return;
+  var list = root.querySelectorAll('.fx-medal');
+  for(var i = 0; i < list.length; i++){
+    var m = list[i];
+    if(m._fxMF || m.children.length) continue;
+    m._fxMF = 1;
+    var t = (m.textContent || '').trim();
+    if(!t || fxEmojiOk(t)) continue;
+    m.classList.add('fx-medal-svg'); m.setAttribute('data-ic', t); m.textContent = '';
+    m.insertAdjacentHTML('beforeend', '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 4 44 18 36 44H12L4 18z" fill="#6FC6F5" stroke="#0B3C74" stroke-width="2.5"/>'
+      + '<path d="M24 8 38 18 24 22 10 18z" fill="#EAF8FF" opacity=".7"/><path d="M12 44 24 22 36 44" fill="#1E7FD0" opacity=".45"/></svg>');
+  }
+}
+/* 絵文字が色つきで描けるか */
+function fxEmojiOk(s){
+  var C = fxEmojiOk._c || (fxEmojiOk._c = {});
+  if(C[s] !== undefined) return C[s];
+  var ok = true;
+  try{
+    var c = document.createElement('canvas'); c.width = 32; c.height = 32;
+    var g = c.getContext('2d', { willReadFrequently: true });
+    g.font = '26px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#000'; g.fillText(s, 16, 17);
+    var d = g.getImageData(0, 0, 32, 32).data, any = false, col = false;
+    for(var i = 0; i < d.length; i += 4){
+      if(d[i + 3] < 40) continue;
+      any = true;
+      if(Math.abs(d[i] - d[i + 1]) > 18 || Math.abs(d[i + 1] - d[i + 2]) > 18){ col = true; break; }
+    }
+    ok = any && col;
+    c.width = 1; c.height = 1;
+  }catch(e){ ok = true; }
+  return (C[s] = ok);
+}
 /* 同じ key の前のタイマーを止めてから張る。画面が変わると止まる（{keep:true} なら残る） */
 function dkEvery(key, fn, ms, opt){
   var T = DKFX.timers;
@@ -562,6 +601,7 @@ function modal(html){
     var F = (typeof DKFX === 'object' && DKFX) ? DKFX : { mseq:0, reduced:false };
     var seq = ++F.mseq;
     body.innerHTML = html;
+    if(typeof DKFX === 'object' && DKFX){ DKFX.vg = (DKFX.vg | 0) + 1; try{ fxMedalFix(body); }catch(e){} }
     var first = body.firstElementChild;
     wrap.classList.remove('fx-closing');
     wrap.classList.add('on');
@@ -576,6 +616,7 @@ function modal(html){
           wrap.classList.remove('fx-closing');
           /* 閉じている間に別のモーダルや建設パネルが開いていたら、それは閉じない */
           if(F.mseq === seq && body.firstElementChild === first) wrap.classList.remove('on');
+          if(typeof DKFX === 'object' && DKFX) DKFX.vg = (DKFX.vg | 0) + 1;
           res(act);
         };
         var ms = (F.reduced ? 0 : 170) * ((typeof SPEED === 'number' && SPEED > 0) ? SPEED : 1);
@@ -728,10 +769,12 @@ screenTo = function(id){
   var was = (typeof wiping !== 'undefined') ? wiping : false;
   var r = DKFX.o.screenTo.apply(this, arguments);
   try{
+    DKFX.vg = (DKFX.vg | 0) + 1;
     if(changed) DKFX.stopTimers(false);
     var el = document.getElementById(id);
     if(el){
       fxAmbient(el);
+      fxMedalFix(el);
       if(changed){
         var wipeNow = (typeof wiping !== 'undefined') && wiping && !was;
         clearTimeout(el._fxEnterT);
@@ -760,7 +803,9 @@ newGame = function(){
     DKFX.mob = (typeof dvMobile === 'function') ? dvMobile()
       : !!(/iP(hone|ad|od)/.test(navigator.userAgent || '') || (navigator.maxTouchPoints || 0) > 0);
     document.documentElement.classList.toggle('fx-mob', DKFX.mob);
-    DKFX.lite = (v === 'lite' || v === '1' || v === 'true') || (v === null && DKFX.mob);
+    /* 重い端末も最初から「控えめ」（G14） */
+    DKFX.low = (navigator.hardwareConcurrency || 8) <= 4 && (navigator.deviceMemory || 8) <= 2;
+    DKFX.lite = (v === 'lite' || v === '1' || v === 'true') || (v === null && (DKFX.mob || DKFX.low));
     var mq = window.matchMedia ? matchMedia('(prefers-reduced-motion: reduce)') : null;
     DKFX.reduced = !!(mq && mq.matches);
     if(mq && mq.addEventListener) mq.addEventListener('change', function(){ DKFX.reduced = !!mq.matches; });
