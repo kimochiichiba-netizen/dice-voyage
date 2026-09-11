@@ -9,36 +9,77 @@
    ⑫ 宝箱3択 → 同じ部屋へ              … dkmChest*
    ・トップレベルは function 宣言と DKM_ 付きの定数と初期化 IIFE だけ。
    ・絵はすべて CSS / SVG で自作（本家の絵・ロゴ・キャラは使わない）。
+   ・英字の見出し（WIN・LOSE・YOU・FORTUNE・FIRST・LV）は自作の線の字体（DKM_GLYPH）で描く。
+     Web フォントが読めない端末でも形が変わらない（WP4#5）。
    ・見た目の乱数は DKFX.rnd()。順番と宝箱の中身だけはゲームの乱数（Math.random）。
+   v10（WP15b）: 報酬のあと［確認］で約1.4秒のクロスフェードで同じ部屋へ（J31）、品物はプレゼントボックス（J54）、
+   参加報酬 1,000G×x＋キューブ、LOSE の専用ジングル・ガラスの音・短調の結果曲（G03）、［RPを守る］（G15）、
+   お祭りの花火（G18）、応援モード（G23）、TIPS を日本版の言い回しに（C28）。
    ══════════════════════════════════════════════════════════════ */
 
 const DKM_LOAD_N = 56;                        // Loading...(n/56)
 const DKM_PICK_MS = 5000;                     // 順番カード：放置で自動
 const DKM_STREAK_MS = 18 * 3600 * 1000;       // 連勝認定時間 18時間
-const DKM_LOSE3_GOLD = 3000;                  // 3連敗の応援（当作独自）
+const DKM_LOSE3_GOLD = 3000;                  // 3連敗の応援（韓国版の 3連敗ボーナスを当作の額に）
+const DKM_JOIN_GOLD = 1000;                   // 参加報酬 1,000G × クラス倍率 x
+const DKM_CHEER_GOLD = 2000;                  // 応援モードで勝った時の「おうえんボーナス」
+const DKM_DIA_GEM = 75;                       // ダイヤモンドクラスの勝利報酬 💎75
+const DKM_GUARD_COST = 200;                   // ［RPを守る］の値段
+const DKM_GUARD_FREE_LV = 5;                  // この Lv 以下は無料
+const DKM_FIRST_MS = 1100;                    // 「先行」を見せる時間
+const DKM_XFADE_MS = 1400;                    // 報酬 → 同じ部屋 のクロスフェード
+const DKM_OK_AUTO_MS = 6000;                  // 報酬の［確認］を押さない時の自動
+const DKM_LOSE_BGM_MS = 2300;                 // LOSE のジングルのあと、短調の結果曲に入るまで
 const DKM_TIPS = [
-  '同じ色の街を全部そろえると、その色の通行料が2倍になります。',
-  '色の独占を3つそろえると「トリプル独占」で、その場で勝ちです。',
-  '1辺の街をぜんぶ持つと「ライン独占」で、その場で勝ちです。',
-  '観光地（空色とピンクのマス）を全部持つと「観光地独占」で勝ちです。',
-  '空色の観光地は、2つ持つと通行料2倍、3つそろえると4倍になります。',
-  'ピンクの観光地は、人が止まるたびに通行料が上がります（最大4倍）。',
-  '世界旅行のマスに止まると、次のターンに好きなマスへ移動できます。',
-  '監獄では「ダブルに挑戦」「お金を払う」「脱出カード」の3つから選べます。',
-  '［押す］を長押しすると目盛りが2〜12を往復。狙った数で離すと近い目が出ます。',
-  '奇数・偶数ボタンでモードを切り替えると、その目が必ず出ます（回数かぎり）。',
-  'ダブル（ゾロ目）が出たらもう一回。ただし3回続くと監獄行きです。',
-  '相手の街は「買収」で奪えます。観光地とランドマークは買収できません。',
-  'ランドマークを建てると通行料が跳ね上がり、買収されなくなります。',
-  '建物は1周ごとに1段ずつ解放されます。スタートを通るのが近道です。',
-  '祭り都市（×2）は試合の最初に3つ決まり、最後まで通行料が2倍です。',
-  '残り6ターンから通行料が毎ターン1.5倍に。負けていても諦めないこと。',
-  'ボーナスのマスではミニゲーム。当てるたびに賞金の倍率が上がります。',
-  'キャラクターの能力は、魔力ゲージが満タンになると使えます。',
-  'アイテムはサイコロを振る前に使ってください。',
-  '天使カードを持っていると、通行料を払う時に使うか聞かれます。',
-  '連勝するほど、試合後の宝箱の中身が良くなります（最大5連勝）。'
+  'トリプル、ライン、観光地独占で勝利するとRPが大きく上がる他、報酬も獲得できます。',
+  'キューブはプレイ後の結果報酬として獲得できます。',
+  'ハイランクのキューブからはより良いアイテムを獲得できます。',
+  '30ターンが終わった時に、総資産がいちばん多いプレイヤーの勝利です。',
+  '同じ色の都市をすべて持つと「カラー独占」。その色の通行料が2倍になります。',
+  'カラー独占を3つそろえると「トリプル独占」で、その場で勝利です。',
+  '1つのラインの都市をすべて持つと「ライン独占」で、その場で勝利です。',
+  '観光地をすべて持つと「観光地独占」で、その場で勝利です。',
+  '空色の観光地は、たくさん持つほど通行料が上がります。',
+  'お祭り FESTIVAL の都市は試合の最初に決まり、通行料が2倍になります。',
+  'サイコロでダブルが出ると、もう一回サイコロを振れます。',
+  '無人島では「ダブルに挑戦」「保釈金」「脱出カード」から選べます。',
+  '世界旅行に止まると、次のターンに希望する都市へ移動できます。',
+  '［押す］を長押しするとゲージが動きます。狙った数で離すとゲージインパクト！',
+  '奇数・偶数を選ぶと、その目が出ます（使える回数は決まっています）。',
+  '相手の都市は買収できます。観光地とランドマークは買収できません。',
+  'ランドマークを建てると通行料が大きく上がり、買収されなくなります。',
+  '建物は1周すると建設可能になります。スタートを通るのが近道です。',
+  'スタートにぴったり止まると「スタート建設ボーナス」。',
+  'フォーチュンカードには黄金・シルバー・罰のカードがあります。',
+  '国税庁に止まると、持っている建物の建設費用に応じて税金を払います。',
+  '天使カードを持っていると、通行料が無料になります。',
+  '連勝するほど、試合後の宝箱の中身がだんだんよくなります（最大5連勝）。',
+  '獲得したアイテムはメールから確認できます。'
 ];
+/* 線の字体（大文字の中心線。字の高さ 100。太さは描く側で決める） */
+const DKM_GLYPH = {
+  W:{ w:124, d:'M0 0L28 100L62 30L96 100L124 0' },
+  I:{ w:0,   d:'M0 0V100' },
+  N:{ w:78,  d:'M0 100V0L78 100V0' },
+  L:{ w:62,  d:'M0 0V100H62' },
+  O:{ w:86,  d:'M43 0C99 0 99 100 43 100C-13 100-13 0 43 0Z' },
+  S:{ w:74,  d:'M70 16C62 3 48 0 37 0C15 0 4 12 4 27C4 45 22 49 38 52C56 56 72 60 72 76C72 92 58 100 38 100C22 100 8 94 2 82' },
+  E:{ w:62,  d:'M62 0H0V100H62M0 50H50' },
+  R:{ w:74,  d:'M0 100V0H42C82 0 82 56 42 56H0M40 56L74 100' },
+  U:{ w:78,  d:'M0 0V58C0 114 78 114 78 58V0' },
+  T:{ w:84,  d:'M0 0H84M42 0V100' },
+  F:{ w:62,  d:'M62 0H0V100M0 50H50' },
+  Y:{ w:84,  d:'M0 0L42 52L84 0M42 52V100' },
+  V:{ w:84,  d:'M0 0L42 100L84 0' },
+  A:{ w:88,  d:'M0 100L44 0L88 100M17 64H71' }
+};
+/* 宝箱・参加報酬のキューブ（id は WP12 の dkGiveCube(kind) の kind） */
+const DKM_CUBE = {
+  wood:  { nm:'ウッドキューブ',   c1:'#E9C08A', c2:'#A8703A', c3:'#6A4018' },
+  silver:{ nm:'シルバーキューブ', c1:'#FFFFFF', c2:'#B9C6D4', c3:'#6E7C8E' },
+  gold:  { nm:'ゴールドキューブ', c1:'#FFF3B0', c2:'#F2C230', c3:'#9A6A08' },
+  dia:   { nm:'ダイヤキューブ',   c1:'#E8FAFF', c2:'#7FD4F5', c3:'#2A78C0' }
+};
 /* 世界地図の上の金の弧（SVG の座標。viewBox 0 -90 1000 590） */
 const DKM_ARCS = [
   { a:{x:872, y:168}, c:{x:540, y:-110}, b:{x:212, y:150} },
@@ -102,6 +143,174 @@ function dkmPaintFaces(root){
     var card = cardById(c.getAttribute('data-dkm-card')) || CARDPOOL[0];
     try{ regPortrait(c, card.art, card.col, card.id); }catch(e){}
   });
+}
+/* サイコロの能力（C05。無ければ 0） */
+function dkmDieAb(pi){
+  var a = null;
+  try{ a = (typeof dkDieAb === 'function' && pi >= 0) ? dkDieAb(pi) : null; }catch(e){ a = null; }
+  return a || {};
+}
+/* チーム戦で a と b が味方か（C03。個人戦は同じ席だけ） */
+function dkmAlly(a, b){
+  if(a === b) return true;
+  if(!cfg.team) return false;
+  try{ if(typeof dkAlly === 'function') return !!dkAlly(a, b); }catch(e){}
+  return (a % 2) === (b % 2);
+}
+function dkmTeamOf(pi){
+  try{ if(typeof dkTeamOf === 'function') return dkTeamOf(pi); }catch(e){}
+  return pi % 2;
+}
+/* 参加報酬のキューブ（ウッド以上。上のクラスほど良い） */
+function dkmCubeKind(clsId){ return (clsId === 'first' || clsId === 'dia') ? 'silver' : 'wood'; }
+/* 小さなキューブの絵（CSS）。chips の ic に 'cube:wood' などを渡すとこれを出す */
+function dkmCubeIcon(kind){
+  var C = DKM_CUBE[kind] || DKM_CUBE.wood;
+  return '<i class="dkm-cubei" style="--c1:' + C.c1 + ';--c2:' + C.c2 + ';--c3:' + C.c3 + '"></i>';
+}
+/* 線の字体で語を組む → { d:パス, w:幅, h:高さ }。字の高さ 100、太さ sw の中心線（外側に sw/2 はみ出す） */
+function dkmWord(text, sw, track){
+  var x = sw / 2, d = '', t = String(text || '').toUpperCase();
+  var kern = { LT:-26, LV:-22, LY:-22, AV:-14, VA:-14, TA:-14 };
+  for(var i = 0; i < t.length; i++){
+    var g = DKM_GLYPH[t.charAt(i)];
+    if(!g){ x += 40; continue; }
+    if(i > 0) x += kern[t.charAt(i - 1) + t.charAt(i)] || 0;          // 字の組み合わせで空きすぎる所を詰める
+    d += g.d.replace(/([MLHVCZ])([^MLHVCZ]*)/gi, function(all, cmd, args){
+      var n = args.trim() ? args.trim().replace(/-/g, ' -').trim().split(/[\s,]+/).map(Number) : [];
+      var u = cmd.toUpperCase(), out = [];
+      if(u === 'H') out = n.map(function(v){ return +(v + x).toFixed(1); });
+      else if(u === 'V') out = n.map(function(v){ return +(v + sw / 2).toFixed(1); });
+      else out = n.map(function(v, k){ return +(v + (k % 2 ? sw / 2 : x)).toFixed(1); });
+      return u + out.join(' ');
+    });
+    x += g.w + sw + track;
+  }
+  return { d:d, w:Math.max(1, x - track - sw / 2), h:100 + sw };
+}
+/* 線の字体の SVG。opt: sw 太さ・track 字間・face 面の色（'gold'|'silver'|色）・edge 縁の色・ol 縁の太さ・ext 厚み・side 厚みの色・hi 上の光 */
+function dkmWordSVG(text, cls, opt){
+  opt = opt || {};
+  var sw = opt.sw || 26, track = opt.track == null ? 10 : opt.track, W = dkmWord(text, sw, track), u = dkmId();
+  var ol = opt.ol == null ? 10 : opt.ol, ext = opt.ext || 0;
+  var pad = ol + 4, vw = W.w + sw + pad * 2, vh = W.h + pad * 2 + ext;
+  var tr = 'translate(' + pad + ' ' + pad + ')';
+  var face = opt.face || 'gold', fill, defs = '';
+  if(face === 'gold' || face === 'silver'){
+    var st = face === 'silver'
+      ? '<stop offset="0" stop-color="#FFFFFF"/><stop offset=".44" stop-color="#E2E9F1"/><stop offset=".58" stop-color="#8E9CAE"/><stop offset=".8" stop-color="#C9D3DE"/><stop offset="1" stop-color="#F4F7FA"/>'
+      : '<stop offset="0" stop-color="#FFFBE6"/><stop offset=".4" stop-color="#FFE27A"/><stop offset=".56" stop-color="#F4B81E"/><stop offset=".8" stop-color="#C98A12"/><stop offset="1" stop-color="#FFE9A0"/>';
+    defs += '<linearGradient id="' + u + 'f" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="' + W.h + '">' + st + '</linearGradient>';
+    fill = 'url(#' + u + 'f)';
+  } else fill = face;
+  var edge = opt.edge || (face === 'silver' ? '#171C24' : '#2A1604');
+  var side = opt.side || (face === 'silver' ? '#46505C' : '#7A4A06');
+  var P = function(stroke, w, extra){ return '<path d="' + W.d + '" fill="none" stroke="' + stroke + '" stroke-width="' + w + '" stroke-linecap="round" stroke-linejoin="round"' + (extra || '') + '/>'; };
+  var body = '';
+  for(var k = ext; k >= 2; k -= 2) body += '<g transform="translate(0 ' + k + ')">' + P(side, sw + ol * 2) + '</g>';
+  body += P(edge, sw + ol * 2) + P(fill, sw);
+  if(opt.hi !== false && (face === 'gold' || face === 'silver')){
+    defs += '<clipPath id="' + u + 'h"><rect x="-20" y="-20" width="' + (W.w + sw + 40) + '" height="' + (W.h * 0.42 + 20) + '"/></clipPath>';
+    body += P('#FFFFFF', sw * 0.9, ' stroke-opacity=".34" clip-path="url(#' + u + 'h)"');
+  }
+  return '<svg class="' + (cls || 'dkm-wsvg') + '" viewBox="0 0 ' + vw.toFixed(0) + ' ' + vh.toFixed(0) + '"' + (opt.attr || '') + ' aria-hidden="true">'
+    + (defs ? '<defs>' + defs + '</defs>' : '') + '<g transform="' + tr + '">' + body + '</g></svg>';
+}
+
+/* ══════════ 音（6-*.js は読むだけなので、ここで合成して SFX と JING に足す） ══════════ */
+function dkmAudio(){
+  if(typeof soundOn !== 'undefined' && !soundOn) return null;
+  var a = null; try{ a = ac(); }catch(e){ a = null; }
+  if(!a || !a.createGain) return null;
+  if(a.state === 'suspended'){ try{ var rp = a.resume(); if(rp && rp.catch) rp.catch(function(){}); }catch(e){} }
+  return a;
+}
+function dkmVol(k){ return Math.max(0, Math.min(1, (typeof sfxVol === 'number' ? sfxVol : 0.7))) * k; }
+function dkmNoise(a){
+  if(DKM_st.nz && DKM_st.nz.sampleRate === a.sampleRate) return DKM_st.nz;
+  var n = Math.floor(a.sampleRate * 1.2), b = a.createBuffer(1, n, a.sampleRate), d = b.getChannelData(0), s = 20260912;
+  for(var i = 0; i < n; i++){ s ^= s << 13; s ^= s >>> 17; s ^= s << 5; d[i] = ((s >>> 0) / 4294967296) * 2 - 1; }
+  DKM_st.nz = b;
+  return b;
+}
+/* 1音（音色・周波数の移り・音量の山） */
+function dkmTone(a, out, t, o){
+  var os = a.createOscillator(), g = a.createGain();
+  os.type = o.type || 'sine';
+  os.frequency.setValueAtTime(o.f, t);
+  if(o.f2) os.frequency.exponentialRampToValueAtTime(o.f2, t + o.dur);
+  if(o.det) os.detune.value = o.det;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(o.v, t + (o.a || 0.01));
+  g.gain.exponentialRampToValueAtTime(0.0001, t + o.dur);
+  var node = os;
+  if(o.lp){ var f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(o.lp, t); if(o.lp2) f.frequency.exponentialRampToValueAtTime(o.lp2, t + o.dur); node.connect(f); node = f; }
+  node.connect(g); g.connect(out);
+  os.start(t); os.stop(t + o.dur + 0.05);
+  os.onended = function(){ try{ os.disconnect(); g.disconnect(); }catch(e){} };
+}
+function dkmNz(a, out, t, o){
+  var s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+  s.buffer = dkmNoise(a); s.playbackRate.value = o.rate || 1;
+  f.type = o.type || 'highpass'; f.frequency.setValueAtTime(o.f, t); f.Q.value = o.q || 0.8;
+  if(o.f2) f.frequency.exponentialRampToValueAtTime(o.f2, t + o.dur);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(o.v, t + (o.a || 0.004));
+  g.gain.exponentialRampToValueAtTime(0.0001, t + o.dur);
+  s.connect(f); f.connect(g); g.connect(out);
+  s.start(t, (o.off || 0) % 1); s.stop(t + o.dur + 0.05);
+  s.onended = function(){ try{ s.disconnect(); f.disconnect(); g.disconnect(); }catch(e){} };
+}
+function dkmOut(a, v){
+  var g = a.createGain(); g.gain.value = v; g.connect(a.destination);
+  setTimeout(function(){ try{ g.disconnect(); }catch(e){} }, 4000);
+  return g;
+}
+/* LOSE のジングル（2.4秒）：短調の和音が3段で下がり、低い音で終わる */
+function dkmLoseJingle(m){
+  var a = dkmAudio(); if(!a) return 0;
+  var out = dkmOut(a, dkmVol(0.55)), t = a.currentTime + 0.03;
+  var ch = [[440, 523.3, 659.3], [392, 466.2, 587.3], [349.2, 415.3, 523.3], [220, 261.6, 329.6]];
+  ch.forEach(function(c, k){
+    var tt = t + k * 0.36, last = k === ch.length - 1, dur = last ? 1.3 : 0.52;
+    c.forEach(function(f, i){
+      dkmTone(a, out, tt, { type:'sawtooth', f:f, f2:f * (last ? 0.985 : 0.97), dur:dur, v:0.07, a:0.02, det:(i - 1) * 6, lp:last ? 1600 : 1900, lp2:last ? 420 : 700 });
+      dkmTone(a, out, tt, { type:'triangle', f:f / 2, dur:dur, v:0.05, a:0.02 });
+    });
+  });
+  dkmTone(a, out, t, { type:'sine', f:110, f2:55, dur:2.3, v:0.16, a:0.04 });
+  dkmTone(a, out, t + 1.08, { type:'sine', f:880, f2:820, dur:1.1, v:0.035, a:0.01 });
+  try{ if(m && typeof m.duck === 'function') m.duck(0.3548, 2.4); }catch(e){}
+  return 2.4;
+}
+/* ガラスの割れる音：白いノイズの破裂＋高い澄んだ音が散る（0.7秒） */
+function dkmGlassSfx(){
+  var a = dkmAudio(); if(!a) return;
+  var out = dkmOut(a, dkmVol(0.5)), t = a.currentTime + 0.01;
+  dkmNz(a, out, t, { type:'highpass', f:2600, f2:5200, dur:0.22, v:0.5, a:0.002 });
+  dkmNz(a, out, t + 0.02, { type:'bandpass', f:5200, f2:2400, q:3, dur:0.5, v:0.22, a:0.004, off:0.3 });
+  var fs = [4186, 5274, 3520, 6272, 4699, 7040, 3951, 5588], ts = [0, 0.03, 0.07, 0.1, 0.15, 0.2, 0.27, 0.35];
+  fs.forEach(function(f, i){ dkmTone(a, out, t + ts[i], { type:'sine', f:f, f2:f * 0.96, dur:0.16 + (i % 3) * 0.08, v:0.07 - i * 0.005, a:0.002 }); });
+  dkmTone(a, out, t, { type:'triangle', f:180, f2:70, dur:0.18, v:0.12, a:0.003 });
+}
+/* 花火の打ち上げ：ひゅるる（上がる笛）→ ぱん（はじけ） */
+function dkmFireSfx(){
+  var a = dkmAudio(); if(!a) return;
+  var out = dkmOut(a, dkmVol(0.42)), t = a.currentTime + 0.01;
+  dkmTone(a, out, t, { type:'sine', f:520, f2:1900, dur:0.34, v:0.06, a:0.03 });
+  dkmNz(a, out, t, { type:'bandpass', f:1200, f2:3600, q:4, dur:0.32, v:0.05, a:0.02 });
+  dkmNz(a, out, t + 0.34, { type:'lowpass', f:2400, f2:300, dur:0.4, v:0.5, a:0.002, off:0.5 });
+  dkmTone(a, out, t + 0.34, { type:'sine', f:140, f2:50, dur:0.3, v:0.2, a:0.003 });
+  for(var i = 0; i < 6; i++) dkmNz(a, out, t + 0.42 + i * 0.05, { type:'highpass', f:3000 + i * 400, dur:0.05, v:0.12, a:0.002, off:i * 0.11 });
+}
+/* JING.play を包んで 'lose' を足す（6d-jingle.js は6本だけ） */
+function dkmPatchJing(J){
+  if(!J || J.dkmLose || typeof J.play !== 'function') return J;
+  var p0 = J.play, l0 = J.length;
+  J.play = function(nm, m){ if(nm === 'lose') return dkmLoseJingle(m); return p0.apply(J, arguments); };
+  if(typeof l0 === 'function') J.length = function(nm){ return nm === 'lose' ? 2.4 : l0.apply(J, arguments); };
+  J.dkmLose = true;
+  return J;
 }
 
 /* ══════════ SVG の絵（すべて自作） ══════════ */
@@ -281,7 +490,7 @@ function dkmFortuneSVG(){
     + '<g stroke="#D65A70" stroke-width="1.5" fill="none"><path d="M85 34C70 50 70 70 85 84C100 70 100 50 85 34Z"/><path d="M85 206C70 190 70 170 85 156C100 170 100 190 85 206Z"/></g>'
     + '<rect x="12" y="104" width="146" height="32" fill="url(#' + u + 'n)" stroke="#C8364E" stroke-width="1.6"/>'
     + '<path d="M12 104l-6 16 6 16M158 104l6 16-6 16" fill="#E7869A"/>'
-    + '<text x="85" y="128" text-anchor="middle" font-family="Bungee,\'Mochiy Pop One\',sans-serif" font-size="21" fill="#B82640" letter-spacing="1">FORTUNE</text>'
+    + dkmWordSVG('FORTUNE', 'dkm-fword', { sw:24, track:14, face:'#B82640', edge:'#FFF6E6', ol:6, hi:false, attr:' x="18" y="108" width="134" height="24"' })
     + '<circle cx="85" cy="68" r="6" fill="#F2C230" stroke="#B8800E" stroke-width="1.5"/><circle cx="85" cy="172" r="6" fill="#F2C230" stroke="#B8800E" stroke-width="1.5"/>'
     + '</svg>';
 }
@@ -330,7 +539,9 @@ function dkmLaurelSVG(icon){
     line:'<g fill="#FFF3C8" stroke="#6B4408" stroke-width="2.2"><rect x="34" y="60" width="14" height="14" rx="2"/><rect x="53" y="60" width="14" height="14" rx="2" fill="#FFD24D"/><rect x="72" y="60" width="14" height="14" rx="2"/></g><path d="M36 54H84" stroke="#6B4408" stroke-width="3" stroke-linecap="round"/>',
     tour:'<path d="M60 40L66 56H80L68 64L73 80L60 70L47 80L52 64L40 56H54Z" fill="#8FD8F8" stroke="#0B3C74" stroke-width="2.2" stroke-linejoin="round"/>',
     ticket:'<path d="M36 50H84V58Q78 62 84 66V74H36V66Q42 62 36 58Z" fill="#FFF3C8" stroke="#6B4408" stroke-width="2.2"/><path d="M50 52V72" stroke="#6B4408" stroke-width="2" stroke-dasharray="3 3"/>',
-    lv:'<text x="60" y="73" text-anchor="middle" font-family="Bungee,sans-serif" font-size="26" fill="#FFF3C8" stroke="#6B4408" stroke-width="2.5" paint-order="stroke">LV</text>',
+    lv:dkmWordSVG('LV', 'dkm-lvword', { sw:30, track:12, face:'#FFF3C8', edge:'#6B4408', ol:9, hi:false, attr:' x="36" y="48" width="48" height="28"' }),
+    gem:'<path d="M60 42L78 56L60 82L42 56Z" fill="#8FD8F8" stroke="#0B3C74" stroke-width="2.4" stroke-linejoin="round"/><path d="M42 56H78M60 42L54 56L60 82L66 56Z" fill="none" stroke="#0B3C74" stroke-width="1.4" stroke-linejoin="round"/><path d="M60 42L66 56H78Z" fill="#E6F8FF" fill-opacity=".7"/>',
+    cube:'<path d="M60 40L80 50V72L60 82L40 72V50Z" fill="#F2C230" stroke="#6B4408" stroke-width="2.4" stroke-linejoin="round"/><path d="M40 50L60 60L80 50M60 60V82" fill="none" stroke="#6B4408" stroke-width="2"/><path d="M60 40L80 50L60 60L40 50Z" fill="#FFF3C8"/>',
     pend:'<path d="M60 44L74 58L60 80L46 58Z" fill="#B07CE8" stroke="#3E1470" stroke-width="2.2" stroke-linejoin="round"/><path d="M60 44L66 58L60 80" fill="#E0C8FF" fill-opacity=".6"/>',
     gift:'<rect x="40" y="54" width="40" height="24" rx="3" fill="#FF8A6E" stroke="#6B4408" stroke-width="2.2"/><rect x="37" y="48" width="46" height="9" rx="2" fill="#FFD24D" stroke="#6B4408" stroke-width="2"/><path d="M60 48V78" stroke="#6B4408" stroke-width="3"/>'
   }[icon] || '';
@@ -359,22 +570,9 @@ function dkmCoinPileSVG(flip){
 }
 /* 立体の見出し文字（WIN＝金・LOSE＝銀・RESULT＝金小）。SVG で塗るので Chrome でも潰れない */
 function dkmTitleSVG(text, tone){
-  var u = dkmId(), fs = text.length > 4 ? 124 : 168, y = 160;
-  var face = tone === 'silver'
-    ? '<stop offset="0" stop-color="#FFFFFF"/><stop offset=".42" stop-color="#E2E9F1"/><stop offset=".56" stop-color="#8E9CAE"/><stop offset=".78" stop-color="#C9D3DE"/><stop offset="1" stop-color="#F4F7FA"/>'
-    : '<stop offset="0" stop-color="#FFFBE6"/><stop offset=".38" stop-color="#FFE27A"/><stop offset=".55" stop-color="#F4B81E"/><stop offset=".8" stop-color="#C98A12"/><stop offset="1" stop-color="#FFE9A0"/>';
-  var side = tone === 'silver' ? '#46505C' : '#7A4A06', edge = tone === 'silver' ? '#171C24' : '#2A1604';
-  var ext = '';
-  for(var k = 14; k >= 2; k -= 2) ext += '<text x="350" y="' + (y + k) + '" fill="' + side + '" stroke="' + side + '" stroke-width="22" stroke-linejoin="round">' + esc(text) + '</text>';
-  return '<svg class="dkm-tsvg" viewBox="0 0 700 220" aria-hidden="true">'
-    + '<defs><linearGradient id="' + u + 'f" x1="0" y1="0" x2="0" y2="1">' + face + '</linearGradient>'
-    + '<clipPath id="' + u + 'h"><rect x="0" y="0" width="700" height="' + (y - fs * 0.38) + '"/></clipPath></defs>'
-    + '<g font-family="Bungee,\'Mochiy Pop One\',sans-serif" font-size="' + fs + '" text-anchor="middle" letter-spacing="6">'
-    + ext
-    + '<text x="350" y="' + y + '" fill="' + edge + '" stroke="' + edge + '" stroke-width="22" stroke-linejoin="round">' + esc(text) + '</text>'
-    + '<text x="350" y="' + y + '" fill="url(#' + u + 'f)" stroke="' + (tone === 'silver' ? '#FFFFFF' : '#FFF4C0') + '" stroke-width="3">' + esc(text) + '</text>'
-    + '<text x="350" y="' + y + '" fill="#FFFFFF" fill-opacity=".38" clip-path="url(#' + u + 'h)">' + esc(text) + '</text>'
-    + '</g></svg>';
+  /* 線の字体（DKM_GLYPH）で太い立体文字にする。字の中心線を太く塗り、縁・厚み・上の光を重ねる */
+  return dkmWordSVG(text, 'dkm-tsvg', { sw:text.length > 4 ? 30 : 34, track:text.length > 4 ? 12 : 16,
+    face:tone === 'silver' ? 'silver' : 'gold', ol:11, ext:16 });
 }
 /* 画面の四隅のガラスのヒビ（破片は clip-path、動きは transform だけ） */
 function dkmCrackHTML(corner){
@@ -450,6 +648,9 @@ async function vsScreen(){
   if(!el) return;
   var tok = ++DKM_st.vsTok;
   var seats = dkmSeats();
+  /* 検索中は下の画面（部屋など）を隠す：暗幕の下で動く飾りを数えない・スマホの層を増やさない */
+  var stg = document.getElementById('stage'); if(stg) stg.classList.add('dkm-vsc');
+  var unhide = function(){ if(stg && tok === DKM_st.vsTok) stg.classList.remove('dkm-vsc'); };
   el.className = 'dkm-vs';
   el.innerHTML = dkmVsHTML(seats);
   el.classList.add('on');
@@ -480,6 +681,7 @@ async function vsScreen(){
   dkmArcStop();
   el.classList.remove('on', 'dkm-found', 'dkm-out');
   el.innerHTML = '';
+  unhide();
 }
 
 /* ══════════ ⑦ ローディング（#loading を作り直す） ══════════
@@ -499,13 +701,13 @@ function dkmLoadHTML(map){
   var theme = (map.id === 'oita') ? 'oita' : (map.id === 'world') ? 'world' : 'ice';
   return '<div class="dkm-ld-scene fx-deco ' + theme + '" aria-hidden="true">'
     + '<i class="dkm-ld-sky"></i>' + sky + '<i class="dkm-ld-moon"></i>'
-    + '<i class="dkm-ld-shoot s1"></i><i class="dkm-ld-shoot s2"></i><i class="dkm-ld-shoot s3"></i>'
+    + '<i class="dkm-ld-shoot s1"></i>'
     + '<div class="dkm-ld-horizon">' + dkmSkylineSVG(map.id, false) + '</div>'
     + '<div class="dkm-ld-water"><div class="dkm-ld-reflbox">' + dkmSkylineSVG(map.id, true) + '</div>'
-    +   '<i class="dkm-ld-glint g1"></i><i class="dkm-ld-glint g2"></i><i class="dkm-ld-glint g3"></i><i class="dkm-ld-glint g4"></i></div>'
+    +   '<div class="dkm-ld-glints"><i class="dkm-ld-glint g1"></i><i class="dkm-ld-glint g2"></i><i class="dkm-ld-glint g3"></i><i class="dkm-ld-glint g4"></i></div></div>'
     + '<div class="dkm-ld-diceref">' + dkmDiceSVG() + '</div>'
     + '<div class="dkm-ld-dice"><i class="dkm-ld-halo"></i>' + dkmDiceSVG() + '</div>'
-    + '<i class="dkm-ld-spark k1"></i><i class="dkm-ld-spark k2"></i><i class="dkm-ld-spark k3"></i>'
+    + '<i class="dkm-ld-spark k1"></i>'
     + '</div>'
     + '<div class="dkm-ld-name"><b>' + esc(map.name) + '</b><i>' + esc(map.sub || '') + '</i></div>'
     + '<div class="dkm-ld-tip"><em>TIP</em><span>' + esc(tip) + '</span></div>'
@@ -553,14 +755,37 @@ function dkmOrdFront(pi, rk){
   var p = G.players[pi], nm = esc(p ? p.name : '');
   if(rk === 0){
     return '<div class="dkm-ff gold"><i class="dkm-ff-burst"></i><i class="dkm-ff-ring"></i>'
-      + '<b class="dkm-ff-big">先行</b><em class="dkm-ff-rib fx-deco">FIRST</em>'
+      + '<b class="dkm-ff-big">先行</b><em class="dkm-ff-rib fx-deco">' + dkmWordSVG('FIRST', 'dkm-ribword', { sw:26, track:12, face:'#FFF6E2', edge:'#6A0E0A', ol:8, hi:false }) + '</em>'
       + '<span class="dkm-ff-nm" style="--c:' + PCOL[pi % 4] + '">' + nm + '</span></div>';
   }
   return '<div class="dkm-ff"><i class="dkm-ff-stripe" style="--c:' + PCOL[pi % 4] + '"></i>'
     + '<b class="dkm-ff-no">' + (rk + 1) + '</b><em class="dkm-ff-lb">番目</em>'
     + '<span class="dkm-ff-nm" style="--c:' + PCOL[pi % 4] + '">' + nm + '</span></div>';
 }
-function dkmOrdHTML(n){
+/* 応援モードの試合か（C25：SV.cheer===1。部屋が cfg.cheer を立てた時も同じ。オンラインは無し） */
+function dkmCheerNow(){
+  if(dkmIsOnline()) return false;
+  return !!((typeof SV === 'object' && SV && +SV.cheer === 1) || cfg.cheer);
+}
+/* 細い棒を ms で右から縮める（void offsetWidth で CSS を再始動しない。el.animate を使う） */
+function dkmBarRun(bar, ms){
+  if(!bar || !bar.animate) return null;
+  if(bar._dkmA){ try{ bar._dkmA.cancel(); }catch(e){} }
+  try{ bar._dkmA = bar.animate([{ transform:'scaleX(1)' }, { transform:'scaleX(0)' }], { duration:Math.max(60, ms), easing:'linear', fill:'forwards' }); }
+  catch(e){ bar._dkmA = null; }
+  return bar._dkmA;
+}
+function dkmBarStop(bar){ if(bar && bar._dkmA){ try{ bar._dkmA.cancel(); }catch(e){} bar._dkmA = null; } }
+/* 弾ませる（入場の keyframe を JS で1回だけ。0% で opacity を下げない） */
+function dkmBounce(el, from){
+  if(!el || !el.animate || DKFX.reduced) return null;
+  var base = from || '';
+  try{
+    return el.animate([{ transform:base + ' translateY(18px) scale(.84)' }, { transform:base + ' scale(1.08)', offset:0.6 }, { transform:base + ' scale(1)' }],
+      { duration:380, easing:'cubic-bezier(.34,1.56,.64,1)' });
+  }catch(e){ return null; }
+}
+function dkmOrdHTML(n, cheer){
   var cards = '';
   for(var k = 0; k < n; k++){
     cards += '<div class="dkm-fslot" style="--i:' + k + '">'
@@ -574,9 +799,12 @@ function dkmOrdHTML(n){
   }
   return '<div class="dkm-ord-veil"></div><div class="dkm-spot" aria-hidden="true"></div>'
     + '<div class="dkm-ord-head"><b class="dkm-ord-ttl">順番を決める</b><span class="dkm-ord-sub">カードを選択してください</span>'
-    +   '<span class="dkm-ord-timer"><i></i></span></div>'
+    +   '<span class="dkm-ord-timer"><i></i></span>'
+    +   (cheer ? '<span class="dkm-ord-cheer"><i>応援モード</i>CPU が1段やさしくなっています</span>' : '') + '</div>'
     + '<div class="dkm-ord-row">' + cards + '</div>'
-    + '<div class="dkm-spot-tag" aria-hidden="false"><b>祭り都市</b><em>×2</em><span></span></div>';
+    + '<div class="dkm-spot-tag" aria-hidden="false"><b>お祭り</b><em>×2</em><span></span></div>'
+    + '<div class="dkm-fest" aria-hidden="true"><span class="dkm-fest-w">' + dkmWordSVG('FESTIVAL', 'dkm-festword', { sw:30, track:12, face:'gold', ol:10, ext:10 }) + '</span>'
+    +   '<em class="dkm-fest-x">×2</em></div>';
 }
 /* 画面（ステージ座標）でのマスの位置。カメラの行き先（tx/ty/tz）で計算する */
 function dkmTileScreen(i){
@@ -602,7 +830,7 @@ function dkmYouBadge(me){
   var d = document.createElement('div');
   d.className = 'dkm-you ' + (left ? 'tail-r' : 'tail-l');
   d.style.left = x.toFixed(0) + 'px'; d.style.top = y.toFixed(0) + 'px';
-  d.innerHTML = '<i class="dkm-you-tail"></i><b>YOU</b>';
+  d.innerHTML = '<i class="dkm-you-tail"></i><b>' + dkmWordSVG('YOU', 'dkm-youword', { sw:30, track:12, face:'#4A2A04', edge:'#FFF3C8', ol:8, hi:false }) + '</b>';
   var st = document.getElementById('stage'); if(st) st.appendChild(d);
   return d;
 }
@@ -622,7 +850,9 @@ async function dkOrderOnBoard(){
   var st = document.getElementById('stage'); if(!st) return;
   var el = document.createElement('div');
   el.id = 'dkmOrder'; el.className = 'dkm-order';
-  el.innerHTML = dkmOrdHTML(n);
+  var cheer = dkmCheerNow();
+  G.dkmCheer = cheer;                  // この試合が応援モードか（試合後の grantRewards が見る）
+  el.innerHTML = dkmOrdHTML(n, cheer);
   st.appendChild(el);
   var me = dkmMe(), online = dkmIsOnline();
   var you = dkmYouBadge(me);
@@ -654,15 +884,16 @@ async function dkOrderOnBoard(){
       ttl.textContent = '順番を決める';
       sub.textContent = (humans > 1 ? p.name + ' さん、' : '') + 'カードを選択してください';
       el.classList.add('choosing');
-      timer.classList.remove('run'); void timer.offsetWidth; timer.classList.add('run');
+      var pickMs = DKM_PICK_MS * (dkmSpeed() < 0.2 ? dkmSpeed() : 1);
+      dkmBarRun(timer.querySelector('i'), pickMs);
       var picked = await new Promise(function(res){
         var done = false;
         var fin = function(k){ if(done) return; done = true; clearTimeout(to); cards.forEach(function(c){ c.onclick = null; }); res(k); };
         cards.forEach(function(c, k){ if(owner[k] < 0) c.onclick = function(){ if(owner[k] < 0) fin(k); }; });
-        var to = setTimeout(function(){ var f = freeCards(); fin(f[(dkmR() * f.length) | 0]); }, DKM_PICK_MS * (dkmSpeed() < 0.2 ? dkmSpeed() : 1));
+        var to = setTimeout(function(){ var f = freeCards(); fin(f[(dkmR() * f.length) | 0]); }, pickMs);
         DKM_st.ordFin = fin;
       });
-      el.classList.remove('choosing'); timer.classList.remove('run');
+      el.classList.remove('choosing'); dkmBarStop(timer.querySelector('i'));
       if(!alive()){ el.remove(); if(you) you.remove(); return; }
       pickCard(picked, pi);
       await wait(260);
@@ -699,7 +930,7 @@ async function dkOrderOnBoard(){
   }
   sub.textContent = G.players[first].name + ' が先行です';
   if(you) you.classList.add('pop');
-  await wait(1150);
+  await wait(DKM_FIRST_MS);
   if(!alive()){ el.remove(); if(you) you.remove(); return; }
   /* 4) 祭り都市にスポット */
   var fest = [];
@@ -708,8 +939,9 @@ async function dkOrderOnBoard(){
   await wait(240);
   if(fest.length && alive()){
     el.classList.add('spot');
-    ttl.textContent = '祭り都市'; sub.textContent = '通行料が ×2 になる街が決まりました';
-    var spot = el.querySelector('.dkm-spot'), tag = el.querySelector('.dkm-spot-tag');
+    ttl.textContent = 'お祭り FESTIVAL'; sub.textContent = '通行料が ×2 になる都市が決まりました';
+    var spot = el.querySelector('.dkm-spot'), tag = el.querySelector('.dkm-spot-tag'), stamp = el.querySelector('.dkm-fest');
+    var lastF = Math.min(fest.length, 3) - 1;
     for(var f = 0; f < fest.length; f++){
       if(!alive()) break;
       var pt = dkmTileScreen(fest[f]);
@@ -717,12 +949,20 @@ async function dkOrderOnBoard(){
       var tx = Math.max(150, Math.min(1450, pt.x)), ty = Math.max(150, pt.y - 96);
       tag.style.left = tx.toFixed(0) + 'px'; tag.style.top = ty.toFixed(0) + 'px';
       tag.querySelector('span').textContent = G.tiles[fest[f]].name;
-      tag.classList.remove('go'); void tag.offsetWidth; tag.classList.add('go');
+      dkmBounce(tag, 'translate(-50%,-100%)');
       if(f === 0) el.classList.add('spot-on');
-      await wait(f === 0 ? 120 : 260);
-      try{ fxBurst({ x:pt.x, y:pt.y }, { kind:'star', n:14, power:0.8 }); }catch(e){}
-      dkmSfx('coin');
-      await wait(460);
+      dkmFireSfx();                                          // 打ち上げの音（ひゅるる → ぱん）
+      await wait(f === 0 ? 300 : 360);
+      try{ fxBurst({ x:pt.x, y:pt.y - 30 }, { kind:'star', n:10, power:0.9 }); }catch(e){}
+      if(f === lastF && stamp){                              // 3都市目で「FESTIVAL ×2」（札と都市に重ならない高さへ）
+        var far = function(c){ return Math.min(Math.abs(c + 45 - (ty - 30)), Math.abs(c + 45 - pt.y)); };
+        stamp.style.top = (far(330) >= far(560) ? 330 : 560) + 'px';
+        stamp.classList.add('on');
+        dkmBounce(stamp, 'translateX(-50%)');
+        try{ fxBurst(stamp, { kind:'conf', n:16, power:1.1 }); }catch(e){}
+        dkmSfx('gachaRare');
+      }
+      await wait(f === lastF ? 700 : 420);
     }
     await wait(220);
   }
@@ -732,13 +972,16 @@ async function dkOrderOnBoard(){
   await wait(220);
   if(el.parentNode) el.parentNode.removeChild(el);
   if(you && you.parentNode) you.parentNode.removeChild(you);
-  if(G === g0){ G.turn = first; G.roundStart = first; try{ updHUD(); }catch(e){ console.error('[WP4]', e); } }
+  if(G === g0){ G.turn = first; G.roundStart = first; try{ updHUD(); }catch(e){ console.error('[WP15b]', e); } }
 }
 
 /* ══════════ 対戦後の報酬（1試合1回だけ） ══════════
-   ゴールド＝(勝ち1,400／負け480)×クラス倍率（オンラインは×1）。経験値は今までどおり。
-   連勝：勝つと+1（前の勝ちから18時間を超えていたら1から）、負けると0。3連敗ごとに応援3,000G。
-   ペンダントは dkGivePend（勝ち35%／負け15%）。最後に 'match:end' を送り、chips の行を受け取る。 */
+   参加報酬＝1,000G × クラス倍率 x（開始額÷200万。オンラインは×1）＋キューブ（dkGiveCube・ウッド以上）。
+   ゴールドにサイコロの能力 dkDieAb(me).gold（%）を足す。ダイヤモンドクラスの勝ちは💎75。
+   連勝：勝つと+1（前の勝ちから18時間を超えていたら1から）、負けると0。3連敗ごとに応援3,000G と、次の1試合は応援モード
+   （SV.cheer=1。応援モードで勝つと おうえんボーナス +2,000G。試合が終わったら0に戻す）。勝った時の品物は宝箱（プレゼントボックス）。
+   最後に 'match:end' を送り、chips の行を受け取る（RP の行を先頭に、最大4行）。 */
+function dkmIsRpChip(c){ return !!c && (/RP/.test(String(c.v)) || /リーグ|RP/.test(String(c.label))); }
 function grantRewards(won){
   if(!G) return null;
   if(G.rewarded) return G.dkmInfo || null;
@@ -746,17 +989,21 @@ function grantRewards(won){
   won = !!won;
   var online = dkmIsOnline(), me = dkmMe(), cl = dkmClassOf();
   var x = online ? 1 : cl.x;
-  var gold = Math.round((won ? 1400 : 480) * x), exp = won ? 40 : 14;
+  var dieP = Math.max(0, +dkmDieAb(me).gold || 0);
+  var join = Math.round(DKM_JOIN_GOLD * x), dieGold = Math.round(join * dieP / 100), exp = won ? 40 : 14;
+  var cheerMatch = !online && !!(G.dkmCheer === undefined ? dkmCheerNow() : G.dkmCheer);
+  var cheerBonus = (won && cheerMatch) ? DKM_CHEER_GOLD : 0;
+  var gem = (won && !online && cl.id === 'dia') ? DKM_DIA_GEM : 0;
   var lv0 = SV.lv;
-  SV.gold += gold; SV.exp += exp; SV.plays = (SV.plays | 0) + 1; if(won) SV.wins = (SV.wins | 0) + 1;
+  SV.exp += exp; SV.plays = (SV.plays | 0) + 1; if(won) SV.wins = (SV.wins | 0) + 1;
   try{
     if(SV.stat){ SV.stat.plays = (SV.stat.plays | 0) + 1; if(won) SV.stat.wins = (SV.stat.wins | 0) + 1; }
     var td = DKCORE_today(); td.plays = (td.plays | 0) + 1; if(won) td.wins = (td.wins | 0) + 1;
     var wk = DKCORE_week(); wk.plays = (wk.plays | 0) + 1; if(won) wk.wins = (wk.wins | 0) + 1;
-  }catch(e){ console.error('[WP4]', e); }
+  }catch(e){ console.error('[WP15b]', e); }
   var up = 0;
   while(SV.exp >= playerLvNeed(SV.lv)){ SV.exp -= playerLvNeed(SV.lv); SV.lv++; up++; }
-  var now = Date.now(), cheer = 0;
+  var now = Date.now(), lose3 = 0, nextCheer = false;
   if(won){
     var keep = (SV.streak | 0) > 0 && (now - (+SV.streakAt || 0)) <= DKM_STREAK_MS;
     SV.streak = keep ? (SV.streak | 0) + 1 : 1;
@@ -764,24 +1011,37 @@ function grantRewards(won){
   } else {
     SV.streak = 0;
     SV.lstreak = (SV.lstreak | 0) + 1;
-    if(SV.lstreak % 3 === 0){ cheer = DKM_LOSE3_GOLD; SV.gold += cheer; }
+    if(SV.lstreak % 3 === 0){ lose3 = DKM_LOSE3_GOLD; nextCheer = !online; }
   }
-  var pend = null;
-  if(Math.random() < (won ? 0.35 : 0.15)){
-    var pp = PENDANTS[(Math.random() * PENDANTS.length) | 0];
-    try{ pend = dkGivePend(pp.id); }catch(e){ pend = null; }
-  }
+  if(!online) SV.cheer = nextCheer ? 1 : 0;          // 応援モードは3連敗の次の1試合だけ
+  var gold = join + dieGold + cheerBonus + lose3;
+  SV.gold += gold;
+  if(gem) SV.gem = (+SV.gem || 0) + gem;
+  var cubeKind = dkmCubeKind(online ? 'eco' : cl.id), cube = null;
+  try{ cube = (typeof dkGiveCube === 'function') ? dkGiveCube(cubeKind) : null; }catch(e){ console.error('[WP15b]', e); cube = null; }
   saveNow();
   var payload = { won:won, me:me, winner:G.winner, reason:G.winReason, winX:G.winX || 1, cls:cl.id, x:x,
     mapId:(G.map && G.map.id) || cfg.mapId, n:G.players.length, online:online,
-    humans:G.players.filter(function(p){ return p.kind !== 'cpu'; }).length, chips:[] };
-  try{ dkEmit('match:end', payload); }catch(e){ console.error('[WP4]', e); }
-  var chips = (Array.isArray(payload.chips) ? payload.chips : []).filter(function(c){ return c && (c.label || c.v !== undefined); })
+    humans:G.players.filter(function(p){ return p.kind !== 'cpu'; }).length, cheer:cheerMatch,
+    team:cfg.team ? dkmTeamOf(G.winner) : undefined, chips:[] };
+  try{ dkEmit('match:end', payload); }catch(e){ console.error('[WP15b]', e); }
+  var ext = (Array.isArray(payload.chips) ? payload.chips : []).filter(function(c){ return c && (c.label || c.v !== undefined); })
     .map(function(c){ return { ic:String(c.ic == null ? '' : c.ic), label:String(c.label == null ? '' : c.label), v:(c.v == null ? '' : String(c.v)) }; });
   saveNow();
   if(up){ try{ jingle('levelup'); }catch(e){} }
-  var info = { won:won, me:me, gold:gold, exp:exp, lv:SV.lv, lv0:lv0, lvUp:up, x:x, cls:cl.id, clsNm:online ? 'オンライン' : cl.nm,
-    streak:SV.streak | 0, lstreak:SV.lstreak | 0, cheer:cheer, pend:pend, online:online, chips:chips };
+  /* 行の順：RP（リーグ）→ 自分の行（キューブ・おうえん・ダイヤ・3連敗）→ ほかの班の行。最大4行 */
+  var mine = [{ ic:'cube:' + cubeKind, label:DKM_CUBE[cubeKind].nm, v:'+1' }];
+  if(cheerBonus) mine.push({ ic:'🎉', label:'おうえんボーナス', v:'+' + dkmF(cheerBonus) });
+  if(gem) mine.push({ ic:'💎', label:'勝利報酬', v:'+' + gem });
+  if(lose3) mine.push({ ic:'🎁', label:'3連敗の応援', v:'+' + dkmF(lose3) });
+  var rpI = -1;
+  for(var ci = 0; ci < ext.length; ci++){ if(dkmIsRpChip(ext[ci])){ rpI = ci; break; } }
+  var rpChip = rpI >= 0 ? ext.splice(rpI, 1)[0] : null;
+  var chips = (rpChip ? [rpChip] : []).concat(mine, ext).slice(0, 4);
+  var info = { won:won, me:me, gold:gold, join:join, dieGold:dieGold, dieP:dieP, exp:exp, lv:SV.lv, lv0:lv0, lvUp:up, x:x,
+    cls:cl.id, clsNm:online ? 'オンライン' : cl.nm, streak:SV.streak | 0, lstreak:SV.lstreak | 0,
+    cheerMatch:cheerMatch, cheerBonus:cheerBonus, nextCheer:nextCheer, lose3:lose3, gem:gem,
+    cube:{ kind:cubeKind, got:cube }, online:online, chips:chips, rpAt:rpChip ? 0 : -1 };
   G.dkmInfo = info;
   return info;
 }
@@ -807,6 +1067,7 @@ function dkmRankHTML(R){
       var p = G.players[r.i], card = cardById(p.card) || { nm:'' };
       return '<div class="dkm-rrow' + (r.i === R.me ? ' me' : '') + (p.out ? ' out' : '') + '" style="--c:' + PCOL[r.i % 4] + ';--k:' + k + '">'
         + '<i class="dkm-rno n' + (k + 1) + '">' + (k + 1) + '</i>'
+        + (cfg.team ? '<i class="dkm-rteam t' + dkmTeamOf(r.i) + '">' + (dkmTeamOf(r.i) ? 'B' : 'A') + '</i>' : '')
         + '<span class="dkm-rnm"><b>' + esc(p.name) + '</b>' + (p.out ? '<em>破産</em>' : '<em>' + esc(card.nm) + '</em>') + '</span>'
         + '<b class="dkm-rv" data-v="' + Math.max(0, r.a) + '">0</b></div>';
     }).join('') + '</div>';
@@ -816,83 +1077,98 @@ function dkmStarsHTML(s){
   for(var k = 1; k <= 5; k++) h += '<i class="' + (k <= s ? 'on' : '') + '">★</i>';
   return '<span class="dkm-stars" aria-label="連勝 ' + s + '">' + h + '</span>';
 }
+/* chips の行（最大4行・1行ずつ。ic が 'cube:種類' ならキューブの絵） */
+function dkmChipHTML(c, k){
+  var ic = String(c.ic || '');
+  var icH = ic.indexOf('cube:') === 0 ? dkmCubeIcon(ic.slice(5)) : '<i class="dkm-chip-ic">' + esc(ic) + '</i>';
+  return '<div class="dkm-chip" data-dkm-chip="' + k + '">' + icH + '<span>' + esc(c.label) + '</span><b>' + esc(c.v) + '</b></div>';
+}
+/* 行の文字が入りきらない時は字を小さくし（16px まで）、それでも入らなければ2行にする（切らない。GO-2） */
+function dkmFitChips(root){
+  if(!root) return;
+  root.querySelectorAll('.dkm-chip span').forEach(function(s){
+    s.style.fontSize = ''; s.classList.remove('two');
+    var fs = parseFloat(getComputedStyle(s).fontSize) || 22, n = 0;
+    while(s.scrollWidth > s.clientWidth + 1 && fs > 16 && n < 8){ fs -= 1; n++; s.style.fontSize = fs + 'px'; }
+    if(s.scrollWidth > s.clientWidth + 1) s.classList.add('two');
+  });
+}
 function dkmResHTML(R){
   var mode = R.mode, info = R.info, W = G.players[G.winner];
   var mp = R.me >= 0 ? G.players[R.me] : W, mc = cardById(mp.card) || CARDPOOL[0];
   var reason = dkmReasonShort(G.winReason);
+  if(mode !== 'watch' && info) return dkmResHTML2(R, W, mp, mc, reason);
+  /* 観戦（CPU だけの試合）：RESULT と勝者だけ。［確認］で同じ部屋へ */
+  var tag = esc(reason) + (G.winX > 1 && String(G.winReason).indexOf('独占') >= 0 ? ' x' + G.winX : '');
+  return '<div class="dkm-res-veil"></div>'
+    + '<div class="dkm-hero"><span class="dkm-hero-t fx-deco">' + dkmTitleSVG('RESULT', 'gold') + '</span></div>'
+    + '<div class="dkm-reason"><b>' + tag + '</b><span>' + esc(W.name) + ' の勝利</span></div>'
+    + '<div class="dkm-panel watch"><i class="dkm-panel-edge"></i>'
+    +   '<div class="dkm-pl"><div class="dkm-me">' + dkmPortrait(mp.card, 'dkm-me-face')
+    +     '<span class="dkm-me-tx"><b>' + esc(mp.name) + '</b><em>' + esc(mc.nm) + '</em></span><span class="dkm-cls">観戦</span></div>'
+    +     '<div class="dkm-watch"><b>' + esc(W.name) + ' の勝利</b><span>' + esc(G.winReason || '') + '</span>'
+    +     '<em>CPU だけの試合なので、報酬はありません</em></div></div>'
+    +   '<div class="dkm-pr"><div class="dkm-bonus"><b>RESULT</b></div>'
+    +     '<div class="dkm-medals n1">' + dkmMedal(dkmReasonIcon(G.winReason), reason, G.winX > 1 ? 'x' + G.winX : '') + '</div>' + dkmRankHTML(R) + '</div>'
+    +   '<div class="dkm-pb"><div class="dkm-pb-l wide"><div class="dkm-pb-hd"><b>観戦モード</b></div>'
+    +     '<span class="dkm-pb-ds">席に「あなた」を入れると、勝ち負けの報酬がもらえます。</span></div></div></div>'
+    + '<div class="dkm-res-btns">' + dkmBtn(R.online ? 'home' : 'ok', 'gr dkm-prime', R.online ? 'ホームへ' : '確認') + '</div>';
+}
+function dkmBtn(act, cls, txt, extra){
+  return '<button type="button" class="dkm-btn ' + cls + '" data-dkm-act="' + act + '" data-fx-press><span class="dkm-btn-tx">' + txt + '</span>'
+    + '<i class="dkm-btn-shine"></i>' + (extra || '') + '</button>';
+}
+/* WIN / LOSE のパネル（日本版の並び：左に自分・ゴールド・経験値・行、右に BONUS!・メダル・全体ランキング、
+   下の帯に 連勝／報酬選択の宝箱（負けは 連敗／RPを守る）） */
+function dkmResHTML2(R, W, mp, mc, reason){
+  var info = R.info, win = R.mode === 'win';
   var h = '<div class="dkm-res-veil"></div>';
-  if(mode === 'lose') h += dkmCrackHTML('tl') + dkmCrackHTML('tr') + dkmCrackHTML('bl') + dkmCrackHTML('br');
+  if(!win) h += dkmCrackHTML('tl') + dkmCrackHTML('tr') + dkmCrackHTML('bl') + dkmCrackHTML('br');
   h += '<div class="dkm-hero">'
-    + (mode === 'win' ? '<span class="dkm-pile-l fx-deco">' + dkmCoinPileSVG(false) + '</span><span class="dkm-pile-r fx-deco">' + dkmCoinPileSVG(true) + '</span>' : '')
-    + '<span class="dkm-hero-t fx-deco">' + dkmTitleSVG(mode === 'win' ? 'WIN' : mode === 'lose' ? 'LOSE' : 'RESULT', mode === 'lose' ? 'silver' : 'gold') + '</span></div>';
+    + (win ? '<span class="dkm-pile-l fx-deco">' + dkmCoinPileSVG(false) + '</span><span class="dkm-pile-r fx-deco">' + dkmCoinPileSVG(true) + '</span>' : '')
+    + '<span class="dkm-hero-t fx-deco">' + dkmTitleSVG(win ? 'WIN' : 'LOSE', win ? 'gold' : 'silver') + '</span></div>';
   h += '<div class="dkm-reason"><b>' + esc(reason) + (G.winX > 1 && String(G.winReason).indexOf('独占') >= 0 ? ' x' + G.winX : '') + '</b>'
-    + '<span>' + esc(W.name) + ' の勝ち</span></div>';
-  /* 左の列 */
+    + '<span>' + esc(W.name) + (cfg.team ? ' のチームの勝利' : ' の勝利') + '</span></div>';
+  var need = playerLvNeed(SV.lv), k = Math.max(0, Math.min(1, SV.exp / need)), tm = cfg.team ? dkmTeamOf(R.me) : -1;
   var L = '<div class="dkm-me">' + dkmPortrait(mp.card, 'dkm-me-face')
     + '<span class="dkm-me-tx"><b>' + esc(mp.name) + '</b><em>' + esc(mc.nm) + '</em></span>'
-    + (info ? '<span class="dkm-cls">' + esc(info.clsNm) + '</span>' : '<span class="dkm-cls">観戦</span>') + '</div>';
-  if(info){
-    var need = playerLvNeed(SV.lv), k = Math.max(0, Math.min(1, SV.exp / need));
-    L += '<div class="dkm-gold"><i class="dkm-coin"></i><span class="dkm-lb">' + (info.won ? 'ゴールド' : '参加報酬') + '</span>'
-      + '<b class="dkm-gold-v" data-v="' + info.gold + '">+0</b></div>'
-      + '<div class="dkm-exp"><span class="dkm-lb">経験値</span><b>+' + info.exp + '</b>'
-      + '<span class="dkm-expbar"><i style="transform:scaleX(' + k.toFixed(3) + ')"></i></span><em class="dkm-lv">Lv.' + SV.lv + '</em></div>';
-    var mine = [];
-    if(info.pend){ var pd0 = pendById(info.pend.id); mine.push({ ic:pd0 ? pd0.ic : '📿', label:pd0 ? pd0.nm : 'ペンダント', v:info.pend.fresh ? 'NEW' : '+1' }); }
-    if(info.cheer) mine.push({ ic:'🎁', label:'3連敗の応援', v:'+' + dkmF(info.cheer) });
-    L += '<div class="dkm-chips">' + mine.concat(info.chips).slice(0, 4).map(function(c){
-      return '<div class="dkm-chip"><i>' + esc(c.ic) + '</i><span>' + esc(c.label) + '</span><b>' + esc(c.v) + '</b></div>';
-    }).join('') + '</div>';
-    if(info.won){
-      L += '<div class="dkm-streak win"><i class="dkm-cup"></i><b>' + (info.streak >= 2 ? info.streak + '連勝中！' : '連勝スタート！') + '</b>'
-        + '<span>連勝認定時間 18時間</span></div>';
-    } else {
-      L += '<div class="dkm-streak lose"><i class="dkm-cup gray"></i><b>' + (info.cheer ? '3連敗の応援 +' + dkmF(info.cheer) + 'G' : info.lstreak + '連敗') + '</b>'
-        + '<span>' + (info.cheer ? 'つぎこそ勝とう！' : '3連敗ごとに応援 3,000G') + '</span></div>';
-    }
-  } else {
-    L += '<div class="dkm-watch"><b>' + esc(W.name) + ' の勝ち</b><span>' + esc(G.winReason || '') + '</span>'
-      + '<em>CPU だけの試合なので、報酬はありません</em></div>';
-  }
-  /* 右の列 */
+    + (tm >= 0 ? '<span class="dkm-cls team t' + tm + '">チーム' + (tm ? 'B' : 'A') + '</span>' : '')
+    + '<span class="dkm-cls">' + esc(info.clsNm) + '</span></div>'
+    + '<div class="dkm-gold"><i class="dkm-coin"></i><span class="dkm-lb">ゴールド</span>'
+    + (info.dieP > 0 ? '<em class="dkm-gold-tag">サイコロ +' + info.dieP + '%</em>' : '')
+    + '<b class="dkm-gold-v" data-v="' + info.gold + '">+0</b></div>'
+    + '<div class="dkm-exp"><span class="dkm-lb">経験値</span><b>+' + info.exp + '</b>'
+    + '<span class="dkm-expbar"><i style="transform:scaleX(' + k.toFixed(3) + ')"></i></span><em class="dkm-lv">Lv.' + SV.lv + '</em></div>'
+    + '<div class="dkm-chips">' + info.chips.map(dkmChipHTML).join('') + '</div>';
   var medals = [];
-  if(info){
-    if(info.won) medals.push(dkmMedal(dkmReasonIcon(G.winReason), reason, G.winX > 1 ? 'x' + G.winX : ''));
-    medals.push(dkmMedal('ticket', info.clsNm, '×' + info.x));
-    if(info.lvUp) medals.push(dkmMedal('lv', '新レベル', 'Lv.' + info.lv));
-    else if(info.pend) medals.push(dkmMedal('pend', 'ペンダント', info.pend.fresh ? 'NEW' : '+1'));
-    else if(info.cheer) medals.push(dkmMedal('gift', '応援', '+' + dkmF(info.cheer)));
-  } else {
-    medals.push(dkmMedal(dkmReasonIcon(G.winReason), reason, G.winX > 1 ? 'x' + G.winX : ''));
-  }
-  var Rr = '<div class="dkm-bonus ' + (mode === 'lose' ? 'gray' : '') + '"><b>' + (mode === 'lose' ? 'RESULT' : 'BONUS!') + '</b></div>'
-    + '<div class="dkm-medals n' + Math.min(3, medals.length) + '">' + medals.slice(0, 3).join('') + '</div>'
-    + dkmRankHTML(R);
-  /* 下の帯 */
+  if(win) medals.push(dkmMedal(dkmReasonIcon(G.winReason), reason, G.winX > 1 ? 'x' + G.winX : ''));
+  medals.push(dkmMedal('ticket', info.clsNm, '×' + info.x));
+  if(info.lvUp) medals.push(dkmMedal('lv', 'レベルボーナス', 'Lv.' + info.lv));
+  else if(info.gem) medals.push(dkmMedal('gem', 'ダイヤ', '+' + info.gem));
+  else if(info.cheerBonus) medals.push(dkmMedal('gift', 'おうえん', '+' + dkmF(info.cheerBonus)));
+  else medals.push(dkmMedal('cube', 'キューブ', '+1'));
+  var Rr = '<div class="dkm-bonus ' + (win ? '' : 'gray') + '"><b>' + (win ? 'BONUS!' : 'RESULT') + '</b></div>'
+    + '<div class="dkm-medals n' + Math.min(3, medals.length) + '">' + medals.slice(0, 3).join('') + '</div>' + dkmRankHTML(R);
   var B;
-  if(mode === 'win'){
+  if(win){
     var s = Math.max(1, Math.min(5, info.streak));
-    B = '<div class="dkm-pb-l"><div class="dkm-pb-hd"><b>★報酬選択</b>' + dkmStarsHTML(s) + '</div>'
-      + '<span class="dkm-pb-ds">最大5連勝まで報酬がだんだんよくなります</span>'
-      + '<span class="dkm-pb-hint">希望する箱を選択してください</span></div>'
-      + '<div class="dkm-pb-chests">' + [0, 1, 2].map(function(i){
+    B = '<div class="dkm-streak win"><i class="dkm-cup"></i><span class="dkm-st-tx"><b>' + info.streak + ' 連勝中！</b><em>連勝認定時間 18 時間</em></span></div>'
+      + '<div class="dkm-pb-l"><div class="dkm-pb-hd"><b>★報酬選択</b>' + dkmStarsHTML(s) + '</div>'
+      + '<span class="dkm-pb-ds">最大5連勝まで<br>報酬がだんだんよくなります</span></div>'
+      + '<div class="dkm-pb-cbox"><div class="dkm-pb-chests">' + [0, 1, 2].map(function(i){
         return '<button type="button" class="dkm-bchest c' + i + '" data-dkm-chest="' + i + '" aria-label="宝箱' + (i + 1) + '"><span class="fx-deco">' + dkmChestSVG(i) + '</span></button>';
-      }).join('') + '</div>';
-  } else if(mode === 'lose'){
-    B = '<div class="dkm-pb-l wide"><div class="dkm-pb-hd"><b>勝者 ' + esc(W.name) + '</b></div>'
-      + '<span class="dkm-pb-ds">' + esc(G.winReason || '') + '。連勝すると試合後の宝箱の中身が良くなります。</span></div>';
+      }).join('') + '</div><span class="dkm-pb-hint">希望する箱を選択してください</span></div>';
   } else {
-    B = '<div class="dkm-pb-l wide"><div class="dkm-pb-hd"><b>観戦モード</b></div>'
-      + '<span class="dkm-pb-ds">席に「あなた」を入れると、勝ち負けの報酬がもらえます。</span></div>';
+    var free = (SV.lv | 0) <= DKM_GUARD_FREE_LV, rp = info.rpAt >= 0 ? info.chips[info.rpAt] : null;
+    R.guardable = !rp || /^[-−]/.test(String(rp.v).trim());
+    B = '<div class="dkm-streak lose"><i class="dkm-cup gray"></i><span class="dkm-st-tx"><b>' + info.lstreak + ' 連敗</b>'
+      + '<em>' + (info.nextCheer ? '次の試合は応援モード！' : '3連敗で応援モード') + '</em></span></div>'
+      + '<div class="dkm-guard"><span class="dkm-guard-tx"><b>RPを守る</b><em>' + (R.guardable ? '負けて減った RP を元に戻します' : 'RP は減っていません') + '</em></span>'
+      + dkmBtn('guard', 'gd dkm-guard-btn', R.guardable ? 'RPを守る（' + (free ? '無料' : dkmF(DKM_GUARD_COST) + 'G') + '）' : 'RP 減少なし') + '</div>';
   }
-  h += '<div class="dkm-panel ' + mode + '"><i class="dkm-panel-edge"></i>'
-    + '<div class="dkm-pl">' + L + '</div><div class="dkm-pr">' + Rr + '</div><div class="dkm-pb">' + B + '</div></div>';
-  /* ボタン */
-  var btn = function(act, cls, txt){ return '<button type="button" class="dkm-btn ' + cls + '" data-dkm-act="' + act + '" data-fx-press><span class="dkm-btn-tx">' + txt + '</span><i class="dkm-btn-shine"></i></button>'; };
-  h += '<div class="dkm-res-btns">'
-    + (mode === 'win' && !R.online ? btn('chest', 'gd dkm-prime', '報酬を選ぶ') : '')
-    + (R.online ? '' : btn('room', mode === 'win' ? 'gr' : 'gr dkm-prime', 'もう一回（部屋へ）'))
-    + btn('home', 'wd', 'ホームへ') + '</div>';
+  h += '<div class="dkm-panel ' + R.mode + '"><i class="dkm-panel-edge"></i>'
+    + '<div class="dkm-pl">' + L + '</div><div class="dkm-pr">' + Rr + '</div><div class="dkm-pb ' + R.mode + '">' + B + '</div></div>';
+  if(!win) h += '<div class="dkm-res-btns">' + dkmBtn(R.online ? 'home' : 'ok', 'gr dkm-prime', R.online ? 'ホームへ' : '確認') + '</div>';
   return h;
 }
 function showResult(){
@@ -901,14 +1177,18 @@ function showResult(){
   if(!el) return;
   if(G.dkmResShown && el.classList.contains('on') && DKM_st.res && DKM_st.res.g === G) return;
   G.dkmResShown = true;
-  bgm('result');
   var me = dkmMe(), online = dkmIsOnline();
-  var mode = me < 0 ? 'watch' : (G.winner === me ? 'win' : 'lose');
-  var info = me >= 0 ? grantRewards(mode === 'win') : null;
+  /* チーム戦はチームで WIN/LOSE */
+  var won = me >= 0 && (cfg.team ? dkmAlly(me, G.winner) : G.winner === me);
+  var mode = me < 0 ? 'watch' : (won ? 'win' : 'lose');
+  var info = me >= 0 ? grantRewards(won) : null;
   if(DKM_st.res && DKM_st.res.timers) DKM_st.res.timers.forEach(clearTimeout);
   var R = DKM_st.res = { g:G, me:me, mode:mode, info:info, online:online, lock:false, claimed:false, stage:null, timers:[],
-    prizes:(mode === 'win' && G.dkmPrizes) ? G.dkmPrizes : null };
+    guarded:false, guardable:false, prizes:(mode === 'win' && G.dkmPrizes) ? G.dkmPrizes : null };
   if(mode === 'win' && !R.prizes) R.prizes = G.dkmPrizes = dkmPrizes(info.streak);
+  /* LOSE は対戦の曲を止めて、専用ジングル → 短調の結果曲（dkmResPlay）。ほかは結果の曲 */
+  if(mode === 'lose'){ try{ if(typeof MUSIC !== 'undefined' && MUSIC && MUSIC.stop) MUSIC.stop(0.35); }catch(e){} }
+  else bgm('result');
   el.className = 'screen dk dkm-res dkm-' + mode + (el.classList.contains('on') ? ' on' : '');
   el.removeAttribute('style');
   el.innerHTML = dkmResHTML(R);
@@ -919,21 +1199,30 @@ function showResult(){
   el.querySelectorAll('[data-dkm-chest]').forEach(function(b){
     b.onclick = function(){ dkmChestOpen(+b.getAttribute('data-dkm-chest')); };
   });
+  var gb = el.querySelector('[data-dkm-act="guard"]');
+  if(gb && !R.guardable) gb.disabled = true;
   screenTo('result');
+  dkmFitChips(el);
+  R.timers.push(setTimeout(function(){ if(DKM_st.res === R) dkmFitChips(el); }, 320));   // 画面の切り替えの後にもう一度
   dkmResPlay(el, R);
 }
 /* 登場の演出（数字が回る・閃光・紙吹雪・ヒビ） */
 function dkmResPlay(el, R){
   var hero = el.querySelector('.dkm-hero');
   try{ var ry = fxRays(hero, { tone:R.mode === 'lose' ? 'silver' : 'gold', fast:R.mode === 'win' }); if(ry) ry.classList.add('dkm-hero-rays'); }catch(e){}
-  var later = function(fn, ms){ R.timers.push(setTimeout(function(){ if(DKM_st.res !== R) return; try{ fn(); }catch(e){ console.error('[WP4]', e); } }, ms)); };
+  var later = function(fn, ms){ R.timers.push(setTimeout(function(){ if(DKM_st.res !== R) return; try{ fn(); }catch(e){ console.error('[WP15b]', e); } }, ms)); };
   if(R.mode === 'win'){
     dkmSfx('win');
     later(function(){ fxFlash(); fxBurst(el.querySelector('.dkm-hero-t'), { kind:'conf', n:60, power:1.4 }); dkmSfx('confetti'); }, 160);
     later(function(){ fxBurst(el.querySelector('.dkm-pile-l'), { kind:'coin', n:10, power:0.9 }); fxBurst(el.querySelector('.dkm-pile-r'), { kind:'coin', n:10, power:0.9 }); }, 420);
   } else if(R.mode === 'lose'){
-    dkmSfx('lose');
-    later(function(){ fxFlash(); dkmSfx('shock'); el.querySelectorAll('.dkm-crack').forEach(function(c){ fxShake(c, 260); }); }, 120);
+    /* G03：専用ジングル（下降の和音）→ ヒビが入る瞬間にガラスの割れる音 → 短調・遅めの結果曲 */
+    try{ if(typeof JING !== 'undefined' && JING) dkmPatchJing(JING); jingle('lose'); }catch(e){}
+    later(function(){ fxFlash(); dkmSfx('glass'); el.querySelectorAll('.dkm-crack').forEach(function(c){ fxShake(c, 260); }); }, 120);
+    later(function(){
+      var rs = document.getElementById('result');
+      if(!R.minor && rs && rs.classList.contains('on') && R.g === G){ R.minor = true; bgm('result', { minor:true, tempo:0.8 }); }
+    }, DKM_LOSE_BGM_MS);
   } else dkmSfx('win');
   var gv = el.querySelector('.dkm-gold-v');
   if(gv) later(function(){ fxCount(gv, +gv.getAttribute('data-v') || 0, { from:0, dur:900, fmt:function(v){ return '+' + dkmF(v); } }).then(function(){ dkmSfx('coin'); }); }, 380);
@@ -944,8 +1233,42 @@ function dkmResPlay(el, R){
 function dkmResAct(act, b){
   var R = DKM_st.res;
   if(!R || R.lock) return;
+  if(act === 'guard'){ dkmGuard(b); return; }
   if(act === 'chest'){ dkmChestOpen(-1); return; }
-  dkmResNav(act);
+  dkmResNav(act === 'home' ? 'home' : 'room');
+}
+/* G15：［RPを守る］（Lv5以下は無料）。dkEmit('rp:guard',{cost}) で WP16 が直前の −10 を戻す。行を「RP ±0（守った）」に */
+function dkmGuard(b){
+  var R = DKM_st.res;
+  if(!R || R.lock || R.guarded || R.mode !== 'lose' || !R.guardable) return;
+  var cost = (SV.lv | 0) <= DKM_GUARD_FREE_LV ? 0 : DKM_GUARD_COST;
+  if((SV.gold | 0) < cost){
+    try{ toast('R', '💰', 'ゴールドが足りません', 'RPを守るには ' + dkmF(cost) + ' ゴールドが必要です', 2400); }catch(e){}
+    dkmSfx('warn');
+    return;
+  }
+  R.guarded = true;
+  SV.gold -= cost;
+  saveNow();
+  try{ dkEmit('rp:guard', { cost:cost }); }catch(e){ console.error('[WP15b]', e); }
+  var info = R.info, chips = info.chips, at = info.rpAt, chip = { ic:'🛡️', label:'RP', v:'±0（守った）' };
+  if(at >= 0) chips[at] = chip;
+  else { if(chips.length >= 4) chips.length = 3; chips.unshift(chip); at = info.rpAt = 0; }
+  var el = document.getElementById('result'), box = el && el.querySelector('.dkm-chips');
+  if(box){
+    box.innerHTML = chips.map(dkmChipHTML).join('');
+    box.classList.add('fixed');
+    dkmFitChips(box);
+    var row = box.querySelector('[data-dkm-chip="' + at + '"]');
+    if(row){ row.classList.add('guarded'); dkmBounce(row); }
+  }
+  if(b){
+    b.disabled = true;
+    var tx = b.querySelector('.dkm-btn-tx'); if(tx) tx.textContent = 'RPを守りました';
+    try{ fxBurst(b, { kind:'star', n:12, power:0.8 }); }catch(e){}
+  }
+  var gt = el && el.querySelector('.dkm-guard-tx em'); if(gt) gt.textContent = cost ? dkmF(cost) + ' ゴールドで RP を守りました' : '無料で RP を守りました';
+  dkmSfx(cost ? 'coin' : 'gaugeOk');
 }
 /* 部屋へ／ホームへ（二度押しを止める。宝箱を選ばずに進んだら1つ自動で受け取る） */
 function dkmResNav(where){
@@ -960,46 +1283,86 @@ function dkmResNav(where){
     R.claimed = true;
     var pz = R.prizes[(Math.random() * R.prizes.length) | 0];
     dkmApplyPrize(pz);
-    try{ toast('R', '🎁', '宝箱の報酬を受け取りました', dkmPrizeText(pz), 2400); }catch(e){}
+    try{ toast('R', '🎁', '宝箱の報酬はメールから確認できます', dkmPrizeText(pz), 2400); }catch(e){}
   }
-  if(where === 'room' && !R.online) dkFlowRoom();
-  else showHome();
+  if(where === 'home' || R.online){ showHome(); return; }
+  dkmGoRoom(el);
+}
+/* J31：約1.4秒のクロスフェードで同じ部屋へ。結果の中身を一時の膜へ移して部屋を出し、膜を opacity で消す。
+   金色のワイプははさまない（本家は溶けるように切り替わる）。スマホ・動きを減らす設定は膜を作らずに切り替える */
+function dkmGoRoom(el){
+  var st = document.getElementById('stage'), xf = null;
+  if(el && st && !DKFX.mob && !DKFX.reduced && el.animate){
+    xf = document.createElement('div');
+    xf.className = 'dkm-xfade ' + Array.prototype.filter.call(el.classList, function(c){ return /^dkm-/.test(c) || c === 'chest'; }).join(' ');
+    xf.setAttribute('aria-hidden', 'true');
+    while(el.firstChild) xf.appendChild(el.firstChild);
+    st.appendChild(xf);
+    DKM_st.xf = xf;
+  }
+  var w0 = (typeof wiping !== 'undefined') ? wiping : false;
+  try{ if(xf) wiping = true; dkFlowRoom(); }
+  catch(e){ console.error('[WP15b]', e); }
+  finally{ if(xf) wiping = w0; }
+  if(!xf) return;
+  var kill = function(){ if(xf.parentNode) xf.parentNode.removeChild(xf); if(DKM_st.xf === xf) DKM_st.xf = null; };
+  var a = null;
+  try{ a = xf.animate([{ opacity:1 }, { opacity:0 }], { duration:DKM_XFADE_MS, easing:'ease-in-out', fill:'forwards' }); }catch(e){ a = null; }
+  if(a) a.onfinish = kill;
+  setTimeout(kill, DKM_XFADE_MS + 300);
 }
 
-/* ══════════ ⑫ 宝箱3択 ══════════
-   中身は s=min(連勝,5) で良くなる（当作独自：ゴールド 600s〜1,500s、ダイヤ s-1〜s+1、s≥4 なら S以上のカード）。 */
+/* ══════════ ⑫ 宝箱3択 → 「おめでとうございます」→［確認］ ══════════
+   中身は s=min(連勝,5) で良くなる品物（当作の表：キューブ シルバー→ゴールド→ダイヤ、ペンダント、
+   ゴールドキー／ビジネス入場券／S以上のカード）。品物はプレゼントボックス（dkMail）へ送る（J54）。 */
+function dkmCubeTier(s){ return s >= 5 ? 'dia' : s >= 3 ? 'gold' : 'silver'; }
 function dkmPrizes(streak){
   var s = Math.max(1, Math.min(5, streak | 0));
-  var gold = function(){ return Math.round((600 * s + Math.random() * 900 * s) / 10) * 10; };
-  var list = [{ kind:'gold', v:gold() }, { kind:'gem', v:Math.max(1, s - 1 + ((Math.random() * 3) | 0)) }];
+  var pd = PENDANTS[(Math.random() * PENDANTS.length) | 0];
+  var list = [{ kind:'cube', id:dkmCubeTier(s) }, { kind:'pend', id:pd.id }];
   if(s >= 4){
     var pool = CARDPOOL.filter(function(c){ return c.rar === 'S' || c.rar === 'SS'; });
     list.push({ kind:'card', id:pool[(Math.random() * pool.length) | 0].id });
-  } else list.push({ kind:'gold', v:gold() });
+  } else list.push(s === 3 ? { kind:'ticket', id:'biz' } : { kind:'key', id:'key' });
   for(var i = list.length - 1; i > 0; i--){ var j = (Math.random() * (i + 1)) | 0, t = list[i]; list[i] = list[j]; list[j] = t; }
   return list;
 }
-function dkmPrizeText(pz){
+function dkmPrizeName(pz){
+  if(pz.kind === 'cube') return (DKM_CUBE[pz.id] || DKM_CUBE.wood).nm;
+  if(pz.kind === 'pend'){ var p = pendById(pz.id); return p ? p.nm : 'ペンダント'; }
+  if(pz.kind === 'card'){ var c = cardById(pz.id); return c ? c.nm : 'キャラクターカード'; }
+  if(pz.kind === 'ticket') return 'ビジネス入場券';
+  if(pz.kind === 'key') return 'ゴールドキー';
   if(pz.kind === 'gold') return dkmF(pz.v) + ' ゴールド';
   if(pz.kind === 'gem') return pz.v + ' ダイヤ';
-  var c = cardById(pz.id); return (c ? c.nm : 'カード') + '（' + (c ? RAR[c.rar].nm : '') + '）';
+  return '';
 }
+function dkmPrizeSub(pz){
+  if(pz.kind === 'card'){ var c = cardById(pz.id); return (c ? RAR[c.rar].nm + 'クラス' : '') + ' カード'; }
+  if(pz.kind === 'pend') return 'ペンダント（1個）';
+  if(pz.kind === 'ticket') return '入場券（1枚）';
+  if(pz.kind === 'gold' || pz.kind === 'gem') return '財布へ';
+  return '1個';
+}
+function dkmPrizeText(pz){ return dkmPrizeName(pz) + (pz.kind === 'gold' || pz.kind === 'gem' ? '' : '（' + dkmPrizeSub(pz).replace(/（|）/g, '') + '）'); }
+function dkmPrizeIsItem(pz){ return !!pz && pz.kind !== 'gold' && pz.kind !== 'gem'; }
 function dkmApplyPrize(pz){
   if(!pz || pz.applied) return;
   pz.applied = true;
-  if(pz.kind === 'gold') SV.gold += pz.v;
-  else if(pz.kind === 'gem') SV.gem += pz.v;
-  else if(pz.kind === 'card'){ try{ pz.got = grant(cardById(pz.id)); }catch(e){ console.error('[WP4]', e); } }
-  saveNow();
+  if(pz.kind === 'gold'){ SV.gold += pz.v; saveNow(); return; }
+  if(pz.kind === 'gem'){ SV.gem += pz.v; saveNow(); return; }
+  try{ pz.mail = dkMail({ ic:'🎁', nm:'宝箱の報酬：' + dkmPrizeName(pz), item:{ kind:pz.kind, id:pz.id } }); }
+  catch(e){ console.error('[WP15b]', e); }
 }
 function dkmPrizeHTML(pz){
-  if(pz.kind === 'card'){
-    var c = cardById(pz.id) || CARDPOOL[0];
-    return '<div class="dkm-prz card ' + RAR[c.rar].cls + '">' + dkmPortrait(c.id, 'dkm-prz-face')
-      + '<b>' + esc(c.nm) + '</b><em>' + RAR[c.rar].nm + ' カード</em></div>';
-  }
-  return '<div class="dkm-prz ' + pz.kind + '"><i class="' + (pz.kind === 'gem' ? 'dkm-gemi' : 'dkm-coin') + '"></i>'
-    + '<b>+' + dkmF(pz.v) + '</b><em>' + (pz.kind === 'gem' ? 'ダイヤ' : 'ゴールド') + '</em></div>';
+  var art = '', cls = 'k-' + pz.kind;
+  if(pz.kind === 'card'){ var c = cardById(pz.id) || CARDPOOL[0]; art = dkmPortrait(c.id, 'dkm-prz-face'); cls += ' ' + RAR[c.rar].cls; }
+  else if(pz.kind === 'cube') art = dkmCubeIcon(pz.id);
+  else if(pz.kind === 'pend'){ var p = pendById(pz.id); art = '<i class="dkm-prz-ic">' + esc(p ? p.ic : '📿') + '</i>'; }
+  else if(pz.kind === 'ticket') art = '<span class="dkm-prz-medal">' + dkmLaurelSVG('ticket') + '</span>';
+  else if(pz.kind === 'key') art = '<span class="dkm-prz-medal">' + dkmLaurelSVG('crown') + '</span>';
+  else art = '<i class="' + (pz.kind === 'gem' ? 'dkm-gemi' : 'dkm-coin') + '"></i>';
+  return '<div class="dkm-prz ' + cls + '">' + art + '<b>' + esc(dkmPrizeName(pz)) + '</b><em>' + esc(dkmPrizeSub(pz)) + '</em></div>';
 }
 function dkmChestOpen(pick){
   var R = DKM_st.res, el = document.getElementById('result');
@@ -1008,18 +1371,15 @@ function dkmChestOpen(pick){
     var st = document.createElement('div');
     st.className = 'dkm-cstage';
     var s = Math.max(1, Math.min(5, R.info.streak));
-    var btn = function(act, cls, txt){ return '<button type="button" class="dkm-btn ' + cls + '" data-dkm-act="' + act + '" data-fx-press><span class="dkm-btn-tx">' + txt + '</span><i class="dkm-btn-shine"></i><i class="dkm-auto"></i></button>'; };
     st.innerHTML = '<div class="dkm-cs-veil"></div><div class="dkm-cs-light fx-deco"></div>'
       + '<div class="dkm-cs-head"><div class="dkm-cs-rib"><b>★報酬選択</b></div>'
       +   '<span class="dkm-cs-sub">最大5連勝まで報酬がだんだんよくなります</span>' + dkmStarsHTML(s) + '</div>'
-      + '<div class="dkm-cs-wallet"><span><i class="dkm-coin"></i><b class="dkm-cs-gold">' + dkmF(SV.gold) + '</b></span>'
-      +   '<span><i class="dkm-gemi"></i><b class="dkm-cs-gem">' + dkmF(SV.gem) + '</b></span></div>'
       + '<div class="dkm-cs-row">' + [0, 1, 2].map(function(i){
         return '<div class="dkm-cs-slot c' + i + '" style="--i:' + i + '"><button type="button" class="dkm-cs-chest" data-dkm-pick="' + i + '" aria-label="宝箱' + (i + 1) + '">'
           + '<span class="fx-deco">' + dkmChestSVG(i) + '</span></button><div class="dkm-cs-prize"></div></div>';
       }).join('') + '</div>'
       + '<div class="dkm-cs-hint">希望する箱を選択してください</div>'
-      + '<div class="dkm-cs-btns">' + (R.online ? '' : btn('room', 'gr', 'もう一回（部屋へ）')) + btn('home', 'wd', 'ホームへ') + '</div>';
+      + '<div class="dkm-cs-btns">' + dkmBtn(R.online ? 'home' : 'ok', 'gr dkm-cs-ok', R.online ? 'ホームへ' : '確認', '<i class="dkm-auto"></i>') + '</div>';
     el.appendChild(st);
     el.classList.add('chest');
     R.stage = st;
@@ -1037,7 +1397,6 @@ async function dkmChestPick(i){
   var st = R.stage, slots = st.querySelectorAll('.dkm-cs-slot'), pz = R.prizes[i];
   st.classList.add('picked');
   st.querySelectorAll('.dkm-cs-chest').forEach(function(b){ b.disabled = true; });
-  var g0 = SV.gold, m0 = SV.gem;
   dkmApplyPrize(pz);
   var slot = slots[i], chest = slot.querySelector('.dkm-cs-chest');
   slot.classList.add('sel');
@@ -1049,15 +1408,10 @@ async function dkmChestPick(i){
   slot.querySelector('.dkm-cs-prize').innerHTML = dkmPrizeHTML(pz);
   dkmPaintFaces(slot);
   fxFlash();
-  fxBurst(chest, { kind:pz.kind === 'gem' ? 'gem' : pz.kind === 'card' ? 'star' : 'coin', n:26, power:1.3 });
+  fxBurst(chest, { kind:pz.kind === 'gem' ? 'gem' : pz.kind === 'gold' ? 'coin' : 'star', n:26, power:1.3 });
   dkmSfx('coinBurst');
-  st.querySelector('.dkm-cs-hint').textContent = dkmPrizeText(pz) + ' を手に入れました！';
-  if(pz.kind === 'gold' || pz.kind === 'gem'){
-    var tgt = st.querySelector(pz.kind === 'gem' ? '.dkm-cs-gem' : '.dkm-cs-gold');
-    await fxCoins(slot.querySelector('.dkm-cs-prize'), tgt, { kind:pz.kind === 'gem' ? 'gem' : 'coin', n:14 });
-    if(DKM_st.res !== R) return;
-    await fxCount(tgt, pz.kind === 'gem' ? SV.gem : SV.gold, { from:pz.kind === 'gem' ? m0 : g0, dur:800 });
-  } else await fxWait(700);
+  st.querySelector('.dkm-cs-hint').textContent = dkmPrizeText(pz) + ' を獲得しました！';
+  await fxWait(700);
   if(DKM_st.res !== R) return;
   /* ほかの2つの中身も見せる */
   for(var k = 0; k < slots.length; k++){
@@ -1069,21 +1423,37 @@ async function dkmChestPick(i){
     dkmPaintFaces(slots[k]);
     dkmSfx('cardIn');
   }
-  /* 少し見せてから部屋へ（ボタンで先に進める） */
+  /* 「おめでとうございます」→「獲得したアイテムはメールから確認できます」→［確認］（押さなければ自動） */
   st.classList.add('done');
-  var go = st.querySelector('[data-dkm-act="' + (R.online ? 'home' : 'room') + '"]');
-  if(go){ go.classList.add('dkm-prime', 'counting'); var au = go.querySelector('.dkm-auto'); if(au){ void au.offsetWidth; au.classList.add('run'); } }
+  var rib = st.querySelector('.dkm-cs-rib'), rb = rib && rib.querySelector('b');
+  if(rib){ rib.classList.add('red'); if(rb) rb.textContent = 'おめでとうございます'; dkmBounce(rib); }
+  st.querySelector('.dkm-cs-hint').textContent = dkmPrizeIsItem(pz) ? '獲得したアイテムはメールから確認できます' : dkmPrizeText(pz) + ' を財布に入れました';
+  dkmSfx('cardIn');
+  var go = st.querySelector('.dkm-cs-ok');
+  if(go){ go.classList.add('dkm-prime', 'counting'); dkmBarRun(go.querySelector('.dkm-auto'), DKM_OK_AUTO_MS); }
   R.timers.push(setTimeout(function(){
     var rs = document.getElementById('result');
-    if(DKM_st.res === R && !R.lock && rs && rs.classList.contains('on')) dkmResNav(R.online ? 'home' : 'room');
-  }, 3200));
+    if(DKM_st.res === R && R.g === G && !R.lock && rs && rs.classList.contains('on')) dkmResNav(R.online ? 'home' : 'room');
+  }, DKM_OK_AUTO_MS));
 }
 
 /* ══════════ 初期化 ══════════ */
 (function(){
   try{
-    /* TIPS は const なので中身だけ入れ替える（重複を消し、今のルールに書き直した版） */
+    /* TIPS は const なので中身だけ入れ替える（日本版の言い回し・今のルールに書き直した版。C28） */
     if(typeof TIPS !== 'undefined' && TIPS && TIPS.splice) TIPS.splice.apply(TIPS, [0, TIPS.length].concat(DKM_TIPS));
+    /* G03：JING.play に 'lose' を足す（JING は最初のクリックで ac() が dvJingle から作るので、作る関数を包む） */
+    if(typeof dvJingle === 'function' && !dvJingle.dkmWrap){
+      var DKM_j0 = dvJingle;
+      dvJingle = function(){ return dkmPatchJing(DKM_j0.apply(this, arguments)); };
+      dvJingle.dkmWrap = true;
+    }
+    if(typeof JING !== 'undefined' && JING) dkmPatchJing(JING);
+    /* ガラスの割れる音・花火の打ち上げを SFX に足す */
+    if(typeof SFX === 'object' && SFX){
+      if(!SFX.glass) SFX.glass = function(){ try{ dkmGlassSfx(); }catch(e){} };
+      if(!SFX.firework) SFX.firework = function(){ try{ dkmFireSfx(); }catch(e){} };
+    }
     /* 旧リザルト（青い表・#resRows・#againSame）とローディング・VS の中身を片付けておく */
     var r = document.getElementById('result');
     if(r){ r.className = 'screen dk dkm-res' + (r.classList.contains('on') ? ' on' : ''); r.innerHTML = ''; }
@@ -1098,5 +1468,5 @@ async function dkmChestPick(i){
       var R = DKM_st.res;
       if(R && p && p.id !== 'result' && R.timers && R.timers.length){ R.timers.forEach(clearTimeout); R.timers = []; }
     });
-  }catch(e){ console.error('[WP4]', e); }
+  }catch(e){ console.error('[WP15b]', e); }
 })();
