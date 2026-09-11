@@ -359,4 +359,54 @@ html.fx-lite .fx-primary::before,html.fx-lite .fx-tbg{animation:none}
   .fx-tlayer .fx-twinkle,.fx-tlayer .fx-mote,.fx-tlayer .fx-tglare{display:none!important}
   .fx-tbg{animation:none!important}
 }
+
+/* ══════════ 画面（.screen）の下に隠れる盤と盤の部品は描かない ══════════
+   9-fx.js の DKFX.scrSync が #stage に印を付ける：dk-scr＝画面が出ている／dk-scr-op＝不透明な画面が出ている／
+   dk-scr-ch＝盤の部品を隠す（不透明な画面の下。スマホは結果のような透ける画面の下でも）。
+   iPhone の WebKit は、合成される盤の canvas（#world）に重なる要素をすべて別の層にし、
+   CSS の大きさ×3×3 の画素で持つ（#stage の scale(0.42) は効かない。画面いっぱいの層1枚＝約49MB）。
+   見えない盤を消せば、上の画面も盤の部品も層にならない。並べるのは z-index が画面（200）より下の物だけ */
+#stage.dk-scr-op > #world,#stage.dk-scr > .dkb-vignette,
+#stage.dk-scr-ch > #plate,#stage.dk-scr-ch > #ticker,#stage.dk-scr-ch > .hud,#stage.dk-scr-ch > .rankbadge,
+#stage.dk-scr-ch > #legend,#stage.dk-scr-ch > #diceui,#stage.dk-scr-ch > #chip,#stage.dk-scr-ch > #dbl,
+#stage.dk-scr-ch > #turnbig,#stage.dk-scr-ch > #alarm,#stage.dk-scr-ch > #raise,#stage.dk-scr-ch > #shake,
+#stage.dk-scr-ch > #band,#stage.dk-scr-ch > #skillcut,#stage.dk-scr-ch > #pickeye,#stage.dk-scr-ch > #celebrate,
+#stage.dk-scr-ch > #emoteflow,#stage.dk-scr-ch > #emotebar,#stage.dk-scr-ch > #emotebtn,#stage.dk-scr-ch > #menu,
+#stage.dk-scr-ch > #gearBtn,#stage.dk-scr-ch > #audiobar,#stage.dk-scr-ch > #itembar,
+#stage.dk-scr-ch > .dkb-band,#stage.dk-scr-ch > .dkb-pbox,#stage.dk-scr-ch > .dkb-imp,#stage.dk-scr-ch > .dkb-dmsg,
+#stage.dk-scr-ch > .dkb-bub,#stage.dk-scr-ch > .dkb-reach,#stage.dk-scr-ch > .dkb-getitem,#stage.dk-scr-ch > .dkb-like{display:none!important}
+
+/* ══════════ スマホ（html.fx-mob＝iOS・タッチ・短い辺 560px 以下）：画素のメモリを増やす演出を止める ══════════
+   ・画面いっぱいの常時アニメ、大きな回転、光の玉、動くタイトル絵は、止まった絵にする（静止画の見た目は同じ）。
+   ・下で動く小物の上に重なる中身もすべて層になるので、背景の側で動く物から止める。
+   ・入場（fxEnter）と光の玉の粒・斜めの光・タイトルの動く層は、9-fx.js がスマホでは作らない。
+   ・目安は前の版（1179ded、iPhone で開けていた）の同じ画面の画素×1.1（tools/iosmem.js）。 */
+html.fx-mob .screen::before,html.fx-mob .screen::after{animation:none!important}
+html.fx-mob .dk::after{opacity:.78}
+html.fx-mob .fx-tbg,html.fx-mob .fx-tlayer .fx-twinkle,html.fx-mob .fx-tlayer .fx-mote,html.fx-mob .fx-tlayer .fx-tglare,
+html.fx-mob .fx-tglow > i,html.fx-mob .fx-amb .fx-ray,html.fx-mob .fx-amb .fx-mote,html.fx-mob .fx-card .fx-gloss::after{display:none!important}
+html.fx-mob .fx-tglow{animation:none!important;opacity:.78}
+html.fx-mob .fx-amb .fx-blob,html.fx-mob .fx-rays,html.fx-mob .fx-halo,
+html.fx-mob .fx-primary::before,html.fx-mob .fx-card.rSS::after{animation:none!important}
+/* 盤のまわりの減光：画面いっぱいの層をやめ、9h-board.js が盤の canvas の四隅に描く */
+html.fx-mob .dkb-vignette{display:none!important}
+html.fx-mob #plate .bd::after{animation:none!important}
+/* 常に別の層にする宣言（will-change）をやめる。主役の絵・きらめきは止まった形 */
+html.fx-mob .dkhero,html.fx-mob .dkqside .chest,html.fx-mob .dkclerk,html.fx-mob #gacha .dkcube .stage .orb,
+html.fx-mob .dkspark{will-change:auto!important;animation:none!important}
+/* 小さな常時アニメも、上に重なる中身をまとめて層にするので止める（通知の点・ボタンや帯の光・タブの光の呼吸）。
+   光のしまは止めると絵の上に残る物だけ消す */
+html.fx-mob .fx-badge,html.fx-mob .dkh-badge,html.fx-mob .dkbtn::after,html.fx-mob .dktab.on::after,html.fx-mob .dkday.now::before,
+html.fx-mob .dkf-scr .dkf-top::after,html.fx-mob .dkh-olbtn::after,html.fx-mob .dkic .dot,html.fx-mob .dktab .nw,html.fx-mob .dkrb .nw,
+html.fx-mob .dkev .mg{animation:none!important}
+html.fx-mob .dklogo::after,html.fx-mob .dkbar i::after{display:none!important}
+/* ほかの画面（ショップ・ミッション・出席簿・カード・サイコロ・ペンダント・ガチャ）：各ファイルの「動きを減らす」と同じ物を止める */
+html.fx-mob #shop .dks-sign,html.fx-mob #shop .dks-lamps .dks-a-lantern,html.fx-mob #shop .dks-pedbar > .dks-a,html.fx-mob #shop .dks-off,
+html.fx-mob .dks-gl::after,html.fx-mob .dks-b .dks-sh::after,html.fx-mob .dks-dot,html.fx-mob #quest .dks-chest,html.fx-mob #daily .dks-day.now::before,
+html.fx-mob #shop .dks-die .art .dks-a,html.fx-mob #shop .dks-free .art .dks-a,html.fx-mob .dks-gmedal,html.fx-mob .dks-it,html.fx-mob .dks-stamp.new,
+html.fx-mob #cards .dkc-stage > .dkc-big,html.fx-mob #cards .dkc-upcard,html.fx-mob #cards .dkc-mixres > .dkc-big,html.fx-mob #dice .dkc-hero,
+html.fx-mob #dice .dkc-pdie,html.fx-mob #dice .dkc-ghost,html.fx-mob #dice .dkc-pedglow,html.fx-mob #dice .dkc-pedring::after,html.fx-mob #dice .dkc-dcimg img,
+html.fx-mob #cards .dkc-fr::after,html.fx-mob #dice .dkc-fr::after,
+html.fx-mob .dkp-float,html.fx-mob .dkp-ped,html.fx-mob .dkp-arw,html.fx-mob #gacha .dkp-cube,html.fx-mob #gacha .dkp-cubefl,html.fx-mob #gacha .dkp-cglow,
+html.fx-mob .dkp-gl::after,html.fx-mob .dkp-bar > i::after,html.fx-mob #gacha .dkp-pcsh::after,html.fx-mob #gacha .dkp-rainbow,html.fx-mob .dkp-q{animation:none!important}
 </style>

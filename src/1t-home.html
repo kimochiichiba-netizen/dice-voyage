@@ -684,4 +684,11 @@ html.fx-lite .dkh-badgewrap,html.fx-lite .dkh-med::after,html.fx-lite .dkh-evshi
   .dkh-badgewrap,.dkh-glow,.dkh-gloss,.dkh-med::after,.dkh-evshine,.dkh-evic,.dkh-emb,.dkh-chev b,.dkh-enter::after,.dkh-key svg,
   .dkh-orbit,.dkh-olring,.dkh-lantern,.dkh-row.top1::after,.dkh-wkic,.dkh-msic svg,.dkh-mfill::after,.dkh-card::after{animation:none!important}
 }
+/* スマホ（html.fx-mob）：「動きを減らす」と同じ物を止める（大きな光輪・カードの揺れ・光のしま）。
+   iPhone の WebKit は動く要素とその上に重なる中身を CSS の大きさ×3×3 の画素の層で持つ（1k-fx.html の説明） */
+html.fx-mob .dkh-badgewrap,html.fx-mob .dkh-glow,html.fx-mob .dkh-gloss,html.fx-mob .dkh-med::after,html.fx-mob .dkh-evshine,
+html.fx-mob .dkh-evic,html.fx-mob .dkh-emb,html.fx-mob .dkh-chev b,html.fx-mob .dkh-enter::after,html.fx-mob .dkh-key svg,
+html.fx-mob .dkh-orbit,html.fx-mob .dkh-olring,html.fx-mob .dkh-lantern,html.fx-mob .dkh-row.top1::after,html.fx-mob .dkh-wkic,
+html.fx-mob .dkh-msic svg,html.fx-mob .dkh-mfill::after,html.fx-mob .dkh-card::after{animation:none!important}
+html.fx-mob .dkh-logo::after{display:none}
 </style>

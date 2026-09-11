@@ -8,6 +8,14 @@ let SPEED = 1;
 const wait = ms => new Promise(r => setTimeout(r, Math.max(0, ms*SPEED)));
 const esc = s => String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+/* スマホ（iOS・タッチ・短い辺 560px 以下）か。演出と canvas の画素を控える判定（9-fx.js の DKFX.mob もこれを使う）。
+   iPhone の WebKit は合成レイヤーを CSS の大きさ×画面の細かさ²（3×3）の画素で持ち、ステージの縮小が効かないため */
+function dvMobile(){
+  const ua = navigator.userAgent || '', tp = navigator.maxTouchPoints || 0;
+  const ios = /iP(hone|ad|od)/.test(ua) || (/Macintosh/.test(ua) && tp > 1);
+  return !!(ios || tp > 0 || Math.min(window.innerWidth || 9999, window.innerHeight || 9999) <= 560);
+}
+
 /* ══════════ ステージのフィット（横画面バグ対策の要） ══════════ */
 let forcePortrait = false, portraitDir = 90;
 /* 画面のふちに貼り付くとブラウザの戻るジェスチャーと喧嘩して押せなくなるので、
@@ -212,6 +220,12 @@ let last = 0;
 function frame(now){
   const dt = Math.min(50, now - last); last = now;
   camStep(dt/1000);
+  /* 不透明な画面（.screen）の下で盤が見えない間は盤を描かない（#world は隠れている。9-fx.js の DKFX.scrSync） */
+  if(typeof DKFX === 'object' && DKFX && DKFX.worldOff){
+    drawGauge(now); paintPortraits(now); tickClock(dt);
+    requestAnimationFrame(frame);
+    return;
+  }
   const dpr = cv.width / SW;
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,SW,SH);
@@ -300,7 +314,9 @@ function paintPortraits(T){
 }
 
 /* ══════════ パワーゲージ ══════════ */
-const gcv = $('#gauge'), gctx = gcv.getContext('2d');
+/* スマホはゲージを CPU で描く（willReadFrequently）。GPU の canvas は別の層になり、
+   iPhone の WebKit では上に重なる押すボタン・奇数偶数なども層（CSS の大きさ×3×3 の画素）になるため */
+const gcv = $('#gauge'), gctx = gcv.getContext('2d', dvMobile() ? { willReadFrequently: true } : undefined);
 let gaugeOn = false, gaugeSweet = 0.5, gaugePhase = 0, gaugeHalf = 0.085;
 function drawGauge(T){
   if(!gaugeOn){ gctx.clearRect(0,0,gcv.width,gcv.height); return; }

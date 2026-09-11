@@ -3690,6 +3690,56 @@ html.fx-lite .fx-primary::before,html.fx-lite .fx-tbg{animation:none}
   .fx-tlayer .fx-twinkle,.fx-tlayer .fx-mote,.fx-tlayer .fx-tglare{display:none!important}
   .fx-tbg{animation:none!important}
 }
+
+/* ══════════ 画面（.screen）の下に隠れる盤と盤の部品は描かない ══════════
+   9-fx.js の DKFX.scrSync が #stage に印を付ける：dk-scr＝画面が出ている／dk-scr-op＝不透明な画面が出ている／
+   dk-scr-ch＝盤の部品を隠す（不透明な画面の下。スマホは結果のような透ける画面の下でも）。
+   iPhone の WebKit は、合成される盤の canvas（#world）に重なる要素をすべて別の層にし、
+   CSS の大きさ×3×3 の画素で持つ（#stage の scale(0.42) は効かない。画面いっぱいの層1枚＝約49MB）。
+   見えない盤を消せば、上の画面も盤の部品も層にならない。並べるのは z-index が画面（200）より下の物だけ */
+#stage.dk-scr-op > #world,#stage.dk-scr > .dkb-vignette,
+#stage.dk-scr-ch > #plate,#stage.dk-scr-ch > #ticker,#stage.dk-scr-ch > .hud,#stage.dk-scr-ch > .rankbadge,
+#stage.dk-scr-ch > #legend,#stage.dk-scr-ch > #diceui,#stage.dk-scr-ch > #chip,#stage.dk-scr-ch > #dbl,
+#stage.dk-scr-ch > #turnbig,#stage.dk-scr-ch > #alarm,#stage.dk-scr-ch > #raise,#stage.dk-scr-ch > #shake,
+#stage.dk-scr-ch > #band,#stage.dk-scr-ch > #skillcut,#stage.dk-scr-ch > #pickeye,#stage.dk-scr-ch > #celebrate,
+#stage.dk-scr-ch > #emoteflow,#stage.dk-scr-ch > #emotebar,#stage.dk-scr-ch > #emotebtn,#stage.dk-scr-ch > #menu,
+#stage.dk-scr-ch > #gearBtn,#stage.dk-scr-ch > #audiobar,#stage.dk-scr-ch > #itembar,
+#stage.dk-scr-ch > .dkb-band,#stage.dk-scr-ch > .dkb-pbox,#stage.dk-scr-ch > .dkb-imp,#stage.dk-scr-ch > .dkb-dmsg,
+#stage.dk-scr-ch > .dkb-bub,#stage.dk-scr-ch > .dkb-reach,#stage.dk-scr-ch > .dkb-getitem,#stage.dk-scr-ch > .dkb-like{display:none!important}
+
+/* ══════════ スマホ（html.fx-mob＝iOS・タッチ・短い辺 560px 以下）：画素のメモリを増やす演出を止める ══════════
+   ・画面いっぱいの常時アニメ、大きな回転、光の玉、動くタイトル絵は、止まった絵にする（静止画の見た目は同じ）。
+   ・下で動く小物の上に重なる中身もすべて層になるので、背景の側で動く物から止める。
+   ・入場（fxEnter）と光の玉の粒・斜めの光・タイトルの動く層は、9-fx.js がスマホでは作らない。
+   ・目安は前の版（1179ded、iPhone で開けていた）の同じ画面の画素×1.1（tools/iosmem.js）。 */
+html.fx-mob .screen::before,html.fx-mob .screen::after{animation:none!important}
+html.fx-mob .dk::after{opacity:.78}
+html.fx-mob .fx-tbg,html.fx-mob .fx-tlayer .fx-twinkle,html.fx-mob .fx-tlayer .fx-mote,html.fx-mob .fx-tlayer .fx-tglare,
+html.fx-mob .fx-tglow > i,html.fx-mob .fx-amb .fx-ray,html.fx-mob .fx-amb .fx-mote,html.fx-mob .fx-card .fx-gloss::after{display:none!important}
+html.fx-mob .fx-tglow{animation:none!important;opacity:.78}
+html.fx-mob .fx-amb .fx-blob,html.fx-mob .fx-rays,html.fx-mob .fx-halo,
+html.fx-mob .fx-primary::before,html.fx-mob .fx-card.rSS::after{animation:none!important}
+/* 盤のまわりの減光：画面いっぱいの層をやめ、9h-board.js が盤の canvas の四隅に描く */
+html.fx-mob .dkb-vignette{display:none!important}
+html.fx-mob #plate .bd::after{animation:none!important}
+/* 常に別の層にする宣言（will-change）をやめる。主役の絵・きらめきは止まった形 */
+html.fx-mob .dkhero,html.fx-mob .dkqside .chest,html.fx-mob .dkclerk,html.fx-mob #gacha .dkcube .stage .orb,
+html.fx-mob .dkspark{will-change:auto!important;animation:none!important}
+/* 小さな常時アニメも、上に重なる中身をまとめて層にするので止める（通知の点・ボタンや帯の光・タブの光の呼吸）。
+   光のしまは止めると絵の上に残る物だけ消す */
+html.fx-mob .fx-badge,html.fx-mob .dkh-badge,html.fx-mob .dkbtn::after,html.fx-mob .dktab.on::after,html.fx-mob .dkday.now::before,
+html.fx-mob .dkf-scr .dkf-top::after,html.fx-mob .dkh-olbtn::after,html.fx-mob .dkic .dot,html.fx-mob .dktab .nw,html.fx-mob .dkrb .nw,
+html.fx-mob .dkev .mg{animation:none!important}
+html.fx-mob .dklogo::after,html.fx-mob .dkbar i::after{display:none!important}
+/* ほかの画面（ショップ・ミッション・出席簿・カード・サイコロ・ペンダント・ガチャ）：各ファイルの「動きを減らす」と同じ物を止める */
+html.fx-mob #shop .dks-sign,html.fx-mob #shop .dks-lamps .dks-a-lantern,html.fx-mob #shop .dks-pedbar > .dks-a,html.fx-mob #shop .dks-off,
+html.fx-mob .dks-gl::after,html.fx-mob .dks-b .dks-sh::after,html.fx-mob .dks-dot,html.fx-mob #quest .dks-chest,html.fx-mob #daily .dks-day.now::before,
+html.fx-mob #shop .dks-die .art .dks-a,html.fx-mob #shop .dks-free .art .dks-a,html.fx-mob .dks-gmedal,html.fx-mob .dks-it,html.fx-mob .dks-stamp.new,
+html.fx-mob #cards .dkc-stage > .dkc-big,html.fx-mob #cards .dkc-upcard,html.fx-mob #cards .dkc-mixres > .dkc-big,html.fx-mob #dice .dkc-hero,
+html.fx-mob #dice .dkc-pdie,html.fx-mob #dice .dkc-ghost,html.fx-mob #dice .dkc-pedglow,html.fx-mob #dice .dkc-pedring::after,html.fx-mob #dice .dkc-dcimg img,
+html.fx-mob #cards .dkc-fr::after,html.fx-mob #dice .dkc-fr::after,
+html.fx-mob .dkp-float,html.fx-mob .dkp-ped,html.fx-mob .dkp-arw,html.fx-mob #gacha .dkp-cube,html.fx-mob #gacha .dkp-cubefl,html.fx-mob #gacha .dkp-cglow,
+html.fx-mob .dkp-gl::after,html.fx-mob .dkp-bar > i::after,html.fx-mob #gacha .dkp-pcsh::after,html.fx-mob #gacha .dkp-rainbow,html.fx-mob .dkp-q{animation:none!important}
 </style>
 
 <style>
@@ -5786,6 +5836,16 @@ html.fx-lite #dice .dkc-ghost,html.fx-lite #dice .dkc-pedring::after{animation:n
   #room.dkf-room .dkf-eqdice::after{--dkf-gy:5px}                   /*  78 → 88 */
   #room.dkf-room .rm-seat.dkf-seat::after{--dkf-gy:5px;z-index:-1}  /*  88 → 98（中の小ボタンの下に敷く） */
 }
+
+/* ══════════ スマホ（html.fx-mob）：画素のメモリを増やす物を止める ══════════
+   ・左右のマップカードは 3D をやめて平らに置く（3D の面は1枚ずつ別の層＝CSS の大きさ×3×3 の画素）。
+   ・前回クラスの縁の呼吸・飛行機・矢印・ボタンの光のしまは止める（止めた時は見えない位置か、止まった形）。 */
+html.fx-mob #setup .dkf-carousel{perspective:none}
+html.fx-mob #setup .dkf-mcard.dkf-pl{transform:translateX(-520px) translateY(34px) scale(.72)}
+html.fx-mob #setup .dkf-mcard.dkf-pr{transform:translateX(520px) translateY(34px) scale(.72)}
+html.fx-mob #dkclass .dkf-cur::before,html.fx-mob #dkclass .dkf-pp-plane,html.fx-mob #setup .dkf-arrow .dkf-ico,
+html.fx-mob #setup .dkf-quick::after,html.fx-mob #setup .dkf-mkroom::after,
+html.fx-mob .dkf-scr .dkf-pp-gloss::after,html.fx-mob .dkf-scr .dkf-mc-gloss::after,html.fx-mob .dkf-scr .dkf-shine::after{animation:none!important}
 </style>
 
 <style>
@@ -6337,6 +6397,16 @@ html.fx-lite .dkm-ld-shoot,html.fx-lite .dkm-ld-spark,html.fx-lite .dkm-vs-glow{
 @media (prefers-reduced-motion:reduce){
   .dkm-ld-shoot,.dkm-ld-spark,.dkm-arcdot{display:none}
 }
+/* スマホ（html.fx-mob）：試合の入口（VS・ローディング・盤の上の順番決め）で動き続ける飾りと、
+   both で最後の形のまま残る入場を止める。盤の canvas に重なる板なので、下で動く物があると上の中身がすべて層になる
+   （iPhone の WebKit は層を CSS の大きさ×3×3 の画素で持つ。1k-fx.html の説明）。止めると絵の上に残る光のしまは消す */
+html.fx-mob .dkm-vs-glow,html.fx-mob .dkm-pin-ring,html.fx-mob .dkm-dots i,
+html.fx-mob .dkm-vs-mapbox,html.fx-mob .dkm-vs-band,html.fx-mob .dkm-vs-seat.in,
+html.fx-mob .dkm-tw0,html.fx-mob .dkm-tw1,html.fx-mob .dkm-tw2,html.fx-mob .dkm-lw0,html.fx-mob .dkm-lw1,html.fx-mob .dkm-ld-glint,
+html.fx-mob .dkm-ld-dice,html.fx-mob .dkm-ld-halo,html.fx-mob .dkm-ld-diceref,
+html.fx-mob .dkm-fslot,html.fx-mob .dkm-fcard::before,html.fx-mob .dkm-ff-burst,html.fx-mob .dkm-you:not(.out){animation:none!important}
+html.fx-mob .dkm-world-shine,html.fx-mob .dkm-vs-edge u,html.fx-mob .dkm-ld-water::after,html.fx-mob .dkm-ld-shoot,
+html.fx-mob .dkm-ld-spark,html.fx-mob .dkm-fc-gloss{display:none!important}
 </style>
 
 <style>
@@ -7035,6 +7105,10 @@ html.fx-lite #diceui .dkt-halo,html.fx-lite #diceui #push,html.fx-lite .dkt-art{
 @media (prefers-reduced-motion:reduce){
   #diceui .dkt-halo,#diceui #push,.dkt-art,#diceui .oddeven.dkt-on::before{animation:none}
 }
+/* スマホ（html.fx-mob）：ゲージ・奇数偶数・案内の入場は both で最後の形のまま残り、ずっと別の層になる。
+   光の輪・奇数偶数の光と一緒に止める（iPhone の WebKit は層を CSS の大きさ×3×3 の画素で持つ。1k-fx.html） */
+html.fx-mob #diceui.dkt-in #gauge,html.fx-mob #diceui.dkt-in #odd,html.fx-mob #diceui.dkt-in #even,html.fx-mob #diceui.dkt-in .dkt-cap,
+html.fx-mob #diceui .dkt-halo,html.fx-mob #diceui .oddeven::before,html.fx-mob #diceui .oddeven.dkt-on::before{animation:none!important}
 
 /* ══════════ 横長スマホ（高さ560px未満）：主な文字 26px 以上・本文 22px 以上・押せる範囲 96px 以上 ══════════ */
 @media (max-height:560px){
@@ -7650,6 +7724,12 @@ html.fx-lite #chip .dkb-rays,html.fx-lite #chip .dkb-rays2,html.fx-lite #plate .
 @media (prefers-reduced-motion:reduce){
   #chip .dkb-rays,#chip .dkb-rays2,#plate .bd::after,.dkb-hud.dkb-myturn .dkb-turn,.dkb-hud.dkb-myturn .dkb-pwrap::before{animation:none!important}
 }
+/* スマホ（html.fx-mob）：盤の上で動き続ける小物を止める（ティッカーの文字・総額の光・手番の札と光）。
+   iPhone の WebKit では動く物が1つずつ別の層になり、盤の canvas に重なる HUD などの層もそこで分かれて増える
+   （1k-fx.html の説明）。吹き出し・値上げの札は、常に別の層にする宣言（will-change）をやめる */
+html.fx-mob #stage #tickerText,html.fx-mob #plate .bd::after,html.fx-mob .dkb-hud.dkb-myturn .dkb-turn,
+html.fx-mob .dkb-hud.dkb-myturn .dkb-pwrap::before{animation:none!important}
+html.fx-mob .dkb-bub,html.fx-mob #stage #raise{will-change:auto!important}
 </style>
 
 <style>
@@ -9002,6 +9082,13 @@ html.fx-lite .dkh-badgewrap,html.fx-lite .dkh-med::after,html.fx-lite .dkh-evshi
   .dkh-badgewrap,.dkh-glow,.dkh-gloss,.dkh-med::after,.dkh-evshine,.dkh-evic,.dkh-emb,.dkh-chev b,.dkh-enter::after,.dkh-key svg,
   .dkh-orbit,.dkh-olring,.dkh-lantern,.dkh-row.top1::after,.dkh-wkic,.dkh-msic svg,.dkh-mfill::after,.dkh-card::after{animation:none!important}
 }
+/* スマホ（html.fx-mob）：「動きを減らす」と同じ物を止める（大きな光輪・カードの揺れ・光のしま）。
+   iPhone の WebKit は動く要素とその上に重なる中身を CSS の大きさ×3×3 の画素の層で持つ（1k-fx.html の説明） */
+html.fx-mob .dkh-badgewrap,html.fx-mob .dkh-glow,html.fx-mob .dkh-gloss,html.fx-mob .dkh-med::after,html.fx-mob .dkh-evshine,
+html.fx-mob .dkh-evic,html.fx-mob .dkh-emb,html.fx-mob .dkh-chev b,html.fx-mob .dkh-enter::after,html.fx-mob .dkh-key svg,
+html.fx-mob .dkh-orbit,html.fx-mob .dkh-olring,html.fx-mob .dkh-lantern,html.fx-mob .dkh-row.top1::after,html.fx-mob .dkh-wkic,
+html.fx-mob .dkh-msic svg,html.fx-mob .dkh-mfill::after,html.fx-mob .dkh-card::after{animation:none!important}
+html.fx-mob .dkh-logo::after{display:none}
 </style>
 
 
@@ -17676,6 +17763,14 @@ let SPEED = 1;
 const wait = ms => new Promise(r => setTimeout(r, Math.max(0, ms*SPEED)));
 const esc = s => String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+/* スマホ（iOS・タッチ・短い辺 560px 以下）か。演出と canvas の画素を控える判定（9-fx.js の DKFX.mob もこれを使う）。
+   iPhone の WebKit は合成レイヤーを CSS の大きさ×画面の細かさ²（3×3）の画素で持ち、ステージの縮小が効かないため */
+function dvMobile(){
+  const ua = navigator.userAgent || '', tp = navigator.maxTouchPoints || 0;
+  const ios = /iP(hone|ad|od)/.test(ua) || (/Macintosh/.test(ua) && tp > 1);
+  return !!(ios || tp > 0 || Math.min(window.innerWidth || 9999, window.innerHeight || 9999) <= 560);
+}
+
 /* ══════════ ステージのフィット（横画面バグ対策の要） ══════════ */
 let forcePortrait = false, portraitDir = 90;
 /* 画面のふちに貼り付くとブラウザの戻るジェスチャーと喧嘩して押せなくなるので、
@@ -17880,6 +17975,12 @@ let last = 0;
 function frame(now){
   const dt = Math.min(50, now - last); last = now;
   camStep(dt/1000);
+  /* 不透明な画面（.screen）の下で盤が見えない間は盤を描かない（#world は隠れている。9-fx.js の DKFX.scrSync） */
+  if(typeof DKFX === 'object' && DKFX && DKFX.worldOff){
+    drawGauge(now); paintPortraits(now); tickClock(dt);
+    requestAnimationFrame(frame);
+    return;
+  }
   const dpr = cv.width / SW;
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,SW,SH);
@@ -17968,7 +18069,9 @@ function paintPortraits(T){
 }
 
 /* ══════════ パワーゲージ ══════════ */
-const gcv = $('#gauge'), gctx = gcv.getContext('2d');
+/* スマホはゲージを CPU で描く（willReadFrequently）。GPU の canvas は別の層になり、
+   iPhone の WebKit では上に重なる押すボタン・奇数偶数なども層（CSS の大きさ×3×3 の画素）になるため */
+const gcv = $('#gauge'), gctx = gcv.getContext('2d', dvMobile() ? { willReadFrequently: true } : undefined);
 let gaugeOn = false, gaugeSweet = 0.5, gaugePhase = 0, gaugeHalf = 0.085;
 function drawGauge(T){
   if(!gaugeOn){ gctx.clearRect(0,0,gcv.width,gcv.height); return; }
@@ -23638,9 +23741,11 @@ if(document.readyState === "loading"){
 
 var DKFX = {
   reduced: false,          // 端末の「視差効果を減らす」
-  lite: false,             // 設定「演出：控えめ」（localStorage 'dv_fx'）
+  lite: false,             // 設定「演出：控えめ」（localStorage 'dv_fx'）。スマホは保存が無ければ控えめで始める
+  mob: false,              // スマホ（iOS・タッチ・短い辺が 560px 以下）。html.fx-mob。画素のメモリを増やす演出を止める
+  worldOff: false,         // 不透明な画面（.screen）が出ていて、盤の canvas を描かなくてよい間 true（DKFX.scrSync）
   skip: false,             // 早送り中（fxWait が 1/4 になる）
-  cv: null, ctx: null, k: 1, parts: [], raf: 0, last: 0, spr: null,
+  cv: null, ctx: null, k: 1, cvOn: false, parts: [], raf: 0, last: 0, spr: null,
   timers: {}, o: {}, mseq: 0, seed: 0,
   press: '.dkbtn,.btn,.dktab,.dkrb,.dkitem,.dkic,.dkback,.dkclose,.dkplus,.dkstabs .s,.dktab2 .t,'
        + '.mapcard,.chcard,.ocard,.rm-go,.rm-item,.rm-mbtn,.dk-enter,.dk-rb,.fx-seg button,[data-fx-press]',
@@ -23710,7 +23815,8 @@ var DKFX = {
     catch(e){ try{ el.animate(kf, { duration:150 }); }catch(e2){} }
   },
 
-  /* ── 共有 canvas（バースト・コイン・紙吹雪） ── */
+  /* ── 共有 canvas（バースト・コイン・紙吹雪） ──
+     粒を飛ばす時だけ画素を持つ（1600×900 で 5.5MB）。粒が0個になったら release で 0×0 にして隠す */
   ensure: function(){
     var st = DKFX.stage(); if(!st) return null;
     var cv = document.getElementById('fxCanvas');
@@ -23719,13 +23825,43 @@ var DKFX = {
       st.appendChild(cv);
     }
     var k = Math.max(0.5, Math.min(1, DKFX.scale() * (window.devicePixelRatio || 1)));
-    if(cv !== DKFX.cv || Math.abs(k - DKFX.k) > 0.01 || !DKFX.ctx){
-      DKFX.cv = cv; DKFX.k = k;
+    if(cv !== DKFX.cv || !DKFX.cvOn || Math.abs(k - DKFX.k) > 0.01 || !DKFX.ctx){
+      DKFX.cv = cv; DKFX.k = k; DKFX.cvOn = true;
       cv.width = Math.round(1600 * k); cv.height = Math.round(900 * k);
+      cv.style.display = '';
       DKFX.ctx = cv.getContext('2d');
     }
     if(!DKFX.spr) DKFX.sprites();
     return DKFX.ctx;
+  },
+  release: function(){
+    var cv = DKFX.cv; if(!cv || !DKFX.cvOn) return;
+    DKFX.cvOn = false;
+    cv.width = 0; cv.height = 0; cv.style.display = 'none';
+  },
+  /* 画面（.screen）が出ている間の印を #stage に付ける。
+     dk-scr＝何かの画面が出ている／dk-scr-op＝不透明な画面が出ている（下の盤は見えない）／
+     dk-scr-ch＝盤の部品（HUD・プレートなど）を隠す（不透明な画面の下、スマホは透ける画面＝結果の下でも）。
+     iPhone の WebKit は、合成される盤の canvas に重なる要素をすべて別の層（CSS の大きさ×3×3 の画素）にするので、
+     見えない盤と盤の部品は描かない（CSS は 1k-fx.html）。frame() は worldOff の間 盤を描かない */
+  scrSync: function(){
+    var st = DKFX.stage(); if(!st) return;
+    var on = null, ch = st.children;
+    for(var i = 0; i < ch.length; i++){
+      if(ch[i].classList.contains('screen') && ch[i].classList.contains('on')){ on = ch[i]; break; }
+    }
+    var op = false;
+    if(on){
+      var cs = getComputedStyle(on), a = 1, m = /rgba?\(([^)]*)\)/.exec(cs.backgroundColor || '');
+      if(m){ var p = m[1].split(','); if(p.length > 3) a = parseFloat(p[3]); }
+      else if(cs.backgroundColor === 'transparent') a = 0;
+      op = !(a < 1) || !!(cs.backgroundImage && cs.backgroundImage !== 'none');
+    }
+    if(st.classList.contains('dk-scr') !== !!on) st.classList.toggle('dk-scr', !!on);
+    if(st.classList.contains('dk-scr-op') !== op) st.classList.toggle('dk-scr-op', op);
+    var chh = op || (DKFX.mob && !!on);
+    if(st.classList.contains('dk-scr-ch') !== chh) st.classList.toggle('dk-scr-ch', chh);
+    DKFX.worldOff = op;
   },
   sprites: function(){
     var mk = function(){ var c = document.createElement('canvas'); c.width = 48; c.height = 48; return c; };
@@ -23771,11 +23907,12 @@ var DKFX = {
   clearParts: function(){
     var P = DKFX.parts; DKFX.parts = [];
     P.forEach(function(q){ if(q.mode === 'c' && q.done) q.done(); });
-    if(DKFX.ctx) DKFX.ctx.clearRect(0, 0, DKFX.cv.width, DKFX.cv.height);
+    if(DKFX.ctx && DKFX.cvOn) DKFX.ctx.clearRect(0, 0, DKFX.cv.width, DKFX.cv.height);
+    DKFX.release();
   },
   tick: function(){
     var F = DKFX; F.raf = 0;
-    var ctx = F.ctx; if(!ctx) return;
+    var ctx = F.ctx; if(!ctx || !F.cvOn) return;
     var now = performance.now(), dt = Math.max(0, Math.min(50, now - (F.last || now))); F.last = now;
     ctx.setTransform(F.k, 0, 0, F.k, 0, 0);
     ctx.clearRect(0, 0, 1600, 900);
@@ -23788,7 +23925,7 @@ var DKFX = {
     F.parts = keep;
     ctx.globalCompositeOperation = 'source-over';
     if(keep.length) F.raf = requestAnimationFrame(F.tick);
-    else { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, F.cv.width, F.cv.height); F.last = 0; }
+    else { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, F.cv.width, F.cv.height); F.last = 0; F.release(); }
   },
   draw: function(ctx, q, x, y, sz, rot){
     ctx.save();
@@ -23834,6 +23971,12 @@ var DKFX = {
     if(!t || t.querySelector(':scope > .fx-tlayer')) return;
     var L = document.createElement('div');
     L.className = 'fx-tlayer'; L.setAttribute('aria-hidden', 'true');
+    if(DKFX.mob){
+      /* スマホ：動く層を作らない（絵は #title の背景にある。ボタンの光は止まった形で置く） */
+      L.innerHTML = '<div class="fx-tglow fx-g1"></div><div class="fx-tglow fx-g2"></div>';
+      t.insertBefore(L, t.firstChild);
+      return;
+    }
     var h = '<div class="fx-tbg"></div>';
     [[455, 95], [1180, 110], [240, 610]].forEach(function(p, i){
       h += '<i class="fx-twinkle" style="left:' + p[0] + 'px;top:' + p[1] + 'px;animation-delay:' + (-i * 0.9).toFixed(1) + 's"></i>';
@@ -23909,7 +24052,8 @@ function fxWait(ms){
 /* 画面の入場。[data-fx] を DOM の順に 45ms 間隔（data-fx-step で変更、10個で頭打ち）。
    値 rise|riseL|riseR|pop|popBig|deal|hero|none。[data-fx] が1つも無い画面は既定のセレクタで付ける */
 function fxEnter(el){
-  if(!el || el.nodeType !== 1 || DKFX.reduced) return;
+  /* スマホは入場しない（入場中は動く要素がすべて別の層になり、画素のメモリが一時に跳ね上がる） */
+  if(!el || el.nodeType !== 1 || DKFX.reduced || DKFX.mob) return;
   var list = el.querySelectorAll('[data-fx]'), auto = false;
   if(!list.length){ list = el.querySelectorAll(DKFX.autoSel); auto = true; }
   var base = parseInt(el.getAttribute('data-fx-step'), 10) || 45, i = 0, maxD = 0;
@@ -23945,9 +24089,10 @@ function fxAmbient(el, opt){
   opt = opt || {};
   var n = (opt.motes === undefined) ? 12 : Math.max(0, opt.motes | 0);
   if(DKFX.lite || DKFX.small()) n = Math.min(n, 6);
+  if(DKFX.mob) n = 0;       // スマホ：動く粒・斜めの光は作らない（下で動くと、上に重なる中身がすべて別の層になる）
   a = document.createElement('div');
   a.className = 'fx-amb'; a.setAttribute('aria-hidden', 'true');
-  var h = '<i class="fx-blob"></i><i class="fx-blob fx-b2"></i><i class="fx-ray"></i>';
+  var h = '<i class="fx-blob"></i><i class="fx-blob fx-b2"></i>' + (DKFX.mob ? '' : '<i class="fx-ray"></i>');
   for(var i = 0; i < n; i++){
     h += '<i class="fx-mote" style="left:' + (5 + DKFX.rnd() * 90).toFixed(1) + '%;top:' + (60 + DKFX.rnd() * 40).toFixed(1)
        + '%;animation-duration:' + (7 + DKFX.rnd() * 5).toFixed(1) + 's;animation-delay:-' + (DKFX.rnd() * 10).toFixed(1) + 's"></i>';
@@ -24267,23 +24412,51 @@ newGame = function(){
 /* ══════════ 起動 ══════════ */
 (function(){
   try{
-    try{ var v = localStorage.getItem('dv_fx'); DKFX.lite = (v === 'lite' || v === '1' || v === 'true'); }catch(e){}
+    var v = null;
+    try{ v = localStorage.getItem('dv_fx'); }catch(e){}
+    /* スマホ（iOS・タッチ・短い辺 560px 以下）：iPhone の WebKit は動く要素とその上に重なる要素を
+       CSS の大きさ×3×3 の画素で持つ（#stage の縮小は効かない）ので、画素のメモリを増やす演出を止める
+       （html.fx-mob。CSS は 1k-fx.html ほか）。演出の設定が保存されていなければ「控えめ」で始める */
+    DKFX.mob = (typeof dvMobile === 'function') ? dvMobile()
+      : !!(/iP(hone|ad|od)/.test(navigator.userAgent || '') || (navigator.maxTouchPoints || 0) > 0);
+    document.documentElement.classList.toggle('fx-mob', DKFX.mob);
+    DKFX.lite = (v === 'lite' || v === '1' || v === 'true') || (v === null && DKFX.mob);
     var mq = window.matchMedia ? matchMedia('(prefers-reduced-motion: reduce)') : null;
     DKFX.reduced = !!(mq && mq.matches);
     if(mq && mq.addEventListener) mq.addEventListener('change', function(){ DKFX.reduced = !!mq.matches; });
     document.documentElement.classList.toggle('fx-lite', DKFX.lite);
     var st = DKFX.stage();
     if(st){
-      DKFX.ensure();
       if(!st.querySelector(':scope > .fx-flash')){
         var f = document.createElement('div'); f.className = 'fx-flash'; f.id = 'fxFlash'; f.setAttribute('aria-hidden', 'true');
         st.appendChild(f);
       }
       DKFX.layer();
       st.addEventListener('pointerdown', DKFX.ripple, true);
+      /* 画面の出し入れを見張る（#stage の直下の子の出入りと、.screen の class だけを見る） */
+      if(window.MutationObserver){
+        var watch = null;
+        var mo = new MutationObserver(function(recs){
+          var need = false;
+          for(var i = 0; i < recs.length; i++){
+            var r = recs[i];
+            if(r.type === 'childList'){ need = true; Array.prototype.forEach.call(r.addedNodes, watch); }
+            else if(r.target && r.target.classList && r.target.classList.contains('screen')) need = true;
+          }
+          if(need){ try{ DKFX.scrSync(); }catch(e){ console.error('[WP0]', e); } }
+        });
+        watch = function(n){
+          if(n && n.nodeType === 1 && n.classList.contains('screen') && !n._fxObs){
+            n._fxObs = 1; mo.observe(n, { attributes:true, attributeFilter:['class'] });
+          }
+        };
+        mo.observe(st, { childList:true });
+        Array.prototype.forEach.call(st.children, watch);
+      }
+      DKFX.scrSync();
     }
     DKFX.titleFx();
-    window.addEventListener('resize', function(){ try{ if(DKFX.cv) DKFX.ensure(); }catch(e){} });
+    window.addEventListener('resize', function(){ try{ if(DKFX.cv && DKFX.cvOn) DKFX.ensure(); }catch(e){} });
     document.addEventListener('visibilitychange', function(){ if(document.hidden) DKFX.clearParts(); });
   }catch(e){ console.error('[WP0]', e); }
 })();
@@ -27770,7 +27943,8 @@ function dkfOnline(){
 /* マップの色（lake・slab）で菱形の盤を描く。乱数は使わない */
 function dkfDrawBoard(cv, map){
   if(!cv || !cv.getContext || !map) return;
-  var g = cv.getContext('2d'), W = cv.width, H = cv.height;
+  /* スマホは CPU で描く（GPU の canvas は別の層になり、上に重なるマップ名・角の札もすべて層になる） */
+  var g = cv.getContext('2d', (typeof DKFX === 'object' && DKFX && DKFX.mob) ? { willReadFrequently: true } : undefined), W = cv.width, H = cv.height;
   var cx = W / 2, cy = H * 0.40, A = W * 0.40, B = A * 0.5, D = 24, w = 0.17, L = (1 - 2 * w) / 7;
   var P = function(u, v){ return [cx + (u - v) * A, cy - B + (u + v) * B]; };
   var poly = function(pts, fill, stroke, lw){
@@ -27950,6 +28124,24 @@ function dkfBuildMap(){
 function dkFlowMap(){
   dkfBuildMap();
   screenTo('setup');
+}
+/* 起動時：旧 #setup を空にするだけ（見えない画面の canvas・要素を起動時に作らない）。
+   mapSig を空にしておくので、#setup を開いた時（dkFlowMap か 'screen' イベント）に作る */
+function dkfClearSetup(){
+  var el = document.getElementById('setup'); if(!el) return;
+  el.innerHTML = '';
+  DKF_S.mapSig = '';
+}
+/* マップ選択を離れたら、盤の小さな絵（canvas 640×380 ×3）の画素を返す。ワイプが終わってから。次に開く時に作り直す */
+function dkfFreeMapLater(){
+  clearTimeout(DKF_S.freeT);
+  DKF_S.freeT = setTimeout(function(){
+    var el = document.getElementById('setup');
+    if(!el || el.classList.contains('on')) return;
+    var cvs = el.querySelectorAll('canvas.dkf-mcv'); if(!cvs.length) return;
+    cvs.forEach(function(c){ c.width = 0; c.height = 0; });
+    DKF_S.mapSig = '';
+  }, 900);
 }
 /* カルーセルの並び（中央＝cfg.mapId）を反映する。画面ができる前は何もしない */
 function renderMaps(){
@@ -28545,9 +28737,10 @@ function dkfWireEnter(){
 (function(){
   try{
     dkfSyncCfg();
-    dkfBuildMap();                       // 旧 #setup（select・#mapList・#seatList）を消してマップ選択を作っておく
+    dkfClearSetup();                     // 旧 #setup（select・#mapList・#seatList）を消す。マップ選択は初めて開く時に作る
     dkOn('screen', function(e){
-      if(!e || e.id !== 'setup') return;
+      if(!e) return;
+      if(e.id !== 'setup'){ if(e.changed) dkfFreeMapLater(); return; }
       if(e.changed && DKF_S.mapSig !== dkfMapSig()) dkfBuildMap();
       if(e.changed) dkfTickerStart();
     });
@@ -31981,7 +32174,14 @@ function dktWatch(on){
   }
 }
 
-/* ══════════ ゲージを描く（毎フレーム。#gauge に 2倍の解像度で） ══════════ */
+/* スマホ：ゲージの画素を盤の canvas と同じ細かさ（ステージの縮尺×devicePixelRatio、1〜2倍）に合わせる。
+   iPhone 横は 1.25 倍で足りる（2倍の 1120×428 は要らない） */
+function dktGaugeFit(){
+  var k = (typeof cv !== 'undefined' && cv && cv.width) ? Math.max(1, Math.min(2, cv.width / 1600)) : 1;
+  var w = Math.round(DKT_GW * k);
+  if(gcv.width !== w){ gcv.width = w; gcv.height = Math.round(DKT_GH * k); }
+}
+/* ══════════ ゲージを描く（毎フレーム。#gauge に 2倍の解像度で。スマホは dktGaugeFit の細かさ） ══════════ */
 function drawGauge(T){
   if(typeof gcv === 'undefined' || !gcv || !gctx) return;
   var I = DKT_G.inp, on = !!gaugeOn && !!G;
@@ -31992,6 +32192,7 @@ function drawGauge(T){
     return;
   }
   DKT_G.drawn = true;
+  if(typeof DKFX === 'object' && DKFX && DKFX.mob) dktGaugeFit();
   var now = performance.now(), k = gcv.width / DKT_GW, A = DKT_ARC;
   g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, gcv.width, gcv.height);
   g.setTransform(k, 0, 0, k, 0, 0);
@@ -32644,7 +32845,10 @@ if(DKT_useSkill0){
 /* ══════════ 起動：サイコロUIの部品をそろえる ══════════ */
 (function(){
   try{
-    if(typeof gcv !== 'undefined' && gcv){ gcv.width = DKT_GW * 2; gcv.height = DKT_GH * 2; }
+    if(typeof gcv !== 'undefined' && gcv){
+      var gk = (typeof DKFX === 'object' && DKFX && DKFX.mob) ? 1 : 2;     // スマホは描く時に dktGaugeFit が合わせる
+      gcv.width = DKT_GW * gk; gcv.height = DKT_GH * gk;
+    }
     var ui = document.getElementById('diceui'), push = document.getElementById('push');
     if(ui && push){
       if(!ui.querySelector('.dkt-halo')){
@@ -34142,6 +34346,28 @@ function dkbInfo(pi){
 }
 
 /* ══════════ 起動：代入ラッパと DOM ══════════ */
+/* スマホ：盤のまわりの減光（.dkb-vignette と同じ radial-gradient(125% 100%, 透明 56% → rgba(10,5,0,.46) 100%)）を
+   盤の canvas に描く。DOM の膜は画面いっぱいの層（iPhone で約49MB）になるので出さない（1k-fx.html）。
+   暗くなるのは楕円の外＝四隅の 296×97 の内側だけなので、1/4 の大きさで作った絵から四隅 300×100 を貼る */
+function dkbVignette(g){
+  var V = DKB_S.vg;
+  if(!V){
+    V = DKB_S.vg = document.createElement('canvas'); V.width = 400; V.height = 225;
+    var c = V.getContext('2d');
+    c.setTransform(1, 0, 0, 0.45, 0, 0);            // 横の半径 2000・縦の半径 900 の楕円を、縦を 0.45 倍した円で描く
+    var gr = c.createRadialGradient(200, 250, 0, 200, 250, 500);
+    gr.addColorStop(0, 'rgba(10,5,0,0)'); gr.addColorStop(0.56, 'rgba(10,5,0,0)'); gr.addColorStop(1, 'rgba(10,5,0,.46)');
+    c.fillStyle = gr; c.fillRect(0, 0, 400, 500);
+  }
+  var k = (typeof cv !== 'undefined' && cv && cv.width) ? cv.width / 1600 : 1;
+  g.save();
+  g.setTransform(k, 0, 0, k, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+  g.drawImage(V, 0, 0, 75, 25, 0, 0, 300, 100);
+  g.drawImage(V, 325, 0, 75, 25, 1300, 0, 300, 100);
+  g.drawImage(V, 0, 200, 75, 25, 0, 800, 300, 100);
+  g.drawImage(V, 325, 200, 75, 25, 1300, 800, 300, 100);
+  g.restore();
+}
 var DKB_O = {};
 (function(){
   try{
@@ -34162,6 +34388,12 @@ var DKB_O = {};
     drawLake = function(ctx, map, T){
       var r = DKB_O.drawLake.apply(this, arguments);
       try{ dkbLakeSkin(ctx, map, T); }catch(e){ dkbErr('lake', e); }
+      return r;
+    };
+    DKB_O.celOverlay = celOverlay;
+    celOverlay = function(ctx2, now){
+      var r = DKB_O.celOverlay.apply(this, arguments);
+      try{ if(G && typeof DKFX === 'object' && DKFX && DKFX.mob) dkbVignette(ctx2); }catch(e){ dkbErr('vignette', e); }
       return r;
     };
     DKB_O.drawDice = drawDice;

@@ -613,4 +613,14 @@
   #room.dkf-room .dkf-eqdice::after{--dkf-gy:5px}                   /*  78 → 88 */
   #room.dkf-room .rm-seat.dkf-seat::after{--dkf-gy:5px;z-index:-1}  /*  88 → 98（中の小ボタンの下に敷く） */
 }
+
+/* ══════════ スマホ（html.fx-mob）：画素のメモリを増やす物を止める ══════════
+   ・左右のマップカードは 3D をやめて平らに置く（3D の面は1枚ずつ別の層＝CSS の大きさ×3×3 の画素）。
+   ・前回クラスの縁の呼吸・飛行機・矢印・ボタンの光のしまは止める（止めた時は見えない位置か、止まった形）。 */
+html.fx-mob #setup .dkf-carousel{perspective:none}
+html.fx-mob #setup .dkf-mcard.dkf-pl{transform:translateX(-520px) translateY(34px) scale(.72)}
+html.fx-mob #setup .dkf-mcard.dkf-pr{transform:translateX(520px) translateY(34px) scale(.72)}
+html.fx-mob #dkclass .dkf-cur::before,html.fx-mob #dkclass .dkf-pp-plane,html.fx-mob #setup .dkf-arrow .dkf-ico,
+html.fx-mob #setup .dkf-quick::after,html.fx-mob #setup .dkf-mkroom::after,
+html.fx-mob .dkf-scr .dkf-pp-gloss::after,html.fx-mob .dkf-scr .dkf-mc-gloss::after,html.fx-mob .dkf-scr .dkf-shine::after{animation:none!important}
 </style>
