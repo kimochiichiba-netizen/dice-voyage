@@ -54,8 +54,14 @@
 .dklogo{position:absolute;left:108px;top:0;width:372px;height:98px;
   background:center/contain no-repeat;
   filter:drop-shadow(0 3px 6px rgba(0,0,0,.65))}
+/* ロゴは飾りなので指を受けない。
+   ここを素通しにしないと、下の「光が走る」層（左右に±115%＝最大428px動く）が
+   すぐ左の戻るボタン（左16px〜94px）の上に乗ってしまい、タップが吸われる。
+   実測: iPhone横 844×390 で戻るボタンの反応する幅が 32.6px→16.0px に半減、
+   「縦のままプレイ」では 9点中6点が無反応（=ほぼ押せない）だった。 */
+.dklogo{pointer-events:none}
 .dklogo::after{                               /* 光が左から右へ走る */
-  content:"";position:absolute;inset:0;
+  content:"";position:absolute;inset:0;pointer-events:none;
   background:linear-gradient(105deg,transparent 36%,rgba(255,255,255,.55) 47%,transparent 58%);
   mask:var(--dk-logo-mask) center/contain no-repeat;
   -webkit-mask:var(--dk-logo-mask) center/contain no-repeat;
@@ -163,7 +169,7 @@
   -webkit-text-stroke:4px rgba(30,18,4,.85);paint-order:stroke fill;
   padding:14px 26px;overflow:hidden;transition:transform .1s,filter .12s;
   box-shadow:0 5px 0 rgba(0,0,0,.42),inset 0 2px 0 rgba(255,255,255,.45)}
-.dkbtn::after{content:"";position:absolute;top:0;bottom:0;width:38%;
+.dkbtn::after{content:"";position:absolute;top:0;bottom:0;width:38%;pointer-events:none;
   background:linear-gradient(105deg,transparent,rgba(255,255,255,.5),transparent);
   transform:translateX(-160%);animation:dkBtnShine 3.4s ease-in-out infinite}
 @keyframes dkBtnShine{0%,70%{transform:translateX(-160%)}88%,100%{transform:translateX(360%)}}
@@ -191,7 +197,7 @@
 .dkbar.bl i{background:linear-gradient(180deg,#A8DCFF 0 26%,#3E9BEC 52%,#1B63B8)}
 .dkbar.gd i{background:linear-gradient(180deg,#FFEDB0 0 26%,#F2C230 52%,#C08A0E)}
 .dkbar.rd i{background:linear-gradient(180deg,#FFB0A6 0 26%,#E8483A 52%,#A8210F)}
-.dkbar i::after{content:"";position:absolute;inset:0;
+.dkbar i::after{content:"";position:absolute;inset:0;pointer-events:none;
   background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.45) 50%,transparent 60%);
   animation:dkBarFlow 2.2s linear infinite}
 @keyframes dkBarFlow{from{transform:translateX(-60%)}to{transform:translateX(160%)}}

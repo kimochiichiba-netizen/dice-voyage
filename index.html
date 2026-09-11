@@ -2374,8 +2374,14 @@ button:focus-visible,.tab:focus-visible,.modebtn:focus-visible,.minicard:focus-v
 .dklogo{position:absolute;left:108px;top:0;width:372px;height:98px;
   background:center/contain no-repeat;
   filter:drop-shadow(0 3px 6px rgba(0,0,0,.65))}
+/* ロゴは飾りなので指を受けない。
+   ここを素通しにしないと、下の「光が走る」層（左右に±115%＝最大428px動く）が
+   すぐ左の戻るボタン（左16px〜94px）の上に乗ってしまい、タップが吸われる。
+   実測: iPhone横 844×390 で戻るボタンの反応する幅が 32.6px→16.0px に半減、
+   「縦のままプレイ」では 9点中6点が無反応（=ほぼ押せない）だった。 */
+.dklogo{pointer-events:none}
 .dklogo::after{                               /* 光が左から右へ走る */
-  content:"";position:absolute;inset:0;
+  content:"";position:absolute;inset:0;pointer-events:none;
   background:linear-gradient(105deg,transparent 36%,rgba(255,255,255,.55) 47%,transparent 58%);
   mask:var(--dk-logo-mask) center/contain no-repeat;
   -webkit-mask:var(--dk-logo-mask) center/contain no-repeat;
@@ -2483,7 +2489,7 @@ button:focus-visible,.tab:focus-visible,.modebtn:focus-visible,.minicard:focus-v
   -webkit-text-stroke:4px rgba(30,18,4,.85);paint-order:stroke fill;
   padding:14px 26px;overflow:hidden;transition:transform .1s,filter .12s;
   box-shadow:0 5px 0 rgba(0,0,0,.42),inset 0 2px 0 rgba(255,255,255,.45)}
-.dkbtn::after{content:"";position:absolute;top:0;bottom:0;width:38%;
+.dkbtn::after{content:"";position:absolute;top:0;bottom:0;width:38%;pointer-events:none;
   background:linear-gradient(105deg,transparent,rgba(255,255,255,.5),transparent);
   transform:translateX(-160%);animation:dkBtnShine 3.4s ease-in-out infinite}
 @keyframes dkBtnShine{0%,70%{transform:translateX(-160%)}88%,100%{transform:translateX(360%)}}
@@ -2511,7 +2517,7 @@ button:focus-visible,.tab:focus-visible,.modebtn:focus-visible,.minicard:focus-v
 .dkbar.bl i{background:linear-gradient(180deg,#A8DCFF 0 26%,#3E9BEC 52%,#1B63B8)}
 .dkbar.gd i{background:linear-gradient(180deg,#FFEDB0 0 26%,#F2C230 52%,#C08A0E)}
 .dkbar.rd i{background:linear-gradient(180deg,#FFB0A6 0 26%,#E8483A 52%,#A8210F)}
-.dkbar i::after{content:"";position:absolute;inset:0;
+.dkbar i::after{content:"";position:absolute;inset:0;pointer-events:none;
   background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.45) 50%,transparent 60%);
   animation:dkBarFlow 2.2s linear infinite}
 @keyframes dkBarFlow{from{transform:translateX(-60%)}to{transform:translateX(160%)}}
@@ -2966,6 +2972,85 @@ button:focus-visible,.tab:focus-visible,.modebtn:focus-visible,.minicard:focus-v
 #gacha .dkdet{align-self:flex-start;max-height:100%}
 #gacha .dkdet .btns{margin-top:14px}
 @media (prefers-reduced-motion:reduce){ #gacha .dkcube .stage .orb{animation:none} }
+
+
+/* ══════════════════════════════════════════════════════════════
+   指で押す的を広げる（見た目は1ピクセルも変えない）
+   ──────────────────────────────────────────────────────────────
+   1600×900 のステージは iPhone 横（844×390）だと 41.8% まで縮む。
+   つまり盤面の 44px のボタンは、指の側では 18.4px（約3mm）しかない。
+   Apple の目安は 44pt（約7mm）。半分以下で、隣を押してしまう。
+
+   そこで「透明な当たり判定」を ::after で足す。絵はそのまま、
+   押せる範囲だけを広げる。大きさはステージ座標なので、
+   96px ＝ iPhone 横で約 40px に相当する。
+
+   広げてよい量は「隣の押せる物との隙間」を実測して決めた（ステージ座標）。
+   各辺に隙間ぶんだけ広げる。こうすると隣の透明パッドとは隙間の中で
+   触れ合うだけで、相手の“絵の上”には絶対に乗らない＝どのボタンも
+   見えている面は必ず押せる、という決まりを守れる。
+
+   実測した隙間（ステージ座標 px）:
+     歯車255 ポーズ350 エモート136 能力136 ／ 奇数偶数35（相手は「押す」）
+     戻る38 ✕23 ＋(通貨)23 ＋(財布)29 手紙12 更新25 入場11
+     レール8 ランキングタブ8 ショップタブ12
+     宇宙マップ91 ルール251 ペンダント枠60 友だち追加14 まとめ買い12
+     持ち物バー6（縦に並んでいるので上下も6しか無い）
+
+   効かせる条件: 指で触る端末（pointer:coarse）か、
+   ステージが半分以下に縮む細長い画面（高さ560px未満 ／ 縦持ちプレイ）。
+   ══════════════════════════════════════════════════════════════ */
+@media (pointer:coarse), (max-height:560px), (max-aspect-ratio:1/1) and (max-width:560px){
+
+  /* 共通の透明パッド。--gx / --gy が「片側あたり何px広げるか」 */
+  #gearBtn::after,#menu::after,#emotebtn::after,#skillBtn::after,
+  #odd::after,#even::after,#itembar button::after,
+  .dkback::after,.dkclose::after,.dkplus::after,.dkic::after,
+  .wallet .wp::after,.dkcard .ft .sw::after,
+  .dkrb::after,.rail .rb::after,.dktab2 .t::after,.dktab2 .q::after,.dkstabs .s::after,
+  #dkEnter::after,#rmUmap::after,#rmMode::after,#rmSlot::after,#rmAdd::after,
+  .rm-mbtn::after{
+    content:"";position:absolute;left:50%;top:50%;
+    transform:translate(-50%,-50%);
+    width:calc(100% + var(--gx,0px) * 2);
+    height:calc(100% + var(--gy,0px) * 2);
+    background:transparent;border:0;z-index:1;pointer-events:auto}
+
+  /* 位置の基準が無い物にだけ relative を足す（オフセットを付けないので見た目は動かない）。
+     これを忘れると透明パッドが「もっと外側の親」を基準にしてしまい、
+     幅100%が親の幅になって画面の半分が反応する事故になる（#rmMode で実測した）。 */
+  .dkplus,.dkcard .ft .sw,.dktab2 .t,.dktab2 .q,.dkstabs .s,
+  .dkhdR .dkclose,#itembar button,#rmMode{position:relative}
+
+  /* ── 対戦中の操作ボタン（まわりが空いているので 96px＝指の幅まで） ── */
+  #gearBtn::after {--gx:26px;--gy:26px}   /*  44 → 96 */
+  #menu::after    {--gx:20px;--gy:20px}   /*  56 → 96 */
+  #emotebtn::after{--gx:13px;--gy:13px}   /*  70 → 96 */
+  #skillBtn::after{--gx:17px;--gy:34px}   /*  62×29 → 96×97 */
+  #odd::after,#even::after{--gx:16px;--gy:16px}  /* 108×54 → 140×86（「押す」まで35あるうち16） */
+  #itembar button::after{--gx:6px;--gy:6px}      /* 上下に6しか無い。気休めだが無いよりまし */
+
+  /* ── 王宮画面の小さなアイコン ── */
+  .dkback::after {--gx:17px;--gy:17px}    /*  78×62 → 112×96 */
+  .dkclose::after{--gx:11px;--gy:11px}    /*  64×62 → 86×84 */
+  .dkplus::after {--gx:23px;--gy:23px}    /*  38×38 → 84×84 */
+  .dkic::after   {--gx:12px;--gy:12px}    /*  62×60 → 86×84 */
+  .wallet .wp::after{--gx:29px;--gy:29px} /*  44×44 → 102×102 */
+  .dkcard .ft .sw::after{--gx:25px;--gy:25px}  /* 44×40 → 94×90 */
+
+  /* ── 一覧・タブ・レール（隣とくっついているので縦だけ） ── */
+  .dkrb::after,.rail .rb::after{--gy:8px}       /*  64 → 80 */
+  .dktab2 .t::after,.dktab2 .q::after{--gy:8px} /*  56 → 72 */
+  .dkstabs .s::after{--gy:12px}                 /*  52 → 76 */
+
+  /* ── ホーム・待機部屋の横長ボタン ── */
+  #dkEnter::after{--gy:11px}              /*  86 → 108 */
+  #rmUmap::after {--gy:20px}              /*  55 → 95 */
+  #rmMode::after {--gy:25px}              /*  46 → 96 */
+  #rmSlot::after {--gy:28px}              /*  40 → 96 */
+  #rmAdd::after  {--gx:14px;--gy:14px}    /* 136×71 → 164×99 */
+  .rm-mbtn::after{--gy:12px}              /*  79/91 → 103/115 */
+}
 
 </style>
 
