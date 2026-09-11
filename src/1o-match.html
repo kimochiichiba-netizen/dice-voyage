@@ -16,11 +16,15 @@
 #vs{position:absolute;inset:0;z-index:330;display:none;overflow:hidden;background:transparent;pointer-events:auto;
   font-family:var(--jp)}
 #vs.on{display:block}
+#stage.dkm-vsc > .screen.on{visibility:hidden}
+/* この班の画面には自前の背景があるので、共通の光の粒（fxAmbient）は出さない（常時アニメを1画面8個までに） */
+#loading > .fx-amb,#result > .fx-amb{display:none!important}
 #vs.dkm-out{animation:dkmFadeOut 90ms var(--fx-in) forwards}
 .dkm-vs-veil{position:absolute;inset:0;
   background:radial-gradient(70% 62% at 50% 58%,rgba(6,22,32,.74),rgba(2,7,11,.92) 72%,rgba(0,0,0,.96))}
 .dkm-vs-glow{position:absolute;left:50%;top:590px;width:1240px;height:560px;margin:-280px 0 0 -620px;border-radius:50%;
-  background:radial-gradient(closest-side,rgba(90,205,255,.26),rgba(90,205,255,0));animation:dkmPulse 2.4s ease-in-out infinite}
+  background:radial-gradient(closest-side,rgba(90,205,255,.26),rgba(90,205,255,0))}
+@keyframes dkmBlink{0%,100%{opacity:1}50%{opacity:.55}}
 .dkm-vs-mapbox{position:absolute;left:50%;top:300px;width:1040px;height:606px;margin-left:-520px;
   animation:dkmMapIn 560ms var(--fx-out) both}
 @keyframes dkmMapIn{from{transform:translateY(26px) scale(.94)}}
@@ -34,7 +38,7 @@
 .dkm-arcdot.head{fill:#FFFFFF;stroke:#FFD24D;stroke-width:4}
 .dkm-pin-ring{fill:none;stroke:#FFE27A;stroke-width:3;transform-box:fill-box;transform-origin:center;
   animation:dkmRing 1.4s ease-out infinite}
-.dkm-pin-ring.r2{animation-delay:.7s}
+.dkm-pin-ring.r2{display:none}
 @keyframes dkmRing{0%{transform:scale(.5);opacity:.95}100%{transform:scale(2.1);opacity:0}}
 
 .dkm-vs-band{position:absolute;left:0;right:0;top:150px;height:112px;display:flex;align-items:center;justify-content:center;
@@ -55,10 +59,8 @@
 .dkm-vs-txt.s2{visibility:hidden}
 .dkm-found .dkm-vs-txt.s1{visibility:hidden}
 .dkm-found .dkm-vs-txt.s2{visibility:visible;animation:fxPopBig 420ms var(--fx-spring) both}
-.dkm-dots i{font-style:normal;display:inline-block;animation:dkmDot 1.1s ease-in-out infinite}
-.dkm-dots i:nth-child(2){animation-delay:.18s}
-.dkm-dots i:nth-child(3){animation-delay:.36s}
-@keyframes dkmDot{0%,100%{transform:translateY(0)}40%{transform:translateY(-10px)}}
+.dkm-dots{display:inline-block;animation:dkmBlink 1.1s ease-in-out infinite}
+.dkm-dots i{font-style:normal}
 
 .dkm-vs-seats{position:absolute;left:0;right:0;top:772px;display:flex;justify-content:center;gap:22px}
 .dkm-vs-seat{position:relative;visibility:hidden;display:flex;align-items:center;gap:12px;height:82px;padding:0 18px 0 16px;
@@ -91,21 +93,18 @@
 .dkm-ld-stars{position:absolute;left:0;top:0;width:1600px;height:900px}
 .dkm-tw0{animation:dkmTw 3.2s ease-in-out infinite}
 .dkm-tw1{animation:dkmTw 4.1s ease-in-out -1.3s infinite}
-.dkm-tw2{animation:dkmTw 2.6s ease-in-out -.7s infinite}
+.dkm-tw2{opacity:.8}
 .dkm-ld-moon{position:absolute;left:1236px;top:86px;width:112px;height:112px;border-radius:50%;
   background:radial-gradient(circle at 36% 34%,#FFFEF4,#F2EED6 52%,#CFC8A4 100%);
   box-shadow:0 0 60px 22px rgba(210,238,255,.22),inset -14px -10px 0 rgba(160,150,110,.28)}
 .dkm-ld-shoot{position:absolute;width:300px;height:3px;border-radius:3px;transform-origin:right center;
   background:linear-gradient(90deg,rgba(255,255,255,0),rgba(210,240,255,.75) 72%,#FFFFFF)}
 .dkm-ld-shoot.s1{left:150px;top:96px;animation:dkmShoot 4.2s ease-in .3s infinite}
-.dkm-ld-shoot.s2{left:760px;top:40px;animation:dkmShoot 5.4s ease-in 1.9s infinite}
-.dkm-ld-shoot.s3{left:420px;top:210px;animation:dkmShoot 6.2s ease-in 3.1s infinite}
 @keyframes dkmShoot{0%{transform:translate(0,0) rotate(24deg) scaleX(0)}8%{transform:translate(60px,27px) rotate(24deg) scaleX(1)}
   26%{transform:translate(560px,250px) rotate(24deg) scaleX(0)}100%{transform:translate(560px,250px) rotate(24deg) scaleX(0)}}
 .dkm-ld-horizon{position:absolute;left:0;right:0;top:318px;height:300px}
 .dkm-ld-city{display:block;width:100%;height:100%}
-.dkm-lw0{animation:dkmTw 2.2s ease-in-out infinite}
-.dkm-lw1{animation:dkmTw 3.4s ease-in-out -1.1s infinite}
+.dkm-lw1{opacity:.7}
 .dkm-ld-water{position:absolute;left:0;right:0;top:618px;bottom:0;overflow:hidden}
 .dkm-ld-water::before{content:"";position:absolute;inset:0;
   background:repeating-linear-gradient(180deg,rgba(255,255,255,0) 0 7px,rgba(190,240,255,.07) 7px 9px)}
@@ -116,28 +115,25 @@
   -webkit-mask:linear-gradient(0deg,#000 0,rgba(0,0,0,.5) 36%,transparent 78%);mask:linear-gradient(0deg,#000 0,rgba(0,0,0,.5) 36%,transparent 78%)}
 .dkm-ld-refl{display:block;width:100%;height:100%}
 .dkm-ld-glint{position:absolute;height:3px;border-radius:3px;background:linear-gradient(90deg,transparent,rgba(230,250,255,.85),transparent)}
-.dkm-ld-glint.g1{left:560px;top:30px;width:150px;animation:dkmGlint 3.2s ease-in-out infinite}
-.dkm-ld-glint.g2{left:880px;top:58px;width:120px;animation:dkmGlint 2.7s ease-in-out -1s infinite}
-.dkm-ld-glint.g3{left:640px;top:96px;width:210px;animation:dkmGlint 3.8s ease-in-out -2s infinite}
-.dkm-ld-glint.g4{left:300px;top:140px;width:110px;animation:dkmGlint 4.4s ease-in-out -.5s infinite}
-@keyframes dkmGlint{0%,100%{transform:translateX(-18px) scaleX(.4)}50%{transform:translateX(18px) scaleX(1)}}
+.dkm-ld-glints{position:absolute;inset:0;animation:dkmGlint 3.4s ease-in-out infinite}
+.dkm-ld-glint.g1{left:560px;top:30px;width:150px}
+.dkm-ld-glint.g2{left:880px;top:58px;width:120px;opacity:.7}
+.dkm-ld-glint.g3{left:640px;top:96px;width:210px}
+.dkm-ld-glint.g4{left:300px;top:140px;width:110px;opacity:.7}
+@keyframes dkmGlint{0%,100%{transform:translateX(-14px)}50%{transform:translateX(14px)}}
 .dkm-ld-dice{position:absolute;left:50%;top:296px;width:300px;height:324px;margin-left:-150px;animation:dkmBob 4.4s ease-in-out infinite}
 .dkm-ld-dice .dkm-die{position:relative;display:block;width:100%;height:100%;filter:drop-shadow(0 18px 22px rgba(0,0,0,.5))}
 .dkm-ld-halo{position:absolute;left:50%;top:48%;width:560px;height:560px;margin:-280px 0 0 -280px;border-radius:50%;
   background:radial-gradient(closest-side,rgba(200,245,255,.34),rgba(200,245,255,0));animation:dkmPulse 3.2s ease-in-out infinite}
 .dkm-ld-diceref{position:absolute;left:50%;top:618px;width:300px;height:190px;margin-left:-150px;opacity:.28;overflow:hidden;
-  -webkit-mask:linear-gradient(180deg,#000,transparent 85%);mask:linear-gradient(180deg,#000,transparent 85%);
-  animation:dkmBobR 4.4s ease-in-out infinite}
+  -webkit-mask:linear-gradient(180deg,#000,transparent 85%);mask:linear-gradient(180deg,#000,transparent 85%)}
 .dkm-ld-diceref .dkm-die{display:block;width:100%;height:100%;transform:scaleY(-1)}
-@keyframes dkmBobR{0%,100%{transform:translateY(0)}50%{transform:translateY(8px)}}
 .dkm-ld-spark{position:absolute;width:46px;height:46px;margin:-23px 0 0 -23px;
   background:radial-gradient(circle,#FFFFFF 0 8%,rgba(230,250,255,.9) 14%,transparent 40%),
              linear-gradient(90deg,transparent 46%,rgba(240,252,255,.95) 50%,transparent 54%),
              linear-gradient(0deg,transparent 46%,rgba(240,252,255,.95) 50%,transparent 54%);
   animation:dkmSpark 2.8s ease-in-out infinite}
-.dkm-ld-spark.k1{left:640px;top:330px}
-.dkm-ld-spark.k2{left:975px;top:420px;animation-delay:-1s}
-.dkm-ld-spark.k3{left:700px;top:560px;animation-delay:-1.9s}
+.dkm-ld-spark.k1{left:975px;top:420px}
 .dkm-ld-name{position:absolute;left:0;right:0;top:58px;text-align:center;pointer-events:none}
 .dkm-ld-name b{display:inline-block;font-family:var(--pop);font-size:84px;line-height:1.05;color:#FFD44A;
   -webkit-text-stroke:11px #3A2405;paint-order:stroke fill;
@@ -173,7 +169,7 @@
   background:radial-gradient(circle at 50% 50%,rgba(0,0,0,0) 0 90px,rgba(255,226,140,.34) 96px,rgba(6,4,2,.22) 106px,rgba(6,4,2,.76) 172px);
   transform:translate(-1000px,-650px);transition:transform 380ms var(--fx-out)}
 .dkm-order.spot-on .dkm-spot{visibility:visible}
-.dkm-ord-head{position:absolute;left:50%;top:146px;transform:translateX(-50%);z-index:3;display:flex;flex-direction:column;align-items:center;gap:6px;
+.dkm-ord-head{position:absolute;left:50%;top:112px;transform:translateX(-50%);z-index:3;display:flex;flex-direction:column;align-items:center;gap:6px;
   min-width:640px;padding:16px 48px 18px;border-radius:18px;border:4px solid transparent;
   background:linear-gradient(180deg,rgba(52,36,16,.95),rgba(20,12,4,.97)) padding-box,var(--fx-gold-metal) border-box;
   box-shadow:0 8px 0 rgba(0,0,0,.35),0 18px 36px rgba(0,0,0,.55);animation:dkmHeadIn 420ms var(--fx-spring) both}
@@ -185,21 +181,31 @@
 .dkm-ord-timer{display:block;width:100%;height:8px;margin-top:4px;border-radius:5px;overflow:hidden;visibility:hidden;background:rgba(0,0,0,.55)}
 .dkm-order.choosing .dkm-ord-timer{visibility:visible}
 .dkm-ord-timer i{display:block;height:100%;transform-origin:left center;background:linear-gradient(90deg,#2E8BE0,#8FD2FF)}
-.dkm-ord-timer.run i{animation:dkmTimer 5s linear forwards}
-@keyframes dkmTimer{from{transform:scaleX(1)}to{transform:scaleX(0)}}
-.dkm-ord-row{position:absolute;left:0;right:0;top:392px;display:flex;justify-content:center;gap:40px}
+.dkm-ord-cheer{display:flex;align-items:center;gap:10px;margin-top:6px;font-size:22px;line-height:1.1;font-weight:900;color:#FFE9B8;white-space:nowrap}
+.dkm-ord-cheer i{font-style:normal;padding:5px 12px;border-radius:10px;font-family:var(--pop);font-size:22px;line-height:1;color:#fff;
+  background:linear-gradient(180deg,#FF9AC0,#D63A7A);border:2px solid #FFE0EC;-webkit-text-stroke:3px rgba(90,10,40,.6);paint-order:stroke fill}
+/* お祭り FESTIVAL ×2 の札（3都市目で弾む） */
+.dkm-fest{position:absolute;left:50%;top:350px;z-index:5;display:flex;align-items:center;gap:14px;visibility:hidden;pointer-events:none;
+  transform:translateX(-50%);filter:drop-shadow(0 8px 14px rgba(0,0,0,.55))}
+.dkm-fest.on{visibility:visible}
+.dkm-fest-w{display:block;height:86px}
+.dkm-festword{display:block;height:100%;width:auto;overflow:visible}
+.dkm-fest-x{font-style:normal;font-family:var(--caps);font-size:62px;line-height:1;color:#FFFFFF;padding:8px 18px 6px;border-radius:16px;
+  background:linear-gradient(180deg,#FF6A5E,#C9302C);border:4px solid #FFE0D0;-webkit-text-stroke:5px #6A0E0A;paint-order:stroke fill;
+  box-shadow:0 6px 0 rgba(0,0,0,.4)}
+.dkm-ord-row{position:absolute;left:0;right:0;top:352px;display:flex;justify-content:center;gap:48px}
 .dkm-order.cards-out .dkm-ord-row{animation:dkmCardsOut 240ms var(--fx-in) forwards}
 @keyframes dkmCardsOut{to{transform:scale(.9);opacity:0}}
-.dkm-fslot{position:relative;width:170px;height:240px;
-  animation:dkmDeal 460ms var(--fx-out) calc(var(--i) * 90ms) both,dkmFloat 3.4s ease-in-out calc(700ms + var(--i) * 260ms) infinite}
+/* 順番のカードは大きく・止まった位置に（押しやすさ優先。浮き沈みの常時アニメはやめた） */
+.dkm-fslot{position:relative;width:232px;height:328px;animation:dkmDeal 460ms var(--fx-out) calc(var(--i) * 90ms) both}
 @keyframes dkmDeal{from{transform:translateY(40px) rotate(-5deg) scale(.88)}}
-@keyframes dkmFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-.dkm-fcard{position:absolute;inset:0;border:0;padding:0;background:none;cursor:pointer;perspective:900px;border-radius:14px;
-  font-family:var(--pop);transition:transform 220ms var(--fx-back)}
-.dkm-fcard:hover:not(:disabled){transform:translateY(-10px)}
+.dkm-fcard{position:absolute;inset:0;border:0;padding:0;background:none;cursor:pointer;perspective:1100px;border-radius:16px;
+  font-family:var(--pop);transition:transform 220ms var(--fx-back);touch-action:manipulation}
+@media (hover:hover){.dkm-fcard:hover:not(:disabled){transform:translateY(-8px) scale(1.02)}}
+.dkm-fcard:active:not(:disabled){transform:scale(.97);transition-duration:90ms}
 .dkm-fcard:disabled{cursor:default}
 .dkm-fcard::before{content:"";position:absolute;inset:-8px;border-radius:20px;pointer-events:none;visibility:hidden;
-  box-shadow:0 0 0 4px #8FD2FF,0 0 26px 8px rgba(90,180,255,.7);animation:fxBreath 1.4s var(--fx-inout) infinite}
+  box-shadow:0 0 0 4px #8FD2FF,0 0 26px 8px rgba(90,180,255,.7)}
 .dkm-order.choosing .dkm-fcard:not(:disabled)::before{visibility:visible}
 .dkm-fc-in{position:absolute;inset:0;border-radius:14px;transform-style:preserve-3d;transition:transform 520ms var(--fx-back)}
 .dkm-fcard.flip .dkm-fc-in{transform:rotateY(180deg)}
@@ -209,7 +215,8 @@
 .dkm-fc-back > .fx-deco{display:block;width:100%;height:100%}
 .dkm-fsvg{display:block;width:100%;height:100%}
 .dkm-fc-gloss{position:absolute;top:-20%;bottom:-20%;left:0;width:36%;pointer-events:none;
-  background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);animation:fxShine 3.8s ease-in-out infinite}
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);animation:fxShine 1.8s ease-in-out calc(300ms + var(--i,0) * 90ms) 1 both}
+.dkm-fslot{--i:0}
 .dkm-check{position:absolute;left:50%;top:50%;z-index:3;width:132px;height:132px;margin:-66px 0 0 -66px;visibility:hidden;pointer-events:none}
 .dkm-fcard.picked .dkm-check{visibility:visible;animation:dkmCheck 360ms var(--fx-spring) both}
 .dkm-fcard.flip .dkm-check{visibility:hidden}
@@ -226,21 +233,21 @@
 .dkm-ff{position:absolute;inset:0;border-radius:14px;border:4px solid #A9761A;overflow:hidden;
   background:radial-gradient(120% 90% at 50% 0%,rgba(255,255,255,.62),transparent 60%),linear-gradient(180deg,#F7EDD6,#E6D2A8)}
 .dkm-ff-stripe{position:absolute;left:0;right:0;top:0;height:16px;background:var(--c)}
-.dkm-ff-no{position:absolute;left:0;right:0;top:34px;text-align:center;font-family:var(--pop);font-size:92px;line-height:1;color:#5A3E12;
-  text-shadow:0 3px 0 rgba(255,255,255,.75)}
-.dkm-ff-lb{position:absolute;left:0;right:0;top:132px;text-align:center;font-style:normal;font-family:var(--pop);font-size:26px;line-height:1;color:#7A5A22}
-.dkm-ff-nm{position:absolute;left:10px;right:10px;bottom:12px;padding:5px 6px;border-radius:9px;text-align:center;white-space:nowrap;overflow:hidden;
-  font-family:var(--pop);font-size:22px;line-height:1;color:#FFFFFF;background:var(--c);-webkit-text-stroke:3px rgba(0,0,0,.55);paint-order:stroke fill}
+.dkm-ff-no{position:absolute;left:0;right:0;top:46px;text-align:center;font-family:var(--pop);font-size:124px;line-height:1;color:#5A3E12;
+  text-shadow:0 4px 0 rgba(255,255,255,.75)}
+.dkm-ff-lb{position:absolute;left:0;right:0;top:178px;text-align:center;font-style:normal;font-family:var(--pop);font-size:32px;line-height:1;color:#7A5A22}
+.dkm-ff-nm{position:absolute;left:12px;right:12px;bottom:14px;padding:6px 6px;border-radius:10px;text-align:center;white-space:nowrap;overflow:hidden;
+  font-family:var(--pop);font-size:26px;line-height:1;color:#FFFFFF;background:var(--c);-webkit-text-stroke:3px rgba(0,0,0,.55);paint-order:stroke fill}
 .dkm-ff.gold{border-color:#FFF3C8;background:var(--fx-gold-metal)}
 .dkm-ff-burst{position:absolute;inset:-40%;
   background:repeating-conic-gradient(from 0deg,rgba(255,255,255,.34) 0 6deg,rgba(255,255,255,0) 6deg 16deg);animation:fxSpin 12s linear infinite}
-.dkm-ff-ring{position:absolute;left:50%;top:40%;width:128px;height:128px;margin:-64px 0 0 -64px;border-radius:50%;border:4px solid #7A5206;
-  background:radial-gradient(circle at 38% 32%,#FFFBE6,#F5D36B 45%,#C8952F 82%);box-shadow:inset 0 0 0 4px #FFF3C8,0 4px 0 rgba(0,0,0,.3)}
-.dkm-ff-big{position:absolute;left:0;right:0;top:40%;margin-top:-27px;text-align:center;font-family:var(--pop);font-size:50px;line-height:1;
+.dkm-ff-ring{position:absolute;left:50%;top:40%;width:164px;height:164px;margin:-82px 0 0 -82px;border-radius:50%;border:5px solid #7A5206;
+  background:radial-gradient(circle at 38% 32%,#FFFBE6,#F5D36B 45%,#C8952F 82%);box-shadow:inset 0 0 0 5px #FFF3C8,0 4px 0 rgba(0,0,0,.3)}
+.dkm-ff-big{position:absolute;left:0;right:0;top:40%;margin-top:-34px;text-align:center;font-family:var(--pop);font-size:64px;line-height:1;
   color:#5A3A04;-webkit-text-stroke:3px #FFF6D8;paint-order:stroke fill}
-.dkm-ff-rib{position:absolute;left:8px;right:8px;bottom:50px;padding:5px 0 4px;text-align:center;font-style:normal;font-family:var(--caps);
-  font-size:20px;line-height:1;color:#FFF6E2;white-space:nowrap;background:linear-gradient(180deg,#F0604A,#8E1410);
-  clip-path:polygon(0 0,100% 0,94% 50%,100% 100%,0 100%,6% 50%)}
+.dkm-ff-rib{position:absolute;left:10px;right:10px;bottom:64px;height:38px;padding:6px 0;display:flex;justify-content:center;font-style:normal;
+  background:linear-gradient(180deg,#F0604A,#8E1410);clip-path:polygon(0 0,100% 0,94% 50%,100% 100%,0 100%,6% 50%)}
+.dkm-ribword{display:block;height:100%;width:auto;overflow:visible}
 .dkm-you{position:absolute;z-index:305;width:112px;height:112px;margin:-56px 0 0 -56px;display:grid;place-items:center;pointer-events:none;
   border-radius:50%;border:5px solid #3A2405;isolation:isolate;
   background:radial-gradient(circle at 36% 30%,#FFFBE6,#F5D36B 42%,#C8952F 76%,#7C5410);
@@ -248,7 +255,8 @@
 .dkm-you.pop{animation:dkmYouIn 420ms var(--fx-spring) both,dkmBob 2.6s ease-in-out 500ms infinite}
 .dkm-you.out{animation:dkmFadeOut 220ms var(--fx-in) forwards}
 @keyframes dkmYouIn{0%{transform:scale(1.5)}60%{transform:scale(.92)}100%{transform:none}}
-.dkm-you b{position:relative;font-family:var(--caps);font-size:34px;line-height:1;color:#4A2A04;-webkit-text-stroke:3px #FFF3C8;paint-order:stroke fill}
+.dkm-you b{position:relative;display:block;width:76px}
+.dkm-youword{display:block;width:100%;height:auto;overflow:visible}
 .dkm-you-tail{position:absolute;top:50%;z-index:-1;width:34px;height:34px;margin-top:-17px;transform:rotate(45deg);
   background:#C8952F;border:5px solid #3A2405}
 .dkm-you.tail-r .dkm-you-tail{right:-15px}
@@ -285,6 +293,7 @@
   border-radius:14px;border:3px solid #5A636E;background:linear-gradient(180deg,#F4F6F8,#B9C0C8);box-shadow:0 5px 0 rgba(0,0,0,.4),inset 0 2px 0 #fff;
   animation:dkmReasonIn 420ms var(--fx-spring) 300ms both}
 @keyframes dkmReasonIn{from{transform:translateY(-16px) scale(.9) rotate(-3deg)}}
+.dkm-res.dkm-lose .dkm-reason{z-index:7}
 .dkm-reason b{font-family:var(--pop);font-size:26px;line-height:1;color:#7A4A06;white-space:nowrap}
 .dkm-reason span{font-size:22px;line-height:1;font-weight:900;color:#343A44;white-space:nowrap}
 
@@ -306,11 +315,11 @@
   background:linear-gradient(90deg,transparent,#FFFBE8,transparent);animation:fxShine 4.6s ease-in-out infinite}
 .dkm-pl,.dkm-pr{position:relative;z-index:1;display:flex;flex-direction:column;gap:6px;min-height:0}
 .dkm-pl{justify-content:space-between}
-.dkm-me{display:flex;align-items:center;gap:14px;height:96px;flex:0 0 auto;padding:0 14px 0 10px;border-radius:14px;
+.dkm-me{display:flex;align-items:center;gap:12px;height:88px;flex:0 0 auto;padding:0 12px 0 8px;border-radius:14px;
   background:linear-gradient(180deg,rgba(255,244,214,.14),rgba(0,0,0,.25));border:2px solid rgba(255,214,110,.35);
   animation:dkmRise 420ms var(--fx-out) 260ms both}
 @keyframes dkmRise{from{transform:translateY(22px)}}
-.dkm-face{flex:0 0 auto;display:block;width:78px;height:78px;border-radius:12px;border:3px solid #F2C230;
+.dkm-face{flex:0 0 auto;display:block;width:72px;height:72px;border-radius:12px;border:3px solid #F2C230;
   background:#1A1004 50% 26% / 230% auto no-repeat;box-shadow:0 3px 0 rgba(0,0,0,.4)}
 .dkm-me-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
 .dkm-me-tx b{font-family:var(--pop);font-size:30px;line-height:1.1;color:#FFF6E2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
@@ -318,7 +327,9 @@
 .dkm-me-tx em{font-style:normal;font-size:22px;line-height:1.1;font-weight:900;color:#F0DCA8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dkm-cls{flex:0 0 auto;padding:7px 12px;border-radius:10px;font-family:var(--pop);font-size:22px;line-height:1;color:#FFF6E2;
   background:linear-gradient(180deg,#5FBF3A,#22610E);border:2px solid #A8E877;-webkit-text-stroke:3px rgba(0,0,0,.45);paint-order:stroke fill}
-.dkm-gold{display:flex;align-items:center;gap:12px;height:68px;flex:0 0 auto;padding:0 18px;border-radius:14px;
+.dkm-gold-tag{font-style:normal;padding:5px 10px;border-radius:9px;font-size:22px;line-height:1;font-weight:900;color:#FFF6E2;white-space:nowrap;
+  background:linear-gradient(180deg,#58B4F0,#1B64B0);border:2px solid #BFE6FF}
+.dkm-gold{display:flex;align-items:center;gap:12px;height:62px;flex:0 0 auto;padding:0 18px;border-radius:14px;
   background:rgba(0,0,0,.32);border:2px solid rgba(255,214,110,.28);animation:dkmRise 420ms var(--fx-out) 320ms both}
 .dkm-coin{flex:0 0 auto;display:inline-block;width:44px;height:44px;border-radius:50%;border:3px solid #7A5206;
   background:radial-gradient(circle at 36% 30%,#FFF9D8,#FFD95A 40%,#D69A14 75%,#8A5E06);
@@ -328,22 +339,32 @@
 .dkm-lb{font-size:22px;line-height:1;font-weight:900;color:#F0DCA8;white-space:nowrap}
 .dkm-gold-v{margin-left:auto;font-family:var(--pop);font-size:48px;line-height:1;color:#FFD44A;font-variant-numeric:tabular-nums;white-space:nowrap;
   -webkit-text-stroke:6px #2A1604;paint-order:stroke fill;text-shadow:0 4px 0 #7A4A06}
-.dkm-exp{display:flex;align-items:center;gap:12px;height:50px;flex:0 0 auto;padding:0 18px;border-radius:12px;background:rgba(0,0,0,.25);
+.dkm-exp{display:flex;align-items:center;gap:12px;height:46px;flex:0 0 auto;padding:0 18px;border-radius:12px;background:rgba(0,0,0,.25);
   animation:dkmRise 420ms var(--fx-out) 380ms both}
 .dkm-exp b{font-family:var(--pop);font-size:28px;line-height:1;color:#B8F08A;-webkit-text-stroke:4px #123A10;paint-order:stroke fill}
 .dkm-expbar{flex:1;height:14px;border-radius:8px;overflow:hidden;background:rgba(0,0,0,.5);border:1px solid rgba(255,214,110,.35)}
 .dkm-expbar i{display:block;height:100%;transform-origin:left center;background:linear-gradient(90deg,#5FBF3A,#A8E877)}
 .dkm-lv{font-style:normal;font-family:var(--pop);font-size:24px;line-height:1;color:#FFF6E2;-webkit-text-stroke:4px #2A1604;paint-order:stroke fill}
-.dkm-chips{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;flex:0 0 auto}
+/* chips：1行ずつ最大4行（2列だと「リーグ ブ…」のように切れた。GO-2・WP4#4） */
+.dkm-chips{display:flex;flex-direction:column;gap:4px;flex:0 0 auto}
 .dkm-chips:empty{display:none}
-.dkm-chip{display:flex;align-items:center;gap:8px;height:38px;min-width:0;padding:0 12px;border-radius:10px;
+.dkm-chip{display:flex;align-items:center;gap:10px;height:36px;min-width:0;padding:0 14px 0 10px;border-radius:10px;
   background:linear-gradient(90deg,rgba(201,48,44,.6),rgba(90,20,10,.35));border:1px solid rgba(255,160,120,.45);
-  animation:dkmRise 420ms var(--fx-out) 440ms both}
+  animation:dkmRise 420ms var(--fx-out) calc(440ms + var(--k,0) * 60ms) both}
+.dkm-chips.fixed .dkm-chip{animation:none}
+.dkm-chip.guarded{background:linear-gradient(90deg,rgba(46,139,224,.7),rgba(11,44,94,.4));border-color:#8FD2FF}
 .dkm-chip i{font-style:normal;font-size:22px;line-height:1}
-.dkm-chip span{flex:1;min-width:0;font-size:22px;line-height:1;font-weight:900;color:#FFF0D8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dkm-chip span{flex:1;min-width:0;font-size:22px;line-height:1;font-weight:900;color:#FFF0D8;white-space:nowrap}
+.dkm-chip span.two{white-space:normal;line-height:1.02;font-size:16px}
+.dkm-cubei{flex:0 0 auto;display:inline-block;width:26px;height:30px;
+  background:conic-gradient(from -60deg at 50% 50%,var(--c1) 0 120deg,var(--c3) 120deg 240deg,var(--c2) 240deg 360deg);
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
 .dkm-chip b{font-family:var(--pop);font-size:24px;line-height:1;color:#FFD44A;white-space:nowrap;-webkit-text-stroke:3px #2A1604;paint-order:stroke fill}
-.dkm-streak{display:flex;align-items:center;gap:12px;height:60px;flex:0 0 auto;padding:0 18px;border-radius:12px;
-  background:rgba(0,0,0,.3);border:2px solid rgba(255,214,110,.3);animation:dkmRise 420ms var(--fx-out) 500ms both}
+/* 下の帯の左（日本版「5 連勝中！ 連勝認定時間 18 時間」） */
+.dkm-streak{display:flex;align-items:center;gap:14px;flex:0 0 268px;align-self:stretch;padding:0 16px;border-radius:12px;
+  background:rgba(0,0,0,.3);border:2px solid rgba(255,214,110,.3)}
+.dkm-streak .dkm-st-tx{margin-left:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+.dkm-streak .dkm-st-tx em{font-style:normal;font-size:22px;line-height:1;font-weight:900;color:#F0DCA8;white-space:nowrap}
 .dkm-cup{flex:0 0 auto;display:inline-block;width:40px;height:42px;
   background:linear-gradient(180deg,#FFF3C8,#F2C230 45%,#A9761A);
   clip-path:polygon(8% 0,92% 0,88% 30%,66% 58%,58% 58%,58% 76%,76% 84%,76% 100%,24% 100%,24% 84%,42% 76%,42% 58%,34% 58%,12% 30%)}
@@ -395,8 +416,25 @@
   -webkit-text-stroke:3px #2A1604;paint-order:stroke fill}
 .dkm-pb{grid-column:1 / -1;position:relative;z-index:1;display:flex;align-items:center;gap:20px;padding:10px 18px;border-radius:14px;
   background:linear-gradient(180deg,rgba(0,0,0,.42),rgba(0,0,0,.24));border:2px solid rgba(255,214,110,.3);animation:dkmRise 420ms var(--fx-out) 560ms both}
-.dkm-pb-l{flex:0 0 520px;display:flex;flex-direction:column;gap:7px}
+.dkm-pb-l{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:8px}
 .dkm-pb-l.wide{flex:1 1 auto}
+.dkm-pb-l .dkm-pb-ds{white-space:normal}
+.dkm-pb-cbox{flex:0 0 468px;align-self:stretch;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+/* LOSE の［RPを守る］（G15） */
+.dkm-guard{flex:1 1 auto;min-width:0;display:flex;align-items:center;justify-content:flex-end;gap:18px}
+.dkm-guard-tx{min-width:0;display:flex;flex-direction:column;gap:8px}
+.dkm-guard-tx b{font-family:var(--pop);font-size:28px;line-height:1;color:#FFD44A;-webkit-text-stroke:5px #2A1604;paint-order:stroke fill;white-space:nowrap}
+.dkm-guard-tx em{font-style:normal;font-size:22px;line-height:1.2;font-weight:900;color:#F0DCA8}
+.dkm-btn.dkm-guard-btn{min-width:320px;height:82px;font-size:28px}
+/* チーム戦の札 */
+.dkm-cls.team{background:linear-gradient(180deg,#5AA8FF,#1B4E9E);border-color:#BFE0FF}
+.dkm-cls.team.t1{background:linear-gradient(180deg,#FF8A6E,#9E2A1B);border-color:#FFD0C0}
+.dkm-rteam{flex:0 0 auto;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-style:normal;font-family:var(--pop);font-size:20px;
+  line-height:1;color:#fff;background:#2E6FD0;border:2px solid #BFE0FF}
+.dkm-rteam.t1{background:#C9402C;border-color:#FFD0C0}
+/* 報酬 → 同じ部屋のクロスフェード用の膜（J31）。中身は #result から移した物 */
+.dkm-xfade{position:absolute;inset:0;z-index:250;pointer-events:none;font-family:var(--jp)}
+.dkm-xfade *{animation-play-state:paused!important}
 .dkm-pb-hd{display:flex;align-items:center;gap:14px}
 .dkm-pb-hd b{padding:6px 16px;border-radius:10px;border:2px solid #7A5206;font-family:var(--pop);font-size:24px;line-height:1;color:#5A3A04;white-space:nowrap;
   background:linear-gradient(180deg,#FFF3C8,#F2C230 55%,#C8952F)}
@@ -405,12 +443,14 @@
 .dkm-stars i.on{color:#FFD44A}
 .dkm-pb-ds{font-size:22px;line-height:1.3;font-weight:900;color:#F0DCA8}
 .dkm-pb-hint{font-family:var(--pop);font-size:24px;line-height:1;color:#FFF6E2;-webkit-text-stroke:4px #2A1604;paint-order:stroke fill}
-.dkm-pb-chests{flex:1;display:flex;justify-content:space-around;align-items:center;align-self:stretch}
-.dkm-bchest{position:relative;width:150px;height:116px;border:0;padding:0;background:none;cursor:pointer;transition:transform 200ms var(--fx-back)}
+.dkm-pb-chests{display:flex;justify-content:center;align-items:center;gap:22px}
+.dkm-bchest{position:relative;width:136px;height:96px;border:0;padding:0;background:none;cursor:pointer;transition:transform 200ms var(--fx-back);touch-action:manipulation}
 .dkm-bchest:hover:not(:disabled){transform:translateY(-8px) scale(1.05)}
-.dkm-bchest > .fx-deco{display:block;width:100%;height:100%;animation:dkmChestIdle 2.8s ease-in-out infinite}
-.dkm-bchest.c1 > .fx-deco{animation-delay:-.93s}
-.dkm-bchest.c2 > .fx-deco{animation-delay:-1.86s}
+.dkm-bchest > .fx-deco{display:block;width:100%;height:100%}
+/* 宝箱の揺れは3つまとめて1本のアニメにする（常時アニメを減らす） */
+.dkm-pb-chests{animation:dkmChestRow 2.6s ease-in-out infinite}
+@keyframes dkmChestRow{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.dkm-res.dkm-lose .dkm-panel-edge,.dkm-res.dkm-watch .dkm-panel-edge,.dkm-guard-btn .dkm-btn-shine{display:none}
 @keyframes dkmChestIdle{0%,100%{transform:rotate(0) translateY(0)}6%{transform:rotate(-4deg)}12%{transform:rotate(4deg)}18%{transform:rotate(-2deg)}24%{transform:rotate(0)}
   60%{transform:translateY(-6px)}}
 .dkm-csvg{display:block;width:100%;height:100%;overflow:visible}
@@ -442,7 +482,6 @@
 .dkm-auto{position:absolute;left:12px;right:12px;bottom:8px;height:6px;border-radius:4px;visibility:hidden;pointer-events:none;
   background:rgba(255,255,255,.9);transform-origin:left center}
 .dkm-btn.counting .dkm-auto{visibility:visible}
-.dkm-auto.run{animation:dkmTimer 3.2s linear forwards}
 
 /* ══════════ ⑫ 宝箱3択 ══════════ */
 .dkm-res.chest .dkm-panel,.dkm-res.chest .dkm-res-btns,.dkm-res.chest .dkm-reason,.dkm-res.chest .dkm-hero{visibility:hidden}
@@ -454,16 +493,13 @@
 .dkm-cs-rib{height:66px;padding:0 72px;display:flex;align-items:center;
   background:linear-gradient(180deg,#FFF3C8 0 10%,#F2C230 45%,#A9761A);clip-path:polygon(0 0,100% 0,96% 50%,100% 100%,0 100%,4% 50%);
   animation:fxRibbonIn 380ms var(--fx-spring) both}
-.dkm-cs-rib b{font-family:var(--pop);font-size:34px;line-height:1;color:#FFFFFF;-webkit-text-stroke:6px #7A4A06;paint-order:stroke fill}
+.dkm-cs-rib b{font-family:var(--pop);font-size:34px;line-height:1;color:#FFFFFF;-webkit-text-stroke:6px #7A4A06;paint-order:stroke fill;white-space:nowrap}
+/* 開けたあと：赤いリボン「おめでとうございます」（日本版） */
+.dkm-cs-rib.red{padding:0 84px;background:linear-gradient(180deg,#FF7A62 0 10%,#D8392E 45%,#8E1410)}
+.dkm-cs-rib.red b{font-size:38px;-webkit-text-stroke-color:#5A1206}
+.dkm-cstage.done .dkm-cs-sub,.dkm-cstage.done .dkm-cs-head .dkm-stars{visibility:hidden}
 .dkm-cs-sub{font-size:24px;line-height:1.2;font-weight:900;color:#F0DCA8}
 .dkm-cs-head .dkm-stars i{font-size:30px}
-.dkm-cs-wallet{position:absolute;right:36px;top:36px;display:flex;gap:14px}
-.dkm-cs-wallet span{display:flex;align-items:center;gap:8px;height:56px;padding:0 18px 0 9px;border-radius:28px;
-  background:rgba(0,0,0,.6);border:2px solid rgba(255,214,110,.45)}
-.dkm-cs-wallet .dkm-coin{width:38px;height:38px}
-.dkm-cs-wallet .dkm-gemi{width:34px;height:34px}
-.dkm-cs-wallet b{font-family:var(--pop);font-size:26px;line-height:1;color:#FFF6E2;font-variant-numeric:tabular-nums;
-  -webkit-text-stroke:4px #2A1604;paint-order:stroke fill}
 .dkm-cs-row{position:absolute;left:0;right:0;top:236px;display:flex;justify-content:center;gap:70px}
 .dkm-cs-slot{position:relative;width:300px;height:420px;display:flex;flex-direction:column;align-items:center;
   animation:dkmDeal 480ms var(--fx-out) calc(var(--i) * 110ms) both}
@@ -473,9 +509,9 @@
 .dkm-cs-slot.other::before{display:none}
 @keyframes dkmGlowIn{0%{transform:scale(.86)}60%{transform:scale(1.1)}100%{transform:none}}
 .dkm-cs-chest{position:relative;width:300px;height:258px;border:0;padding:0;background:none;cursor:pointer;transition:transform 220ms var(--fx-back)}
-.dkm-cs-chest > .fx-deco{display:block;width:100%;height:100%;animation:dkmChestIdle 2.8s ease-in-out infinite}
-.dkm-cs-slot.c1 .dkm-cs-chest > .fx-deco{animation-delay:-.93s}
-.dkm-cs-slot.c2 .dkm-cs-chest > .fx-deco{animation-delay:-1.86s}
+.dkm-cs-chest > .fx-deco{display:block;width:100%;height:100%}
+.dkm-cs-row{animation:dkmChestRow 2.6s ease-in-out 520ms infinite}
+.dkm-cstage.picked .dkm-cs-row{animation:none}
 .dkm-cs-chest:hover:not(:disabled){transform:translateY(-10px) scale(1.04)}
 .dkm-cs-chest:disabled{cursor:default}
 .dkm-cs-slot.open .dkm-cs-chest > .fx-deco{animation:none}
@@ -491,15 +527,20 @@
 .dkm-cs-slot.sel .dkm-prz{border-color:#FFE27A;box-shadow:0 0 0 2px #FFE27A,0 0 30px rgba(255,210,90,.7)}
 .dkm-prz .dkm-coin{width:46px;height:46px}
 .dkm-prz .dkm-gemi{width:42px;height:42px}
-.dkm-prz b{font-family:var(--pop);font-size:40px;line-height:1;color:#FFD44A;white-space:nowrap;-webkit-text-stroke:6px #2A1604;paint-order:stroke fill}
-.dkm-prz.gem b{color:#8FD2FF;-webkit-text-stroke-color:#0B2C5E}
+.dkm-prz b{max-width:264px;font-family:var(--pop);font-size:28px;line-height:1.15;text-align:center;color:#FFD44A;-webkit-text-stroke:5px #2A1604;paint-order:stroke fill}
+.dkm-prz .dkm-cubei{width:62px;height:70px}
+.dkm-prz-ic{font-style:normal;font-size:54px;line-height:1}
+.dkm-prz-medal{display:block;width:78px;height:78px}
+.dkm-prz.k-gem b{color:#8FD2FF;-webkit-text-stroke-color:#0B2C5E}
 .dkm-prz em{font-style:normal;font-size:22px;line-height:1;font-weight:900;color:#F0DCA8;white-space:nowrap}
-.dkm-prz.card .dkm-face{width:64px;height:64px}
-.dkm-prz.card b{font-size:26px;-webkit-text-stroke-width:4px}
-.dkm-prz.card.rS b{color:#E0C8FF}
+.dkm-prz.k-card .dkm-face{width:64px;height:64px}
+.dkm-prz.k-card b{font-size:26px;-webkit-text-stroke-width:4px}
+.dkm-prz.k-card.rS b{color:#E0C8FF}
 .dkm-cs-hint{position:absolute;left:0;right:0;top:690px;text-align:center;font-family:var(--pop);font-size:30px;line-height:1.2;color:#FFF6E2;
   -webkit-text-stroke:5px #2A1604;paint-order:stroke fill}
-.dkm-cs-btns{position:absolute;left:0;right:0;top:784px;display:flex;justify-content:center;gap:28px}
+.dkm-cs-btns{position:absolute;left:0;right:0;top:784px;display:flex;justify-content:center;gap:28px;visibility:hidden}
+.dkm-cstage.done .dkm-cs-btns{visibility:visible;animation:dkmRise 380ms var(--fx-spring) both}
+.dkm-btn.dkm-cs-ok{min-width:380px}
 
 /* ══════════ LOSE：四隅のガラスのヒビ ══════════ */
 .dkm-crack{position:absolute;z-index:6;width:340px;height:240px;pointer-events:none}
@@ -534,7 +575,11 @@
   .dkm-rno{width:36px;height:36px}
   .dkm-rrow{height:40px}
   .dkm-rank{gap:3px}
-  .dkm-me{height:92px}
+  .dkm-me{height:86px}
+  .dkm-chip{height:36px}
+  .dkm-streak .dkm-st-tx em,.dkm-guard-tx em,.dkm-gold-tag{font-size:22px}
+  .dkm-ord-cheer,.dkm-ord-cheer i{font-size:24px}
+  .dkm-ff-nm{font-size:28px}
   .dkm-medals{height:114px}
   .dkm-medal > .fx-deco{width:58px;height:58px}
   .dkm-ff-nm{padding:4px 4px}
@@ -556,5 +601,14 @@ html.fx-mob .dkm-tw0,html.fx-mob .dkm-tw1,html.fx-mob .dkm-tw2,html.fx-mob .dkm-
 html.fx-mob .dkm-ld-dice,html.fx-mob .dkm-ld-halo,html.fx-mob .dkm-ld-diceref,
 html.fx-mob .dkm-fslot,html.fx-mob .dkm-fcard::before,html.fx-mob .dkm-ff-burst,html.fx-mob .dkm-you:not(.out){animation:none!important}
 html.fx-mob .dkm-world-shine,html.fx-mob .dkm-vs-edge u,html.fx-mob .dkm-ld-water::after,html.fx-mob .dkm-ld-shoot,
-html.fx-mob .dkm-ld-spark,html.fx-mob .dkm-fc-gloss{display:none!important}
+html.fx-mob .dkm-ld-spark,html.fx-mob .dkm-fc-gloss,html.fx-mob .dkm-ld-glints,html.fx-mob .dkm-panel-edge{display:none!important}
+/* v10（WP15b）スマホ：宝箱の揺れ・点の点滅も止める。順番のカードは 3D の裏返しをやめて平らに入れ替える（層を増やさない） */
+html.fx-mob .dkm-dots,html.fx-mob .dkm-pb-chests,html.fx-mob .dkm-cs-row{animation:none!important}
+html.fx-mob .dkm-fcard{perspective:none}
+html.fx-mob .dkm-fc-in{transform-style:flat;transition:none}
+html.fx-mob .dkm-fcard.flip .dkm-fc-in{transform:none}
+html.fx-mob .dkm-fc-front{transform:none;visibility:hidden}
+html.fx-mob .dkm-fcard.flip .dkm-fc-front{visibility:visible}
+html.fx-mob .dkm-fcard.flip .dkm-fc-back{visibility:hidden}
+html.fx-mob .dkm-fest{filter:none}
 </style>
