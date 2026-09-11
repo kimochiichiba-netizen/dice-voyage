@@ -582,13 +582,13 @@ function dvOnlineBoot(){
     return {
       tiles: G.tiles.map(function(t){
         return {o:(t.owner === undefined ? -1 : t.owner), l:t.lv|0, m:t.landmark?1:0,
-                f:t.frozen|0, y:t.olym|0, x:t.x2?1:0};
+                f:t.frozen|0, y:t.olym|0, x:t.x2?1:0, s:t.sick|0};
       }),
       players: G.players.map(function(p){
         return {c:p.cash, p:p.pos, la:p.laps, j:p.jail, o:p.out?1:0, d:p.dblRun,
                 od:p.odd, ev:p.even, it:p.items.slice(), sl:p.skillLeft, mn:p.mana,
                 ft:p.freeToll, hb:p.halfBuild, sx:p.salaryX2, fd:p.forceDouble,
-                ce:p.chooseEye, tu:p.tollUp, jm:p.jam, k:p.kind};
+                ce:p.chooseEye, tu:p.tollUp, jm:p.jam, k:p.kind, tf:p.taxFree|0};
       }),
       turn:G.turn, left:G.turnsLeft, infl:G.infl, over:G.over?1:0, clock:G.clock
     };
@@ -598,15 +598,15 @@ function dvOnlineBoot(){
     var i;
     for(i=0;i<s.tiles.length && i<G.tiles.length;i++){
       var a = s.tiles[i], t = G.tiles[i];
-      if(t.type !== 'city') continue;
-      t.owner = a.o; t.lv = a.l; t.landmark = !!a.m; t.frozen = a.f; t.olym = a.y; t.x2 = !!a.x;
+      if(t.type !== 'city' && t.type !== 'tour') continue;
+      t.owner = a.o; t.lv = a.l; t.landmark = !!a.m; t.frozen = a.f; t.olym = a.y; t.x2 = !!a.x; t.sick = a.s|0;
     }
     for(i=0;i<s.players.length && i<G.players.length;i++){
       var b = s.players[i], p = G.players[i];
       p.cash = b.c; p.pos = b.p; p.laps = b.la; p.jail = b.j; p.out = !!b.o; p.dblRun = b.d;
       p.odd = b.od; p.even = b.ev; p.items = b.it.slice(); p.skillLeft = b.sl; p.mana = b.mn;
       p.freeToll = b.ft; p.halfBuild = b.hb; p.salaryX2 = b.sx; p.forceDouble = b.fd;
-      p.chooseEye = b.ce; p.tollUp = b.tu; p.jam = b.jm; p.kind = b.k;
+      p.chooseEye = b.ce; p.tollUp = b.tu; p.jam = b.jm; p.kind = b.k; p.taxFree = b.tf|0;
     }
     G.turn = s.turn; G.turnsLeft = s.left; G.infl = s.infl; G.clock = s.clock;
     OL.applySeq = seq; OL.gap = {};
@@ -765,7 +765,7 @@ function dvOnlineBoot(){
           cash:cfg.cash, pos:0, laps:0, jail:0, out:false, dblRun:0,
           odd:2, even:2, items:items,
           skillLeft:card.sk.uses, mana:0,
-          freeToll:0, halfBuild:0, salaryX2:0, forceDouble:0, chooseEye:0, tollUp:0,
+          freeToll:0, halfBuild:0, salaryX2:0, forceDouble:0, chooseEye:0, tollUp:0, taxFree:0,
           render:tileCenter(0), hopY:0, squash:1, offx:0, offy:0, face:1, jam:3,
           pend:pend, pboost:{}
         };
@@ -938,7 +938,7 @@ function dvOnlineBoot(){
 
   async function olMaybeBuyout(pi, i){
     var t = G.tiles[i], p = G.players[pi];
-    if(t.landmark) return;
+    if(t.landmark || t.type === 'tour') return;   // 観光地は買収できない（本家）
     var cost = Math.round(cityValue(t) * 2 * statMul(p,'buyout',0.3));
     if(p.cash < cost) return;
     var yes = await ask(pi, 'buyout', async function(){
@@ -1010,8 +1010,13 @@ function dvOnlineBoot(){
     var t = G.tiles[i], p = G.players[pi], lvl = cfg.ai;
     var own = t.owner === pi;
     var disc = statMul(p,'build',0.3) * (p.halfBuild > 0 ? 0.5 : 1) * ((G.ev && G.ev.buildX) || 1);
-    var reserve = [300000, 180000, 90000][lvl];
+    var reserve = [eco(300000), eco(180000), eco(90000)][lvl];
     var sel = [], spend = 0, lvTarget = t.lv, k, c;
+    if(t.type === 'tour'){   // 観光地：買うかどうかだけ
+      if(own) return [];
+      var mineT = G.tiles.filter(function(x){ return x.type === 'tour' && x.owner === pi; }).length;
+      return (p.cash - t.base >= (mineT >= 2 ? 0 : reserve)) ? [0] : [];
+    }
     if(!own){
       var price = Math.round(t.base*disc);
       var mineG = CITY_SLOTS[t.g].filter(function(j){ return G.tiles[j].owner === pi; }).length;
@@ -1029,7 +1034,7 @@ function dvOnlineBoot(){
     var mx = maxLvOf(p);
     for(k = (own ? t.lv+1 : 1); k <= mx; k++){
       c = Math.round(BUILD[k].cost(t.base)*disc);
-      if(p.cash - spend - c < Math.max(0, reserve - aggr*1500000)) break;   // 所持金以上は使わない
+      if(p.cash - spend - c < Math.max(0, reserve - aggr*eco(1500000))) break;   // 所持金以上は使わない
       if(lvl === 0 && k > 1) break;
       if(lvl === 1 && k > 2 && !aggr) break;
       spend += c; lvTarget = k; sel.push(k);
@@ -1046,6 +1051,15 @@ function dvOnlineBoot(){
     var own = t.owner === pi;
     var cpu = p.kind === 'cpu';
     if(!own && t.owner >= 0) return;
+    if(t.type === 'tour'){
+      if(own){ if(!cpu) toast('R','⛱️','観光地', t.name + ' は建物を建てられません（通行料は固定）', 1800); return; }
+      var yesT = await ask(pi, 'tour', async function(){
+        if(cpu) return planBuild(pi, i).length > 0;
+        return (await modal(tourHTML(i, pi))) === 'ok';
+      }, cpu ? '買うか考えています' : '買うか考えています');
+      if(yesT) await buyTour(pi, i);
+      return;
+    }
     if(own && t.landmark){
       if(!cpu) toast('R','🗼','ランドマーク完成済み', t.name + ' はこれ以上建てられません', 1800);
       return;

@@ -114,7 +114,7 @@ function jingle(name){
 
 /* ══════════ 設定と状態 ══════════ */
 let G = null;
-let cfg = { mapId:'ice', turns:12, timeLimit:1200, cash:10000000, ai:1, speed:1, n:4,
+let cfg = { mapId:'lgr', turns:30, timeLimit:1500, cash:3000000, ai:1, speed:1, n:4,
   seats:[{name:'あなた',kind:'you',ch:-1},{name:'CPU ガル',kind:'cpu',ch:-1},
          {name:'CPU リノ',kind:'cpu',ch:-1},{name:'CPU ゼニ',kind:'cpu',ch:-1}] };
 
@@ -145,7 +145,7 @@ function newGame(){
         cash:cfg.cash, pos:0, laps:0, jail:0, out:false, dblRun:0,
         odd:2, even:2, items:pickItems(s.kind!=='cpu'),
         skillLeft: card.sk.uses, mana:0,
-        freeToll:0, halfBuild:0, salaryX2:0, forceDouble:0, chooseEye:0, tollUp:0,
+        freeToll:0, halfBuild:0, salaryX2:0, forceDouble:0, chooseEye:0, tollUp:0, taxFree:0,
         render:tileCenter(0), hopY:0, squash:1, offx:0, offy:0, face:1, jam:3,
         pend: (s.kind!=='cpu')
           ? SV.slots.map(pendById).filter(Boolean)
@@ -433,7 +433,7 @@ function updHUD(){
     const got = owners.filter(o=>o>=0).length;
     const d = document.createElement('div');
     d.innerHTML = '<i style="background:'+GCOL[g]+'"></i>'
-      + '<span style="color:'+(uni>=0?PCOL[uni]:'#CBDCEE')+'">'+got+'/3</span>';
+      + '<span style="color:'+(uni>=0?PCOL[uni]:'#CBDCEE')+'">'+got+'/'+slots.length+'</span>';
     lg.appendChild(d);
   });
   const jn = $('#jamN'); if(jn && G.players[G.turn]) jn.textContent = (G.players.find(p=>p.kind!=='cpu')||{jam:0}).jam;
@@ -508,6 +508,7 @@ async function useItem(pi, k){
   const p = G.players[pi];
   if(G.phase!=='wait') { toast('R','⏳','いまは使えません','サイコロを振る前に使ってください',1600); return; }
   const it = itemById(p.items[k]); if(!it) return;
+  if(it.id==='escape' && p.jail<=0){ toast('R','🎫','いまは使えません', G.map.corners[1]+'にいるときに使えます',1600); return; }
   SFX.skill();
   p.items.splice(k,1);
   renderItems();
@@ -517,6 +518,8 @@ async function useItem(pi, k){
   if(it.id==='salary') p.salaryX2++;
   if(it.id==='double') p.forceDouble++;
   if(it.id==='dice')   p.chooseEye++;
+  if(it.id==='taxfree') p.taxFree++;
+  if(it.id==='escape'){ p.jail = 0; toast('R','🎫','脱出！', G.map.corners[1]+'から脱出しました',1800); }
   if(it.id==='warp'){
     const d = await pickTile(pi,'ワープ先を選んでください');
     if(d>=0){ await jumpTo(pi,d); await resolve(pi); }
@@ -720,6 +723,11 @@ function scoreLanding(pi, n){
     if(t.owner===pi) return 40;
     return -tollOf(t,G)/120000;
   }
+  if(t.type==='tour'){
+    if(t.owner<0) return 55 + t.base/200000;
+    if(t.owner===pi) return 30;
+    return -tollOf(t,G)/120000;
+  }
   if(t.type==='jail') return -70;
   if(t.type==='tax') return -25;
   if(t.type==='bonus') return 50;
@@ -786,9 +794,12 @@ async function moveSteps(pi, n){
   if(G.players.some((q,j)=>j!==pi && !q.out && q.pos===p.pos)) await pendFire(pi,'onSameTile');
   await wait(180);
 }
+/* 固定金額（チャンスの賞金・ミニゲームの賭け金・CPUの蓄えなど）をマップの経済規模に合わせる。
+   既定マップ（所持金1000万）が 1.0、本家ワールド（300万）は 0.3 */
+function eco(n){ return Math.round(n * ((G && G.map && G.map.eco) || 1)); }
 function salary(pi){
   const p = G.players[pi];
-  let amt = Math.round((600000 + p.laps*200000) * ((G.ev && G.ev.salaryX) || 1));
+  let amt = Math.round((G.map.salary || (600000 + p.laps*200000)) * ((G.ev && G.ev.salaryX) || 1));
   if(p.salaryX2>0){ amt *= 2; p.salaryX2--; toast('R','💴','給料2倍券','給料が2倍になりました',1900); }
   give(pi, amt);
   toast('R','🚩','スタート通過','給料 '+yen(amt)+' を受け取りました',1800);
@@ -832,7 +843,7 @@ async function resolveInner(pi){
       if(d0>=0){ const tz = G.tiles[d0];
         if(tz.lv>=3) tz.landmark = true; else tz.lv = Math.min(3, tz.lv+1);
         await growAnim(d0); }
-    } else { give(pi, 600000); toast('R','💴','街がまだありません','かわりに 60万 を受け取りました',2000); }
+    } else { const bonus = G.map.salary ? G.map.salary*2 : 600000; give(pi, bonus); toast('R','💴','街がまだありません','かわりに '+yen(bonus)+' を受け取りました',2000); }
   }
   else if(t.type === 'jail'){
     p.jail = 3; p.dblRun = 0; SFX.bad(); camShake(10);
@@ -847,7 +858,7 @@ async function resolveInner(pi){
     if(!mine.length){
       await band('オリンピック開催地','開催できる自分の街がありません',1500);
     } else {
-      const cost = Math.round(Math.max(150000, assetOf(G,pi)*0.05) * statMul(p,'special',0.4));
+      const cost = Math.round(Math.max(eco(150000), assetOf(G,pi)*0.05) * statMul(p,'special',0.4));
       if(p.cash < cost){
         await band('オリンピック開催','費用 '+yen(cost)+' が足りません',1600);
       } else {
@@ -885,12 +896,17 @@ async function resolveInner(pi){
   }
   else if(t.type === 'tax'){
     const amt = Math.round(assetOf(G,pi) * t.rate * statMul(p,'special',0.4));
-    if(!payFrom(pi, amt)) { await bankrupt(pi, -1); return; }
-    give(pi, -amt);
-    toast('L','🧾','税金','総資産に応じて '+yen(amt)+' を納めました',1900);
+    if(p.taxFree > 0){
+      p.taxFree--;
+      await cutIn('ITEM','免税カード','税金 '+yen(amt)+' → 免除');
+    } else {
+      if(!payFrom(pi, amt)) { await bankrupt(pi, -1); return; }
+      give(pi, -amt);
+      toast('L','🧾','税金','総資産に応じて '+yen(amt)+' を納めました',1900);
+    }
   }
   else if(t.type === 'card'){ await chanceCard(pi); }
-  else if(t.type === 'city'){
+  else if(t.type === 'city' || t.type === 'tour'){
     // 幸運のトランポリン：自分の街に止まったとき同じ辺の別の街へ跳ぶ
     if(t.owner === pi && (await pendFire(pi,'onOwnLand')) === 'jumped'){ await resolve(pi); return; }
     if(t.owner < 0 || t.owner === pi){
@@ -919,7 +935,8 @@ async function payToll(pi, i){
   }
   const extra = [];
   if(t.x2) extra.push('×2マス');
-  if(hasTriple(G, owner, t.g)) extra.push('トリプル独占 ×2');
+  if(t.type==='tour') extra.push('観光地（固定）');
+  if(t.type==='city' && hasTriple(G, owner, t.g)) extra.push('トリプル独占 ×2');
   if(hasLine(G, owner, Math.floor(i/8))) extra.push('ライン独占 ×2');
   news(p.name+' → '+G.players[owner].name+' に通行料 '+yen(amt)+'！');
   await band('通行料 '+yen(amt), extra.length ? extra.join(' / ') : (G.players[owner].name+' に支払います'), 1400);
@@ -932,7 +949,7 @@ async function payToll(pi, i){
 }
 async function maybeBuyout(pi, i){
   const t = G.tiles[i], p = G.players[pi];
-  if(t.landmark) return;
+  if(t.landmark || t.type==='tour') return;   // 観光地は買収できない（本家）
   const cost = Math.round(cityValue(t) * 2 * statMul(p,'buyout',0.3));
   if(p.cash < cost) return;
   let yes;
@@ -998,7 +1015,7 @@ function buildHTML(i, pi){
   html += '</div>'
     + '<div class="sums"><span>選んだぶんの合計</span><em id="bSum">0</em></div>'
     + '<div style="font-size:12.5px;color:#6b5a3c;margin-top:6px">'
-    + '色を3つぶん独占（トリプル独占）・1辺の街ぜんぶ（ライン独占）・ランドマーク6つ（観光地独占）の'
+    + '色を3つぶん独占（トリプル独占）・1辺の街ぜんぶ（ライン独占）・'+(G.tiles.some(x=>x.type==='tour')?'観光地4つぜんぶ':'ランドマーク6つ')+'（観光地独占）の'
     + 'どれかが成立した瞬間に勝ちです。'
     + lvLockNote(p)
     + (p.halfBuild>0 ? '　🏗 建設割引券 適用中（半額）' : '') + '</div>'
@@ -1007,10 +1024,38 @@ function buildHTML(i, pi){
     + '</div></div></div>';
   return html;
 }
+function tourHTML(i, pi){
+  const t = G.tiles[i], p = G.players[pi];
+  return '<div class="modal"><div class="deed">'
+    + '<div class="dhd"><span class="sw" style="background:#F5D98F"></span><b>'+esc(t.name)+'</b>'
+    + '<span>観光地</span></div><div class="dbd">'
+    + '<p style="font-size:14px;line-height:1.8;text-align:center;margin:8px 0">'
+    + '観光地は建物を建てられず、買収もされません。<br>通行料は <b>'+yen(t.base)+'</b> で固定。'
+    + '4つすべて集めると<b>観光地独占</b>で勝ちです。</p>'
+    + '<div class="sums"><span>購入価格</span><em>'+yen(t.base)+'</em></div>'
+    + '<div class="btnrow"><button class="btn ghost" data-act="no">やめる</button>'
+    + '<button class="btn gold" data-act="ok"'+(p.cash < t.base ? ' disabled' : '')+'>買う</button></div>'
+    + '</div></div></div>';
+}
+async function buyTour(pi, i){
+  const t = G.tiles[i], p = G.players[pi];
+  if(p.cash < t.base) return;
+  give(pi, -t.base); t.owner = pi; SFX.buy();
+  addFx('pillar', tileCenter(i).x, tileCenter(i).y, 900, PCOL[pi]);
+  toast('L','⛱️','観光地を購入：'+t.name, yen(t.base)+' を投資しました', 2000);
+  news(p.name+' が観光地 '+t.name+' を購入！');
+  await growAnim(i);
+  checkWin();
+}
 async function buyUI(pi, i){
   const t = G.tiles[i], p = G.players[pi];
   const own = t.owner === pi;
   if(!own && t.owner>=0) return;
+  if(t.type==='tour'){
+    if(own){ toast('R','⛱️','観光地', t.name+' は建物を建てられません（通行料は固定）',1800); return; }
+    if((await modal(tourHTML(i, pi))) === 'ok') await buyTour(pi, i);
+    return;
+  }
   if(own && t.landmark){ toast('R','🗼','ランドマーク完成済み', t.name+' はこれ以上建てられません',1800); return; }
   return new Promise(res=>{
     const wrap = $('#modalWrap'), body = $('#modalBody');
@@ -1076,7 +1121,7 @@ async function deedCard(i, paid){
     +   '<div><span>支払った額</span><b>'+yen(paid)+'</b></div>'
     +   '<div><span>これからの通行料</span><b>'+yen(tollOf(t,G))+'</b></div>'
     +   '<div><span>同じ色の所有</span><b>'
-    +     CITY_SLOTS[t.g].filter(j=>G.tiles[j].owner===t.owner).length+' / 3</b></div>'
+    +     CITY_SLOTS[t.g].filter(j=>G.tiles[j].owner===t.owner).length+' / '+CITY_SLOTS[t.g].length+'</b></div>'
     + '</div>'
     + '<div class="btnrow" style="justify-content:center;padding:4px 16px 16px">'
     + '<button class="btn gold" data-act="ok">受け取る</button></div>'
@@ -1150,7 +1195,7 @@ function pickTile(pi, msg, filter){
 function miniHTML(stake, round, mult, hist, win){
   const cells = hist.map(h=>'<div style="padding:3px 0;font-family:var(--pop);font-size:15px;color:'
     +(h==='L'?'#8FD8E8':'#FFC48A')+'">'+(h==='L'?'左':'右')+'</div>').join('');
-  const stakes = [500000,1000000,1500000].map(v=>
+  const stakes = [eco(500000),eco(1000000),eco(1500000)].map(v=>
     '<div class="mgstake'+(v===stake?' on':'')+'" data-v="'+v+'">'+yen(v)+'</div>').join('');
   return '<div class="modal"><div class="mg">'
     + '<div class="mghd">悪夢の洞窟脱出</div>'
@@ -1181,7 +1226,7 @@ function miniHTML(stake, round, mult, hist, win){
 async function miniGame(pi){
   const p = G.players[pi];
   await band('悪夢の洞窟脱出','左右どちらかの通路を選んで逃げきろう！',1500);
-  let stake = 1000000, round = 1, mult = 2 * ((G.ev && G.ev.miniX) || 1), hist = [], banked = 0;
+  let stake = eco(1000000), round = 1, mult = 2 * ((G.ev && G.ev.miniX) || 1), hist = [], banked = 0;
   const wrap = $('#modalWrap'), body = $('#modalBody');
   const rate = 0.5 + statRate(p,'mini')*0.22;       // ミニゲーム勝利ステータスが当たりやすさに効く
   const cpu = p.kind === 'cpu';
@@ -1276,29 +1321,31 @@ function shakePhase(me){
 
 /* ══════════ チャンスカード ══════════ */
 const CARDS = [
-  {t:'臨時収入',   ic:'💰', d:'思わぬ収入がありました（+200万）', f:async pi=>give(pi,2000000)},
-  {t:'大当たり',   ic:'🎉', d:'大きな配当が入りました（+500万）', f:async pi=>give(pi,5000000)},
-  {t:'修繕費',     ic:'🔧', d:'建物の修理代を払います（-150万）', f:async pi=>{
-      const a=1500000; if(!payFrom(pi,a)) return bankrupt(pi,-1); give(pi,-a); }},
+  {t:'臨時収入',   ic:'💰', d:()=>'思わぬ収入がありました（+'+yen(eco(2000000))+'）', f:async pi=>give(pi,eco(2000000))},
+  {t:'大当たり',   ic:'🎉', d:()=>'大きな配当が入りました（+'+yen(eco(5000000))+'）', f:async pi=>give(pi,eco(5000000))},
+  {t:'修繕費',     ic:'🔧', d:()=>'建物の修理代を払います（-'+yen(eco(1500000))+'）', f:async pi=>{
+      const a=eco(1500000); if(!payFrom(pi,a)) return bankrupt(pi,-1); give(pi,-a); }},
   {t:'スタートへ', ic:'🚩', d:'スタートまで戻って給料を受け取ります', f:async pi=>{
       await jumpTo(pi,0); G.players[pi].laps++; salary(pi); }},
   {t:'天使カード', ic:'🪽', d:'アイテム「天使カード」を手に入れた', f:async pi=>addItem(pi,'angel')},
   {t:'ワープ札',   ic:'🌀', d:'アイテム「ワープ札」を手に入れた',   f:async pi=>addItem(pi,'warp')},
   {t:'凍結ブロック',ic:'🧊', d:'アイテム「凍結ブロック」を手に入れた', f:async pi=>addItem(pi,'freeze')},
   {t:'サイコロ改造',ic:'🎲', d:'アイテム「サイコロ改造」を手に入れた', f:async pi=>addItem(pi,'dice')},
-  {t:'監獄行き',   ic:'🧊', d:'氷の監獄へ送られます', f:async pi=>{
+  {t:'無人島へ',   ic:'🏝️', d:()=>G.map.corners[1]+'へ送られます', f:async pi=>{
       await jumpTo(pi,8); G.players[pi].jail=3; SFX.bad(); }},
+  {t:'脱出カード', ic:'🎫', d:'アイテム「脱出カード」を手に入れた（無人島から即脱出）', f:async pi=>addItem(pi,'escape')},
+  {t:'免税カード', ic:'🧾', d:'アイテム「免税カード」を手に入れた（次の税金が免除）', f:async pi=>addItem(pi,'taxfree')},
   {t:'建設バーゲン',ic:'🏗', d:'アイテム「建設割引券」を手に入れた', f:async pi=>addItem(pi,'half')},
-  {t:'みんなから', ic:'🤝', d:'全員から 100万 ずつ受け取ります', f:async pi=>{
+  {t:'みんなから', ic:'🤝', d:()=>'全員から '+yen(eco(1000000))+' ずつ受け取ります', f:async pi=>{
       let s=0; G.players.forEach((q,j)=>{ if(j!==pi && !q.out){
-        const a=Math.min(1000000,q.cash); q.cash-=a; s+=a; } }); give(pi,s); }},
+        const a=Math.min(eco(1000000),q.cash); q.cash-=a; s+=a; } }); give(pi,s); }},
   {t:'ダイス追加', ic:'✌️', d:'奇数・偶数ボタンが1回ずつ増えます', f:async pi=>{
       G.players[pi].odd++; G.players[pi].even++; }},
   /* ── 攻撃カード（本家の 지진／전염병／도시체인지 に相当）── */
   {t:'地震',       ic:'🌋', d:'相手の街を1つ選び、建物を1段こわします（ランドマークは無効）', atk:true, f:async pi=>{
       const d = await pickEnemyCity(pi, '地震を起こす街を選んでください',
         i=>G.tiles[i].lv>=1 && !G.tiles[i].landmark, i=>tollOf(G.tiles[i],G));
-      if(d<0){ toast('R','🌋','地震', 'こわせる建物がありませんでした（+100万）',2000); give(pi,1000000); return; }
+      if(d<0){ toast('R','🌋','地震', 'こわせる建物がありませんでした（+'+yen(eco(1000000))+'）',2000); give(pi,eco(1000000)); return; }
       const t=G.tiles[d]; t.lv--; SFX.bad(); camShake(12);
       addFx('ring', tileCenter(d).x, tileCenter(d).y, 700, '#FF8A5B');
       toast('R','🌋','地震！', t.name+' の建物が1段こわれました',2400);
@@ -1306,7 +1353,7 @@ const CARDS = [
   {t:'疫病',       ic:'🦠', d:'相手の街を1つ選び、3ターンのあいだ通行料を半分にします', atk:true, f:async pi=>{
       const d = await pickEnemyCity(pi, '疫病を流行らせる街を選んでください',
         i=>!G.tiles[i].landmark, i=>tollOf(G.tiles[i],G));
-      if(d<0){ toast('R','🦠','疫病', '相手の街がありませんでした（+100万）',2000); give(pi,1000000); return; }
+      if(d<0){ toast('R','🦠','疫病', '相手の街がありませんでした（+'+yen(eco(1000000))+'）',2000); give(pi,eco(1000000)); return; }
       const t=G.tiles[d]; t.sick = 3;
       addFx('ring', tileCenter(d).x, tileCenter(d).y, 700, '#9BE37A');
       toast('R','🦠','疫病が流行', t.name+' の通行料が3ターン半分になります',2400);
@@ -1314,10 +1361,10 @@ const CARDS = [
   {t:'都市チェンジ',ic:'🔁', d:'自分のいちばん安い街と、相手の街を1つ交換します（ランドマークは無効）', atk:true, f:async pi=>{
       const mine = G.tiles.map((t,i)=>t.type==='city'&&t.owner===pi&&!t.landmark?i:-1).filter(i=>i>=0)
         .sort((a,b)=>cityValue(G.tiles[a])-cityValue(G.tiles[b]));
-      if(!mine.length){ toast('R','🔁','都市チェンジ', '交換できる自分の街がありません（+200万）',2000); give(pi,2000000); return; }
+      if(!mine.length){ toast('R','🔁','都市チェンジ', '交換できる自分の街がありません（+'+yen(eco(2000000))+'）',2000); give(pi,eco(2000000)); return; }
       const d = await pickEnemyCity(pi, '交換したい相手の街を選んでください',
         i=>!G.tiles[i].landmark, i=>cityValue(G.tiles[i]));
-      if(d<0){ toast('R','🔁','都市チェンジ', '相手の街がありませんでした（+200万）',2000); give(pi,2000000); return; }
+      if(d<0){ toast('R','🔁','都市チェンジ', '相手の街がありませんでした（+'+yen(eco(2000000))+'）',2000); give(pi,eco(2000000)); return; }
       const a=G.tiles[mine[0]], b=G.tiles[d], other=b.owner;
       b.owner = pi; a.owner = other;
       addFx('ring', tileCenter(d).x, tileCenter(d).y, 700, '#7FE6FF');
@@ -1350,20 +1397,21 @@ async function chanceCard(pi){
   // 黄金フォーチュンが高いほど良いカードを引きやすい
   const lucky = Math.random() < (statRate(p,'fortune')*0.55 + ((G.ev && G.ev.luck) || 0));
   let pool = CARDS;
-  if(lucky) pool = CARDS.filter(c=>c.t!=='修繕費' && c.t!=='監獄行き');
+  if(lucky) pool = CARDS.filter(c=>c.t!=='修繕費' && c.t!=='無人島へ');
   const c = pool[(Math.random()*pool.length)|0];
+  const desc = (typeof c.d === 'function') ? c.d() : c.d;
   if(p.kind!=='cpu'){
     await modal('<div class="modal"><div class="deedcard">'
       + '<div class="body">'
       + '<div class="cap" style="background:linear-gradient(90deg,#7A4BC8,#3D2470)">CHANCE CARD</div>'
       + '<h4>'+c.ic+' '+esc(c.t)+'</h4>'
       + '<div class="rows"><div><span>効果</span></div></div>'
-      + '<p style="padding:0 16px 14px;font-size:14px;line-height:1.75;text-align:center">'+esc(c.d)+'</p>'
+      + '<p style="padding:0 16px 14px;font-size:14px;line-height:1.75;text-align:center">'+esc(desc)+'</p>'
       + '<div class="btnrow" style="justify-content:center;padding:0 16px 16px">'
       + '<button class="btn gold" data-act="ok">OK</button></div>'
       + '</div><div class="seal">'+c.ic+'</div></div></div>');
   } else {
-    toast('L','❓','チャンスカード', c.t+' — '+c.d, 2000);
+    toast('L','❓','チャンスカード', c.t+' — '+desc, 2000);
     await wait(900);
   }
   await c.f(pi);
@@ -1596,6 +1644,25 @@ async function jailTurn(pi){
   const p = G.players[pi];
   camTo(tileCenter(8).x, tileCenter(8).y, 1.55);
   await band(G.map.corners[1]+' — あと '+p.jail+' ターン','ゾロ目が出れば脱出できます',1400);
+  // 脱出カード（本家）：持っていれば使って即脱出できる
+  const ek = p.items.indexOf('escape');
+  if(ek >= 0){
+    const use = (p.kind==='cpu') ? true
+      : (await modal('<div class="modal"><div class="deedcard"><div class="body">'
+          + '<div class="cap" style="background:linear-gradient(90deg,#2E8CA6,#0D4A5C)">ITEM</div>'
+          + '<h4>🎫 脱出カード</h4>'
+          + '<p style="padding:0 16px 14px;font-size:14px;line-height:1.75;text-align:center">'+esc(G.map.corners[1])+'から今すぐ脱出しますか？</p>'
+          + '<div class="btnrow" style="justify-content:center;padding:0 16px 16px">'
+          + '<button class="btn ghost" data-act="no">使わない</button><button class="btn gold" data-act="ok">使う</button></div>'
+          + '</div><div class="seal">🎫</div></div></div>')) === 'ok';
+    if(use){
+      p.items.splice(ek,1); renderItems(); p.jail = 0;
+      await cutIn('ITEM','脱出カード', G.map.corners[1]+'から脱出！');
+      const r = await doRoll(pi, null, false);
+      await moveSteps(pi, r.total); await resolve(pi);
+      return;
+    }
+  }
   const r = await doRoll(pi, null, false);
   if(r.isDbl){
     p.jail = 0;
@@ -1892,8 +1959,17 @@ function bestParity(pi, par){
 async function aiBuy(pi, i){
   const t = G.tiles[i], p = G.players[pi], lvl = cfg.ai;
   const own = t.owner === pi;
+  if(t.type==='tour'){
+    if(own) return;
+    const reserve = [eco(300000), eco(180000), eco(90000)][lvl];
+    const mineT = G.tiles.filter(x=>x.type==='tour' && x.owner===pi).length;
+    // 観光地独占にリーチ（3つ目以降）なら蓄えを崩してでも買う
+    if(p.cash - t.base < (mineT >= 2 ? 0 : reserve)) return;
+    await buyTour(pi, i);
+    return;
+  }
   const disc = statMul(p,'build',0.3) * (p.halfBuild>0 ? 0.5 : 1) * ((G.ev && G.ev.buildX) || 1);
-  const reserve = [300000, 180000, 90000][lvl];
+  const reserve = [eco(300000), eco(180000), eco(90000)][lvl];
   let spend = 0, lvTarget = t.lv, land = false, lm = false;
   if(!own){
     const price = Math.round(t.base*disc);
@@ -1912,7 +1988,7 @@ async function aiBuy(pi, i){
   for(let k = (own? t.lv+1 : 1); k<=mxAi; k++){
     const c = Math.round(BUILD[k].cost(t.base)*disc);
     // 独占がかかっている色は蓄えを崩してでも建てる。ただし所持金より多くは払えない（0円が下限）
-    const floor = Math.max(0, reserve - aggr*1500000);
+    const floor = Math.max(0, reserve - aggr*eco(1500000));
     if(p.cash - spend - c < floor) break;
     if(lvl===0 && k>1) break;
     if(lvl===1 && k>2 && !aggr) break;
@@ -1954,7 +2030,7 @@ function aiBuyout(pi, i, cost){
   const dangerG = CITY_SLOTS[t.g].filter(j=>G.tiles[j].owner===t.owner).length >= 2;
   if(dangerG && t.owner !== pi && p.cash >= cost) return true;
   const near = CITY_SLOTS[t.g].filter(j=>G.tiles[j].owner===pi).length;
-  const reserve = [300000, 180000, 90000][lvl];
+  const reserve = [eco(300000), eco(180000), eco(90000)][lvl];
   if(p.cash - cost < reserve) return false;
   if(near >= 1) return true;                      // 同じ色を持っているなら揃えに行く
   return lvl>=1 && Math.random()<0.35;            // それ以外もときどき奪う
@@ -1969,6 +2045,10 @@ function aiPickTravel(pi){
       if(t.owner<0) s = 50 + near*40 + t.base/150000;
       else if(t.owner===pi) s = 25 + near*20;
       else s = -tollOf(t,G)/100000 + (G.players[pi].cash > cityValue(t)*2 ? 30+near*30 : 0);
+    } else if(t.type==='tour'){
+      if(t.owner<0) s = 45 + t.base/150000;
+      else if(t.owner===pi) s = 20;
+      else s = -tollOf(t,G)/100000;
     } else if(t.type==='bonus') s = 40;
     else if(t.type==='minigame') s = 38;
     else if(t.type==='card') s = 22;
@@ -2009,9 +2089,17 @@ function renderMaps(){
     const d = document.createElement('div');
     d.className = 'mapcard' + (m.id===cfg.mapId ? ' sel' : '');
     d.innerHTML = '<div class="thumb" style="background:radial-gradient(90% 90% at 50% 30%,'
-      + (m.deco==='ice'?'#173a63,#0B1E3A':m.deco==='world'?'#22417a,#0E1435':'#5b2f52,#2A1533')+')">'
+      + (m.thumb || (m.deco==='ice'?'#173a63,#0B1E3A':m.deco==='world'?'#22417a,#0E1435':'#5b2f52,#2A1533'))+')">'
       + m.emoji+'</div><div class="nm">'+esc(m.name)+'<i>'+esc(m.sub)+'</i></div>';
-    d.onclick = ()=>{ cfg.mapId = m.id; SFX.click(); renderMaps(); };
+    d.onclick = ()=>{
+      cfg.mapId = m.id; SFX.click();
+      if(m.preset){   // 本家ルールのマップは、ターン数・所持金・制限時間も本家の値に合わせる
+        cfg.turns = m.preset.turns; cfg.cash = m.preset.cash; cfg.timeLimit = m.preset.time;
+        const sv = (id,v)=>{ const el=$(id); if(el) el.value = String(v); };
+        sv('#optTurns', cfg.turns); sv('#optCash', cfg.cash); sv('#optTime', cfg.timeLimit);
+      }
+      renderMaps();
+    };
     box.appendChild(d);
   });
 }

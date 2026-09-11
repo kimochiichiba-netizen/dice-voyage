@@ -42,13 +42,36 @@ function tileQuad(i){ const r=RECTS[i];
 const GCOL = ['#79CDBD','#6BB2D2','#6DA83F','#EFAAA0','#D389C4','#D2913A','#8F6BC8','#C0564B','#5E8FD0'];
 const TILE_FACE = '#E3EBEC';             // 金額を書く氷色の淡い面
 const TILE_INK  = '#5E6B72';             // 金額の文字色（縁取り無し）
-const GBASE= [ 80000, 105000, 135000,  165000,  200000,  240000,  290000,  350000, 430000];
+const DEFAULT_GBASE = [ 80000, 105000, 135000,  165000,  200000,  240000,  290000,  350000, 430000];
+let GBASE = DEFAULT_GBASE;
 /* 色グループは2マスが3組・3マスが5組。本家も2〜3マス混在で、
    全部3マスだと「3色ぶん独占」が現実的に起きなくなる。 */
-const CITY_SLOTS = [[1,3],[4,5],[7,9],[10,12],[13,14],[17,18],[20,21,22],[25,26,28],[29,30,31]];
-const SPECIAL = {2:'bonus', 6:'card', 11:'card', 15:'card', 19:'tax', 23:'card', 27:'card'};
+const DEFAULT_SLOTS = [[1,3],[4,5],[7,9],[10,12],[13,14],[17,18],[20,21,22],[25,26,28],[29,30,31]];
+const DEFAULT_SPECIAL = {2:'bonus', 6:'card', 11:'card', 15:'card', 19:'tax', 23:'card', 27:'card'};
+/* マップごとに盤の並びを変えられる（本家ワールドは色8組＋観光地4つ）。buildTiles() で差し替える */
+let CITY_SLOTS = DEFAULT_SLOTS;
+let SPECIAL = DEFAULT_SPECIAL;
 
 const MAPS = [
+/* ── 本家（LINE ゲットリッチ日本版）の「ワールド」マップ ──
+   台北→東京の並び・色8組・観光地4つ（サントリーニ／バリ／プーケット／ハワイ）・
+   チャンス3つ・税務署1つ、という本家の盤をそのまま再現。
+   土地代は万単位（台北12万〜東京70万）。所持金300万・給料30万・30ターン。
+   ※ 数値は本家の記憶ベース。公式資料が手に入ったら prices / preset を直すだけでよい */
+{ id:'lgr', name:'ワールド', sub:'WORLD（本家）', emoji:'🗺️',
+  lake:['#63CBDE','#2E8CA6','#0D4A5C'],
+  slab:{top:'#E8D9B0', side:'#8A7448', rim:'#F8F0DC'},
+  deco:'world', thumb:'#1f5f8a,#0b2740',
+  corners:['スタート','無人島','オリンピック','世界旅行'],
+  slots:[[1,2],[4,5,6],[9,10,12],[13,15],[17,19,20],[22,23],[25,26,28],[30,31]],
+  special:{3:'card', 11:'card', 18:'card', 27:'tax'},
+  tours:{7:['サントリーニ',24], 14:['バリ',28], 21:['プーケット',32], 29:['ハワイ',36]},
+  cities:[
+    ['台北','北京'], ['マニラ','カイロ','イスタンブール'], ['アテネ','コペンハーゲン','ストックホルム'],
+    ['チューリッヒ','ベルリン'], ['オタワ','サンパウロ','シドニー'], ['シカゴ','ラスベガス'],
+    ['ロンドン','ローマ','パリ'], ['ニューヨーク','東京']],
+  prices:[[12,14],[16,18,20],[22,24,26],[30,32],[34,36,38],[42,44],[48,50,54],[60,70]],
+  preset:{turns:30, cash:3000000, time:1500}, salary:300000, eco:0.3 },
 { id:'ice', name:'氷の洞窟', sub:'ICE CAVERN', emoji:'❄️',
   lake:['#9FE3F0','#6FC3D8','#35708A'],
   slab:{top:'#C2B8E2', side:'#6A5F96', rim:'#E6ECF6'},
@@ -81,6 +104,10 @@ const MAPS = [
     ['別府温泉','由布院','鉄輪地獄']] }];
 
 function buildTiles(map){
+  // マップ固有の並びがあれば差し替える（無ければ既定の盤）
+  CITY_SLOTS = map.slots   || DEFAULT_SLOTS;
+  SPECIAL    = map.special || DEFAULT_SPECIAL;
+  GBASE      = map.gbase   || DEFAULT_GBASE;
   const t = new Array(32).fill(null);
   t[0]  = {type:'start',    name:map.corners[0]};
   t[8]  = {type:'jail',     name:map.corners[1]};
@@ -94,10 +121,16 @@ function buildTiles(map){
   }
   CITY_SLOTS.forEach((slots,g)=>{
     slots.forEach((idx,j)=>{
-      const base = Math.round(GBASE[g] * (1 + j*0.13));
+      const base = map.prices ? map.prices[g][j]*10000 : Math.round(GBASE[g] * (1 + j*0.13));
       t[idx] = { type:'city', name:map.cities[g][j], g, base,
-                 owner:-1, lv:0, landmark:false, x2:false, frozen:0, grow:1, bind:0, olym:1 };
+                 owner:-1, lv:0, landmark:false, x2:false, frozen:0, sick:0, grow:1, bind:0, olym:1 };
     });
+  });
+  // 観光地（本家）：買えるが建物は建てられず、買収もされない。通行料は土地代で固定。
+  if(map.tours) Object.keys(map.tours).forEach(k=>{
+    const [name, man] = map.tours[k];
+    t[+k] = { type:'tour', name, base:man*10000,
+              owner:-1, lv:0, landmark:false, x2:false, frozen:0, sick:0, grow:1, bind:0, olym:1 };
   });
   // 通行料2倍マスを2つ置く（本家の ×2 マス）
   // 祭り都市：毎試合ランダムで3ヶ所が通行料2倍のまま最後まで固定される。
@@ -120,8 +153,11 @@ const BUILD = [
   {nm:'ランドマーク', ic:'🗼', cost:b=>Math.round(b*4.0), toll:b=>Math.round(b*10.0)}
 ];
 function tollOf(tile, G){
-  if(!tile || tile.type!=='city' || tile.owner<0) return 0;
+  if(!tile || (tile.type!=='city' && tile.type!=='tour') || tile.owner<0) return 0;
   if(tile.frozen>0) return 0;
+  if(tile.type==='tour'){            // 観光地：土地代そのまま（終盤インフレだけ乗る）
+    return Math.round(tile.base * ((G && G.infl > 1) ? G.infl : 1));
+  }
   let v = BUILD[0].toll(tile.base);
   for(let i=1;i<=tile.lv;i++) v += BUILD[i].toll(tile.base);
   if(tile.landmark) v += BUILD[4].toll(tile.base);
@@ -148,8 +184,14 @@ function colorMono(G, pi){
 /* 成立している独占をひとつ返す（無ければ null）。x は報酬倍率。
    同時に成立したときは倍率の高いほうを名乗る、が本家の決まり。 */
 function monoOf(G, pi){
-  const lm = G.tiles.filter(t=>t.landmark && t.owner===pi).length;
-  if(lm >= 6) return { kind:'land',  label:'観光地独占', col:'#7FE6FF', key:'m', x:5 };
+  // 観光地独占：本家マップは観光地4つぜんぶ。観光地の無いマップはランドマーク6基で代替
+  const tours = G.tiles.filter(t=>t.type==='tour');
+  if(tours.length){
+    if(tours.every(t=>t.owner===pi)) return { kind:'land',  label:'観光地独占', col:'#7FE6FF', key:'m', x:5 };
+  } else {
+    const lm = G.tiles.filter(t=>t.landmark && t.owner===pi).length;
+    if(lm >= 6) return { kind:'land',  label:'観光地独占', col:'#7FE6FF', key:'m', x:5 };
+  }
   for(let s=0; s<4; s++) if(hasLine(G,pi,s))
     return { kind:'line',  label:'ライン独占', col:'#FFD24D', key:'l'+s, x:3 };
   if(colorMono(G,pi) >= 3)
@@ -164,12 +206,12 @@ function cityValue(t){
 }
 function assetOf(G,pi){
   let a = G.players[pi].cash;
-  G.tiles.forEach(t=>{ if(t.type==='city' && t.owner===pi) a += cityValue(t); });
+  G.tiles.forEach(t=>{ if((t.type==='city' || t.type==='tour') && t.owner===pi) a += cityValue(t); });
   return a;
 }
 function hasTriple(G, pi, g){ return CITY_SLOTS[g].every(i => G.tiles[i].owner===pi); }
 function hasLine(G, pi, side){
-  const idxs=[]; for(let k=1;k<8;k++){ const i=side*8+k; if(G.tiles[i].type==='city') idxs.push(i); }
+  const idxs=[]; for(let k=1;k<8;k++){ const i=side*8+k; const ty=G.tiles[i].type; if(ty==='city' || ty==='tour') idxs.push(i); }
   return idxs.length>0 && idxs.every(i=>G.tiles[i].owner===pi);
 }
 function yen(n){
@@ -228,6 +270,8 @@ const ITEMS = [
   { id:'freeze', nm:'凍結ブロック',  ic:'🧊', desc:'相手の街を2ターン凍らせる（通行料0）' },
   { id:'salary', nm:'給料2倍券',     ic:'💴', desc:'次のスタート通過の給料が2倍' },
   { id:'double', nm:'ダブルチャンス',ic:'✌️', desc:'次のサイコロが必ずゾロ目になる' },
+  { id:'escape', nm:'脱出カード',    ic:'🎫', desc:'無人島から今すぐ脱出できる（本家のカード）' },
+  { id:'taxfree',nm:'免税カード',    ic:'🧾', desc:'次の税務署の税金が免除される（本家のカード）' },
 ];
 function itemById(id){ return ITEMS.find(o=>o.id===id); }
 
@@ -411,6 +455,10 @@ function drawTile(ctx, G, i, T){
     sub  = (t.owner>=0 ? yenShort(tollOf(t,G)) : yenShort(t.base)) + (mulx > 1 ? ' X'+mulx : '');
     if(t.landmark) glow = '#7FE6FF';
   }
+  else if(t.type==='tour'){
+    top  = '#F5D98F'; side = mixHex('#F5D98F', '#6E8494', 0.30); band = TILE_FACE;
+    sub  = (t.owner>=0 ? yenShort(tollOf(t,G)) : yenShort(t.base));
+  }
   else if(t.type==='card'){ top='#EAF0F8'; side=mixHex('#EAF0F8','#6E8494',0.30); }
   else if(t.type==='tax'){ top='#D7DEE6'; side=mixHex('#D7DEE6','#6E8494',0.30); }
   else if(t.type==='bonus'){ top='#F7E7B4'; side=mixHex('#F7E7B4','#6E8494',0.30); glow='#FFD24D'; }
@@ -463,6 +511,13 @@ function drawTile(ctx, G, i, T){
   }
   if(t.type==='card'){ ctx.save(); ctx.translate(c.x, c.y+4); dvCardIcon(ctx, T); ctx.restore(); }
   if(t.type==='tax'){ iconOn(ctx,c,'🧾',26); }
+  if(t.type==='tour'){
+    iconOn(ctx,{x:c.x, y:c.y-22},'⛱️',22);
+    if(t.owner>=0 && typeof PCOL!=='undefined'){   // 持ち主の色の小旗（観光地は建物が無いので）
+      ctx.save(); ctx.beginPath(); ctx.arc(c.x+22, c.y-34, 7, 0, Math.PI*2);
+      ctx.fillStyle = PCOL[t.owner]; ctx.fill(); ctx.lineWidth=2; ctx.strokeStyle='#fff'; ctx.stroke(); ctx.restore();
+    }
+  }
   if(t.type==='bonus'){ iconOn(ctx,c,'💰',26); }
   // 祭り都市（×2）・オリンピック開催地のバッジ。本家は祭り都市が一目で分かる
   if(t.type==='city' && (t.x2 || t.olym>1)){
