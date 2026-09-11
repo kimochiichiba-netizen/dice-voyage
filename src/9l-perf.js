@@ -31,8 +31,8 @@ function dkkFontNow(){ try{ return !document.fonts || document.fonts.status === 
 function dkkFontOk(){ var S = DKK_S || dkkS(); if(S.fok === null) S.fok = dkkFontNow(); return S.fok; }
 function dkkCanvas(w, h){ var c = document.createElement('canvas'); c.width = Math.max(1, Math.ceil(w)); c.height = Math.max(1, Math.ceil(h)); return c; }
 function dkkByY(a, b){ return a.y - b.y; }
-/* ゲージ（9g の drawGauge）は 90 コマ/秒まで（120Hz 以上の画面で描き過ぎない） */
-function dkkGauge(S, now){ var d = now - (S.gT || 0); if(!(d > 0 && d < 11)){ S.gT = now; drawGauge(now); } }
+/* ゲージ（9g の drawGauge）は 60〜90 コマ/秒まで（120Hz 以上の画面で描き過ぎない） */
+function dkkGauge(S, now, dt){ var d = now - (S.gT || 0); if(!(d > 0 && d < 16 - dt / 2)){ S.gT = now; drawGauge(now); } }
 
 /* ══ 描画ループ ══ */
 function frame(now){
@@ -44,7 +44,7 @@ function frame(now){
   if(now - S.visT > 1000){ S.visT = now; if(typeof DKFX === 'object' && DKFX) DKFX.vg = (DKFX.vg | 0) + 1; }
   if(typeof DKFX === 'object' && DKFX && DKFX.worldOff){ // 不透明な画面の下：盤は描かず作り置きだけ（DKFX.scrSync）
     try{ if(dkkGame() && G.tiles && G.map){ if(bgKey !== G.map.id) refreshBg(G.map, now); else if(S.g !== G || bdKey === '') refreshBoard(now); } }catch(e){}
-    dkkGauge(S, now); paintPortraits(now); tickClock(dt);
+    dkkGauge(S, now, dt); paintPortraits(now); tickClock(dt);
     requestAnimationFrame(frame);
     return;
   }
@@ -89,7 +89,7 @@ function frame(now){
     } else if(diceAnim.t > 1600) diceAnim = null;
   }
   celOverlay(ctx, now);
-  dkkGauge(S, now);
+  dkkGauge(S, now, dt);
   paintPortraits(now);
   tickClock(dt);
   requestAnimationFrame(frame);
@@ -660,7 +660,7 @@ function dkkBgmNeed(key, name, minor, tempo, hi, save){
 function dkkBgmPump(){
   var B = DKK_B || dkkB();
   if(B.busy || !B.q.length) return;
-  if(B.q[0].key !== B.cur && dkkBusy()){ if(!B.pt) B.pt = setTimeout(function(){ B.pt = 0; dkkBgmPump(); }, 1000); return; } // 先回りは盤が隠れている時
+  if((B.q[0].r || B.q[0].key !== B.cur) && dkkBusy()){ if(!B.pt) B.pt = setTimeout(function(){ B.pt = 0; dkkBgmPump(); }, 1000); return; } // 録音と先回りは盤が隠れている時だけ（読み出しはいつでも）
   var job = B.q.shift(), id = dkkBgmId(job);
   B.busy = job;
   var want = function(){ return job.keep || B.cur === job.key; };
@@ -678,12 +678,19 @@ function dkkBgmPump(){
     fin(e);
   };
   var load = function(rec){
-    if(rec && rec.n && rec.a && rec.b) dkkFromI16(rec, B.cur !== job.key, function(buf){ if(buf) fin({ buf: buf, L: rec.L, rate: rec.rate }); else dkkBgmRender(job, done2); });
-    else dkkBgmRender(job, done2);
+    if(rec && rec.n && rec.a && rec.b) dkkFromI16(rec, B.cur !== job.key, function(buf){ if(buf) fin({ buf: buf, L: rec.L, rate: rec.rate }); else rend(); });
+    else rend();
   };
+  var rend = function(){
+    if(!dkkBusy()){ dkkBgmRender(job, done2); return; }
+    job.r = 1; B.busy = null; B.q.unshift(job);       // 盤が見えている間は合成で鳴らしておく
+    if(B.cur === job.key && !B.src && !B.liveOn && B.live) dkkBgmLive(job.name);
+    dkkBgmPump();
+  };
+  if(job.r){ rend(); return; }
   if(want()){ dkkIdbDo('readonly', function(st){ return st.get(id); }).then(load); return; }
   dkkIdbDo('readonly', function(st){ return st.count(id); }).then(function(n){   // 先回り：保存済みなら読まない
-    if(!n){ dkkBgmRender(job, done2); return; }
+    if(!n){ rend(); return; }
     if(!want()){ fin(undefined); return; }
     dkkIdbDo('readonly', function(st){ return st.get(id); }).then(load);
   });
@@ -847,9 +854,8 @@ function dkkBgmAhead(list){ // 次の曲を先に録音
     dkOn('screen', function(p){ // 下ごしらえ・曲の先回り
       if(!p || !p.changed) return;
       if(p.id === 'setup' || p.id === 'room' || p.id === 'loading' || p.id === 'dkclass') setTimeout(dkkWarm, 350);
-      if(p.id === 'room') dkkBgmAhead([['game'], ['win'], ['result'], ['result', { minor: true, tempo: 0.8 }]]);
+      if(p.id === 'room' || p.id === 'setup') dkkBgmAhead([['game'], ['win'], ['result'], ['result', { minor: true, tempo: 0.8 }]]);
     });
     setTimeout(function(){ dkkLater(dkkWarm); dkkIdb(); }, 250); // 最初の描画のあと
-    setTimeout(function(){ if(!G) dkkBgmNeed('lobby', 'lobby', false, 1, false); }, 1200);
   }catch(e){ console.error('[WP10]', e); }
 })();
