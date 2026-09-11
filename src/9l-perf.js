@@ -175,21 +175,22 @@ function dkkStackPaint(b, i, k, now){
   var P = G.players, S = DKK_S, j, only = [], c, g, x, p = P[i], fg, key;
   b.on = false;
   if(i >= P.length || p.out) return;
-  var xy = dkkStackXY(i), x0 = Math.floor(xy.x - 170), y0 = Math.floor(xy.y - 230), W = Math.ceil(430 * k), H = Math.ceil(360 * k);
+  var xy = dkkStackXY(i), x0 = Math.floor(xy.x - 170), y0 = Math.floor(xy.y - 230), m = 0.5;
   for(j = 0; j < P.length; j++) only.push(j === i ? p : { out: true, cash: 0, items: [] });
   fg = { players: only, map: G.map, tiles: G.tiles, turn: G.turn };
-  key = (typeof dkbBundles === 'function' ? dkbBundles(p.cash) : 0) + '|' + Math.min(4, (p.items || []).length) + '|' + k;
-  if(!(key in S.sbx)){                              // 形ごとに1回だけ測る
-    c = dkkCanvas(W, H); g = c.getContext('2d', { willReadFrequently: true });
-    g.setTransform(k, 0, 0, k, -x0 * k, -y0 * k);
+  key = (typeof dkbBundles === 'function' ? dkbBundles(p.cash) : 0) + '|' + Math.min(4, (p.items || []).length);
+  if(!(key in S.sbx)){                              // 形ごとに1回だけ、粗い絵で範囲を測る（読み取りを小さく）
+    c = dkkCanvas(430 * m, 360 * m); g = c.getContext('2d', { willReadFrequently: true });
+    g.setTransform(m, 0, 0, m, -x0 * m, -y0 * m);
     try{ drawStacks(g, fg, now); }catch(e){}
-    S.sbx[key] = dkkAlphaBox(g, W, H, 3); c.width = c.height = 1;
+    x = dkkAlphaBox(g, c.width, c.height, 2); c.width = c.height = 1;
+    S.sbx[key] = x && { x: x.x / m, y: x.y / m, w: x.w / m, h: x.h / m };
   }
   if(!(x = S.sbx[key])) return;
-  b.c = b.c || document.createElement('canvas'); b.c.width = x.w; b.c.height = x.h;
-  g = b.c.getContext('2d'); g.setTransform(k, 0, 0, k, -x0 * k - x.x, -y0 * k - x.y);
+  b.c = b.c || document.createElement('canvas'); b.c.width = Math.ceil(x.w * k); b.c.height = Math.ceil(x.h * k);
+  g = b.c.getContext('2d'); g.setTransform(k, 0, 0, k, -(x0 + x.x) * k, -(y0 + x.y) * k);
   try{ drawStacks(g, fg, now); }catch(e){ console.error('[WP10] stacks', e); }
-  b.x = x0 + x.x / k; b.y = y0 + x.y / k; b.w = x.w / k; b.h = x.h / k; b.on = true;
+  b.x = x0 + x.x; b.y = y0 + x.y; b.w = x.w; b.h = x.h; b.on = true;
 }
 /* 色のある範囲（p＝余白） */
 function dkkAlphaBox(g, W, H, p){
@@ -255,7 +256,7 @@ function dkkPart(ctx, key, col, T){
 function dkkPartBox(key, col, T){
   var S = DKK_S, b = S.pbox[key];
   if(b) return b;
-  var sc = 2, W = 600, H = 840, ox = 300, oy = 720, c = dkkCanvas(W, H), k, g = c.getContext('2d', { willReadFrequently: true });
+  var sc = 1, W = 300, H = 420, ox = 150, oy = 360, c = dkkCanvas(W, H), k, g = c.getContext('2d', { willReadFrequently: true });
   try{ for(k = 0; k < 7; k++){ g.setTransform(sc, 0, 0, sc, ox, oy); dkkPartFn(key)(g, col, T + k * 1100); } }catch(e){ return null; }
   k = dkkAlphaBox(g, W, H, 0); c.width = c.height = 1;
   return k ? (S.pbox[key] = { x: (k.x - ox) / sc - 6, y: (k.y - oy) / sc - 8, w: k.w / sc + 12, h: k.h / sc + 14 }) : null;
