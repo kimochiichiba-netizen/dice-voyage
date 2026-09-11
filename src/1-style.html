@@ -123,7 +123,7 @@ html,body{height:100%;overflow:hidden;background:#04070f;font-family:var(--jp);c
   line-height:1.2;padding:2px 14px 5px;white-space:nowrap}
 
 /* ══════════ トースト / 告知 ══════════ */
-.toast{position:relative;z-index:82;display:flex;align-items:center;gap:11px;max-width:100%;
+.toast{position:relative;z-index:320;display:flex;align-items:center;gap:11px;max-width:100%;
   background:rgba(24,36,54,.9);border:1px solid #7d8fa6;border-radius:9px;padding:9px 15px;
   box-shadow:0 6px 18px rgba(0,0,0,.55);animation:toastIn .25s cubic-bezier(.16,1,.3,1) both}
 .toast.out{animation:toastOut .2s ease-in both}
@@ -135,14 +135,14 @@ html,body{height:100%;overflow:hidden;background:#04070f;font-family:var(--jp);c
 .toast .tx i{display:block;font-style:normal;font-size:13.5px;color:#D8E4F2;margin-top:1px;white-space:nowrap}
 @keyframes toastIn{from{opacity:0;transform:translateX(-38px)}to{opacity:1;transform:none}}
 @keyframes toastOut{to{opacity:0;transform:translateX(-24px)}}
-#toastL{position:absolute;left:1.2%;top:18.5%;width:37%;z-index:82;display:flex;flex-direction:column;gap:7px}
-#toastR{position:absolute;right:6.5%;bottom:18.5%;width:33%;z-index:82;display:flex;flex-direction:column;
+#toastL{position:absolute;left:1.2%;top:18.5%;width:37%;z-index:320;display:flex;flex-direction:column;gap:7px}
+#toastR{position:absolute;right:6.5%;bottom:18.5%;width:33%;z-index:320;display:flex;flex-direction:column;
   align-items:flex-end;gap:7px}
 #toastR .toast{animation-name:toastInR;flex-direction:row-reverse}
 @keyframes toastInR{from{opacity:0;transform:translateX(38px)}to{opacity:1;transform:none}}
 
 /* 金額ピル */
-.pill{position:absolute;z-index:83;display:flex;align-items:center;gap:10px;padding:5px 22px 8px 14px;
+.pill{position:absolute;z-index:322;display:flex;align-items:center;gap:10px;padding:5px 22px 8px 14px;
   border-radius:11px;animation:pillIn .3s cubic-bezier(.2,1.5,.4,1) both}
 .pill.up{background:linear-gradient(#7a6029,#4c3a14)}
 .pill.dn{background:linear-gradient(#465059,#2b3238)}
@@ -224,7 +224,8 @@ html,body{height:100%;overflow:hidden;background:#04070f;font-family:var(--jp);c
 @keyframes emoPop{from{transform:scale(0)}60%{transform:scale(1.22)}to{transform:scale(1)}}
 
 /* ══════════ モーダル ══════════ */
-#modalWrap{position:absolute;inset:0;z-index:99;display:none;align-items:center;justify-content:center}
+/* 画面(.screen z=200)より上に出す。下にあると押しても見えない */
+#modalWrap{position:absolute;inset:0;z-index:340;display:none;align-items:center;justify-content:center}
 #modalWrap.on{display:flex}
 #modalWrap .backdrop{position:absolute;inset:0;background:rgba(4,10,20,.55);backdrop-filter:blur(2px)}
 .modal{position:relative;animation:modalIn .26s cubic-bezier(.34,1.56,.64,1) both;max-width:88%}
