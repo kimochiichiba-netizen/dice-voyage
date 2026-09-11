@@ -641,7 +641,13 @@ function dieOf(pi){
   if(!p || p.kind==="cpu") return DICE[0];
   // 持っていないサイコロの効果は効かせない（セーブを書き換えられても素のサイコロに戻す）
   if(!(SV.dice && SV.dice[SV.die])) return DICE[0];
-  return dieById(SV.die);
+  return dieLeveled(dieById(SV.die), SV.dice[SV.die]);
+}
+/* 強化レベルぶんの上乗せ。Lv1 は素の性能。1レベルごとにゲージ枠 +1、ゾロ目 +0.4% */
+function dieLeveled(D, lv){
+  lv = Math.max(1, Math.min(30, (lv|0) || 1));
+  if(lv === 1) return D;
+  return Object.assign({}, D, { lv, gauge: D.gauge + (lv-1), dbl: Math.min(0.30, D.dbl + (lv-1)*0.004) });
 }
 function rollPair(force, forceDouble, die){
   let a,b;
@@ -864,7 +870,7 @@ async function resolveInner(pi){
     }
   }
   else if(t.type === 'travel'){
-    await band(G.map.corners[2]+'に到着','行きたいマスを1つ選べます',1200);
+    await band(G.map.corners[3]+'に到着','行きたいマスを1つ選べます',1200);
     // 黄金フリーパス：選ばずに最適マスへ跳ぶ
     if(await pendFire(pi,'onTravel',{pick:true}) === 'jumped'){ await resolve(pi); return; }
     const dest = (p.kind==='cpu') ? aiPickTravel(pi) : await pickTile(pi,'行き先を選んでください');
@@ -1118,7 +1124,7 @@ async function growAnim(i){
 }
 function pickTile(pi, msg, filter){
   return new Promise(res=>{
-    toast('R','🌀', msg, 'マスをタップしてください', 8000);
+    toast('R','🌀', msg, 'マスをタップしてください（14秒）', 14000);
     camReset();
     const c = $('#world');
     const done = (v)=>{ c.removeEventListener('pointerdown', onClick); destPin=null; res(v); };
@@ -1287,8 +1293,53 @@ const CARDS = [
       let s=0; G.players.forEach((q,j)=>{ if(j!==pi && !q.out){
         const a=Math.min(1000000,q.cash); q.cash-=a; s+=a; } }); give(pi,s); }},
   {t:'ダイス追加', ic:'✌️', d:'奇数・偶数ボタンが1回ずつ増えます', f:async pi=>{
-      G.players[pi].odd++; G.players[pi].even++; }}
+      G.players[pi].odd++; G.players[pi].even++; }},
+  /* ── 攻撃カード（本家の 지진／전염병／도시체인지 に相当）── */
+  {t:'地震',       ic:'🌋', d:'相手の街を1つ選び、建物を1段こわします（ランドマークは無効）', atk:true, f:async pi=>{
+      const d = await pickEnemyCity(pi, '地震を起こす街を選んでください',
+        i=>G.tiles[i].lv>=1 && !G.tiles[i].landmark, i=>tollOf(G.tiles[i],G));
+      if(d<0){ toast('R','🌋','地震', 'こわせる建物がありませんでした（+100万）',2000); give(pi,1000000); return; }
+      const t=G.tiles[d]; t.lv--; SFX.bad(); camShake(12);
+      addFx('ring', tileCenter(d).x, tileCenter(d).y, 700, '#FF8A5B');
+      toast('R','🌋','地震！', t.name+' の建物が1段こわれました',2400);
+      news('🌋 '+G.players[pi].name+' が '+t.name+' に地震を起こした！'); }},
+  {t:'疫病',       ic:'🦠', d:'相手の街を1つ選び、3ターンのあいだ通行料を半分にします', atk:true, f:async pi=>{
+      const d = await pickEnemyCity(pi, '疫病を流行らせる街を選んでください',
+        i=>!G.tiles[i].landmark, i=>tollOf(G.tiles[i],G));
+      if(d<0){ toast('R','🦠','疫病', '相手の街がありませんでした（+100万）',2000); give(pi,1000000); return; }
+      const t=G.tiles[d]; t.sick = 3;
+      addFx('ring', tileCenter(d).x, tileCenter(d).y, 700, '#9BE37A');
+      toast('R','🦠','疫病が流行', t.name+' の通行料が3ターン半分になります',2400);
+      news('🦠 '+G.players[pi].name+' が '+t.name+' に疫病を流行らせた'); }},
+  {t:'都市チェンジ',ic:'🔁', d:'自分のいちばん安い街と、相手の街を1つ交換します（ランドマークは無効）', atk:true, f:async pi=>{
+      const mine = G.tiles.map((t,i)=>t.type==='city'&&t.owner===pi&&!t.landmark?i:-1).filter(i=>i>=0)
+        .sort((a,b)=>cityValue(G.tiles[a])-cityValue(G.tiles[b]));
+      if(!mine.length){ toast('R','🔁','都市チェンジ', '交換できる自分の街がありません（+200万）',2000); give(pi,2000000); return; }
+      const d = await pickEnemyCity(pi, '交換したい相手の街を選んでください',
+        i=>!G.tiles[i].landmark, i=>cityValue(G.tiles[i]));
+      if(d<0){ toast('R','🔁','都市チェンジ', '相手の街がありませんでした（+200万）',2000); give(pi,2000000); return; }
+      const a=G.tiles[mine[0]], b=G.tiles[d], other=b.owner;
+      b.owner = pi; a.owner = other;
+      addFx('ring', tileCenter(d).x, tileCenter(d).y, 700, '#7FE6FF');
+      addFx('ring', tileCenter(mine[0]).x, tileCenter(mine[0]).y, 700, '#7FE6FF');
+      toast('R','🔁','都市チェンジ！', a.name+' ⇄ '+b.name,2600);
+      news('🔁 '+G.players[pi].name+' が '+a.name+' と '+G.players[other].name+' の '+b.name+' を交換！');
+      checkWin(); }},
+  /* ── 命令カード（本家の 초대장 に相当）── */
+  {t:'招待状',     ic:'✉️', d:'開催地（オリンピックのマス）へ招待されました。すぐに移動します', f:async pi=>{
+      await jumpTo(pi,16); await resolve(pi); }}
 ];
+/* 相手の街を1つ選ぶ。人間はタップ、CPUは score が最大の街。候補が無ければ -1 */
+async function pickEnemyCity(pi, msg, pred, score){
+  const ok = i => G.tiles[i].type==='city' && G.tiles[i].owner>=0 && G.tiles[i].owner!==pi
+                  && !G.players[G.tiles[i].owner].out && (!pred || pred(i));
+  const cands = G.tiles.map((t,i)=>ok(i)?i:-1).filter(i=>i>=0);
+  if(!cands.length) return -1;
+  if(G.players[pi].kind==='cpu' || cands.length===1)
+    return cands.sort((a,b)=>score(b)-score(a))[0];
+  const d = await pickTile(pi, msg, ok);
+  return d>=0 ? d : cands.sort((a,b)=>score(b)-score(a))[0];   // 時間切れは最良の候補に自動決定
+}
 function addItem(pi, id){
   const p = G.players[pi];
   if(p.items.length>=4){ toast('R','🎒','持ち物がいっぱい','アイテムを使ってから拾ってください',1900); return; }
@@ -1454,7 +1505,7 @@ function showResult(){
   bgm('lobby');
   screenTo('result');
   const meSeat = G.players.findIndex(p=>p.kind!=='cpu');
-  grantRewards(meSeat>=0 && G.winner===meSeat);
+  grantRewards(meSeat>=0 && G.winner===meSeat, (G.winner===meSeat && G.winX) || 1);
 }
 
 /* ══════════ ターン進行 ══════════ */
@@ -1464,7 +1515,7 @@ async function turnLoop(){
     const pi = G.turn, p = G.players[pi];
     if(p.out){ nextTurn(); continue; }
     // 凍結の解除
-    G.tiles.forEach(t=>{ if(t.frozen>0) t.frozen--; });
+    G.tiles.forEach(t=>{ if(t.frozen>0) t.frozen--; if(t.sick>0) t.sick--; });
     if(p.tollUp > 0) p.tollUp--;   // 地価高騰の期限
     p.mana = Math.min(100, p.mana + 34);
     updHUD();
@@ -1607,7 +1658,9 @@ async function pendFire(pi, trg, arg){
   if(!it) return false;
   p.pboost = p.pboost || {};
   const boost = p.pboost[it.id] || 0;
-  const rate = Math.min(0.95, it.p + boost);
+  // 強化レベル：1レベルごとに +1%（人間の持ち物だけ。CPUのペンダントは素の確率）
+  const plv = (p.kind !== 'cpu' && SV.pendants && SV.pendants[it.id] && SV.pendants[it.id].lv) || 1;
+  const rate = Math.min(0.95, it.p + boost + (plv-1)*0.01);
   const hit = Math.random() < rate;
   const pct = Math.round(rate*100), add = Math.round(boost*100);
   if(!hit){

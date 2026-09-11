@@ -198,8 +198,8 @@ function fixSave(s){
 
   /* サイコロ：ふつうの1個はかならず持っている。持っていない物は装備しない */
   const dice = {};
-  Object.keys(obj(s.dice)).forEach(id=>{ if(DICE.some(x=>x.id===id)) dice[id] = 1; });
-  dice.d0 = 1;
+  Object.keys(obj(s.dice)).forEach(id=>{ if(DICE.some(x=>x.id===id)) dice[id] = Math.max(1, Math.min(30, (s.dice[id]|0) || 1)); });
+  if(!dice.d0) dice.d0 = 1;
   s.dice = dice;
   if(!dice[s.die]) s.die = 'd0';
 
@@ -911,8 +911,9 @@ async function vsScreen(){
 }
 
 /* ── 対戦後の報酬 ───────────────────────────────────── */
-async function grantRewards(won){
-  const gold = won ? 1400 : 480;
+async function grantRewards(won, winX){
+  const mult = won ? Math.max(1, Math.min(5, winX || 1)) : 1;   // 独占勝利（×2/×3/×5）は報酬も増える
+  const gold = (won ? 1400 : 480) * mult;
   const exp  = won ? 40 : 14;
   SV.gold += gold; SV.exp += exp; SV.plays++; if(won) SV.wins++;
   let up = 0;
@@ -925,7 +926,7 @@ async function grantRewards(won){
   }
   saveNow();
   await modal('<div class="modal"><div class="reward"><div class="in">'
-    + '<h3>'+(won?'勝利報酬':'参加報酬')+'</h3>'
+    + '<h3>'+(won?'勝利報酬':'参加報酬')+(mult>1?' <small>独占ボーナス ×'+mult+'</small>':'')+'</h3>'
     + '<div class="items">'
     +   '<div class="it"><div class="ic">🪙</div><div class="v">+'+gold.toLocaleString()+'</div>'
     +     '<div class="l">ゴールド</div></div>'

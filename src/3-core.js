@@ -128,6 +128,7 @@ function tollOf(tile, G){
   let m = 1;
   if(tile.x2) m *= 2;                              // 祭り都市
   if(tile.olym > 1) m *= tile.olym;                // オリンピック開催（最大5倍）
+  if(tile.sick > 0) m *= 0.5;                       // 疫病（チャンスカード）：3ターン半額
   if(G){
     const i = G.tiles.indexOf(tile);
     if(hasTriple(G, tile.owner, tile.g)) m *= 2 * ((G.ev && G.ev.monoX) || 1);
@@ -463,7 +464,21 @@ function drawTile(ctx, G, i, T){
   if(t.type==='card'){ ctx.save(); ctx.translate(c.x, c.y+4); dvCardIcon(ctx, T); ctx.restore(); }
   if(t.type==='tax'){ iconOn(ctx,c,'🧾',26); }
   if(t.type==='bonus'){ iconOn(ctx,c,'💰',26); }
-  // ×2 バッジ
+  // 祭り都市（×2）・オリンピック開催地のバッジ。本家は祭り都市が一目で分かる
+  if(t.type==='city' && (t.x2 || t.olym>1)){
+    const lbl = t.x2 ? '祭 ×2' : '五輪 ×'+t.olym;
+    ctx.save();
+    ctx.font = '900 13px "Noto Sans JP", sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    const w = ctx.measureText(lbl).width + 14, h = 20, bx = c.x - w/2, by = c.y - 34 - h/2;
+    ctx.beginPath(); ctx.moveTo(bx+10, by); ctx.arcTo(bx+w, by, bx+w, by+h, 10); ctx.arcTo(bx+w, by+h, bx, by+h, 10);
+    ctx.arcTo(bx, by+h, bx, by, 10); ctx.arcTo(bx, by, bx+w, by, 10); ctx.closePath();
+    ctx.fillStyle = t.x2 ? '#E8563A' : '#D9A21B'; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#FFF3E0'; ctx.stroke();
+    ctx.fillStyle = '#FFFFFF'; ctx.fillText(lbl, c.x, by + h/2 + 1);
+    ctx.restore();
+  }
+  // 疫病（通行料半分）
+  if(t.sick>0){ iconOn(ctx,c,'🦠',22); }
 
   // 凍結
   if(t.frozen>0){

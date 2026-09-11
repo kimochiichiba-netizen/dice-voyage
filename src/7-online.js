@@ -1029,12 +1029,13 @@ function dvOnlineBoot(){
     var mx = maxLvOf(p);
     for(k = (own ? t.lv+1 : 1); k <= mx; k++){
       c = Math.round(BUILD[k].cost(t.base)*disc);
-      if(p.cash - spend - c < reserve - aggr*1500000) break;
+      if(p.cash - spend - c < Math.max(0, reserve - aggr*1500000)) break;   // 所持金以上は使わない
       if(lvl === 0 && k > 1) break;
       if(lvl === 1 && k > 2 && !aggr) break;
       spend += c; lvTarget = k; sel.push(k);
     }
-    if(lvl === 2 && lvTarget === 3 && near >= 1){
+    // ランドマークは「3段そろった自分の街にもう一度到着した時」だけ（オフライン aiBuy と同じ規則）
+    if(lvl === 2 && own && t.lv >= 3 && !t.landmark && near >= 1){
       c = Math.round(BUILD[4].cost(t.base)*disc);
       if(p.cash - spend - c > reserve){ sel.push(4); }
     }
@@ -1074,6 +1075,7 @@ function dvOnlineBoot(){
         }
       }
     }
+    if(spend > p.cash) return;              // 念のため：所持金を超える投資はしない
     if(p.halfBuild > 0) p.halfBuild--;
     give(pi, -spend);
     if(has(0) || own) t.owner = pi;
