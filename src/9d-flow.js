@@ -968,6 +968,10 @@ function dkfWireNav(el){
       if(to === 'map') return dkfRoomExit();
     };
   });
+  /* 常設バー（WP9 の walletHTML）の＋を配線する（WP9 の約束：walletHTML を使う画面は dkWire を呼ぶ） */
+  el.querySelectorAll('.wallet').forEach(function(w){
+    try{ dkWire(w); }catch(e){ console.error('[WP3] wallet', e); }
+  });
 }
 /* ホームの［入場する］が旧 screenTo('setup') のままなら dkFlowStart に付けかえる
    （WP9 の showHome が dkFlowStart を配線していれば何もしない） */

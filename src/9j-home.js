@@ -14,13 +14,17 @@
 /* ══════════ 定数（var にするのは、読み込み途中に呼ばれても TDZ で落ちないため） ══════════ */
 var DKH_MILE = 20;                       // マイレージ20で🔑1本
 var DKH_RP_WIN = 40, DKH_RP_LOSE = 10;   // 勝ち +40×クラス倍率 ／ 負け −10（0より下にしない）
-var DKH_TIERS = [
-  { id:'bronze', nm:'ブロンズ', min:0,    col:'#D08A4E', dk:'#6B3A12', rw:{ g:3000,  d:0  } },
-  { id:'silver', nm:'シルバー', min:200,  col:'#D5DEE8', dk:'#56657A', rw:{ g:8000,  d:2  } },
-  { id:'gold',   nm:'ゴールド', min:600,  col:'#FFD44A', dk:'#8A5E06', rw:{ g:20000, d:5  } },
-  { id:'plat',   nm:'プラチナ', min:1200, col:'#8FF0DC', dk:'#1E6B62', rw:{ g:40000, d:10 } },
-  { id:'dia',    nm:'ダイヤ',   min:2000, col:'#9ED8FF', dk:'#1B4E9E', rw:{ g:80000, d:20 } }
-];
+/* 表は関数で持つ（関数宣言は読み込み前でも使える。9d-flow.js の起動処理が walletHTML→dkhTier を先に呼ぶため） */
+function dkhTierTable(){
+  return [
+    { id:'bronze', nm:'ブロンズ', min:0,    col:'#D08A4E', dk:'#6B3A12', rw:{ g:3000,  d:0  } },
+    { id:'silver', nm:'シルバー', min:200,  col:'#D5DEE8', dk:'#56657A', rw:{ g:8000,  d:2  } },
+    { id:'gold',   nm:'ゴールド', min:600,  col:'#FFD44A', dk:'#8A5E06', rw:{ g:20000, d:5  } },
+    { id:'plat',   nm:'プラチナ', min:1200, col:'#8FF0DC', dk:'#1E6B62', rw:{ g:40000, d:10 } },
+    { id:'dia',    nm:'ダイヤ',   min:2000, col:'#9ED8FF', dk:'#1B4E9E', rw:{ g:80000, d:20 } }
+  ];
+}
+var DKH_TIERS = dkhTierTable();
 /* リーグの相手。サーバが無いので「CPU」と明示する。点数は日付だけで決まる（ゴールドを使っても動かない） */
 var DKH_RIVALS = [
   { nm:'CPU ガル', card:'c03', base:60,  per:8  },
@@ -144,9 +148,10 @@ function dkhSay(side, ic, t, s, ms){ try{ toast(side || 'R', ic, t, s || '', ms 
 /* ══════════ リーグ ══════════ */
 function dkhTier(rp){
   rp = Math.max(0, rp | 0);
+  var T = DKH_TIERS || dkhTierTable();   // 9d-flow.js の起動処理（walletHTML）から、表の var より先に呼ばれることがある
   var i = 0;
-  for(var k = 0; k < DKH_TIERS.length; k++) if(rp >= DKH_TIERS[k].min) i = k;
-  var t = DKH_TIERS[i], nx = DKH_TIERS[i + 1] || null;
+  for(var k = 0; k < T.length; k++) if(rp >= T[k].min) i = k;
+  var t = T[i], nx = T[i + 1] || null;
   return { i:i, id:t.id, nm:t.nm, col:t.col, dk:t.dk, rw:t.rw, min:t.min, next:nx,
     prog: nx ? Math.min(1, (rp - t.min) / (nx.min - t.min)) : 1, left: nx ? nx.min - rp : 0 };
 }
