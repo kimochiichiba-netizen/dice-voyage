@@ -556,9 +556,15 @@
 #cards .dkc-alcards .dkc-face{flex:1 1 auto;height:auto;min-height:78px;background-size:190% auto,100% 100%;background-position:50% 28%,center}
 /* ══════ v10（WP16a）：静かに（常時アニメは1画面8個まで）・能力値の上乗せ・再合成・サイコロの能力と粒 ══════ */
 #cards::after,#dice::after{animation:none;opacity:.85}
-#cards > .fx-amb > .fx-mote,#dice > .fx-amb > .fx-mote,#cards > .fx-amb > .fx-ray,#dice > .fx-amb > .fx-ray,
+#cards > .fx-amb > .fx-ray,#dice > .fx-amb > .fx-ray,
 #cards .fx-edge::after,#dice .fx-edge::after,#cards .dkbar i::after,#dice .dkbar i::after{display:none}
-#cards .dkbtn:not(.fx-primary)::after,#dice .dkbtn:not(.fx-primary)::after,#cards .dktab .nw,#dice .dktab .nw,
+/* 共通の背景の光（fxAmbient の丸）は止まった絵に、金の粒（.fx-motes）だけ動かす。
+   ボタンの光の筋（dkBtnShine）は全部止め、息づかい（fxBreath）は主ボタン（.dkc-bt）だけ残す（H9・WP0#4）。 */
+#cards > .fx-amb > .fx-blob,#dice > .fx-amb > .fx-blob,
+#cards .dkbtn::after,#dice .dkbtn::after,
+#cards .fx-primary::before,#dice .fx-primary::before,.dkc-modal .fx-primary::before{animation:none}
+#cards .dkc-bt.fx-primary::before,#dice .dkc-bt.fx-primary::before{animation:fxBreath 2.4s var(--fx-inout) infinite}
+#cards .dktab .nw,#dice .dktab .nw,
 #cards .dktab.on .dkc-svg,#dice .dktab.on .dkc-svg,#cards .dkc-fr::after,#dice .dkc-fr::after,#dice .dkc-item.on .dkc-dface img,
 #cards .dkc-arw,#cards .dkc-arw2,#cards .dkc-expbar em,#cards .dkc-ms.dkc-can .dkc-msic,#cards .fx-card.rSS::after,
 #cards .dkc-backin::after,#cards .dkc-mixslot .fx-gloss::after,#cards .dkc-upcard .fx-gloss::after,
