@@ -10,21 +10,36 @@ const esc = s => String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'
 
 /* ══════════ ステージのフィット（横画面バグ対策の要） ══════════ */
 let forcePortrait = false, portraitDir = 90;
+/* 画面のふちに貼り付くとブラウザの戻るジェスチャーと喧嘩して押せなくなるので、
+   ほんの少しだけ内側に置く */
+const FIT_MARGIN = 0.965;
 function fitStage(){
-  const vw = window.innerWidth, vh = window.innerHeight;
+  const vp = $('#viewport'), g = window.visualViewport;
+  // iOS Safari の innerHeight はツールバーの裏側まで含む。実際に見えている高さで測る
+  const vw = Math.max(240, Math.min(vp ? vp.clientWidth  : window.innerWidth,
+                                    g ? g.width  : window.innerWidth));
+  const vh = Math.max(240, Math.min(vp ? vp.clientHeight : window.innerHeight,
+                                    g ? g.height : window.innerHeight));
   const stage = $('#stage');
   const portrait = vh > vw * 1.02;
   $('#rotate').classList.toggle('on', portrait && !forcePortrait);
   let s, rot = '';
-  if(portrait && forcePortrait){ s = Math.min(vh/SW, vw/SH); rot = ' rotate('+portraitDir+'deg)'; }
-  else { s = Math.min(vw/SW, vh/SH); }
+  if(portrait && forcePortrait){ s = Math.min(vh/SW, vw/SH) * FIT_MARGIN; rot = ' rotate('+portraitDir+'deg)'; }
+  else { s = Math.min(vw/SW, vh/SH) * FIT_MARGIN; }
   stage.style.transform = 'translate(-50%,-50%)'+rot+' scale('+s+')';
   const c = $('#world');
   const dpr = Math.min(2, window.devicePixelRatio||1);
   if(c.width !== Math.round(SW*dpr)){ c.width = Math.round(SW*dpr); c.height = Math.round(SH*dpr); }
 }
 addEventListener('resize', fitStage);
-addEventListener('orientationchange', ()=>setTimeout(fitStage,120));
+addEventListener('orientationchange', ()=>{ setTimeout(fitStage,120); setTimeout(fitStage,420); });
+// iOS はスクロールでツールバーが伸び縮みし、そのたび見えている高さが変わる
+if(window.visualViewport){
+  visualViewport.addEventListener('resize', fitStage);
+  visualViewport.addEventListener('scroll', fitStage);
+}
+// 初回はフォントや画像の読み込みで高さが動くので、少し遅れてもう一度合わせる
+setTimeout(fitStage, 300); setTimeout(fitStage, 1200);
 $('#playPortrait').onclick  = ()=>{ forcePortrait = true; portraitDir =  90; fitStage(); };
 $('#playPortrait2').onclick = ()=>{ forcePortrait = true; portraitDir = -90; fitStage(); };
 
@@ -35,6 +50,7 @@ $('#playPortrait2').onclick = ()=>{ forcePortrait = true; portraitDir = -90; fit
    ブラウザの自動再生制限があるので、最初のクリックまで AudioContext は作らない。
    ══════════════════════════════════════════ */
 let AC = null, soundOn = true, SFXE = null, MUSIC = null, JING = null, audioReady = false;
+let MUSICF = null, MUSICS = null;   // F=音楽ファイル版 ／ S=合成音版
 let bgmOn = true, bgmVol = 0.55, sfxVol = 0.70;
 function ac(){
   if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
@@ -43,14 +59,10 @@ function ac(){
     audioReady = true;
     try{ SFXE = dvSfx(AC); }catch(e){ SFXE = null; }
     try{ JING = dvJingle(AC); }catch(e){ JING = null; }    // 短い曲（建設・独占など6本）
-    try{
-      MUSIC = dvMusicFiles(AC, (window.DV_BGM || null));   // 音楽ファイルがあれば本物を鳴らす
-      if(!MUSIC) MUSIC = dvMusic2(AC);                     // 無ければ厚みのある合成音（v2）
-      if(!MUSIC) MUSIC = dvMusic(AC);                      // それも駄目なら旧エンジン
-    }catch(e){
-      try{ MUSIC = dvMusic2(AC); }
-      catch(e2){ try{ MUSIC = dvMusic(AC); }catch(e3){ MUSIC = null; } }
-    }
+    try{ MUSICF = dvMusicFiles(AC, (window.DV_BGM || null)); }catch(e){ MUSICF = null; }
+    try{ MUSICS = dvMusic2(AC); }
+    catch(e){ try{ MUSICS = dvMusic(AC); }catch(e2){ MUSICS = null; } }
+    MUSIC = MUSICF || MUSICS;
     try{ applyAudioPrefs(); }catch(e){}
     try{ if(MUSIC) MUSIC.play('lobby'); }catch(e){}
   }
@@ -71,7 +83,18 @@ const SFX = (function(){
   return o;
 })();
 /* 場面に合わせて曲を切り替える */
-function bgm(name){ try{ if(MUSIC && bgmOn) MUSIC.play(name); }catch(e){} }
+/* その場面の音楽ファイルがあればファイルを、無ければ合成音を鳴らす。
+   1曲だけ差し替える、という使い方ができる。 */
+function bgm(name){
+  if(!bgmOn) return;
+  const hasFile = !!(window.DV_BGM && window.DV_BGM[name]);
+  const want = (hasFile && MUSICF) ? MUSICF : MUSICS;
+  if(!want) return;
+  try{ if(MUSICF && want !== MUSICF) MUSICF.stop(0.4); }catch(e){}
+  try{ if(MUSICS && want !== MUSICS) MUSICS.stop(0.4); }catch(e){}
+  MUSIC = want;
+  try{ want.play(name); }catch(e){}
+}
 /* ジングル（短い曲）を鳴らす。鳴っている間だけ BGM が -9dB に下がる
    name: 'build'|'landmark'|'buyout'|'bankrupt'|'mono'|'levelup'                */
 function jingle(name){
@@ -2082,7 +2105,9 @@ function applyAudioPrefs(){
   soundOn = sfxVol > 0.001;
   $('#sfxBtn').classList.toggle('off', !soundOn);
   $('#bgmBtn').classList.toggle('off', !bgmOn || bgmVol < 0.001);
-  if(MUSIC) MUSIC.setVolume(bgmOn ? bgmVol : 0);
+  const v = bgmOn ? bgmVol : 0;
+  try{ if(MUSICF) MUSICF.setVolume(v); }catch(e){}
+  try{ if(MUSICS) MUSICS.setVolume(v); }catch(e){}
   if(SFXE && SFXE.setVolume) SFXE.setVolume(sfxVol);
   if(JING && JING.setVolume) JING.setVolume(sfxVol);   // ジングルは効果音側の音量に従う
   try{ localStorage.setItem('dv_audio', JSON.stringify({bgmOn,bgmVol,sfxVol})); }catch(e){}
