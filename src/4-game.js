@@ -114,7 +114,24 @@ function jingle(name){
 
 /* ══════════ 設定と状態 ══════════ */
 let G = null;
-let cfg = { mapId:'lgr', turns:30, timeLimit:1500, cash:3000000, ai:1, speed:1, n:4,
+/* 対戦クラス（本家）：参加費をゴールドで払い、賞金は1位70%（ファーストは80%）・2位に残り */
+const CLASSES = [
+  { id:0, nm:'入門',       fee:0,    ds:'参加無料。CPUと練習' },
+  { id:1, nm:'エコノミー', fee:300,  ds:'参加費 300G。賞金 1位70%・2位30%' },
+  { id:2, nm:'ビジネス',   fee:1000, ds:'参加費 1,000G。賞金 1位70%・2位30%' },
+  { id:3, nm:'ファースト', fee:3000, ds:'参加費 3,000G。賞金 1位80%・2位20%' }
+];
+function classOf(i){ return CLASSES[i] || CLASSES[0]; }
+/* 自分の順位に応じた賞金（参加費×人数の山分け） */
+function prizeFor(pi){
+  if(!G || G.online) return 0;
+  const C = classOf(G.cls); if(!C.fee) return 0;
+  const pot = C.fee * G.players.length;
+  const rk = rank(); const k = rk.findIndex(r=>r.i===pi);
+  const top = Math.round(pot * (C.id===3 ? 0.8 : 0.7));
+  return k===0 ? top : k===1 ? pot - top : 0;
+}
+let cfg = { mapId:'lgr', turns:30, timeLimit:1500, cash:3000000, ai:1, speed:1, n:4, cls:0,
   seats:[{name:'あなた',kind:'you',ch:-1},{name:'CPU ガル',kind:'cpu',ch:-1},
          {name:'CPU リノ',kind:'cpu',ch:-1},{name:'CPU ゼニ',kind:'cpu',ch:-1}] };
 
@@ -130,8 +147,11 @@ function newGame(){
     for(let k=out.length;k<2;k++) out.push(pool.splice((Math.random()*pool.length)|0,1)[0].id);
     return out;
   };
+  // 参加費（本家のクラス制）。人間の席があるときだけ、ゴールドから引く
+  const C = classOf(cfg.cls);
+  if(C.fee && cfg.seats.slice(0,cfg.n).some(s=>s.kind!=='cpu')){ SV.gold = Math.max(0, SV.gold - C.fee); saveNow(); }
   G = {
-    map, tiles: buildTiles(map),
+    cls: cfg.cls, map, tiles: buildTiles(map),
     players: cfg.seats.slice(0,cfg.n).map((s,i)=>{
       const card = cardById(s.cardId) || CARDPOOL[i % CARDPOOL.length];
       const lv = (s.kind!=='cpu' && SV.cards[card.id]) ? SV.cards[card.id].lv
@@ -587,13 +607,34 @@ function hideChip(){
   $('#chip').classList.remove('pop'); $('#chip').classList.add('hide');
   $('#dbl').classList.remove('pop'); $('#dbl').style.transform='translateX(-50%) scale(0)';
 }
-function modal(html){
+/* ダイアログの右上に残り秒数を出す。戻り値の stop() で止める */
+function attachCountdown(body, ms){
+  const el = document.createElement('div');
+  el.style.cssText = 'position:absolute;right:18px;top:12px;z-index:5;background:#000b;color:#FFD24D;'
+    + 'font-weight:900;border-radius:999px;padding:4px 12px;font-size:14px;pointer-events:none';
+  let left = Math.ceil(ms/1000); el.textContent = '⏱ ' + left;
+  body.appendChild(el);
+  const tick = setInterval(()=>{ left--; el.textContent = '⏱ ' + Math.max(0, left); }, 1000*SPEED);
+  return { stop(){ clearInterval(tick); el.remove(); } };
+}
+let modalSeq = 0;
+/* autoAct を渡すと autoMs 後に自動でその選択肢が押されたことになる（本家の「時間切れ」） */
+function modal(html, autoAct, autoMs){
   return new Promise(res=>{
     const wrap = $('#modalWrap'), body = $('#modalBody');
+    const seq = ++modalSeq;
     body.innerHTML = html;
+    let cd = null, tm = null;
+    if(autoAct){
+      cd = attachCountdown(body, autoMs || 15000);
+      tm = setTimeout(()=>{
+        if(seq !== modalSeq || !wrap.classList.contains('on')) return;
+        cd.stop(); wrap.classList.remove('on'); res(autoAct);
+      }, (autoMs || 15000)*SPEED);
+    }
     wrap.classList.add('on');
     body.querySelectorAll('[data-act]').forEach(b=>{
-      b.onclick = ()=>{ SFX.click(); wrap.classList.remove('on'); res(b.dataset.act); };
+      b.onclick = ()=>{ SFX.click(); if(cd) cd.stop(); clearTimeout(tm); wrap.classList.remove('on'); res(b.dataset.act); };
     });
   });
 }
@@ -928,6 +969,11 @@ async function payToll(pi, i){
   let amt = Math.round(tollOf(t, G) * statMul(p,'toll',0.35));
   if(t.bind){ amt = Math.round(amt * 2); t.bind = 0;
     toast('L','💧','束縛','シュプリューデルで通行料が2倍になりました', 2200); }
+  if(t.devil){
+    t.devil = 0;
+    await cutIn('CHANCE','悪魔カード', t.name+' の通行料 '+yen(amt)+' → 無料');
+    return;
+  }
   if(p.freeToll > 0){
     p.freeToll--;
     await cutIn('ITEM','天使カード','通行料 '+yen(amt)+' → 無料');
@@ -954,7 +1000,7 @@ async function maybeBuyout(pi, i){
   if(p.cash < cost) return;
   let yes;
   if(p.kind==='cpu') yes = aiBuyout(pi, i, cost);
-  else yes = (await modal(parchHTML(t, cost, G.players[t.owner].name))) === 'ok';
+  else yes = (await modal(parchHTML(t, cost, G.players[t.owner].name), 'no', 15000)) === 'ok';
   if(!yes) return;
   give(pi, -cost); give(t.owner, cost);
   moneyFly(pi, t.owner, true);
@@ -1053,7 +1099,7 @@ async function buyUI(pi, i){
   if(!own && t.owner>=0) return;
   if(t.type==='tour'){
     if(own){ toast('R','⛱️','観光地', t.name+' は建物を建てられません（通行料は固定）',1800); return; }
-    if((await modal(tourHTML(i, pi))) === 'ok') await buyTour(pi, i);
+    if((await modal(tourHTML(i, pi), 'no', 15000)) === 'ok') await buyTour(pi, i);
     return;
   }
   if(own && t.landmark){ toast('R','🗼','ランドマーク完成済み', t.name+' はこれ以上建てられません',1800); return; }
@@ -1061,6 +1107,8 @@ async function buyUI(pi, i){
     const wrap = $('#modalWrap'), body = $('#modalBody');
     body.innerHTML = buildHTML(i, pi);
     wrap.classList.add('on');
+    const cd = attachCountdown(body, 15000);
+    const tmo = setTimeout(()=>{ if(wrap.classList.contains('on')){ cd.stop(); wrap.classList.remove('on'); toast('R','⏱','時間切れ','建てずに次へ進みます',1600); res(); } }, 15000*SPEED);
     const sel = new Set();
     const sumEl = body.querySelector('#bSum');
     const cards = Array.from(body.querySelectorAll('.bcard'));
@@ -1090,7 +1138,7 @@ async function buyUI(pi, i){
     recalc();
     body.querySelectorAll('[data-act]').forEach(b=>{
       b.onclick = async ()=>{
-        SFX.click(); wrap.classList.remove('on');
+        SFX.click(); cd.stop(); clearTimeout(tmo); wrap.classList.remove('on');
         if(b.dataset.act==='ok' && sel.size){
           let s = 0; sel.forEach(k=>s += costOf(k));
           if(p.halfBuild>0) p.halfBuild--;
@@ -1346,6 +1394,7 @@ const CARDS = [
       const d = await pickEnemyCity(pi, '地震を起こす街を選んでください',
         i=>G.tiles[i].lv>=1 && !G.tiles[i].landmark, i=>tollOf(G.tiles[i],G));
       if(d<0){ toast('R','🌋','地震', 'こわせる建物がありませんでした（+'+yen(eco(1000000))+'）',2000); give(pi,eco(1000000)); return; }
+      if(await angelBlock(d)) return;
       const t=G.tiles[d]; t.lv--; SFX.bad(); camShake(12);
       addFx('ring', tileCenter(d).x, tileCenter(d).y, 700, '#FF8A5B');
       toast('R','🌋','地震！', t.name+' の建物が1段こわれました',2400);
@@ -1354,6 +1403,7 @@ const CARDS = [
       const d = await pickEnemyCity(pi, '疫病を流行らせる街を選んでください',
         i=>!G.tiles[i].landmark, i=>tollOf(G.tiles[i],G));
       if(d<0){ toast('R','🦠','疫病', '相手の街がありませんでした（+'+yen(eco(1000000))+'）',2000); give(pi,eco(1000000)); return; }
+      if(await angelBlock(d)) return;
       const t=G.tiles[d]; t.sick = 3;
       addFx('ring', tileCenter(d).x, tileCenter(d).y, 700, '#9BE37A');
       toast('R','🦠','疫病が流行', t.name+' の通行料が3ターン半分になります',2400);
@@ -1365,6 +1415,7 @@ const CARDS = [
       const d = await pickEnemyCity(pi, '交換したい相手の街を選んでください',
         i=>!G.tiles[i].landmark, i=>cityValue(G.tiles[i]));
       if(d<0){ toast('R','🔁','都市チェンジ', '相手の街がありませんでした（+'+yen(eco(2000000))+'）',2000); give(pi,eco(2000000)); return; }
+      if(await angelBlock(d)) return;
       const a=G.tiles[mine[0]], b=G.tiles[d], other=b.owner;
       b.owner = pi; a.owner = other;
       addFx('ring', tileCenter(d).x, tileCenter(d).y, 700, '#7FE6FF');
@@ -1372,10 +1423,40 @@ const CARDS = [
       toast('R','🔁','都市チェンジ！', a.name+' ⇄ '+b.name,2600);
       news('🔁 '+G.players[pi].name+' が '+a.name+' と '+G.players[other].name+' の '+b.name+' を交換！');
       checkWin(); }},
+  {t:'悪魔カード', ic:'😈', d:'相手の街を1つ選び、次にその街で払われる通行料を1回だけ無料にします', atk:true, f:async pi=>{
+      const d = await pickEnemyCity(pi, '悪魔を置く街を選んでください',
+        i=>!G.tiles[i].landmark && !G.tiles[i].devil, i=>tollOf(G.tiles[i],G));
+      if(d<0){ toast('R','😈','悪魔カード', '相手の街がありませんでした（+'+yen(eco(1000000))+'）',2000); give(pi,eco(1000000)); return; }
+      if(await angelBlock(d)) return;
+      const t=G.tiles[d]; t.devil = 1;
+      addFx('ring', tileCenter(d).x, tileCenter(d).y, 700, '#B58CFF');
+      toast('R','😈','悪魔カード', t.name+' の次の通行料が1回無料になります',2400);
+      news('😈 '+G.players[pi].name+' が '+t.name+' に悪魔を置いた'); }},
+  {t:'強制売却',   ic:'📉', d:'相手の街を1つ選び、建物を1段売らせます（持ち主には半額が入る）', atk:true, f:async pi=>{
+      const d = await pickEnemyCity(pi, '売らせる街を選んでください',
+        i=>G.tiles[i].lv>=1 && !G.tiles[i].landmark, i=>tollOf(G.tiles[i],G));
+      if(d<0){ toast('R','📉','強制売却', '売らせる建物がありませんでした（+'+yen(eco(1000000))+'）',2000); give(pi,eco(1000000)); return; }
+      if(await angelBlock(d)) return;
+      const t=G.tiles[d]; const back = Math.round(BUILD[t.lv].cost(t.base)*0.5); t.lv--;
+      give(t.owner, back); SFX.bad();
+      addFx('ring', tileCenter(d).x, tileCenter(d).y, 700, '#FF8A5B');
+      toast('R','📉','強制売却！', t.name+' の建物が1段売られました（持ち主に '+yen(back)+'）',2600);
+      news('📉 '+G.players[pi].name+' が '+t.name+' を強制売却させた'); }},
   /* ── 命令カード（本家の 초대장 に相当）── */
   {t:'招待状',     ic:'✉️', d:'開催地（オリンピックのマス）へ招待されました。すぐに移動します', f:async pi=>{
       await jumpTo(pi,16); await resolve(pi); }}
 ];
+/* 天使カード（本家では防御カード）：攻撃された街の持ち主が持っていれば自動で消費して防ぐ */
+async function angelBlock(tileIdx){
+  const t = G.tiles[tileIdx]; if(!t || t.owner<0) return false;
+  const q = G.players[t.owner]; const k = q.items.indexOf('angel');
+  if(k < 0) return false;
+  q.items.splice(k,1); renderItems();
+  addFx('ring', tileCenter(tileIdx).x, tileCenter(tileIdx).y, 800, '#FFF3C0');
+  await cutIn('DEFENSE','天使カード', q.name+' の '+t.name+' を攻撃から守った');
+  news('🪽 '+q.name+' の天使カードが '+t.name+' を守った');
+  return true;
+}
 /* 相手の街を1つ選ぶ。人間はタップ、CPUは score が最大の街。候補が無ければ -1 */
 async function pickEnemyCity(pi, msg, pred, score){
   const ok = i => G.tiles[i].type==='city' && G.tiles[i].owner>=0 && G.tiles[i].owner!==pi
@@ -1409,7 +1490,7 @@ async function chanceCard(pi){
       + '<p style="padding:0 16px 14px;font-size:14px;line-height:1.75;text-align:center">'+esc(desc)+'</p>'
       + '<div class="btnrow" style="justify-content:center;padding:0 16px 16px">'
       + '<button class="btn gold" data-act="ok">OK</button></div>'
-      + '</div><div class="seal">'+c.ic+'</div></div></div>');
+      + '</div><div class="seal">'+c.ic+'</div></div></div>', 'ok', 8000);
   } else {
     toast('L','❓','チャンスカード', c.t+' — '+desc, 2000);
     await wait(900);
@@ -1542,7 +1623,7 @@ function showResult(){
   rk.forEach((r,k)=>{
     const p = G.players[r.i];
     let est = 0;
-    G.tiles.forEach(t=>{ if(t.type==='city' && t.owner===r.i) est += cityValue(t); });
+    G.tiles.forEach(t=>{ if((t.type==='city' || t.type==='tour') && t.owner===r.i) est += cityValue(t); });
     const tr = document.createElement('tr');
     tr.innerHTML = '<td style="color:'+PCOL[r.i]+'">'+(k+1)+'</td>'
       + '<td>'+esc(p.name)+' <small style="color:#8fa6c0">'+esc((cardById(p.card)||{nm:''}).nm)+'</small>'
@@ -1553,7 +1634,7 @@ function showResult(){
   bgm('lobby');
   screenTo('result');
   const meSeat = G.players.findIndex(p=>p.kind!=='cpu');
-  grantRewards(meSeat>=0 && G.winner===meSeat, (G.winner===meSeat && G.winX) || 1);
+  grantRewards(meSeat>=0 && G.winner===meSeat, (G.winner===meSeat && G.winX) || 1, meSeat>=0 ? prizeFor(meSeat) : 0);
 }
 
 /* ══════════ ターン進行 ══════════ */
@@ -1654,7 +1735,7 @@ async function jailTurn(pi){
           + '<p style="padding:0 16px 14px;font-size:14px;line-height:1.75;text-align:center">'+esc(G.map.corners[1])+'から今すぐ脱出しますか？</p>'
           + '<div class="btnrow" style="justify-content:center;padding:0 16px 16px">'
           + '<button class="btn ghost" data-act="no">使わない</button><button class="btn gold" data-act="ok">使う</button></div>'
-          + '</div><div class="seal">🎫</div></div></div>')) === 'ok';
+          + '</div><div class="seal">🎫</div></div></div>', 'no', 10000)) === 'ok';
     if(use){
       p.items.splice(ek,1); renderItems(); p.jail = 0;
       await cutIn('ITEM','脱出カード', G.map.corners[1]+'から脱出！');
@@ -2278,11 +2359,16 @@ $('#optTurns').onchange   = e => cfg.turns = +e.target.value;
 $('#optTime').onchange    = e => cfg.timeLimit = +e.target.value;
 $('#optCash').onchange    = e => cfg.cash  = +e.target.value;
 $('#optAI').onchange      = e => cfg.ai    = +e.target.value;
+$('#optCls').onchange     = e => cfg.cls   = +e.target.value;
 $('#optSpeed').onchange   = e => { cfg.speed = +e.target.value; SPEED = cfg.speed; };
-$('#optArt').onchange     = e => { setArtStyle(e.target.value); refreshArt(); SFX.click(); };
 
 async function launch(){
   SPEED = cfg.speed;
+  const C = classOf(cfg.cls);
+  if(C.fee > SV.gold){
+    toast('R','🪙','ゴールドが足りません', C.nm+'クラスは参加費 '+C.fee.toLocaleString()+'G。入門クラスで始めます', 2800);
+    cfg.cls = 0; const el = $('#optCls'); if(el) el.value = '0';
+  }
   await pickPhase();
   if(!await roomPhase()){ screenTo('setup'); return; }   // 待機部屋でもどるを押したら設定へ
   await vsScreen();
@@ -2402,8 +2488,8 @@ setOpt('#optCash',    cfg.cash,      v => cfg.cash = +v);
 setOpt('#optAI',      cfg.ai,        v => cfg.ai = +v);
 setOpt('#optPlayers', cfg.n,         v => { cfg.n = +v; renderSeats(); });
 setOpt('#optTime',    cfg.timeLimit, v => cfg.timeLimit = +v);
+setOpt('#optCls',     cfg.cls,       v => cfg.cls = +v);
 setOpt('#optSpeed',   cfg.speed,     v => { cfg.speed = +v; SPEED = cfg.speed; });
-setOpt('#optArt',     ART_STYLE,     v => { setArtStyle(v); refreshArt(); });
 
 try{
   const boot = st => { if(st && st.cfg){ Object.assign(cfg, st.cfg); renderMaps(); renderSeats(); } };

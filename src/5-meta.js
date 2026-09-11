@@ -911,9 +911,10 @@ async function vsScreen(){
 }
 
 /* ── 対戦後の報酬 ───────────────────────────────────── */
-async function grantRewards(won, winX){
+async function grantRewards(won, winX, prize){
   const mult = won ? Math.max(1, Math.min(5, winX || 1)) : 1;   // 独占勝利（×2/×3/×5）は報酬も増える
-  const gold = (won ? 1400 : 480) * mult;
+  prize = prize || 0;                                            // クラス賞金（参加費の山分け）
+  const gold = (won ? 1400 : 480) * mult + prize;
   const exp  = won ? 40 : 14;
   SV.gold += gold; SV.exp += exp; SV.plays++; if(won) SV.wins++;
   let up = 0;
@@ -929,7 +930,7 @@ async function grantRewards(won, winX){
     + '<h3>'+(won?'勝利報酬':'参加報酬')+(mult>1?' <small>独占ボーナス ×'+mult+'</small>':'')+'</h3>'
     + '<div class="items">'
     +   '<div class="it"><div class="ic">🪙</div><div class="v">+'+gold.toLocaleString()+'</div>'
-    +     '<div class="l">ゴールド</div></div>'
+    +     '<div class="l">ゴールド'+(prize?'（賞金 '+prize.toLocaleString()+' 込み）':'')+'</div></div>'
     +   '<div class="it"><div class="ic">⭐</div><div class="v">+'+exp+'</div><div class="l">経験値</div></div>'
     +   (up?'<div class="it"><div class="ic">🆙</div><div class="v">Lv.'+SV.lv+'</div>'
     +     '<div class="l">レベルアップ</div></div>':'')
@@ -1095,7 +1096,7 @@ function roomPhase(){
         /* ── 上の緑の帯 ── */
         + '<div class="rm-top">'
         +   '<div class="rm-umap" id="rmUmap"><span class="pl">🪐</span><b>宇宙マップ</b></div>'
-        +   '<div class="rm-ttl"><span class="a">個人戦</span>'
+        +   '<div class="rm-ttl"><span class="a">'+classOf(cfg.cls).nm+'クラス</span>'
         +     '<span class="b" id="rmMode">' + esc(map.name) + '</span>'
         +     '<span class="c">' + Math.round(cfg.cash / 10000).toLocaleString() + '万</span></div>'
         + '</div>'
@@ -1129,8 +1130,7 @@ function roomPhase(){
         + '<div class="rm-bub rm-bub2"><b>タッチすると装着したカードを変更可能です</b></div>'
         /* ── 右ページ ── */
         + '<div class="rm-rp"></div>' + seatsHTML()
-        + '<div class="rm-add" id="rmAdd"><span class="t1">ゲーム友だち</span>'
-        +   '<span class="t2">＋追加</span></div>'
+
         + '<div class="rm-go" id="rmGo"><div class="fc"><b>プレイ準備完了</b></div></div>'
         + '<div class="rm-notice"><b>30秒以内に準備ないと自動退場されます</b></div>'
         + walletHTML()
@@ -1179,9 +1179,6 @@ function roomPhase(){
       on('#rmMode', function(){
         const i = MAPS.findIndex(function(m){ return m.id === cfg.mapId; });
         cfg.mapId = MAPS[(i + 1) % MAPS.length].id; render();
-      });
-      on('#rmAdd', function(){
-        toast('R','👥','ともだち募集','いまはCPUと遊べます。ともだち対戦はこれからです', 2200);
       });
       on('#rmUmap', function(){ resolve(false); });
       on('#rmGo',   function(){ resolve(true); });

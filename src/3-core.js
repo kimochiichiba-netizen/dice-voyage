@@ -534,6 +534,7 @@ function drawTile(ctx, G, i, T){
   }
   // 疫病（通行料半分）
   if(t.sick>0){ iconOn(ctx,c,'🦠',22); }
+  if(t.devil){ iconOn(ctx,{x:c.x, y:c.y-22},'😈',22); }
 
   // 凍結
   if(t.frozen>0){

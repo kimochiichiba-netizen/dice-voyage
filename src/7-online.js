@@ -582,7 +582,7 @@ function dvOnlineBoot(){
     return {
       tiles: G.tiles.map(function(t){
         return {o:(t.owner === undefined ? -1 : t.owner), l:t.lv|0, m:t.landmark?1:0,
-                f:t.frozen|0, y:t.olym|0, x:t.x2?1:0, s:t.sick|0};
+                f:t.frozen|0, y:t.olym|0, x:t.x2?1:0, s:t.sick|0, v:t.devil|0};
       }),
       players: G.players.map(function(p){
         return {c:p.cash, p:p.pos, la:p.laps, j:p.jail, o:p.out?1:0, d:p.dblRun,
@@ -599,7 +599,7 @@ function dvOnlineBoot(){
     for(i=0;i<s.tiles.length && i<G.tiles.length;i++){
       var a = s.tiles[i], t = G.tiles[i];
       if(t.type !== 'city' && t.type !== 'tour') continue;
-      t.owner = a.o; t.lv = a.l; t.landmark = !!a.m; t.frozen = a.f; t.olym = a.y; t.x2 = !!a.x; t.sick = a.s|0;
+      t.owner = a.o; t.lv = a.l; t.landmark = !!a.m; t.frozen = a.f; t.olym = a.y; t.x2 = !!a.x; t.sick = a.s|0; t.devil = a.v|0;
     }
     for(i=0;i<s.players.length && i<G.players.length;i++){
       var b = s.players[i], p = G.players[i];

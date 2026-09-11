@@ -368,9 +368,6 @@ function dkTakeQuest(id, list, quiet){
 let dkPendSel = null;
 const DK_PTABS = [
   {id:'pend', ic:'📿', nm:'ペンダント'},
-  {id:'have', ic:'🧰', nm:'所持品'},
-  {id:'mix',  ic:'⚗️', nm:'合成'},
-  {id:'book', ic:'📖', nm:'図鑑'}
 ];
 function dkPendOf(id){ return PENDANTS.find(function(p){ return p.id === id; }) || PENDANTS[0]; }
 function showPend(){
@@ -426,7 +423,7 @@ function showPend(){
     +     '<div class="dkrow">' + listHTML + '</div></div>'
     + '</div>');
 
-  dkWire(el, function(id){ if(id !== 'pend') toast('L', '🚧', 'ただいま準備中', 'もう少しお待ちください', 1500); });
+  dkWire(el, function(){});
   el.querySelectorAll('[data-dkp]').forEach(function(b){
     b.onclick = function(){ SFX.click(); dkPendSel = b.dataset.dkp; showPend(); };
   });
@@ -461,9 +458,6 @@ function showPend(){
 let dkDiceSel = null;
 const DK_DTABS = [
   {id:'dice', ic:'🎲', nm:'サイコロ'},
-  {id:'up',   ic:'⬆️', nm:'強化'},
-  {id:'evo',  ic:'⭐', nm:'進化'},
-  {id:'book', ic:'📖', nm:'図鑑'}
 ];
 function showDice(){
   var own = DICE.filter(function(d){ return SV.dice[d.id]; });
@@ -523,7 +517,7 @@ function showDice(){
     +     '<div class="dkrow">' + listHTML + '</div></div>'
     + '</div>');
 
-  dkWire(el, function(id){ if(id !== 'dice') toast('L', '🚧', 'ただいま準備中', 'もう少しお待ちください', 1500); });
+  dkWire(el, function(){});
   el.querySelectorAll('[data-dkd]').forEach(function(b){
     b.onclick = function(){ SFX.click(); dkDiceSel = b.dataset.dkd; showDice(); };
   });
@@ -759,6 +753,12 @@ function showCards(){
     +         '<button class="dkbtn gr" id="dkCeq"' + (eq || !own ? ' disabled' : '') + '>'
     +           (eq ? '装備中' : own ? '装備する' : '未所持') + '</button>'
     +       '</div>'
+    +       '<div class="btns">'
+    +         '<button class="dkbtn" id="dkCfuse"' + (own && !eq && krNextRar(c.rar) ? '' : ' disabled') + '>'
+    +           '合成 ' + (krNextRar(c.rar) ? '🪙' + (12000 * (c.rar === 'A' ? 1 : 4)).toLocaleString() : '最高等級') + '</button>'
+    +         '<button class="dkbtn" id="dkCsell"' + (own && !eq ? '' : ' disabled') + '>'
+    +           '売却 ' + (own ? '🪙' + krSellPrice(c, own).toLocaleString() : '') + '</button>'
+    +       '</div>'
     +     '</div>'
     +   '</div>'
     +   '<div class="dkdark dkbottom"><span class="cnt">所持<br>カード<br><b>'
@@ -787,6 +787,58 @@ function showCards(){
     SV.equip = c.id; saveNow(); SFX.click();
     toast('R', '🎴', esc(c.nm), '装備しました', 1500);
     showCards();
+  };
+  /* 売却：ゴールドに換える。装備中と最後の1枚は売らせない（本家のカード売却） */
+  var sellb = document.getElementById('dkCsell');
+  if(sellb) sellb.onclick = async function(){
+    if(!own) return;
+    if(eq){ SFX.warn(); toast('R','🚫','装備中は売れません','ほかのカードを装備してからにしてください', 2400); return; }
+    if(ownedCards().length <= 1){ SFX.warn(); toast('R','🚫','最後の1枚は売れません','', 2000); return; }
+    var g = krSellPrice(c, own);
+    var yes = (await modal('<div class="modal"><div class="dark">'
+      + '<h3>カードを売りますか？</h3>'
+      + '<p>' + esc(c.nm) + '（' + RAR[c.rar].nm + ' ／ Lv.' + lv + '）</p>'
+      + '<div class="big">🪙 ' + g.toLocaleString() + '</div>'
+      + '<p style="font-size:13px;color:#9FBBD6">売ると元には戻せません</p>'
+      + '<div class="btnrow" style="justify-content:center">'
+      + '<button class="btn ghost" data-act="no">やめる</button>'
+      + '<button class="btn red" data-act="ok">売る</button></div>'
+      + '</div></div>')) === 'ok';
+    if(!yes) return;
+    delete SV.cards[c.id]; SV.gold += g; saveNow(); SFX.coin(); dkWallet();
+    dkCardSel = SV.equip; showCards();
+    toast('R','🪙','売却しました','+' + g.toLocaleString() + ' ゴールド', 2200);
+  };
+  /* 合成：同じ等級を2枚つかって、1つ上の等級のカードを1枚つくる（本家のカード合成） */
+  var fuseb = document.getElementById('dkCfuse');
+  if(fuseb) fuseb.onclick = async function(){
+    if(!own) return;
+    if(eq){ SFX.warn(); toast('R','🚫','装備中は素材にできません','ほかのカードを装備してからにしてください', 2400); return; }
+    var nx = krNextRar(c.rar);
+    if(!nx){ SFX.warn(); toast('R','✨','これ以上の等級はありません', RAR[c.rar].nm + ' が最高です', 2400); return; }
+    var mates = ownedCards().filter(function(x){ return x.rar === c.rar && x.id !== c.id && SV.equip !== x.id; });
+    if(!mates.length){ SFX.warn(); toast('R','✨','素材が足りません','同じ ' + RAR[c.rar].nm + ' のカードがもう1枚要ります', 2600); return; }
+    var need = 12000 * (c.rar === 'A' ? 1 : 4);
+    if(SV.gold < need){ SFX.warn(); toast('R','🪙','ゴールドが足りません','合成には ' + need.toLocaleString() + ' 必要です', 2600); return; }
+    var mate = mates[0];
+    var pool = CARDPOOL.filter(function(x){ return x.rar === nx && !SV.cards[x.id]; });
+    var got  = pool.length ? pool[(Math.random()*pool.length)|0] : CARDPOOL.filter(function(x){ return x.rar === nx; })[0];
+    if(!got){ SFX.warn(); toast('R','✨','合成できる相手がいません','', 2200); return; }
+    var yes2 = (await modal('<div class="modal"><div class="dark">'
+      + '<h3>合成しますか？</h3>'
+      + '<p>' + esc(c.nm) + ' ＋ ' + esc(mate.nm) + '</p>'
+      + '<div class="big">→ ' + RAR[nx].nm + ' が1枚</div>'
+      + '<p style="font-size:13px;color:#9FBBD6">素材の2枚は無くなります ／ 🪙 ' + need.toLocaleString() + '</p>'
+      + '<div class="btnrow" style="justify-content:center">'
+      + '<button class="btn ghost" data-act="no">やめる</button>'
+      + '<button class="btn gold" data-act="ok">合成する</button></div>'
+      + '</div></div>')) === 'ok';
+    if(!yes2) return;
+    delete SV.cards[c.id]; delete SV.cards[mate.id]; SV.gold -= need;
+    if(SV.cards[got.id]) SV.cards[got.id].dup++; else SV.cards[got.id] = {lv:1, dup:0};
+    saveNow(); SFX.gachaRare(); jingle('levelup'); dkWallet();
+    dkCardSel = got.id; showCards();
+    toast('R','✨','合成成功！', RAR[nx].nm + ' ' + got.nm + ' を手に入れました', 2800);
   };
   dkSparks(el.querySelector('.dkcardstage'), 8, {x:40, y:30, w:480, h:400});
   screenTo('cards');
