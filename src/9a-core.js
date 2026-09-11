@@ -1,18 +1,23 @@
 
 /* ══════════════════════════════════════════════════════════════
-   ダイスキングダム — セーブ土台（9a-core.js / WP0）
+   ダイスキングダム — セーブ土台と共通の関数（9a-core.js / v9 WP0 → v10 WP12a）
    ──────────────────────────────────────────────────────────────
-   ・強化したレベルが盤面に効き、再読み込みしても消えないセーブの器。
-   ・5-meta.js の defaultSave / fixSave / grant と 4-game.js の dieOf / pendOf を
-     宣言し直す（関数宣言は後勝ち。全JSが1つの script 要素なので全呼び出し元に効く）。
+   ・セーブの器（defaultSave / fixSave・移行 v1 と v2）と、ほかの班が使う共通の関数
+     （割合 dkRate・クラス係数 dkScale・チーム戦 dkAlly/dkTeamOf・対戦の初期化 dkInitPlayers・
+       能力 dkSkillRoll・サイコロの能力 dkDieAb・能力値 dkStatSplit/dkStatLabels・ペンダント枠 dkPendSlots・
+       キューブと品物 dkGiveCube/dkOpenCube/dkGrantItem・本日のマップ dkTodayMap・名札の枠 dkFrameOf）。
+   ・5-meta.js の defaultSave / fixSave / grant / cardStats、4-game.js の dieOf / pendOf / timeUp、
+     3-core.js の hasTriple / hasLine を宣言し直す（関数宣言は後勝ち。全JSが1つの script 要素なので全呼び出し元に効く）。
    ・注意：defaultSave / fixSave は 5-meta.js の読み込み中（loadSave）に呼ばれる。
      その時点ではこのファイルのトップレベル var はまだ undefined。
      だから両関数の中では、このファイルの変数を使わず、関数宣言と
      それより前のファイルの定数（DICE, PENDANTS, CARDPOOL, RAR, MAPS …）だけを使う。
    ══════════════════════════════════════════════════════════════ */
 
-/* ── いまのセーブの版（移行 v1） ── */
+/* ── いまのセーブの版（移行 v1）。v10 の移行は別の印 migV2 で数える
+      （凍結中の検証道具の save が migV===1 を見るので、migV は 1 のまま） ── */
 function DKCORE_migV(){ return 1; }
+function DKCORE_migV2(){ return 1; }
 function DKCORE_num(v, dv){ return (typeof v === 'number' && isFinite(v) && v >= 0) ? Math.floor(v) : dv; }
 function DKCORE_obj(v){ return (v && typeof v === 'object' && !Array.isArray(v)) ? v : {}; }
 function DKCORE_str(v, dv){ return (typeof v === 'string') ? v : dv; }
@@ -24,9 +29,69 @@ function DKCORE_isId(id){
   if(id.charAt(0) === 'd') return DICE.some(function(x){ return x.id === id; });
   return false;
 }
-function DKCORE_counts(){ return { key:'', plays:0, wins:0, cup:0, pup:0, buy:0 }; }
+function DKCORE_counts(){ return { key:'', plays:0, wins:0, cup:0, pup:0, buy:0, rp:0 }; }
+/* 重ならない id（Math.random を使わない＝自動対戦・オンラインの乱数の順番を乱さない） */
+function DKCORE_uid(pre){
+  DKCORE_uid.n = ((DKCORE_uid.n | 0) + 1) % 1679616;
+  return (pre || 'x') + Date.now().toString(36) + DKCORE_uid.n.toString(36);
+}
+function DKCORE_online(){ return !!(typeof window !== 'undefined' && window.DV_OL && window.DV_OL.started); }
 
-/* ══════════ 既定のセーブ（§3 のキーをすべて持つ） ══════════ */
+/* ── キューブ（J40）：ウッド＜シルバー＜ゴールド＜ダイヤ。最大7個 ── */
+function DKCORE_cubeKinds(){ return ['wood', 'silver', 'gold', 'dia']; }
+function DKCORE_cubeMax(){ return 7; }
+function DKCORE_cubeInfo(kind){
+  var T = { wood:   { nm:'ウッドキューブ',   ic:'🟫', col:'#B98552' },
+            silver: { nm:'シルバーキューブ', ic:'⬜', col:'#C9D3DE' },
+            gold:   { nm:'ゴールドキューブ', ic:'🟨', col:'#FFD24D' },
+            dia:    { nm:'ダイヤキューブ',   ic:'💎', col:'#8FE8FF' } };
+  var o = T[kind] || T.wood;
+  return { kind:(T[kind] ? kind : 'wood'), nm:o.nm, ic:o.ic, col:o.col };
+}
+/* 提供割合（合計100）。k＝gold（lo〜hi G）・gem（n 個）・card・pend（rar の中から同じ確率） */
+function DKCORE_cubeRows(kind){
+  var T = {
+    wood:   [ { k:'gold', w:70, lo:300,  hi:800 },  { k:'gem', w:20, n:1 },  { k:'card', w:10, rar:['A'] } ],
+    silver: [ { k:'gold', w:60, lo:800,  hi:2000 }, { k:'gem', w:20, n:2 },  { k:'card', w:15, rar:['A'] }, { k:'pend', w:5, rar:['A'] } ],
+    gold:   [ { k:'gold', w:45, lo:2000, hi:5000 }, { k:'gem', w:20, n:5 },  { k:'card', w:25, rar:['A', 'S'] }, { k:'pend', w:10, rar:['A', 'S'] } ],
+    dia:    [ { k:'gem',  w:30, n:10 },              { k:'card', w:50, rar:['S', 'SS'] }, { k:'pend', w:20, rar:['S', 'SS'] } ] };
+  return (T[kind] || T.wood).map(function(r){ return Object.assign({}, r); });
+}
+/* セーブの cubes をそろえる：配列（文字列 'wood' か {id,kind,at}）か、数（その数のウッド）を受ける */
+function DKCORE_cubesNorm(v){
+  var K = DKCORE_cubeKinds(), out = [], ids = {};
+  var add = function(kind, id, at){
+    if(K.indexOf(kind) < 0) kind = 'wood';
+    if(typeof id !== 'string' || !id || ids[id]) id = DKCORE_uid('q');
+    ids[id] = 1;
+    out.push({ id:id, kind:kind, at:DKCORE_num(at, 0) });
+  };
+  if(typeof v === 'number' && isFinite(v) && v > 0){
+    for(var i = 0; i < Math.min(60, Math.floor(v)); i++) add('wood', null, 0);
+  } else if(Array.isArray(v)){
+    v.slice(0, 60).forEach(function(c){
+      if(c === null || c === undefined || c === false) return;
+      if(typeof c === 'string') add(c, null, 0);
+      else if(typeof c === 'object') add(c.kind, c.id, c.at);
+      else add('wood', null, 0);
+    });
+  }
+  return out;
+}
+/* 持ち込み品（C07）：{oe,sal,dbl,magic} のうち、有効な物だけを残す（空は {}） */
+function DKCORE_carryNorm(v){
+  var o = DKCORE_obj(v), out = {};
+  if(o.oe === true || o.oe === 1) out.oe = true;
+  if(o.sal === true || o.sal === 1) out.sal = true;
+  if(o.dbl === true || o.dbl === 1) out.dbl = true;
+  if(['angel', 'coupon', 'shield', 'escape'].indexOf(o.magic) >= 0) out.magic = o.magic;
+  return out;
+}
+function DKCORE_ticketName(id){
+  return ({ biz:'ビジネス入場券', first:'ファースト入場券', dia:'ダイヤモンド入場券' })[id] || '入場券';
+}
+
+/* ══════════ 既定のセーブ（§3 のキー＋v10 の C21〜C26） ══════════ */
 function defaultSave(){
   return { gold: 3000, gem: 5, lv: 1, exp: 0, plays: 0, wins: 0,
     dailyAt: '', dailyN: 0, qdone: {}, freeAt: 0,
@@ -36,29 +101,38 @@ function defaultSave(){
     die: 'd0', dice: { d0:1 }, bag: [],
     locks: {},
     seen: [],
-    migV: 0,
+    migV: 0, migV2: 0,
     aim: { pend:null, card:null }, pity: { pend:0, card:0 }, fail: { pend:{} }, kiwami: {},
     book: { claim:{} }, title: '',
     today: DKCORE_counts(),
     wk: (function(){ var w = DKCORE_counts(); w.key = -1; return w; })(),
+    wkPrev: null,
     stat: { plays:0, wins:0, cup:0, pup:0, pmix:0, cmix:0, buy:0 },
     qchest: '',
     shop: { day:'', dbought:{}, freeGoldAt:0, mineDay:'', mapAt:0, peddler:null,
             pedDay:'', pedN:0, sellDay:'', sellN:0 },
     mail: [], rp: 0, season: '', friends: [], mile: 0, keys: 0,
-    streak: 0, streakAt: 0, lstreak: 0,
-    cls: 'eco', lastMap: 'ice', rules: { turns:12, timeLimit:1200, ai:1 } };
+    streak: 0, streakAt: 0, lstreak: 0, cheer: 0,
+    cls: 'eco', lastMap: 'ice',
+    /* J12：既定は本家の30ターン・25分。team・shake・turnTimer は既定オフ（部屋・設定でオン） */
+    rules: { turns:30, timeLimit:1500, ai:1, team:false, shake:false, turnTimer:false },
+    carry: {}, tickets: { biz:0, first:0, dia:0 }, tutorial: 0,
+    cubes: [], luckyMile: 0, lmq: {}, frames: { own:[], eq:'' } };
 }
 
-/* 郵便を1通、セーブ s に足す（fixSave の中からも使うので SV ではなく s を受ける） */
+/* 郵便を1通、セーブ s に足す（fixSave の中からも使うので SV ではなく s を受ける）。
+   item＝{kind,id,n}（kind＝card pend die key ticket cube frame） */
 function DKCORE_mailTo(s, item){
   item = DKCORE_obj(item);
   var now = Date.now();
+  var it = (item.item && typeof item.item === 'object')
+    ? { kind:String(item.item.kind || ''), id:String(item.item.id === undefined || item.item.id === null ? '' : item.item.id),
+        n:Math.max(1, DKCORE_num(item.item.n, 1)) } : null;
   var m = {
-    id: 'm' + now.toString(36) + ((Math.random() * 1e6) | 0).toString(36),
+    id: DKCORE_uid('m'),
     ic: DKCORE_str(item.ic, '✉️'), nm: DKCORE_str(item.nm, 'おしらせ'),
     g: DKCORE_num(item.g, 0), d: DKCORE_num(item.d, 0),
-    item: (item.item && typeof item.item === 'object') ? { kind:String(item.item.kind || ''), id:String(item.item.id || '') } : null,
+    item: it,
     at: now, exp: DKCORE_num(item.exp, now + 30 * 86400000)
   };
   if(!Array.isArray(s.mail)) s.mail = [];
@@ -68,11 +142,12 @@ function DKCORE_mailTo(s, item){
 }
 
 /* ══════════ セーブの正規化（壊れたセーブでも必ず遊べる形にそろえる） ══════════
-   旧版（5-meta.js:156）の処理を写し、§3 の新しいキーを型チェックして既定値で埋める。
+   旧版（5-meta.js:156）の処理を写し、§3・v10 の新しいキーを型チェックして既定値で埋める。
    ・知らないキーは消さない（ほかの班が足した項目を守る）。id で引く表だけ知らない id を捨てる。
    ・dice は 1〜10（旧版の dice[id]=1 のバグを直す）。pendants は {lv:1〜8, dup≥0}。
    ・cards に exp を足す。lv は切り下げない（上限 30 だけ守る）。
-   ・migV<1 の時だけ移行 v1 を1回行う。                                            */
+   ・cubes は最大7。超えた分は捨てずに cube の品物としてプレゼントボックスへ。
+   ・migV<1 の時だけ移行 v1、migV2<1 の時だけ移行 v2 を1回ずつ行う。                  */
 function fixSave(s){
   s = DKCORE_obj(s);
   var d = defaultSave();
@@ -82,12 +157,13 @@ function fixSave(s){
   s.gold  = num(s.gold, d.gold);   s.gem   = num(s.gem, d.gem);
   s.lv    = Math.max(1, num(s.lv, 1));  s.exp = num(s.exp, 0);
   s.plays = num(s.plays, 0);       s.wins  = num(s.wins, 0);
-  s.dailyN= num(s.dailyN, 0);      s.freeAt= num(s.freeAt, 0);
+  s.dailyN= num(s.dailyN, 0) % 28; s.freeAt= num(s.freeAt, 0);     /* 出席簿は28マス（0〜27） */
   s.dailyAt = str(s.dailyAt, '');
   s.qdone = obj(s.qdone);          s.locks = obj(s.locks);
   if(s.name !== undefined && typeof s.name !== 'string') delete s.name;
 
-  var migrate = num(s.migV, 0) < DKCORE_migV();
+  var migrate  = num(s.migV, 0) < DKCORE_migV();
+  var migrate2 = num(s.migV2, 0) < DKCORE_migV2();
 
   /* カード：知らないIDは捨てる。lv は 1〜30（等級の上限より上でも切り下げない）、重なり・経験値は 0 以上 */
   var cards = {};
@@ -117,7 +193,7 @@ function fixSave(s){
   /* 装備カード：持っていないカードは装備できない */
   if(!cards[s.equip]) s.equip = Object.keys(cards)[0];
 
-  /* ペンダント枠：かならず4枠。持っていない物と二重装備は外す（位置は保つ） */
+  /* ペンダント枠：かならず4枠。持っていない物と二重装備は外す（位置は保つ。開いている枠の数は dkPendSlots が決める） */
   var src = Array.isArray(s.slots) ? s.slots : [];
   var slots = [null, null, null, null];
   for(var i = 0; i < 4; i++){
@@ -172,10 +248,12 @@ function fixSave(s){
     o = obj(o);
     return Object.assign({}, o, {
       key: (keyDv === -1) ? (typeof o.key === 'number' && isFinite(o.key) ? Math.floor(o.key) : -1) : str(o.key, ''),
-      plays: num(o.plays, 0), wins: num(o.wins, 0), cup: num(o.cup, 0), pup: num(o.pup, 0), buy: num(o.buy, 0) });
+      plays: num(o.plays, 0), wins: num(o.wins, 0), cup: num(o.cup, 0), pup: num(o.pup, 0), buy: num(o.buy, 0),
+      rp: num(o.rp, 0) });
   };
   s.today = cnt(s.today, '');
   s.wk    = cnt(s.wk, -1);
+  s.wkPrev = (s.wkPrev && typeof s.wkPrev === 'object' && !Array.isArray(s.wkPrev)) ? cnt(s.wkPrev, -1) : null;
   var st = obj(s.stat);
   s.stat = Object.assign({}, st, { plays: num(st.plays, 0), wins: num(st.wins, 0), cup: num(st.cup, 0),
     pup: num(st.pup, 0), pmix: num(st.pmix, 0), cmix: num(st.cmix, 0), buy: num(st.buy, 0) });
@@ -209,10 +287,37 @@ function fixSave(s){
   s.streak = num(s.streak, 0); s.streakAt = num(s.streakAt, 0); s.lstreak = num(s.lstreak, 0);
   s.cls = (['eco','biz','first','dia'].indexOf(s.cls) >= 0) ? s.cls : 'eco';
   s.lastMap = (typeof s.lastMap === 'string' && MAPS.some(function(m){ return m.id === s.lastMap; })) ? s.lastMap : 'ice';
+
+  /* ── v10 の新しいキー（C21〜C26） ── */
   var ru = obj(s.rules);
+  var v9rules = ru.turns === 12 && ru.timeLimit === 1200;           /* v9 の既定のまま */
   s.rules = Object.assign({}, ru, {
-    turns: Math.max(1, num(ru.turns, 12)), timeLimit: num(ru.timeLimit, 1200),
-    ai: DKCORE_clamp(num(ru.ai, 1), 0, 2) });
+    turns: Math.max(1, num(ru.turns, 30)), timeLimit: num(ru.timeLimit, 1500),
+    ai: DKCORE_clamp(num(ru.ai, 1), 0, 2),
+    team: ru.team === true, shake: ru.shake === true, turnTimer: ru.turnTimer === true });
+  s.carry = DKCORE_carryNorm(s.carry);
+  var tk = obj(s.tickets);
+  s.tickets = Object.assign({}, tk, { biz: num(tk.biz, 0), first: num(tk.first, 0), dia: num(tk.dia, 0) });
+  s.tutorial = num(s.tutorial, 0);
+  s.luckyMile = num(s.luckyMile, 0);
+  s.cheer = (s.cheer === true || num(s.cheer, 0) > 0) ? 1 : 0;
+  s.lmq = obj(s.lmq);
+  var fr = obj(s.frames), own = [];
+  (Array.isArray(fr.own) ? fr.own : []).forEach(function(id){
+    if(typeof id === 'string' && id && own.indexOf(id) < 0) own.push(id);
+  });
+  s.frames = Object.assign({}, fr, { own: own, eq: (typeof fr.eq === 'string' && own.indexOf(fr.eq) >= 0) ? fr.eq : '' });
+  /* キューブ：最大7個。あふれた分は捨てずに cube の品物としてプレゼントボックスへ（損をさせない） */
+  var cubes = DKCORE_cubesNorm(s.cubes), cmax = DKCORE_cubeMax();
+  if(cubes.length > cmax){
+    cubes.slice(cmax).forEach(function(c){
+      var ci = DKCORE_cubeInfo(c.kind);
+      DKCORE_mailTo(s, { ic: ci.ic, nm: ci.nm + '（持ちきれなかった分）', item: { kind:'cube', id:ci.kind, n:1 } });
+    });
+    cubes = cubes.slice(0, cmax);
+    fixSave._migrated = true;          /* 郵便を足したので起動時に1回だけ保存する */
+  }
+  s.cubes = cubes;
 
   /* ── 移行 v1（1回だけ） ──
      ・d0 以外の所持サイコロを Lv4 に（係数 k(1)=0.25 で弱くなるぶんの救済）＋お詫び 10,000G を郵便で
@@ -234,7 +339,107 @@ function fixSave(s){
   } else {
     s.migV = Math.max(num(s.migV, 0), DKCORE_migV());
   }
+
+  /* ── 移行 v2（v10・1回だけ） ──
+     ・ルールが v9 の既定（12ターン・20分）のままなら本家の既定（30ターン・25分）へ
+     ・クラスの Lv 解放をやめる代わりに、Lv に応じた入場券を SV.tickets へ直接足し、お知らせだけの郵便を1通 */
+  if(migrate2){
+    if(v9rules){ s.rules.turns = 30; s.rules.timeLimit = 1500; }
+    var add = { biz: s.lv >= 2 ? 3 : 0, first: s.lv >= 4 ? 3 : 0, dia: s.lv >= 7 ? 1 : 0 };
+    s.tickets.biz += add.biz; s.tickets.first += add.first; s.tickets.dia += add.dia;
+    var parts = [];
+    if(add.biz) parts.push('ビジネス' + add.biz + '枚');
+    if(add.first) parts.push('ファースト' + add.first + '枚');
+    if(add.dia) parts.push('ダイヤモンド' + add.dia + '枚');
+    if(parts.length) DKCORE_mailTo(s, { ic:'🎫', nm:'入場券をお届けしました（' + parts.join('・') + '）' });
+    s.migV2 = DKCORE_migV2();
+    fixSave._migrated = true;
+  } else {
+    s.migV2 = Math.max(num(s.migV2, 0), DKCORE_migV2());
+  }
   return s;
+}
+
+/* ══════════ 割合・クラス係数（C01・C02） ══════════ */
+/* 開始額に対する割合 → 円（倍率・割引は呼ぶ側）。1000万で salary 150万・bail 100万・travel/host 25万・
+   stake0/1/2 50万/100万/150万・donate 50万・tourLand 50万・tourToll 40万 */
+function dkRate(key){
+  var R = { salary:.15, bail:.10, travel:.025, host:.025, stake0:.05, stake1:.10, stake2:.15, donate:.05, tourLand:.05, tourToll:.04 };
+  return Math.round(cfg.cash * (R[key] || 0));
+}
+/* 直書きの絶対額に掛ける係数（1000万で 1、200万で 0.2） */
+function dkScale(){ return cfg.cash / 10000000; }
+
+/* ══════════ チーム戦（C03・G01・J43） ══════════
+   cfg.team の時だけ。席0,2＝チーム0／席1,3＝チーム1。自分自身は味方 */
+function dkAlly(a, b){
+  if(a === b) return true;
+  if(!cfg.team || !G || !G.players) return false;
+  var A = G.players[a], B = G.players[b];
+  return !!(A && B && A.team !== undefined && A.team === B.team);
+}
+function dkTeamOf(pi){
+  var p = G && G.players ? G.players[pi] : null;
+  if(p && p.team !== undefined) return p.team;
+  return cfg.team ? (pi % 2) : pi;
+}
+/* 盤 g の上で、持ち主 o が pi 本人か味方か */
+function DKCORE_allyIn(g, o, pi){
+  if(o === pi) return true;
+  if(!cfg.team || !(o >= 0) || !(pi >= 0) || !g || !g.players) return false;
+  var A = g.players[o], B = g.players[pi];
+  return !!(A && B && A.team !== undefined && A.team === B.team);
+}
+/* 色の3都市（2都市の組もある）がすべて自分か味方のもの（独占は味方の所有を合わせて数える） */
+function hasTriple(G, pi, g){
+  var s = CITY_SLOTS[g];
+  if(!s || !G || !G.tiles) return false;
+  for(var k = 0; k < s.length; k++){
+    var t = G.tiles[s[k]];
+    if(!t || !DKCORE_allyIn(G, t.owner, pi)) return false;
+  }
+  return true;
+}
+/* 1辺の都市（観光地も含む）がすべて自分か味方のもの */
+function hasLine(G, pi, side){
+  if(!G || !G.tiles) return false;
+  var any = false;
+  for(var k = 1; k < 8; k++){
+    var t = G.tiles[side * 8 + k];
+    if(!t || t.type !== 'city') continue;
+    any = true;
+    if(!DKCORE_allyIn(G, t.owner, pi)) return false;
+  }
+  return any;
+}
+/* 時間切れ（制限ターン・時間）：個人戦は総資産1位、チーム戦はチームの合計資産 */
+function timeUp(){
+  if(!G || !G.players || G.over) return false;
+  var rk = rank();
+  if(cfg.team){
+    var sum = {};
+    G.players.forEach(function(p, i){
+      var t = dkTeamOf(i);
+      sum[t] = (sum[t] || 0) + (p.out ? 0 : Math.max(0, assetOf(G, i)));
+    });
+    var best = null;
+    Object.keys(sum).forEach(function(t){ if(best === null || sum[t] > sum[best]) best = t; });
+    var tie = Object.keys(sum).filter(function(t){ return sum[t] === sum[best]; });
+    if(tie.length > 1) best = String(dkTeamOf(rk[0].i));
+    var win = rk.filter(function(r){ return String(dkTeamOf(r.i)) === String(best); })[0];
+    return finish(win ? win.i : rk[0].i, 'ターン終了・チームの合計資産');
+  }
+  return finish(rk[0].i, 'ターン終了・総資産1位');
+}
+/* 相手チームが全員破産していたら、残ったチームの1位の勝ち（決着は1回だけ） */
+function DKCORE_teamBust(){
+  if(!cfg.team || !G || !G.players || G.over) return false;
+  var alive = {};
+  G.players.forEach(function(p, i){ if(!p.out) alive[dkTeamOf(i)] = true; });
+  if(Object.keys(alive).length !== 1) return false;
+  var rk = rank().filter(function(r){ return !G.players[r.i].out; });
+  if(!rk.length) return false;
+  return finish(rk[0].i, 'チーム破産勝ち');
 }
 
 /* ══════════ サイコロ ══════════ */
@@ -245,24 +450,26 @@ function dkDieK(lv){
   return K[i];
 }
 function DKCORE_r(x){ return Math.round(x * 10000) / 10000; }
-/* DICE のコピーを返す（DICE の中身は書き換えない）。Lv10 なら極の効果も入れる。
+/* DICE のコピーを返す（DICE の中身は書き換えない）。gauge はゲージの精度（ゲージインパクトの誤差・当たり）。
+   J42：本家のサイコロの能力にダブルの確率・大きい目の補正は無いので dbl・big は 0。
+   Lv10 の極：守（def）は精度 +2 として残す。攻（atk）は dkDieAb の能力の上乗せ ×1.15。
    kw を渡すとその極で計算する（省略時は SV.kiwami） */
 function dkDieStats(id, lv, kw){
   var d = dieById(id);
   lv = DKCORE_clamp((lv | 0) || 1, 1, 10);
   var k = dkDieK(lv);
   var o = Object.assign({}, d, {
-    gauge: DKCORE_r((d.gauge || 0) * k), dbl: DKCORE_r((d.dbl || 0) * k), big: DKCORE_r((d.big || 0) * k),
+    gauge: DKCORE_r((d.gauge || 0) * k), dbl: 0, big: 0,
     lv: lv, k: k, kiwami: null });
   if(lv >= 10){
     var w = (kw !== undefined) ? kw : ((typeof SV === 'object' && SV && SV.kiwami) ? SV.kiwami[d.id] : null);
-    if(w === 'atk'){ o.big = DKCORE_r(o.big * 1.15); o.kiwami = 'atk'; }
+    if(w === 'atk'){ o.kiwami = 'atk'; }
     else if(w === 'def'){ o.gauge = DKCORE_r(o.gauge + 2); o.kiwami = 'def'; }
   }
   return o;
 }
 /* 装備しているサイコロ。CPU と未所持は DICE[0]。
-   人間は p.dieId/p.dieLv（newGame のラッパ／オンラインは WP6 が配る）→ 無ければ SV */
+   人間は p.dieId/p.dieLv（newGame のラッパ／オンラインは WP13 が配る）→ 無ければ SV */
 function dieOf(pi){
   var p = G && G.players && G.players[pi];
   if(!p || p.kind === 'cpu') return DICE[0];
@@ -270,8 +477,109 @@ function dieOf(pi){
   if(!(SV.dice && SV.dice[SV.die])) return DICE[0];
   return dkDieStats(SV.die, SV.dice[SV.die]);
 }
+/* ── サイコロの能力（J42・C05）：カードの能力値への上乗せ（青い「+N」）と、ゴールド・RP の％・奇数/偶数の回数 ──
+   表の値は [Lv1値, Lv10値]。途中の Lv は dkDieK の曲線で結ぶ（本家の「8 / 30p」「5 / 20%」と同じ比） */
+var DKCORE_DIEAB = {
+  d0: {},
+  d1: { fortune:[5, 20], gauge:[6, 25] },                  /* 黄金のサイコロ：黄金フォーチュン・ゲージインパクト */
+  d2: { build:[5, 20], gauge:[5, 20], gold:[5, 20] },      /* LEDサイコロ：建設費用割引・ゲージインパクト・ゴールドボーナス */
+  d3: { mini:[8, 30], oddeven:[1, 1] },                    /* トランプサイコロ：ミニゲーム勝利・偶数奇数（回数+1） */
+  d4: { buyout:[6, 25], rp:[5, 20] }                       /* 亡者のサイコロ：買収費用割引・RPボーナス */
+};
+function DKCORE_abZero(){ return { mini:0, fortune:0, build:0, gauge:0, buyout:0, gold:0, rp:0, oddeven:0 }; }
+/* 能力の名前と単位（画面用）：[[key, 名, 単位]] */
+function DKCORE_dieAbNames(){
+  return [['mini', 'ミニゲーム勝利', 'p'], ['fortune', '黄金フォーチュン', 'p'], ['build', '建設費用割引', 'p'],
+          ['gauge', 'ゲージインパクト', 'p'], ['buyout', '買収費用割引', 'p'], ['gold', 'ゴールドボーナス', '%'],
+          ['rp', 'RPボーナス', '%'], ['oddeven', '偶数奇数', '回']];
+}
+/* サイコロ id の表（{key:[Lv1値, Lv10値]} のコピー）。画面の「Lv1値 / MAX値」に使う */
+function DKCORE_dieAbRange(id){
+  var T = (typeof DKCORE_DIEAB === 'object' && DKCORE_DIEAB) ? DKCORE_DIEAB[id] : null, o = {};
+  Object.keys(T || {}).forEach(function(k){ o[k] = T[k].slice(); });
+  return o;
+}
+/* サイコロ id・Lv・極 → 8項目の値 */
+function DKCORE_dieAbAt(id, lv, kw){
+  var o = DKCORE_abZero();
+  var T = (typeof DKCORE_DIEAB === 'object' && DKCORE_DIEAB) ? DKCORE_DIEAB[id] : null;
+  if(!T) return o;
+  lv = DKCORE_clamp((lv | 0) || 1, 1, 10);
+  var k = dkDieK(lv), t = (k - 0.25) / 0.75;
+  var atk = lv >= 10 && kw === 'atk';
+  Object.keys(T).forEach(function(key){
+    var a = T[key][0], b = T[key][1], v = a + (b - a) * t;
+    if(atk && key !== 'oddeven') v *= 1.15;
+    o[key] = Math.round(v);
+  });
+  return o;
+}
+/* プレイヤー p のサイコロの能力（CPU・未所持はふつうのサイコロ＝すべて0） */
+function DKCORE_abOfPlayer(p){
+  if(!p || p.kind === 'cpu') return DKCORE_abZero();
+  var id = null, lv = 1, kw = null;
+  if(p.dieId && DICE.some(function(x){ return x.id === p.dieId; })){
+    id = p.dieId; lv = p.dieLv || 1;
+    kw = (p.dieKw !== undefined) ? p.dieKw
+       : (DKCORE_online() ? null : ((typeof SV === 'object' && SV && SV.kiwami) ? (SV.kiwami[id] || null) : null));
+  } else if(!DKCORE_online() && typeof SV === 'object' && SV && SV.dice && SV.dice[SV.die]){
+    id = SV.die; lv = SV.dice[SV.die]; kw = (SV.kiwami && SV.kiwami[id]) || null;
+  }
+  return id ? DKCORE_dieAbAt(id, lv, kw) : DKCORE_abZero();
+}
+/* C05 dkDieAb(pi)→{mini,fortune,build,gauge,buyout,gold,rp,oddeven}
+   gold・rp は勝った時の％（WP15・WP16 が掛ける）、oddeven は奇数/偶数の回数+、残りは能力値の上乗せ */
+function dkDieAb(pi){
+  var p = G && G.players ? G.players[pi] : null;
+  return DKCORE_abOfPlayer(p);
+}
+
+/* ══════════ 能力値（J58・C05） ══════════
+   基本値：カードの等級の倍率×カタログ値＋Lv×1.15（上限120）。ペンダントは能力値に足さない（本家と同じ）。
+   Aクラスの1本目は「孤立地域脱出成功」（escape）で通行料割引は無い（toll 0）。S・S+ は通行料割引（escape 0） */
+function cardStats(cardId, lv, slots){
+  var c = cardById(cardId); if(!c) return null;
+  var mul = (RAR[c.rar] || RAR.A).mul;
+  var up = Math.round((Math.max(1, (lv | 0) || 1) - 1) * 1.15);
+  var out = {};
+  STAT_KEYS.forEach(function(k){
+    out[k] = Math.min(120, Math.round((c.st[k] || 0) * mul) + up);
+  });
+  if(c.rar === 'A'){ out.escape = out.toll; out.toll = 0; }
+  else out.escape = 0;
+  return out;
+}
+/* C05 dkStatLabels(cardId)→[[key, 名]] の7本（1本目が等級で変わる） */
+function dkStatLabels(cardId){
+  var c = cardById(cardId);
+  var first = (c && c.rar === 'A') ? ['escape', '孤立地域脱出成功'] : ['toll', '通行料割引'];
+  return [first].concat(STAT_LABELS.slice(1).map(function(kl){ return [kl[0], kl[1]]; }));
+}
+/* C05 dkStatSplit(pi)→[{key, base, plus}]（base＝カードの基本値、plus＝サイコロの上乗せ）。
+   pi にカードの id（文字列）を渡すと、対戦の外（カード画面）で SV のサイコロの上乗せを出す */
+function dkStatSplit(pi){
+  var cid, lv, ab;
+  if(typeof pi === 'string'){
+    cid = pi;
+    lv = (SV.cards && SV.cards[cid] && SV.cards[cid].lv) || 1;
+    ab = (SV.dice && SV.dice[SV.die]) ? DKCORE_dieAbAt(SV.die, SV.dice[SV.die], (SV.kiwami && SV.kiwami[SV.die]) || null) : DKCORE_abZero();
+  } else {
+    var p = G && G.players ? G.players[pi] : null;
+    if(!p) return [];
+    cid = p.card; lv = p.cardLv || 1; ab = DKCORE_abOfPlayer(p);
+  }
+  var base = cardStats(cid, lv) || {};
+  return dkStatLabels(cid).map(function(kl){
+    return { key:kl[0], base:(base[kl[0]] | 0), plus:(ab[kl[0]] | 0) };
+  });
+}
 
 /* ══════════ ペンダント ══════════ */
+/* C06・J38：装着枠はカードの等級で開く（Aクラス 2・S/S+ クラス 4） */
+function dkPendSlots(cardId){
+  var c = cardById(cardId);
+  return (c && c.rar === 'A') ? 2 : 4;
+}
 function dkPendMul(lv){
   lv = DKCORE_clamp((lv | 0) || 1, 1, 8);
   return Math.round((1 + 0.05 * (lv - 1)) * 100) / 100;
@@ -281,17 +589,19 @@ function dkPendMul(lv){
 function DKCORE_pendLv(p, id){
   if(p && p.pendLv && p.pendLv[id]) return DKCORE_clamp(p.pendLv[id] | 0, 1, 8);
   if(!p || p.kind === 'cpu') return 1;
-  if(window.DV_OL && window.DV_OL.started) return 1;
+  if(DKCORE_online()) return 1;
   var o = SV.pendants && SV.pendants[id];
   return DKCORE_clamp((o && o.lv) | 0 || 1, 1, 8);
 }
 /* 同じ trg の中で実効確率が最大の1つを返す（本家「同じ系統は高い方だけ発動」）。
+   開いている枠（dkPendSlots）より後ろのペンダントは見ない（J38）。
    PENDANTS の実体ではなくコピーを返す。id を残すので pendFire の分岐はそのまま動く */
 function pendOf(pi, trg){
   var p = G && G.players && G.players[pi];
   if(!p || !p.pend) return null;
+  var n = Math.min(p.pend.length, (typeof p.pendSlots === 'number') ? p.pendSlots : dkPendSlots(p.card));
   var best = null, bp = -1;
-  for(var i = 0; i < p.pend.length; i++){
+  for(var i = 0; i < n; i++){
     var it = p.pend[i];
     if(!it || it.trg !== trg) continue;
     var lv = DKCORE_pendLv(p, it.id);
@@ -299,6 +609,134 @@ function pendOf(pi, trg){
     if(pr > bp){ bp = pr; best = Object.assign({}, it, { p: pr, lv: lv }); }
   }
   return best;
+}
+
+/* ══════════ キャラの能力（J33・C04） ══════════
+   魔力ゲージをやめ、カードの型（kind 0〜10）ごとに決まった時機で確率で自動発動する。CPU も同じ。
+   率は Aクラス 20%・Sクラス 27%・S+クラス 35% ＋ p.skillP（外れるたびに +0.02・上限 0.2・発動で 0）。
+   when（呼ぶ班）: toll＝払う人・own＝通行料を受け取る持ち主・salary（WP14）／start＝手番の最初・arrive＝止まった時（WP13）／
+                  build・buyout（WP11）。発動したら呼ぶ側が x を掛ける（toll・own・salary・build・buyout は金額×x、
+                  arrive の steal は target の所持マーブル×x を奪う・jail は target を孤立地域へ）。start は eff で分ける
+                  （eye＝このターン出目を選べる・warp＝希望する都市へ移動・double＝次のサイコロがダブル） */
+var DKCORE_SKILL = [
+  /* 0 通行料を無効化 */ { when:'toll',   eff:'free',     x:0,    ic:'🛡', nm:'通行料免除',        txt:'通行料が免除されます' },
+  /* 1 出目を選ぶ     */ { when:'start',  eff:'eye',      x:1,    ic:'🎯', nm:'出目を選ぶ',        txt:'このターンはサイコロの目を選べます' },
+  /* 2 好きなマスへ   */ { when:'start',  eff:'warp',     x:1,    ic:'🌀', nm:'好きな都市へ移動',  txt:'希望する都市へ移動できます' },
+  /* 3 換金           */ { when:'buyout', eff:'buyCut',   x:0.5,  ic:'💰', nm:'買収費用 50%割引',  txt:'買収費用が50%割引になります' },
+  /* 4 相手から奪う   */ { when:'arrive', eff:'steal',    x:0.15, ic:'💸', nm:'マーブル強奪',      txt:'相手の所持マーブルの15%を奪います' },
+  /* 5 無料で増築     */ { when:'build',  eff:'buildCut', x:0.5,  ic:'🏗', nm:'建設費用 50%割引',  txt:'建設費用が50%割引になります' },
+  /* 6 臨時収入       */ { when:'salary', eff:'salary',   x:1.2,  ic:'💴', nm:'給料 120%',         txt:'スタート地点を通過すると給料の120%を獲得' },
+  /* 7 ダブル確定     */ { when:'start',  eff:'double',   x:1,    ic:'✌️', nm:'ダブル確定',        txt:'次のサイコロがダブルになります' },
+  /* 8 地価高騰       */ { when:'own',    eff:'tollUp',   x:1.15, ic:'📈', nm:'通行料 15%値上げ',  txt:'所有している地域の通行料が15%値上げ' },
+  /* 9 相手を送る     */ { when:'arrive', eff:'jail',     x:1,    ic:'⛓', nm:'{jail}送り',        txt:'相手を{jail}へ送ります' },
+  /* 10 宝箱          */ { when:'salary', eff:'chest',    x:1.5,  ic:'🎁', nm:'宝箱',              txt:'宝箱で給料が{x}倍になります' }
+];
+function DKCORE_skillBase(card){
+  var r = card && card.rar;
+  return r === 'SS' ? 0.35 : r === 'S' ? 0.27 : 0.20;
+}
+/* arrive の相手：info.target → 同じマスにいる相手（味方・破産・対象外は除く）→ 止まった都市の持ち主 */
+function DKCORE_skillTarget(pi, eff, info){
+  var P = G.players, me = P[pi];
+  var ok = function(j){
+    var q = P[j];
+    if(j === pi || !q || q.out || dkAlly(pi, j)) return false;
+    if(eff === 'jail' && q.jail > 0) return false;
+    if(eff === 'steal' && !(q.cash > 0)) return false;
+    return true;
+  };
+  if(info && typeof info.target === 'number') return ok(info.target) ? info.target : -1;
+  for(var k = 1; k < P.length; k++){
+    var j = (pi + k) % P.length;
+    if(P[j] && P[j].pos === me.pos && ok(j)) return j;
+  }
+  var t = G.tiles && G.tiles[me.pos];
+  if(t && t.type === 'city' && t.owner >= 0 && ok(t.owner)) return t.owner;
+  return -1;
+}
+/* C04 dkSkillRoll(pi, when[, info])→{fired, kind, p, label}＋{when, eff, x, target, icon, name, title, sub}
+   ・カードの時機が when と違う時（と arrive で相手がいない時）は判定しない：{fired:false, kind:null, p:0, label:''}
+   ・判定した時は kind＝カードの型の番号。title/sub は dkNotify にそのまま渡せる
+     （発動「<キャラ名>のスペシャル能力」／外れ「スキル未発動」「2%成長します」） */
+function dkSkillRoll(pi, when, info){
+  var none = { fired:false, kind:null, p:0, label:'' };
+  var p = G && G.players ? G.players[pi] : null;
+  if(!p || p.out) return none;
+  var card = cardById(p.card);
+  var kind = (typeof p.skillKind === 'number') ? p.skillKind : (card && typeof card.kind === 'number' ? card.kind : -1);
+  var S = DKCORE_SKILL[kind];
+  if(!S || S.when !== when) return none;
+  var target = -1;
+  if(S.when === 'arrive'){ target = DKCORE_skillTarget(pi, S.eff, info); if(target < 0) return none; }
+  var add = (typeof p.skillP === 'number' && isFinite(p.skillP)) ? DKCORE_clamp(p.skillP, 0, 0.2) : 0;
+  var pr = Math.round((DKCORE_skillBase(card) + add) * 1000) / 1000;
+  var fired = Math.random() < pr;
+  var x = S.x;
+  if(fired){
+    p.skillP = 0;
+    if(S.eff === 'chest') x = [1.3, 1.5, 2][(Math.random() * 3) | 0];
+  } else {
+    p.skillP = Math.min(0.2, Math.round((add + 0.02) * 100) / 100);
+  }
+  var nm = card ? card.nm : (p.name || '');
+  var jail = (G.map && G.map.corners && G.map.corners[1]) || '孤立地域';
+  var txt = S.txt.replace('{jail}', jail).replace('{x}', String(x));
+  return { fired:fired, kind:kind, p:pr, label:S.nm.replace('{jail}', jail),
+           when:when, eff:S.eff, x:x, target:target, icon:S.ic, name:nm,
+           title: fired ? nm + 'のスペシャル能力' : 'スキル未発動',
+           sub: fired ? txt : '2%成長します' };
+}
+
+/* ══════════ 対戦の初期化（C07） ══════════
+   newGame のラッパ（下）と WP13 の olNewGame が呼ぶ。carryBySeat[席]＝{oe,sal,dbl,magic}（人間の席だけ）。
+   ・人間：p.odd=p.even=(oe? 3＋サイコロの偶数奇数 : 0)＋(ダイス増量週 1)・p.carry・p.forceDouble=dbl?1:0・p.fcard=magic||null
+   ・CPU：cfg.ai===2 の時だけ oe を持つ扱い
+   ・全員：p.items=[]・skillP=0・auto=false・pay2=0・p.stats＝基本値＋サイコロ・開いている枠だけのペンダント。G.oeShared=true
+   ・cfg.team の時 p.team（席0,2＝0／1,3＝1） */
+function DKCORE_diceWeek(g){
+  if(g && g.ev && g.ev.dice) return true;
+  try{ var w = (typeof thisWeek === 'function') ? thisWeek() : null; return !!(w && w.id === 'dice'); }catch(e){ return false; }
+}
+function dkInitPlayers(g, carryBySeat){
+  if(!g || !g.players) return g;
+  var cb = Array.isArray(carryBySeat) ? carryBySeat : [];
+  var wk = DKCORE_diceWeek(g) ? 1 : 0;
+  g.players.forEach(function(p, i){
+    if(!p) return;
+    var human = p.kind !== 'cpu';
+    var c = human ? DKCORE_carryNorm(cb[i]) : {};
+    if(!human && cfg.ai === 2) c.oe = true;
+    if(cfg.team) p.team = i % 2;
+    p.carry = c;
+    p.items = [];
+    p.skillP = 0; p.auto = false; p.autoWeak = false; p.pay2 = 0;
+    p.fcard = (human && c.magic) ? c.magic : null;
+    p.forceDouble = c.dbl ? 1 : 0;
+    /* ペンダント：開いている枠だけ（人間は枠の位置どおり＝p.slots があれば使う） */
+    var n = dkPendSlots(p.card);
+    p.pendSlots = n;
+    if(human && Array.isArray(p.slots)) p.pend = p.slots.slice(0, n).map(pendById).filter(Boolean);
+    else if(Array.isArray(p.pend) && p.pend.length > n) p.pend = p.pend.slice(0, n);
+    /* 能力値＝カードの基本値＋サイコロの上乗せ */
+    var base = cardStats(p.card, p.cardLv || 1) || p.stats || {};
+    var ab = DKCORE_abOfPlayer(p), stats = {};
+    Object.keys(base).forEach(function(k){ stats[k] = Math.min(120, (base[k] | 0) + (ab[k] | 0)); });
+    p.statsBase = Object.assign({}, base);
+    p.stats = stats;
+    /* 奇数/偶数：共通の回数（WP13 が振った時に両方減らす） */
+    var oe = (c.oe ? 3 + (human ? (ab.oddeven | 0) : 0) : 0) + wk;
+    p.odd = oe; p.even = oe;
+  });
+  g.oeShared = true;
+  return g;
+}
+/* 奇数と偶数は常に同じ回数（片方だけ減った時は少ない方にそろえる＝共通の回数を1回使った） */
+function DKCORE_oeSync(pi){
+  if(!G || !G.oeShared || !G.players) return;
+  var p = G.players[pi];
+  if(!p || p.odd === p.even) return;
+  var v = Math.max(0, Math.min(p.odd | 0, p.even | 0));
+  p.odd = v; p.even = v;
 }
 
 /* ══════════ 入手 ══════════ */
@@ -313,6 +751,13 @@ function dkGivePend(id){
   saveNow();
   return { id:id, dup:o.dup, fresh:fresh };
 }
+/* カードを1枚だけ渡す（おまけの抽選なし）。重複は dup+1 → {id, fresh, dup} */
+function DKCORE_giveCard(id){
+  var had = !!SV.cards[id];
+  if(had){ var o = SV.cards[id]; o.dup = ((o.dup | 0) || 0) + 1; }
+  else SV.cards[id] = { lv:1, dup:0, exp:0 };
+  return { id:id, fresh:!had, dup:SV.cards[id].dup };
+}
 /* まだ持っていないサイコロを、弱い順にひとつ（Lv1）開ける */
 function DKCORE_newDie(){
   for(var i = 0; i < DICE.length; i++){
@@ -325,10 +770,7 @@ function DKCORE_newDie(){
 function grant(c){
   var out = { card:null, pend:null, die:null, gold:0 };
   if(!c || !cardById(c.id)) return out;
-  var had = !!SV.cards[c.id];
-  if(had){ var o = SV.cards[c.id]; o.dup = ((o.dup | 0) || 0) + 1; }
-  else SV.cards[c.id] = { lv:1, dup:0, exp:0 };
-  out.card = { id:c.id, fresh:!had, dup:SV.cards[c.id].dup };
+  out.card = DKCORE_giveCard(c.id);
   if(Math.random() < 0.18){
     var p = PENDANTS[(Math.random() * PENDANTS.length) | 0];
     out.pend = dkGivePend(p.id);
@@ -340,6 +782,118 @@ function grant(c){
   }
   saveNow();
   return out;
+}
+/* 表 list（CARDPOOL・PENDANTS）から、等級 rars（'A'|'S'|'SS'）の中の1つを同じ確率で */
+function DKCORE_pick(list, rars){
+  var c = list.filter(function(x){ return rars.indexOf(dkNormRar(x.rar)) >= 0; });
+  return c.length ? c[(Math.random() * c.length) | 0] : null;
+}
+
+/* ══════════ キューブ（C21・J40） ══════════ */
+/* キューブを1つ渡す。7個持っていたら、一番古い箱を開けて中身を渡してから入れる（損をさせない）
+   → {id, kind, opened:null|dkOpenCube の戻り値} */
+function dkGiveCube(kind){
+  if(DKCORE_cubeKinds().indexOf(kind) < 0) kind = 'wood';
+  if(!Array.isArray(SV.cubes)) SV.cubes = [];
+  var opened = null;
+  while(SV.cubes.length >= DKCORE_cubeMax()) opened = DKCORE_openAt(0);
+  var c = { id:DKCORE_uid('q'), kind:kind, at:Date.now() };
+  SV.cubes.push(c);
+  saveNow();
+  return { id:c.id, kind:kind, opened:opened };
+}
+/* キューブを開ける（待ち時間・クローバーなし）。提供割合は DKCORE_cubeRows
+   → {kind, card:null|{id,fresh,dup}, pend:null|{id,dup,fresh}, die:null, gold, gem}（grant と同じ形＋kind・gem） */
+function dkOpenCube(id){
+  if(!Array.isArray(SV.cubes)) SV.cubes = [];
+  for(var i = 0; i < SV.cubes.length; i++) if(SV.cubes[i] && SV.cubes[i].id === id) return DKCORE_openAt(i);
+  return { kind:null, card:null, pend:null, die:null, gold:0, gem:0 };
+}
+/* 並びの i 番目の箱を開ける（id が壊れた箱でも必ず1つ減る＝あふれた時に止まらない） */
+function DKCORE_openAt(at){
+  var out = { kind:null, card:null, pend:null, die:null, gold:0, gem:0 };
+  if(!Array.isArray(SV.cubes) || at < 0 || at >= SV.cubes.length) return out;
+  var cube = SV.cubes.splice(at, 1)[0] || {};
+  out.kind = DKCORE_cubeInfo(cube.kind).kind;
+  var rows = DKCORE_cubeRows(out.kind), tot = 0;
+  rows.forEach(function(r){ tot += r.w; });
+  var roll = Math.random() * tot, row = rows[rows.length - 1];
+  for(var k = 0; k < rows.length; k++){ roll -= rows[k].w; if(roll < 0){ row = rows[k]; break; } }
+  if(row.k === 'card'){
+    var cd = DKCORE_pick(CARDPOOL, row.rar);
+    if(cd) out.card = DKCORE_giveCard(cd.id);
+    else row = { k:'gold', lo:1000, hi:1000 };
+  } else if(row.k === 'pend'){
+    var pd = DKCORE_pick(PENDANTS, row.rar);
+    if(pd) out.pend = dkGivePend(pd.id);
+    else row = { k:'gold', lo:1000, hi:1000 };
+  }
+  if(row.k === 'gold'){
+    var g = Math.round((row.lo + Math.random() * (row.hi - row.lo)) / 100) * 100;
+    SV.gold += g; out.gold = g;
+  } else if(row.k === 'gem'){
+    SV.gem += row.n; out.gem = row.n;
+  }
+  saveNow();
+  return out;
+}
+
+/* ══════════ 品物（C21・C22・C24） ══════════
+   dkGrantItem({kind, id, n}) を SV の正しい所へ。kind＝card pend die key ticket cube frame（＋gold gem）。
+   できたら {ok:true, kind, id, n, nm}、できない物なら false。プレゼントボックスの受け取り（WP16）とミッション・報酬が使う */
+function dkGrantItem(it){
+  it = DKCORE_obj(it);
+  var kind = String(it.kind || ''), id = (it.id === undefined || it.id === null) ? '' : String(it.id);
+  var n = Math.max(1, DKCORE_num(it.n, 1) || 1), cnt = Math.min(99, n);
+  var ok = false, nm = '', k;
+  if(kind === 'card' && cardById(id)){
+    for(k = 0; k < cnt; k++) DKCORE_giveCard(id);
+    ok = true; nm = cardById(id).nm;
+  } else if(kind === 'pend' && pendById(id)){
+    for(k = 0; k < cnt; k++) dkGivePend(id);
+    ok = true; nm = pendById(id).nm;
+  } else if(kind === 'die' && DICE.some(function(x){ return x.id === id; })){
+    SV.dice[id] = Math.max(1, SV.dice[id] || 0);
+    ok = true; nm = dieById(id).nm;
+  } else if(kind === 'key'){
+    SV.keys = (SV.keys | 0) + cnt; ok = true; nm = 'ゴールドキー';
+  } else if(kind === 'ticket' && ['biz', 'first', 'dia'].indexOf(id) >= 0){
+    if(!SV.tickets || typeof SV.tickets !== 'object') SV.tickets = { biz:0, first:0, dia:0 };
+    SV.tickets[id] = (SV.tickets[id] | 0) + cnt; ok = true; nm = DKCORE_ticketName(id);
+  } else if(kind === 'cube'){
+    var ck = DKCORE_cubeInfo(id).kind;
+    for(k = 0; k < cnt; k++) dkGiveCube(ck);
+    ok = true; nm = DKCORE_cubeInfo(ck).nm; id = ck;
+  } else if(kind === 'frame' && id){
+    if(!SV.frames || typeof SV.frames !== 'object') SV.frames = { own:[], eq:'' };
+    if(!Array.isArray(SV.frames.own)) SV.frames.own = [];
+    if(SV.frames.own.indexOf(id) < 0) SV.frames.own.push(id);
+    ok = true; nm = '名札の枠';
+  } else if(kind === 'gold'){
+    SV.gold += n; ok = true; nm = 'ゴールド';
+  } else if(kind === 'gem'){
+    SV.gem += n; ok = true; nm = 'ダイヤ';
+  }
+  if(!ok) return false;
+  saveNow();
+  return { ok:true, kind:kind, id:id, n:n, nm:nm };
+}
+
+/* ══════════ 本日のマップ（C23）・名札の枠（C24） ══════════ */
+/* 日本時間の朝5時で切り替わる（週の区切りと同じ5時）。t を渡すとその時刻で */
+function dkTodayMap(t){
+  var now = (typeof t === 'number') ? t : Date.now();
+  var day = Math.floor((now + 4 * 3600000) / 86400000);        /* UTC+9 − 5時間 */
+  var L = MAPS.length || 1;
+  return MAPS[((day % L) + L) % L].id;
+}
+/* 名札の枠：p.frame（オンラインは配られた値）→ この端末の人間は SV.frames.eq → '' */
+function dkFrameOf(pi){
+  var p = G && G.players ? G.players[pi] : null;
+  if(!p) return '';
+  if(typeof p.frame === 'string') return p.frame;
+  if(p.kind === 'cpu' || DKCORE_online()) return '';
+  return (SV.frames && typeof SV.frames.eq === 'string') ? SV.frames.eq : '';
 }
 
 /* ══════════ 図鑑・郵便 ══════════ */
@@ -363,7 +917,7 @@ function dkBookState(id){
   if(k === 'd' && SV.dice && SV.dice[id]) return 'own';
   return (Array.isArray(SV.seen) && SV.seen.indexOf(id) >= 0) ? 'seen' : 'unseen';
 }
-/* 郵便を1通送る。item = {ic, nm, g, d, item:{kind,id}|null, exp?} → 作った郵便を返す */
+/* 郵便を1通送る。item = {ic, nm, g, d, item:{kind,id,n}|null, exp?} → 作った郵便を返す */
 function dkMail(item){
   var m = DKCORE_mailTo(SV, item);
   saveNow();
@@ -376,32 +930,84 @@ function DKCORE_today(){
   if(!SV.today || SV.today.key !== k){ SV.today = DKCORE_counts(); SV.today.key = k; }
   return SV.today;
 }
+/* C33：週が進んだら、前の週（SV.wk・rp を含む）を SV.wkPrev に残して dkEmit('week:roll',{prev,key}) を1回。
+   週の番号が戻った時（時計・オンラインの host の週）は今の週のまま（行ったり来たりしない） */
 function DKCORE_week(){
   var k = weekIndex();
-  if(!SV.wk || SV.wk.key !== k){ SV.wk = DKCORE_counts(); SV.wk.key = k; }
+  var w = SV.wk;
+  var had = !!(w && typeof w.key === 'number' && isFinite(w.key));
+  if(had && w.key >= k) return w;
+  var prev = (had && w.key >= 0) ? Object.assign({}, w) : null;
+  SV.wk = DKCORE_counts(); SV.wk.key = k;
+  if(prev){
+    SV.wkPrev = prev;
+    try{ saveNow(); }catch(e){}
+    dkEmit('week:roll', { prev:prev, key:k });
+  }
   return SV.wk;
 }
 
-/* ══════════ newGame のラッパ：人間の p.pendLv / p.dieId / p.dieLv を入れる ══════════ */
+/* ══════════ newGame のラッパ：人間の p.pendLv / p.dieId / p.dieLv と、対戦の初期化（C07） ══════════ */
 var DKCORE_newGame0 = (typeof newGame === 'function') ? newGame : null;
 if(DKCORE_newGame0){
   newGame = function(){
     var r = DKCORE_newGame0.apply(this, arguments);
     try{
-      if(G && G.players) G.players.forEach(function(p){
-        if(!p || p.kind === 'cpu') return;
-        if(!p.pendLv){
-          p.pendLv = {};
-          (p.pend || []).forEach(function(it){
-            if(!it) return;
-            var o = SV.pendants && SV.pendants[it.id];
-            p.pendLv[it.id] = DKCORE_clamp((o && o.lv) | 0 || 1, 1, 8);
-          });
-        }
-        if(!p.dieId && SV.dice && SV.dice[SV.die]){ p.dieId = SV.die; p.dieLv = SV.dice[SV.die]; }
-      });
-    }catch(e){ console.error('[WP0]', e); }
+      if(G && G.players){
+        var carry = DKCORE_carryNorm(SV.carry), had = Object.keys(DKCORE_obj(SV.carry)).length > 0;
+        var cb = [], given = false;
+        G.players.forEach(function(p, i){
+          if(!p || p.kind === 'cpu') return;
+          if(!p.pendLv){
+            p.pendLv = {};
+            (p.pend || []).forEach(function(it){
+              if(!it) return;
+              var o = SV.pendants && SV.pendants[it.id];
+              p.pendLv[it.id] = DKCORE_clamp((o && o.lv) | 0 || 1, 1, 8);
+            });
+          }
+          if(!p.dieId && SV.dice && SV.dice[SV.die]){ p.dieId = SV.die; p.dieLv = SV.dice[SV.die]; }
+          if(p.dieKw === undefined) p.dieKw = (p.dieId && SV.kiwami && SV.kiwami[p.dieId]) || null;
+          if(!Array.isArray(p.slots)) p.slots = (Array.isArray(SV.slots) ? SV.slots : []).slice(0, 4);
+          if(p.frame === undefined) p.frame = (SV.frames && typeof SV.frames.eq === 'string') ? SV.frames.eq : '';
+          if(!given){ cb[i] = carry; given = true; }          /* 持ち込みは この端末の1人目の人間だけ */
+        });
+        dkInitPlayers(G, cb);
+        SV.carry = {};
+        if(had) saveNow();
+      }
+    }catch(e){ console.error('[WP12a]', e); }
     return r;
+  };
+}
+
+/* ══════════ doRoll のラッパ：奇数/偶数を共通の回数にそろえる（G.oeShared の時だけ） ══════════
+   振る直前（奇数/偶数を減らしたあと）に呼ばれるので、片方だけ減らす古い処理でも「共通の回数を1回使った」になる。
+   両方減らす処理（WP13）の時は何もしない */
+var DKCORE_doRoll0 = (typeof doRoll === 'function') ? doRoll : null;
+if(DKCORE_doRoll0){
+  doRoll = function(pi){
+    try{ DKCORE_oeSync(pi); }catch(e){ console.error('[WP12a]', e); }
+    return DKCORE_doRoll0.apply(this, arguments);
+  };
+}
+
+/* ══════════ bankrupt・checkWin のラッパ：チーム戦は「相手チーム全員の破産」で決着 ══════════ */
+var DKCORE_bankrupt0 = (typeof bankrupt === 'function') ? bankrupt : null;
+if(DKCORE_bankrupt0){
+  bankrupt = function(pi, toPi){
+    var r = DKCORE_bankrupt0.apply(this, arguments);
+    return Promise.resolve(r).then(function(v){
+      try{ DKCORE_teamBust(); }catch(e){ console.error('[WP12a]', e); }
+      return v;
+    });
+  };
+}
+var DKCORE_checkWin0 = (typeof checkWin === 'function') ? checkWin : null;
+if(DKCORE_checkWin0){
+  checkWin = function(){
+    try{ if(DKCORE_teamBust()) return true; }catch(e){ console.error('[WP12a]', e); }
+    return DKCORE_checkWin0.apply(this, arguments);
   };
 }
 
@@ -411,8 +1017,20 @@ if(DKCORE_newGame0){
     var raw = null;
     try{ raw = localStorage.getItem(SAVE_KEY); }catch(e){ raw = null; }
     /* はじめて遊ぶ人（保存が無い）は、最初から今の版。移行もお詫びも要らない */
-    if(raw === null && SV && !(SV.migV >= DKCORE_migV())) SV.migV = DKCORE_migV();
-    /* 読み込み時に移行したら、ここで1回だけ保存する（二重に郵便が届かないように） */
+    if(raw === null && SV){
+      if(!(SV.migV >= DKCORE_migV())) SV.migV = DKCORE_migV();
+      if(!(SV.migV2 >= DKCORE_migV2())) SV.migV2 = DKCORE_migV2();
+    }
+    /* 読み込み時に移行・あふれたキューブの郵便があったら、ここで1回だけ保存する（二重に郵便が届かないように） */
     if(fixSave._migrated){ fixSave._migrated = false; saveNow(); }
-  }catch(e){ console.error('[WP0]', e); }
+    /* J12：対戦の既定（30ターン・25分）をセーブのルールから */
+    if(SV && SV.rules && typeof cfg === 'object' && cfg){
+      if(SV.rules.turns > 0) cfg.turns = SV.rules.turns;
+      if(SV.rules.timeLimit >= 0) cfg.timeLimit = SV.rules.timeLimit;
+    }
+  }catch(e){ console.error('[WP12a]', e); }
+  /* 週替わり（'week:roll'）は、後ろのファイルの受け手がそろってから1回見る */
+  setTimeout(function(){
+    try{ if(typeof SV === 'object' && SV) DKCORE_week(); }catch(e){ console.error('[WP12a]', e); }
+  }, 0);
 })();
