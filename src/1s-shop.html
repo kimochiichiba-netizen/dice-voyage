@@ -13,7 +13,7 @@
 .dks-b .dks-sh{position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none}
 .dks-b .dks-sh::after{content:"";position:absolute;top:0;bottom:0;width:38%;
   background:linear-gradient(105deg,transparent,rgba(255,255,255,.5),transparent);
-  transform:translateX(-160%);animation:dkBtnShine 3.4s ease-in-out infinite}
+  transform:translateX(-160%)}
 .dks-b:disabled .dks-sh,.dks-b.short .dks-sh,.dks-b.dim .dks-sh{display:none}
 .dks-b.short{filter:saturate(.45) brightness(.86)}
 .dks-b.dim{filter:saturate(.5) brightness(.82)}
@@ -55,7 +55,7 @@
 /* 行商人の水晶玉 */
 #shop .dks-orb{position:absolute;left:50%;top:410px;width:124px;height:124px;margin-left:-62px;border-radius:50%;
   background:radial-gradient(circle at 36% 30%,#fff 0 6%,#F8D8F4 14%,#C86AC0 45%,#4A1244 78%,#240820);
-  box-shadow:0 0 40px 10px rgba(230,120,210,.42),inset 0 -10px 20px rgba(0,0,0,.4);animation:fxFloat 4s ease-in-out infinite}
+  box-shadow:0 0 40px 10px rgba(230,120,210,.42),inset 0 -10px 20px rgba(0,0,0,.4)}
 #shop .dks-orb > b{position:absolute;inset:12%;border-radius:50%;
   background:conic-gradient(from 0deg,transparent 0 58%,rgba(255,255,255,.4) 70%,transparent 82%);animation:fxSpin 5s linear infinite}
 #shop .dks-orbst{position:absolute;left:50%;top:548px;width:96px;height:30px;margin-left:-48px;border-radius:50% 50% 12px 12px;
@@ -74,15 +74,13 @@
 #quest .dks-q .rw{width:172px;justify-content:flex-end}
 .dks-dot{position:absolute;right:-6px;top:-6px;z-index:5;width:22px;height:22px;border-radius:50%;pointer-events:none;
   background:radial-gradient(circle at 35% 30%,#FF9A8E,#E8302A 55%,#9A1410);border:3px solid #FFF1D0;
-  box-shadow:0 2px 4px rgba(0,0,0,.5);animation:dkBadge 1.6s ease-in-out infinite}
+  box-shadow:0 2px 4px rgba(0,0,0,.5)}
 .dks-dot.big{width:32px;height:32px;right:-10px;top:-10px}
 .dks-cd{font-family:var(--pop);font-variant-numeric:tabular-nums}
 .dks-gl{position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none;z-index:2}
 .dks-gl::after{content:"";position:absolute;top:-10%;bottom:-10%;width:30%;
   background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);
-  transform:translateX(-160%) skewX(-18deg);animation:fxShine 5.6s ease-in-out infinite}
-:nth-child(2) > .dks-gl::after{animation-delay:-1.4s} :nth-child(3) > .dks-gl::after{animation-delay:-2.8s}
-:nth-child(4) > .dks-gl::after{animation-delay:-4.2s}
+  transform:translateX(-160%) skewX(-18deg)}
 /* リボン見出し（赤・金・青） */
 .dks-rib{position:relative;display:inline-flex;align-items:center;justify-content:center;height:50px;padding:0 44px;
   background:linear-gradient(180deg,#F0604A 0 10%,#C9302C 46%,#8E1410);
@@ -232,9 +230,9 @@
 #shop .dks-curtain{position:absolute;top:0;width:54%;height:44%;background:radial-gradient(130% 110% at 0 0,#A8388E,#5A1650 58%,#34082E)}
 #shop .dks-curtain.l{left:0;border-radius:0 0 100% 0} #shop .dks-curtain.r{right:0;border-radius:0 0 0 100%;transform:scaleX(-1)}
 #shop .dks-lamps{position:absolute;left:0;right:0;top:34px;display:flex;justify-content:space-around}
-#shop .dks-lamps .dks-a-lantern{--s:98px;transform-origin:50% -30px;animation:dksSwing 3.2s ease-in-out infinite}
-#shop .dks-lamps .dks-a-lantern:nth-child(2){--s:118px;animation-delay:-1.1s}
-#shop .dks-lamps .dks-a-lantern:nth-child(3){animation-delay:-2.2s}
+#shop .dks-lamps .dks-a-lantern{--s:98px;transform-origin:50% -30px;transform:rotate(-4deg)}
+#shop .dks-lamps .dks-a-lantern:nth-child(2){--s:118px;transform:none;animation:dksSwing 3.2s ease-in-out infinite}
+#shop .dks-lamps .dks-a-lantern:nth-child(3){transform:rotate(4deg)}
 @keyframes dksSwing{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5deg)}}
 #shop .dks-tsign{position:absolute;left:34px;right:34px;top:250px;padding:18px 10px;border-radius:14px;text-align:center;
   background:linear-gradient(180deg,#3E1236,#1E061A) padding-box,var(--fx-gold-metal) border-box;border:4px solid transparent;
@@ -299,7 +297,7 @@
 #shop .dks-off{position:absolute;right:-10px;top:-12px;z-index:4;display:flex;flex-direction:column;align-items:center;justify-content:center;
   min-width:92px;height:52px;padding:0 10px;border-radius:12px;transform:rotate(6deg);
   background:linear-gradient(180deg,#FF7A62 0 10%,#E0301E 50%,#9A1208);border:3px solid #FFE0B0;
-  box-shadow:0 4px 0 rgba(0,0,0,.35),0 0 16px rgba(255,90,60,.45);animation:dksTagWag 5s ease-in-out infinite}
+  box-shadow:0 4px 0 rgba(0,0,0,.35),0 0 16px rgba(255,90,60,.45)}
 #shop .dks-off > b{font-family:var(--pop);font-size:26px;line-height:1;color:#FFF6E2;-webkit-text-stroke:4px #5A0A08;paint-order:stroke fill}
 #shop .dks-off > small{font-size:16px;line-height:1;font-weight:900;color:#FFE27A}
 @keyframes dksTagWag{0%,86%,100%{transform:rotate(6deg)}90%{transform:rotate(-2deg)}94%{transform:rotate(10deg)}}
@@ -332,7 +330,7 @@
 #shop .dks-die .art{position:relative;height:170px;flex:0 0 auto;border-radius:12px;overflow:hidden;display:grid;place-items:center;
   background:radial-gradient(circle at 50% 46%,rgba(255,220,140,.26),transparent 60%),linear-gradient(180deg,#2A1C0A,#120B04)}
 #shop .dks-die .art .fx-rays{width:600px;height:600px;margin:-300px 0 0 -300px}
-#shop .dks-die .art .dks-a{--s:120px;animation:fxFloat 4.6s ease-in-out infinite}
+#shop .dks-die .art .dks-a{--s:120px}
 #shop .dks-die .nm{font-family:var(--pop);font-size:24px;line-height:1.15;color:#FFE9B5;text-align:center;-webkit-text-stroke:4px #241604;paint-order:stroke fill}
 #shop .dks-die .ds{flex:1;font-size:16px;line-height:1.45;color:#E6D4AE;text-align:center}
 #shop .dks-two{display:flex;flex-direction:column;gap:10px}
@@ -387,7 +385,7 @@
   background:radial-gradient(circle at 50% 62%,rgba(255,210,120,.3),transparent 62%),linear-gradient(180deg,#2E2010,#120B04)}
 #shop .dks-free .art .fx-rays{width:720px;height:720px;margin:-360px 0 0 -360px}
 #shop .dks-free .art .dks-a{--s:160px}
-#shop .dks-free.ready .art .dks-a{animation:fxFloat 3.6s ease-in-out infinite}
+#shop .dks-free.ready .art .dks-a{transform:translateY(-4px)}
 #shop .dks-free .nm{font-family:var(--pop);font-size:28px;line-height:1.1;color:#FFE9B5;text-align:center;-webkit-text-stroke:4px #241604;paint-order:stroke fill}
 #shop .dks-free .ds{font-size:17px;line-height:1.4;color:#E6D4AE;text-align:center}
 #shop .dks-free > .dks-b{height:66px;margin-top:auto;font-size:25px}
@@ -417,7 +415,7 @@
 #shop .dks-pedbar{position:relative;height:92px;flex:0 0 auto;display:flex;align-items:center;gap:16px;padding:0 18px;border-radius:16px;
   background:linear-gradient(90deg,#3E1236,#7A2E6C 50%,#3E1236) padding-box,var(--fx-gold-metal) border-box;border:4px solid transparent;
   box-shadow:0 8px 0 rgba(0,0,0,.3),0 0 30px rgba(230,120,210,.3)}
-#shop .dks-pedbar > .dks-a{--s:70px;transform-origin:50% 0;animation:dksSwing 3s ease-in-out infinite}
+#shop .dks-pedbar > .dks-a{--s:70px;transform-origin:50% 0}
 #shop .dks-pedbar .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
 #shop .dks-pedbar .tx > b{font-family:var(--pop);font-size:30px;line-height:1;color:#FFE0F4;-webkit-text-stroke:4px #2A0620;paint-order:stroke fill}
 #shop .dks-pedbar .tx > span{font-size:18px;font-weight:900;color:#F2C8E8}
@@ -485,52 +483,87 @@
 #quest .dks-qside > .dks-b{width:100%;height:64px;font-size:26px}
 #quest .dks-chmsg{height:64px;display:flex;align-items:center;font-size:18px;font-weight:900;color:#F0DCA8}
 
-/* ══════════ 出席簿 ══════════ */
+/* ══════════ 常時アニメを減らす（各画面8個まで）・入場券と名札の枠の絵・ガチャへの札 ══════════ */
+#shop::after,#quest::after,#daily::after{animation:none}
+#quest > .fx-amb > .fx-ray{display:none}
+#quest .dkbar i::after,#shop .dkbar i::after,#quest .dktab .nw{animation:none}
+#shop .dks-free .fx-rays{animation:none}
+.dks-a-tk{height:calc(var(--s,64px) * .62);filter:drop-shadow(0 3px 3px rgba(0,0,0,.45))}
+.dks-a-tk > b{inset:0;border-radius:10%;
+  background:radial-gradient(circle at 0 50%,transparent calc(var(--s,64px) * .1),var(--c,#F2C230) calc(var(--s,64px) * .1 + 1px)) left/51% 100% no-repeat,
+             radial-gradient(circle at 100% 50%,transparent calc(var(--s,64px) * .1),var(--c,#F2C230) calc(var(--s,64px) * .1 + 1px)) right/51% 100% no-repeat}
+.dks-a-tk > b::before{content:"";position:absolute;left:14%;right:14%;top:8%;height:30%;border-radius:6px;background:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,0))}
+.dks-a-tk > b::after{content:"";position:absolute;left:15%;right:15%;top:16%;bottom:16%;border:2px dashed rgba(60,36,4,.5);border-radius:4px}
+.dks-tkl{position:absolute;left:50%;top:50%;z-index:1;transform:translate(-50%,-50%) rotate(-7deg);font-style:normal;font-family:var(--caps);
+  font-size:17px;letter-spacing:.1em;color:#2A1604;text-shadow:0 1px 0 rgba(255,255,255,.6);pointer-events:none;white-space:nowrap}
+.dks-a-frame > b{inset:12% 2%;border-radius:12%;border:calc(var(--s,64px) * .1) solid var(--c,#D08A4E);
+  background:linear-gradient(180deg,#5A4220,#2A1C08);box-shadow:inset 0 0 0 2px rgba(0,0,0,.4),0 3px 6px rgba(0,0,0,.4)}
+#shop .pic.art.tkbg{background:radial-gradient(circle at 50% 44%,rgba(255,214,120,.3),transparent 58%),linear-gradient(180deg,#3A2A10,#140C04)}
+#shop .pic.art.tkbg::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.34;
+  background:radial-gradient(circle at 50% 48%,var(--c,#F2C230),transparent 60%)}
+#shop .dks-good .pic .dks-a-tk{--s:176px;transform:rotate(-7deg)}
+#shop .dks-golink{color:#3A2405;background:linear-gradient(180deg,#FFF0BE,#F5D36B 40%,#C8952F);border-color:#FFF0BE;
+  box-shadow:0 0 14px rgba(255,200,80,.5),inset 0 2px 0 rgba(255,255,255,.5)}
+/* 限定ミッション：次の段（🔒 クリアすると開きます） */
+#quest .dks-q .rw{width:196px;flex-wrap:wrap;justify-content:flex-end;gap:6px}
+#quest .dks-q.lock{min-height:84px;border-style:dashed;box-shadow:none;
+  background:repeating-linear-gradient(135deg,rgba(120,86,34,.07) 0 10px,rgba(120,86,34,.14) 10px 20px)}
+#quest .dks-q.lock > .ic,#quest .dks-q.lock > .mid,#quest .dks-q.lock > .rw{filter:grayscale(.85) brightness(.92);opacity:.78}
+#quest .dks-q.lock .ic{background:radial-gradient(circle at 36% 28%,#E6DCC6,#A8977A 60%,#6E5A34)}
+#quest .dks-q.lock .ic > span{font-size:30px}
+#quest .dks-qlock{width:170px;flex:0 0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+#quest .dks-qlock .dks-stamp{width:40px;height:40px;font-size:20px;color:#6E5A34;border-color:#6E5A34;transform:none}
+#quest .dks-qlock > span{font-size:16px;font-weight:900;line-height:1.2;color:#6E5A34;white-space:nowrap}
+
+/* ══════════ 出席簿（28日＝7日×4段。7・14・21・28日目は金の枠と放射光。次の豪華な日だけ光が回る） ══════════ */
 #daily .dklogo.dktext i{font-size:16px}
 #daily .dks-dbody{left:18px}
-#daily .dks-daily{flex:1;min-width:0;display:flex;flex-direction:column;padding:16px 22px 18px}
-#daily .dks-dhd{display:flex;align-items:center;justify-content:space-between;gap:16px;height:58px;flex:0 0 auto}
+#daily .dks-daily{flex:1;min-width:0;display:flex;flex-direction:column;padding:12px 20px 14px}
+#daily .dks-dhd{display:flex;align-items:center;justify-content:space-between;gap:16px;height:54px;flex:0 0 auto}
 #daily .dks-dhd .c{font-size:20px;font-weight:900;color:#6E5A34;white-space:nowrap}
 #daily .dks-dhd .c > b{font-family:var(--pop);font-weight:400;color:#8A3A1A}
-#daily .dks-days{flex:1;min-height:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:14px;align-items:center;padding:34px 6px 14px}
-#daily .dks-day{position:relative;height:460px;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
-  padding:56px 8px 20px;
+#daily .dks-days{flex:1;min-height:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:repeat(4,minmax(0,1fr));
+  gap:10px 12px;padding:14px 4px 8px}
+#daily .dks-day{position:relative;min-height:0;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;
+  padding:34px 6px 8px;
   background:radial-gradient(120% 70% at 50% 0%,rgba(255,255,255,.7),transparent 60%),linear-gradient(180deg,#FFF7E4,#EBD9B0 58%,#D6BF92);
-  border:4px solid #A9761A;box-shadow:inset 0 2px 0 rgba(255,255,255,.8),0 4px 0 rgba(0,0,0,.22),0 10px 18px rgba(80,50,10,.25)}
+  border:3px solid #A9761A;box-shadow:inset 0 2px 0 rgba(255,255,255,.8),0 3px 0 rgba(0,0,0,.22),0 6px 12px rgba(80,50,10,.22)}
 #daily .dks-day > *{position:relative;z-index:1}
-#daily .dks-day > .dks-gl{position:absolute;z-index:2}
-#daily .dks-day .dd{position:absolute;left:10px;right:10px;top:12px;height:40px;border-radius:10px;display:grid;place-items:center;
+#daily .dks-day > .dks-gl{position:absolute;z-index:2;border-radius:11px}
+#daily .dks-day .dd{position:absolute;left:6px;right:6px;top:6px;height:26px;border-radius:8px;display:grid;place-items:center;
   background:linear-gradient(180deg,#6E5326,#3E2C11);border:2px solid #C8952F;box-shadow:inset 0 2px 0 rgba(255,220,150,.3)}
-#daily .dks-day .dd > b{font-family:var(--pop);font-weight:400;font-size:22px;color:#FFE9B5;-webkit-text-stroke:3px #241604;paint-order:stroke fill}
-#daily .dks-day .di .dks-a{--s:108px}
-#daily .dks-day .dv{font-family:var(--pop);font-size:32px;line-height:1;color:#5A3A0C;-webkit-text-stroke:4px #FFF6E2;paint-order:stroke fill}
-#daily .dks-day .dn{font-size:19px;font-weight:900;color:#6E5A34}
+#daily .dks-day .dd > b{font-family:var(--pop);font-weight:400;font-size:18px;line-height:1;color:#FFE9B5;-webkit-text-stroke:3px #241604;paint-order:stroke fill}
+#daily .dks-day .di{flex:1 1 auto;min-height:0;display:grid;place-items:center}
+#daily .dks-day .di .dks-a{--s:46px}
+#daily .dks-day .dv{font-family:var(--pop);font-size:24px;line-height:1;color:#5A3A0C;-webkit-text-stroke:4px #FFF6E2;paint-order:stroke fill;white-space:nowrap}
+#daily .dks-day .dn{font-size:16px;font-weight:900;line-height:1.1;color:#6E5A34;white-space:nowrap}
 #daily .dks-day.got{background:linear-gradient(180deg,#E6DCC6,#C9B894 60%,#B2A07A);border-color:#8A6A3C}
 #daily .dks-day.got .di,#daily .dks-day.got .dv,#daily .dks-day.got .dn{filter:grayscale(.7) brightness(.85)}
-#daily .dks-day > .dks-stamp{position:absolute;z-index:3;left:50%;top:46%;width:112px;height:112px;margin:-56px 0 0 -56px;font-size:54px;border-width:6px}
-#daily .dks-day.now{transform:translateY(-10px) scale(1.04);border-color:#FFE27A;
-  box-shadow:inset 0 2px 0 rgba(255,255,255,.9),0 0 0 3px rgba(255,214,90,.55),0 12px 24px rgba(120,80,10,.35)}
-#daily .dks-day.now::before{content:"";position:absolute;inset:-6px;border-radius:22px;pointer-events:none;z-index:0;
-  box-shadow:0 0 34px 10px rgba(255,205,90,.72);animation:fxBreath 2.2s var(--fx-inout) infinite}
-.dks-today{position:absolute;left:50%;top:-20px;z-index:4;transform:translateX(-50%);padding:4px 16px;border-radius:12px;white-space:nowrap;
-  font-family:var(--pop);font-size:20px;color:#3A2405;background:linear-gradient(180deg,#FFF0BE,#E8B23A);border:2px solid #8A6206;
+#daily .dks-day > .dks-stamp{position:absolute;z-index:3;left:50%;top:56%;width:70px;height:70px;margin:-35px 0 0 -35px;font-size:34px;border-width:5px}
+#daily .dks-day.now{transform:scale(1.05);z-index:2;border-color:#FFE27A;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.9),0 0 0 3px rgba(255,214,90,.55),0 10px 20px rgba(120,80,10,.35)}
+#daily .dks-day.now::before{content:"";position:absolute;inset:-6px;border-radius:18px;pointer-events:none;z-index:0;
+  box-shadow:0 0 26px 8px rgba(255,205,90,.72);animation:fxBreath 2.2s var(--fx-inout) infinite}
+.dks-today{position:absolute;right:-6px;top:-12px;z-index:4;padding:3px 12px;border-radius:10px;white-space:nowrap;
+  font-family:var(--pop);font-size:18px;line-height:1.1;color:#3A2405;background:linear-gradient(180deg,#FFF0BE,#E8B23A);border:2px solid #8A6206;
   box-shadow:0 3px 6px rgba(0,0,0,.35)}
-#daily .dks-day.d7{border:6px solid transparent;
+#daily .dks-day.d7{border:4px solid transparent;
   background:radial-gradient(90% 60% at 50% 40%,rgba(255,236,170,.9),transparent 70%) padding-box,
              linear-gradient(180deg,#FFF3D0,#F0D28A 60%,#D8AE56) padding-box,var(--fx-gold-metal) border-box;
-  box-shadow:0 0 0 2px rgba(255,220,120,.5),0 0 30px 6px rgba(255,200,80,.45),0 10px 18px rgba(80,50,10,.3)}
-#daily .dks-d7rays{position:absolute;inset:0;border-radius:12px;overflow:hidden;z-index:0;pointer-events:none}
+  box-shadow:0 0 0 2px rgba(255,220,120,.5),0 0 22px 4px rgba(255,200,80,.45),0 6px 12px rgba(80,50,10,.3)}
+#daily .dks-d7rays{position:absolute;inset:0;border-radius:10px;overflow:hidden;z-index:0;pointer-events:none}
 #daily .dks-day > .dks-d7rays{position:absolute;z-index:0}
-#daily .dks-d7rays .fx-rays{width:760px;height:760px;margin:-380px 0 0 -380px;animation-duration:14s;
+#daily .dks-d7rays .fx-rays{width:420px;height:420px;margin:-210px 0 0 -210px;animation:none;
   background:repeating-conic-gradient(from 0deg,rgba(255,200,60,.4) 0 7deg,rgba(255,200,60,0) 7deg 18deg)}
-.dks-crown{position:absolute;left:50%;top:-34px;width:76px;height:44px;margin-left:-38px;z-index:4;
+#daily .dks-d7rays.spin .fx-rays{animation:fxSpin 14s linear infinite}
+.dks-crown{position:absolute;left:8px;top:-14px;width:44px;height:26px;z-index:4;
   clip-path:polygon(0 100%,4% 20%,26% 58%,50% 0,74% 58%,96% 20%,100% 100%);
   background:linear-gradient(180deg,#FFF3C8,#F2C230 50%,#A9761A);filter:drop-shadow(0 3px 0 rgba(0,0,0,.35))}
 #daily .dks-day > .dks-crown{position:absolute}
 #daily .dks-day.d7.got .dks-crown{filter:grayscale(.6)}
 #daily .dks-day.stamping{z-index:3}
-#daily .dks-dget{width:100%;height:76px;flex:0 0 auto;margin-top:8px;font-size:32px}
-#daily .dks-dnext{height:76px;flex:0 0 auto;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:16px;border-radius:14px;
+#daily .dks-dget{width:100%;height:70px;flex:0 0 auto;margin-top:6px;font-size:30px}
+#daily .dks-dnext{height:70px;flex:0 0 auto;margin-top:6px;display:flex;align-items:center;justify-content:center;gap:16px;border-radius:14px;
   background:linear-gradient(180deg,rgba(120,86,34,.12),rgba(120,86,34,.22));border:2px dashed rgba(140,106,54,.5)}
 #daily .dks-dnext > b{font-family:var(--pop);font-weight:400;font-size:26px;color:#5A3A0C}
 #daily .dks-dnext .dks-stamp{width:54px;height:54px;font-size:26px}
@@ -624,8 +657,11 @@
   #quest .dks-chest{width:220px;height:170px}
 
   #daily .dklogo.dktext i{font-size:22px}
-  #daily .dks-day .dd > b{font-size:26px} #daily .dks-day .dv{font-size:34px} #daily .dks-day .dn{font-size:24px}
-  .dks-today{font-size:24px} #daily .dks-dget{height:84px;font-size:34px} #daily .dks-dnext > b{font-size:28px}
+  #daily .dks-day{padding-top:38px} #daily .dks-day .dd{height:30px}
+  #daily .dks-day .dd > b{font-size:22px} #daily .dks-day .dv{font-size:26px} #daily .dks-day .dn{font-size:20px}
+  #daily .dks-day .di .dks-a{--s:40px}
+  .dks-today{font-size:22px} #daily .dks-dget{height:76px;font-size:32px} #daily .dks-dnext > b{font-size:28px}
+  #quest .dks-qlock{width:188px} #quest .dks-qlock > span{font-size:20px;white-space:normal;text-align:center}
 
   .dks-it{width:188px} .dks-items.many .dks-it{width:172px} .modal.dks-modal{width:1000px}
   .dks-it .v{font-size:26px} .dks-it .l,.dks-msub{font-size:22px} .dks-mbtns .dks-b{height:76px;font-size:30px}
@@ -653,11 +689,15 @@
   #shop .dks-pbtn,#shop .dks-pedlink,#shop .dks-tab{position:relative}
 }
 
-/* ══════════ 控えめ・動きを減らす ══════════ */
+/* ══════════ 控えめ・動きを減らす・スマホ ══════════ */
 html.fx-lite .dks-gl,html.fx-lite .dks-d7rays,html.fx-lite .dks-mglow .fx-rays{display:none}
 @media (prefers-reduced-motion:reduce){
-  #shop .dks-sign,#shop .dks-lamps .dks-a-lantern,#shop .dks-pedbar > .dks-a,#shop .dks-off,.dks-gl::after,.dks-b .dks-sh::after,
-  .dks-dot,#quest .dks-chest,#daily .dks-day.now::before,#shop .dks-die .art .dks-a,#shop .dks-free .art .dks-a,
-  .dks-gmedal,.dks-it,.dks-stamp.new{animation:none!important}
+  #shop .dks-sign,#shop .dks-lamps .dks-a-lantern,#shop .dks-orb > b,#quest .dks-chest,#daily .dks-day.now::before,
+  .dks-gmedal,.dks-it,.dks-stamp.new,#daily .dks-d7rays .fx-rays,#quest .dks-chestbox .fx-rays{animation:none!important}
 }
+/* スマホ（html.fx-mob）：看板・ランタン・水晶玉・宝箱の揺れと、放射光の回転を止める（止まった絵）。
+   iPhone の WebKit は動く要素とその上に重なる中身を CSS の大きさ×3×3 の画素の層で持つ（1k-fx.html の説明） */
+html.fx-mob #shop .dks-sign,html.fx-mob #shop .dks-lamps .dks-a-lantern,html.fx-mob #shop .dks-orb > b,html.fx-mob #quest .dks-chest,
+html.fx-mob #daily .dks-day.now::before,html.fx-mob .dks-gmedal,html.fx-mob #daily .dks-d7rays .fx-rays,
+html.fx-mob #quest .dks-chestbox .fx-rays,html.fx-mob .dks-mglow .fx-rays,html.fx-mob #shop .fx-rays{animation:none!important}
 </style>
