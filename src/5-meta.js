@@ -1,4 +1,3 @@
-
 /* ══════════════════════════════════════════════════════════════
    ダイスキングダム — メタ（ホーム／カード／ガチャ／ペンダント／VS）
    セーブはこのブラウザの localStorage に保存される
@@ -119,21 +118,21 @@ const cardById = id => CARDPOOL.find(c=>c.id===id);
    trg = いつ判定するか / p = 発動確率 / rar = 等級
    ────────────────────────────────────────────────── */
 const PENDANTS = [
-  {id:'p1', nm:'稲妻放電器',       ic:'⚡', rar:'SS', trg:'onLandmark', p:0.85,
+  {id:'p1', nm:'雷光のペンダント',       ic:'⚡', rar:'SS', trg:'onLandmark', p:0.85,
    ds:'ランドマークを建てたとき、同じ辺にいる相手を自分のマスへ引き寄せる'},
-  {id:'p2', nm:'シュプリューデル', ic:'💧', rar:'SS', trg:'onTollGet',  p:0.60,
+  {id:'p2', nm:'蒼穹のペンダント', ic:'💠', rar:'SS', trg:'onTollGet',  p:0.60,
    ds:'相手が自分のランドマークに止まったとき束縛し、次の移動でもう一度通行料を取る'},
-  {id:'p3', nm:'概要設計図面',     ic:'📐', rar:'S',  trg:'onBuild',    p:0.50,
+  {id:'p3', nm:'翠風のペンダント',     ic:'🍀', rar:'S',  trg:'onBuild',    p:0.50,
    ds:'建設したとき、自分の別の街の建物がもう1段上がる'},
-  {id:'p4', nm:'大家の建物基礎',   ic:'🧱', rar:'S',  trg:'onBuild',    p:0.31,
+  {id:'p4', nm:'大地のペンダント',   ic:'🟤', rar:'S',  trg:'onBuild',    p:0.31,
    ds:'建物を3棟以上持っているとき、スタートへ移動して給料を受け取る'},
-  {id:'p5', nm:'黄金フリーパス',   ic:'🎫', rar:'S',  trg:'onTravel',   p:0.30,
+  {id:'p5', nm:'陽光のペンダント',   ic:'🌞', rar:'S',  trg:'onTravel',   p:0.30,
    ds:'ワープのマスで、選ばずに一番得なマスへ即座に移動する'},
-  {id:'p6', nm:'幸運のトランポリン',ic:'🤸', rar:'A',  trg:'onOwnLand',  p:0.38,
+  {id:'p6', nm:'桜華のペンダント',ic:'🌸', rar:'A',  trg:'onOwnLand',  p:0.38,
    ds:'自分の街に止まったとき、同じ辺の自分の別の街へ跳ぶ'},
-  {id:'p7', nm:'催眠の香水',       ic:'🧴', rar:'A',  trg:'onSameTile', p:0.45,
+  {id:'p7', nm:'月影のペンダント',       ic:'🌙', rar:'A',  trg:'onSameTile', p:0.45,
    ds:'相手と同じマスに止まったとき、相手の所持金の20%を奪う'},
-  {id:'p8', nm:'栄光の光',         ic:'✨', rar:'A',  trg:'onRoll',     p:0.37,
+  {id:'p8', nm:'炎帝のペンダント',         ic:'🔥', rar:'A',  trg:'onRoll',     p:0.37,
    ds:'サイコロを振るとき、ゾロ目が出る'}
 ];
 const PEND_RAR = { A:{nm:'A', c:'#8FB2D8'}, S:{nm:'S', c:'#D8B6F0'}, SS:{nm:'S+', c:'#F2C230'} };
@@ -151,11 +150,70 @@ function defaultSave(){
     seen: [] };
 }
 let SV = defaultSave();
+/* 古いセーブ（カード11枚時代＝die/dice/bag/locks が無い）や、
+   途中で壊れたセーブを読んでも必ず遊べる形にそろえる。
+   ここが甘いと、昔のセーブを開いた人の画面が真っ白になる。 */
+function fixSave(s){
+  const d = defaultSave();
+  const num = (v, dv) => (typeof v === 'number' && isFinite(v) && v >= 0) ? Math.floor(v) : dv;
+  const obj = v => (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+
+  s.gold  = num(s.gold, d.gold);   s.gem   = num(s.gem, d.gem);
+  s.lv    = Math.max(1, num(s.lv, 1));  s.exp = num(s.exp, 0);
+  s.plays = num(s.plays, 0);       s.wins  = num(s.wins, 0);
+  s.dailyN= num(s.dailyN, 0);      s.freeAt= num(s.freeAt, 0);
+  s.dailyAt = (typeof s.dailyAt === 'string') ? s.dailyAt : '';
+  s.qdone = obj(s.qdone);          s.locks = obj(s.locks);
+  s.seen  = Array.isArray(s.seen) ? s.seen : [];
+
+  /* カード：知らないIDは捨てる。lv は 1〜30、重なりは 0 以上 */
+  const cards = {};
+  Object.keys(obj(s.cards)).forEach(id=>{
+    if(!cardById(id)) return;
+    const o = obj(s.cards[id]);
+    cards[id] = { lv: Math.min(30, Math.max(1, num(o.lv, 1))), dup: num(o.dup, 0) };
+  });
+  if(!Object.keys(cards).length) Object.keys(d.cards).forEach(id=>{ cards[id] = {lv:1, dup:0}; });
+  s.cards = cards;
+
+  /* ペンダント：知らないIDは捨てる */
+  const pend = {};
+  Object.keys(obj(s.pendants)).forEach(id=>{ if(pendById(id)) pend[id] = obj(s.pendants[id]); });
+  s.pendants = pend;
+
+  /* ロックは持っているカードのぶんだけ残す */
+  Object.keys(s.locks).forEach(id=>{ if(!cards[id]) delete s.locks[id]; });
+
+  /* 装備カード：持っていないカードは装備できない */
+  if(!cards[s.equip]) s.equip = Object.keys(cards)[0];
+
+  /* ペンダント枠：かならず4枠。持っていない物と二重装備は外す（位置は保つ） */
+  const src = Array.isArray(s.slots) ? s.slots : [];
+  const slots = [null,null,null,null];
+  for(let i=0;i<4;i++){
+    const id = src[i];
+    if(id && pend[id] && slots.indexOf(id) < 0) slots[i] = id;
+  }
+  s.slots = slots;
+
+  /* サイコロ：ふつうの1個はかならず持っている。持っていない物は装備しない */
+  const dice = {};
+  Object.keys(obj(s.dice)).forEach(id=>{ if(DICE.some(x=>x.id===id)) dice[id] = 1; });
+  dice.d0 = 1;
+  s.dice = dice;
+  if(!dice[s.die]) s.die = 'd0';
+
+  /* 持ち込みアイテム：知らないIDは捨て、上限（3個）まで */
+  s.bag = (Array.isArray(s.bag) ? s.bag : []).filter(id=>itemById(id)).slice(0, 3);
+  return s;
+}
 function loadSave(){
   try{
     const raw = localStorage.getItem(SAVE_KEY);
-    if(raw){ const o = JSON.parse(raw); if(o && o.cards) SV = Object.assign(defaultSave(), o); }
-  }catch(e){}
+    if(!raw) return;
+    const o = JSON.parse(raw);
+    if(o && typeof o === 'object' && !Array.isArray(o)) SV = fixSave(Object.assign(defaultSave(), o));
+  }catch(e){ SV = defaultSave(); }
 }
 function saveNow(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(SV)); }catch(e){} }
 loadSave();
@@ -232,8 +290,13 @@ function wireTabs(root){
 }
 
 /* ── 出席簿（1日1回のログインボーナス） ─────────────── */
-function todayKey(){ const d = new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
-function canDaily(){ return SV.dailyAt !== todayKey(); }
+/* その日の合言葉。t（ミリ秒）を渡すとその日で計算する（渡さなければ今日）。
+   引数があるおかげで、時計をいじらずに「日付が変わったとき」を確かめられる。 */
+function todayKey(t){
+  const d = (typeof t === 'number') ? new Date(t) : new Date();
+  return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
+}
+function canDaily(t){ return SV.dailyAt !== todayKey(t); }
 const DAILY = [
   {ic:'🪙', nm:'ゴールド', v:1200}, {ic:'🪙', nm:'ゴールド', v:1600},
   {ic:'💎', nm:'ダイヤ',   v:3},    {ic:'🪙', nm:'ゴールド', v:2400},
@@ -314,9 +377,11 @@ function showQuest(){
   el.querySelectorAll('.qbtn').forEach(b=>{
     b.onclick = ()=>{
       const q = QUESTS.find(x=>x.id===b.dataset.q); if(!q) return;
-      if(q.get(SV) < q.need) return;
+      if(q.get(SV) < q.need){ SFX.click();
+        toast('R','🎯','まだ達成していません','あと '+(q.need - q.get(SV))+' で受け取れます', 2200); return; }
       SV.qdone = SV.qdone || {};
-      if(SV.qdone[q.id]) return;
+      if(SV.qdone[q.id]){ SFX.click();
+        toast('R','✅','受け取り済みです','', 1800); return; }
       SV.qdone[q.id] = 1;
       if(q.rw.g) SV.gold += q.rw.g;
       if(q.rw.d) SV.gem  += q.rw.d;
@@ -350,15 +415,28 @@ function showNews(){
 }
 
 /* ── セーブの初期値を足す ───────────────────────── */
+/* ── 最下段の常設バー（本家：クローバー／残り時間／ゴールド／ダイヤ／Lv） ──
+   実測 y 91%〜100%。中身はぜんぶ % で置く。時刻は使わず SV から決まる値にしている */
 function walletHTML(){
   const need = playerLvNeed(SV.lv);
+  const cl   = 5 - (SV.plays % 5);                                 // 残りクローバー
+  const tsec = 1933 - ((SV.plays * 137 + SV.lv * 29) % 1800);      // 次の補充まで
+  const mm   = ('0' + ((tsec / 60) | 0)).slice(-2);
+  const ss   = ('0' + (tsec % 60)).slice(-2);
+  let cv = '';
+  for(let i = 0; i < 5; i++) cv += '<i class="' + (i < cl ? '' : 'off') + '"></i>';
   return '<div class="wallet">'
-    + '<div class="cur"><span>🪙</span><b id="wGold">'+SV.gold.toLocaleString()+'</b></div>'
-    + '<div class="cur"><span>💎</span><b id="wGem">'+SV.gem+'</b></div>'
-    + '<div class="cur"><span>🎴</span><b>'+ownedCards().length+'/'+CARDPOOL.length+'</b></div>'
-    + '<div class="lvl"><span style="font-size:12px;font-weight:900;color:#9FB6CC">Lv.</span>'
-    + '<b style="font-family:var(--pop);font-size:19px;color:#FFE9B5">'+SV.lv+'</b>'
-    + '<span class="xp"><i style="width:'+Math.min(100, SV.exp/need*100)+'%"></i></span></div>'
+    + '<div class="wi wclover">' + cv + '</div>'
+    + '<div class="wi wtime">' + mm + ':' + ss + '</div>'
+    + '<div class="wi wp" style="left:29.9%">＋</div>'
+    + '<div class="wi wcoin">M</div>'
+    + '<div class="wi wnum wg1"><b id="wGold">' + SV.gold.toLocaleString() + '</b></div>'
+    + '<div class="wi wp" style="left:52.6%">＋</div>'
+    + '<div class="wi wgem"></div>'
+    + '<div class="wi wnum wg2"><b id="wGem">' + SV.gem + '</b></div>'
+    + '<div class="wi wp" style="left:74.1%">＋</div>'
+    + '<div class="wi wlv"><span class="tr"><i style="width:'
+    +   Math.min(100, SV.exp / need * 100) + '%"></i></span><b>Lv.' + SV.lv + '</b></div>'
     + '</div>';
 }
 function statRows(st, cmp){
@@ -371,39 +449,126 @@ function statRows(st, cmp){
 }
 
 /* ── ホーム ─────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════
+   ホーム（本家ロビーの実測トレース）
+   左＝羊皮紙パネル（自分のカード＋MY INFORMATION）＋丸ボタン4つ
+   右＝ランキング／EVENT／マイレージ／ショップ／入場
+   下＝常設バー。位置はすべて実測 % （1600×900 の固定ステージ）
+   ══════════════════════════════════════════════════════════════ */
+function dkMyCardHTML(c, own){
+  return '<div class="dk-mycard" id="dkMyCard"><div class="inn">'
+    + '<canvas id="homePic" width="320" height="450"></canvas></div>'
+    + '<div class="hd"><b>' + esc(c.nm) + '</b></div>'
+    + '<div class="cls">' + RAR[c.rar].nm + '</div>'
+    + '<div class="strip"><i></i><i></i><i></i><i></i></div>'
+    + '<div class="hex">' + own.lv + '</div></div>';
+}
+function dkInfoHTML(c, own){
+  const nick = (SV.nick || 'sasuke');
+  return '<div class="dk-info">'
+    + '<div class="ti">MY INFORMATION</div><div class="hr"></div>'
+    + '<div class="nick"><span class="sh"></span><b>' + esc(nick) + '</b>'
+    +   '<span class="rf" id="dkReload">⟳</span></div>'
+    + '<div class="dot"></div>'
+    + '<div class="plan"><b>' + esc(c.role) + '</b></div>'
+    + '<div class="dice2"><i class="a"></i><i class="b"></i></div>'
+    + '<div class="chg" id="dkChange"><b>変更</b></div>'
+    + '<div class="cr">DICE KINGDOM  ' + esc(c.nm) + ' Lv.' + own.lv + '  All Rights Reserved</div>'
+    + '</div>';
+}
+function dkTopRival(){
+  const me = { nm:'あなた', a: SV.gold * 180 + SV.lv * 900000, like: SV.wins * 7 + 3, me:1 };
+  return RIVALS.concat([me]).sort(function(x,y){ return y.a - x.a; })[0];
+}
+function dkRankHTML(){
+  const t = dkTopRival();
+  return '<div class="dk-rank" id="dkRank"><div class="bd"></div>'
+    + '<span class="ar">▶</span><span class="md">1</span>'
+    + '<span class="fc"><canvas id="dkRankPic" width="160" height="200"></canvas></span>'
+    + '<span class="nm">' + esc(t.nm) + '</span>'
+    + '<span class="as">' + yen(t.a) + '</span></div>';
+}
+function dkEventHTML(){
+  const w = thisWeek(), f = featureCard();
+  return '<div class="dk-event" id="dkEvent">'
+    + '<div class="band"><b>' + w.ic + ' ' + esc(w.nm) + '</b></div>'
+    + '<div class="rib">EVENT</div>'
+    + '<div class="li"><p>' + esc(w.ds) + '</p>'
+    +   '<p>注目カード <em>' + esc(f.nm) + '</em></p>'
+    +   '<p>ガチャの確率が <em>2倍</em> ！<span class="go">受取</span></p>'
+    +   '<p>ログインするだけで <em>ダイヤ1個</em> もらえます</p></div></div>';
+}
+function dkMileHTML(){
+  const n = SV.plays % 20;
+  return '<div class="dk-mile" id="dkMile">'
+    + '<span class="pg"><i style="width:' + (n / 20 * 100) + '%"></i><b>' + n + '/20</b></span>'
+    + '<span class="tx">マイレージを貯めてガチャ</span>'
+    + '<span class="ky">🔑</span><span class="kv">' + ((SV.plays / 20) | 0) + '</span></div>';
+}
+function dkMenuHTML(){
+  const badge = function(t){
+    return (t.id === 'daily' && canDaily()) ? '<span class="n">!</span>'
+         : (t.id === 'quest' && questReady()) ? '<span class="n">!</span>' : '';
+  };
+  return '<div class="dk-menutab" id="dkMenuTab"><span>メニュー</span><em>❯</em></div>'
+    + '<div class="dk-menu" id="dkMenu">'
+    + META_TABS.concat(SIDE_TABS).map(function(t){
+        return '<div class="rb" data-tab="' + t.id + '"><span class="ic">' + t.ic + '</span>'
+             + '<span class="tx">' + t.nm + '</span>' + badge(t) + '</div>'; }).join('')
+    + '</div>';
+}
 function showHome(){
-  const c = equippedCard(), own = SV.cards[c.id]||{lv:1};
-  const st = myStats();
+  const c = equippedCard(), own = SV.cards[c.id] || {lv:1};
+  const dd = 4 + (SV.lv % 3), hh = 10 + (SV.plays % 9), mi = 50 - (SV.wins % 40);
   const el = mkScreen('home',
-    tabsHTML('home')
-    + '<div class="inner">'
-    + '<div class="hero hero3">'
-    +   '<div class="heroPic"><span class="rk">'+RAR[c.rar].nm+' CLASS</span>'
-    +     '<canvas id="homePic" width="320" height="450"></canvas></div>'
-    +   '<div class="heroInfo">'
-    +     '<h1>ダイスキングダム</h1><div class="cap">DICE KINGDOM</div>'
-    +     '<div class="who"><b>'+esc(c.nm)+'</b>（'+esc(c.role)+'） Lv.'+own.lv
-    +       '　「'+esc(c.line)+'」</div>'
-    +     '<div class="stats dark-st">'+statRows(st, cardStats(c.id, own.lv, []))+'</div>'
-    +     '<div class="modes">'
-    +       '<div class="modebtn big" id="mPlay"><div class="ic">🎲</div><div class="nm">ゲーム開始</div>'
-    +         '<div class="ds">CPU・ともだちと 最大4人で対戦</div></div>'
-    +       '<div class="modebtn" id="mGacha"><div class="ic">✨</div><div class="nm">ガチャ</div>'
-    +         '<div class="ds">新しいキャラを<br>引き当てる</div>'
-    +         (SV.gold>=800?'<span class="badge">引ける</span>':'')+'</div>'
-    +       '<div class="modebtn" id="mCards"><div class="ic">🎴</div><div class="nm">カード強化</div>'
-    +         '<div class="ds">ステータスを<br>上げる</div></div>'
-    +     '</div>'
-    +   '</div>'
-    +   rankPaneHTML()
-    + '</div>'
-    + weekBannerHTML()
-    + '</div>' + walletHTML());
+      '<div class="dk-stitch" style="left:2.5%"></div>'
+    + '<div class="dk-stitch" style="left:53.2%"></div>'
+    + '<div class="dk-seam"></div>'
+    + '<div class="dk-free"><span class="gi">🎁</span><span class="t1">FREE!!</span>'
+    +   '<span class="t2">招待でアイテムゲット！</span></div>'
+    + '<div class="dk-panel"><div class="rail2"></div><div class="pin"></div></div>'
+    + '<div class="dk-clip"><div class="rib"></div><div class="c1"></div>'
+    +   '<div class="c2"></div><div class="c3"></div></div>'
+    + '<div class="dk-news" id="dkNews"><b>お知らせ</b></div>'
+    + dkMyCardHTML(c, own)
+    + dkInfoHTML(c, own)
+    + '<div class="dk-rb b1" id="dkBCard"><span class="ic">🪪</span></div>'
+    + '<div class="dk-rbl" style="left:11.15%">カード</div>'
+    + '<div class="dk-rb b2" id="dkBDice"><span class="ic">🎲</span></div>'
+    + '<div class="dk-rbl" style="left:22.03%">サイコロ</div>'
+    + '<div class="dk-new" style="left:24.4%">new</div>'
+    + '<div class="dk-rb b3" id="dkBPend"><span class="ic">🗡️</span></div>'
+    + '<div class="dk-rbl" style="left:33.06%">ペンダント</div>'
+    + '<div class="dk-new" style="left:36.0%">new</div>'
+    + '<div class="dk-rb b4" id="dkBCube"><span class="ic">🧊</span></div>'
+    + '<div class="dk-rbl" style="left:44.12%">キューブ</div>'
+    + '<div class="dk-help" id="dkHelp"><b>?</b></div>'
+    + '<div class="dk-timer">' + dd + '日' + hh + '時間' + mi + '分</div>'
+    + dkRankHTML() + dkEventHTML() + dkMileHTML()
+    + '<div class="dk-shop" id="dkShop"><span class="ic">🛒</span><b>ショップ</b></div>'
+    + '<div class="dk-enter" id="dkEnter"><div class="fc"><b>入場</b></div></div>'
+    + dkMenuHTML()
+    + walletHTML());
   regPortrait($('#homePic'), c.art, c.col, c.id);
+  const fc = featureCard();
+  regPortrait($('#dkRankPic'), fc.art, fc.col, fc.id);
   wireTabs(el);
-  $('#mPlay').onclick  = ()=>{ SFX.click(); screenTo('setup'); };
-  $('#mCards').onclick = ()=>{ SFX.click(); showCards(); };
-  $('#mGacha').onclick = ()=>{ SFX.click(); showGacha(); };
+  const go = function(id, fn){ const b = $(id); if(b) b.onclick = function(){ SFX.click(); fn(); }; };
+  go('#dkMenuTab', function(){ $('#dkMenu').classList.toggle('on'); });
+  go('#dkMyCard',  function(){ cardPicker(showHome); });
+  go('#dkChange',  function(){ cardPicker(showHome); });
+  go('#dkReload',  function(){ showHome(); });
+  go('#dkNews',    function(){ showNews(); });
+  go('#dkHelp',    function(){ showNews(); });
+  go('#dkBCard',   function(){ showCards(); });
+  go('#dkBDice',   function(){ dicePicker(showHome); });
+  go('#dkBPend',   function(){ showPend(); });
+  go('#dkBCube',   function(){ showGacha(); });
+  go('#dkRank',    function(){ showQuest(); });
+  go('#dkEvent',   function(){ showDaily(); });
+  go('#dkMile',    function(){ showGacha(); });
+  go('#dkShop',    function(){ showGacha(); });
+  go('#dkEnter',   function(){ screenTo('setup'); });
   bgm('lobby');                 // ホームに戻ったらロビーの曲へ戻す
   screenTo('home');
 }
@@ -518,13 +683,24 @@ function drawOne(){
   if(f.rar===rar) pool.push(f);
   return pool[(Math.random()*pool.length)|0];
 }
+/* まだ持っていないサイコロを、弱い順にひとつ開ける */
+function grantDie(){
+  if(!SV.dice) SV.dice = {d0:1};
+  for(let i=0;i<DICE.length;i++){
+    if(!SV.dice[DICE[i].id]){ SV.dice[DICE[i].id] = 1; return DICE[i]; }
+  }
+  return null;
+}
 function grant(c){
   if(SV.cards[c.id]) SV.cards[c.id].dup++;
   else SV.cards[c.id] = {lv:1, dup:0};
-  // 低確率でペンダントも
+  // 低確率でペンダントも。すでに持っているペンダントを引いたときは、
+  // その1回を「サイコロ1個ぶん」に振り替える（待機部屋の『ガチャで手に入ります』の入手経路）。
+  // ※ここでくじを増やさないように、判定はもとの2回だけを使う
   if(Math.random()<0.18){
     const p = PENDANTS[(Math.random()*PENDANTS.length)|0];
     if(!SV.pendants[p.id]) SV.pendants[p.id] = {};
+    else grantDie();
   }
 }
 const LANES = {
@@ -549,7 +725,7 @@ function showGacha(){
     railHTML('gacha')
     + '<div class="inner">'
     + '<div class="metahd"><h2>ガチャ</h2>'
-    +   '<span class="note">ペンダントも一定確率で手に入ります</span></div>'
+    +   '<span class="note">ペンダントとサイコロも一定確率で手に入ります</span></div>'
     + '<div class="stage" id="gStage"><div class="orb"></div></div>'
     + '<div class="lanes">'
     + Object.keys(LANES).map(k=>{
@@ -606,6 +782,7 @@ async function doGacha(lane, n){
   }
   if(!free){ if(isGem) SV.gem -= cost; else SV.gold -= cost; }
   if(free) SV.freeAt = Date.now();
+  const diceBefore = Object.keys(SV.dice||{}).length;
   const got = [];
   for(let i=0;i<n;i++){
     const rar = rollLane(L.w);
@@ -636,6 +813,11 @@ async function doGacha(lane, n){
   }
   const wg = $('#wGold'); if(wg) wg.textContent = SV.gold.toLocaleString();
   const wm = $('#wGem');  if(wm) wm.textContent = SV.gem;
+  // サイコロが開いたら黙って増やさず、ちゃんと知らせる（待機部屋で選べるようになる）
+  if(Object.keys(SV.dice||{}).length > diceBefore){
+    const d2 = DICE.filter(x=>SV.dice[x.id]).pop();
+    toast('R', d2.ic, 'サイコロを手に入れました', d2.nm+'　待機部屋で装備できます', 3000);
+  }
 }
 /* ── ペンダント ─────────────────────────────────────── */
 function showPend(){
@@ -664,7 +846,11 @@ function drawPend(){
       ? ('<span class="pr">'+PEND_RAR[p.rar].nm+'</span><div class="ic">'+p.ic+'</div>'
          + '<span class="nm">'+esc(p.nm)+'</span><span class="pp">'+Math.round(p.p*100)+'%</span>')
       : '＋';
-    d.onclick = ()=>{ if(!p) return; SV.slots[i]=null; saveNow(); SFX.click(); drawPend(); };
+    d.onclick = ()=>{
+      if(!p){ SFX.click();
+        toast('R','📿','空いている枠です','下の一覧から持っているペンダントを押すと、ここに入ります',2400);
+        return; }
+      SV.slots[i]=null; saveNow(); SFX.click(); drawPend(); };
     s.appendChild(d);
   });
   const g = $('#pGrid'); g.innerHTML = '';
@@ -678,7 +864,10 @@ function drawPend(){
       + '<div class="pp">'+Math.round(p.p*100)+'%</div>'
       + '<div class="ef">'+(have?esc(p.ds):'未所持')+'</div>';
     d.onclick = ()=>{
-      if(!have || eq) return;
+      if(!have){ SFX.click();
+        toast('R','🔒','まだ持っていません','ガチャで手に入ります（'+PEND_RAR[p.rar].nm+'）',2400); return; }
+      if(eq){ SFX.click();
+        toast('R','📿','もう付けています','上の枠を押すと外せます',2000); return; }
       const k = SV.slots.indexOf(null);
       if(k<0){ toast('R','📿','枠がいっぱいです','外してから付けてください',1900); return; }
       SV.slots[k] = p.id; saveNow(); SFX.click(); drawPend();
@@ -756,10 +945,13 @@ async function grantRewards(won){
    毎週【月曜 朝6時】を境に、今週のイベントと注目カードが自動で切り替わる。
    サーバも定期実行も要らない（端末の日付から週番号を出しているだけ）。
    ══════════════════════════════════════════════════════════════ */
-function weekIndex(){
+/* 通し週番号。t を渡すとその時刻で計算する（渡さなければ今）。
+   引数があるおかげで、時計をいじらずに「週が変わったとき」を確かめられる。 */
+function weekIndex(t){
   // 1970-01-05(月) 06:00 を起点にした通し週番号
   const base = Date.UTC(1970,0,5,6,0,0);
-  return Math.floor((Date.now() - base) / (7*24*3600*1000));
+  const now = (typeof t === 'number') ? t : Date.now();
+  return Math.floor((now - base) / (7*24*3600*1000));
 }
 const WEEKLY = [
   {id:'gold',  ic:'🪙', nm:'ゴールドラッシュ', ds:'スタート通過の給料が2倍になる週',
@@ -777,11 +969,12 @@ const WEEKLY = [
   {id:'mono',  ic:'👑', nm:'独占ウィーク',     ds:'トリプル独占の通行料がさらに1.5倍の週',
    apply:g=>{ g.ev = {monoX:1.5}; }}
 ];
-function thisWeek(){ return WEEKLY[((weekIndex()%WEEKLY.length)+WEEKLY.length)%WEEKLY.length]; }
-function featureCard(){ return CARDPOOL[((weekIndex()*3)%CARDPOOL.length+CARDPOOL.length)%CARDPOOL.length]; }
-function weekEndsIn(){
+function thisWeek(t){ const i = weekIndex(t); return WEEKLY[((i%WEEKLY.length)+WEEKLY.length)%WEEKLY.length]; }
+function featureCard(t){ const i = weekIndex(t)*3; return CARDPOOL[((i%CARDPOOL.length)+CARDPOOL.length)%CARDPOOL.length]; }
+function weekEndsIn(t){
   const base = Date.UTC(1970,0,5,6,0,0);
-  const ms = (weekIndex()+1)*(7*24*3600*1000) + base - Date.now();
+  const now = (typeof t === 'number') ? t : Date.now();
+  const ms = (weekIndex(now)+1)*(7*24*3600*1000) + base - now;
   const d = Math.floor(ms/86400000), h = Math.floor(ms%86400000/3600000);
   return d+'日'+h+'時間';
 }
@@ -823,152 +1016,242 @@ const BAG_MAX = 3;
 function shopPrice(id){ const o = SHOP.find(s=>s.id===id); return o ? o.g : 500; }
 
 function roomPhase(){
-  return new Promise(resolve=>{
+  return new Promise(function(resolve){
     const el = mkScreen('room', '');
     el.className = 'screen';                 // meta 用の余白は使わない
-    const map = MAPS.find(m=>m.id===cfg.mapId) || MAPS[0];
+
+    /* おすすめアイテム3つ／魔法アイテム2つ（本家の並びに合わせた割り当て） */
+    const TOP3  = ['dice', 'salary', 'double'];
+    const MAGIC = { rand:'warp', angel:'angel' };
+    const ANGEL_GEM = 5;
+
+    function itemTile(id, left){
+      const it = itemById(id); if(!it) return '';
+      const g  = shopPrice(id);
+      const got = SV.bag.indexOf(id) >= 0;
+      const no  = (!got && (SV.bag.length >= BAG_MAX || SV.gold < g));
+      return '<div class="rm-item' + (no ? ' no' : '') + (got ? ' got' : '') + '"'
+        + ' style="left:' + left + '%;top:17.7%" data-buy="' + id + '">'
+        + '<div class="tl"><div class="ic">' + it.ic + '</div>'
+        +   '<div class="nm">' + esc(it.nm) + '</div></div>'
+        + '<div class="pz"><span class="co"></span><b>' + g.toLocaleString() + '</b></div></div>';
+    }
+
+    function seatsHTML(){
+      const list = [];
+      for(let i = 0; i < 4; i++){
+        if(i >= cfg.n){ list.push(null); continue; }
+        list.push(cfg.seats[i]);
+      }
+      const cpu = list.filter(function(s){ return s && s.kind === 'cpu'; });
+      const you = list.filter(function(s){ return s && s.kind !== 'cpu'; });
+      const emp = list.filter(function(s){ return !s; });
+      const ord = cpu.concat(emp, you);
+      const top = [16.5, 30.3, 44.1, 57.9];
+      let h = '';
+      ord.forEach(function(s, i){
+        if(!s){
+          h += '<div class="rm-seat empty r' + (i + 1) + '" style="top:' + top[i] + '%">'
+            + '<div class="lb"><b>空席</b></div><div class="fc"></div>'
+            + '<div class="nm"><b>—</b><i>ともだちを待っています</i></div></div>';
+          return;
+        }
+        const cc = cardById(s.cardId) || CARDPOOL[i % CARDPOOL.length];
+        const me = s.kind !== 'cpu';
+        h += '<div class="rm-seat r' + (i + 1) + (me ? ' me' : '') + '" style="top:' + top[i] + '%">'
+          + '<div class="lb"><b>' + (me ? '待機中' : '準備') + '</b></div>'
+          + '<div class="fc"><canvas class="sp" data-art="' + cc.art + '" data-col="' + cc.col
+          +   '" data-card="' + cc.id + '" width="200" height="220"></canvas></div>'
+          + '<div class="nm"><b>' + esc(s.name) + '</b><i>' + esc(cc.nm)
+          +   '（' + RAR[cc.rar].nm + '）</i></div></div>';
+      });
+      return h;
+    }
 
     function render(){
-      const me = cfg.seats.slice(0,cfg.n).find(s=>s.kind!=='cpu') || cfg.seats[0];
-      const c  = cardById(me.cardId) || CARDPOOL[0];
+      const map = MAPS.find(function(m){ return m.id === cfg.mapId; }) || MAPS[0];
+      const seat = cfg.seats.slice(0, cfg.n).find(function(s){ return s.kind !== 'cpu'; })
+                || cfg.seats[0];
+      const c  = cardById(seat.cardId) || equippedCard();
       const o  = SV.cards[c.id] || {lv:1};
       const st = cardStats(c.id, o.lv, SV.slots);
-      const die = dieById(SV.die);
+      const p0 = pendById(SV.slots[0]);
+      const held = SV.slots.filter(function(x){ return !!x; }).length;
+      const randId = MAGIC.rand, randG = shopPrice(randId);
+      const randNo = SV.bag.indexOf(randId) < 0
+                     && (SV.bag.length >= BAG_MAX || SV.gold < randG);
+      const angNo  = SV.bag.indexOf(MAGIC.angel) < 0
+                     && (SV.bag.length >= BAG_MAX || SV.gem < ANGEL_GEM);
 
-      /* 左ページ：装備 */
-      let L = '<div class="rsec">装備しているカード</div>'
-        + '<div class="meBox"><canvas id="roomPic" width="240" height="340"></canvas>'
-        + '<div class="meInfo">'
-        +   '<div class="nm">' + esc(c.nm) + '</div>'
-        +   '<div class="rl">' + esc(c.role) + '</div>'
-        +   '<div><span class="lvtag">' + RAR[c.rar].nm + ' ／ Lv.' + o.lv + '</span></div>'
-        +   '<div class="sk"><b>' + esc(c.sk.nm) + '（' + c.sk.uses + '回）</b><br>' + esc(c.sk.ds) + '</div>'
-        + '</div></div>'
-        + '<div style="margin-top:11px">' + statRows(st) + '</div>'
-        + '<div class="rsec" style="margin-top:14px">ペンダント（4枠）</div>'
-        + '<div class="slotrow">';
-      for(let k=0;k<4;k++){
-        const p = pendById(SV.slots[k]);
-        L += '<div class="pslot' + (p?' on':'') + '" data-slot="' + k + '">'
-          + (p ? '<div class="ic">' + p.ic + '</div><div class="nm">' + esc(p.nm) + '</div>'
-               : '<div class="ic" style="opacity:.35">＋</div><div class="em">空き</div>')
-          + '</div>';
-      }
-      L += '</div>'
-        + '<div class="rsec" style="margin-top:14px">サイコロ</div>'
-        + '<div class="dicerow">';
-      DICE.forEach(d=>{
-        const have = !!(SV.dice && SV.dice[d.id]);
-        L += '<div class="dcard' + (have?' have':'') + (SV.die===d.id?' on':'') + '" data-die="' + d.id + '">'
-          + '<div class="ic">' + d.ic + '</div>'
-          + '<div class="rr">' + d.rar + '</div>'
-          + '<div class="nm">' + esc(d.nm) + '</div></div>';
+      let bars = '';
+      STAT_LABELS.forEach(function(kv){
+        bars += '<div class="br"><span class="k"></span>'
+          + '<span class="t"><i style="width:' + Math.min(100, st[kv[0]]) + '%"></i></span>'
+          + '<span class="v">' + Math.round(st[kv[0]] / 10) + '</span></div>';
       });
-      L += '</div><div class="dds">' + esc(die.ds)
-        + (SV.dice && SV.dice[SV.die] ? '' : '　<b style="color:#E8747E">未所持</b>') + '</div>';
 
-      /* 右ページ：部屋の顔ぶれ＋売り場 */
-      let Rr = '<div><div class="rsec">この部屋のプレイヤー（' + cfg.n + '人）</div><div class="seats">';
-      for(let i=0;i<4;i++){
-        if(i >= cfg.n){
-          Rr += '<div class="seat" style="opacity:.3;justify-content:center">'
-             + '<div class="cd" style="font-size:12px">空席</div></div>';
-          continue;
-        }
-        const s = cfg.seats[i], cc = cardById(s.cardId) || CARDPOOL[i % CARDPOOL.length];
-        const isMe = s.kind !== 'cpu';
-        Rr += '<div class="seat' + (isMe?' me':'') + '">'
-          + '<canvas class="sp" data-art="' + cc.art + '" data-col="' + cc.col + '" data-card="' + cc.id + '" width="240" height="340"></canvas>'
-          + '<div class="nm">' + esc(s.name) + '</div>'
-          + '<div class="cd">' + esc(cc.nm) + '</div>'
-          + '<div class="st' + (isMe?'':' cpu') + '">' + (isMe ? '準備OK' : 'CPU') + '</div>'
-          + '</div>';
-      }
-      Rr += '</div></div>';
-
-      Rr += '<div><div class="rsec">おすすめアイテム（持ち込みは ' + BAG_MAX + ' 個まで）</div>'
-         + '<div class="shop">';
-      SHOP.forEach(s=>{
-        const it = itemById(s.id);
-        if(!it) return;
-        const full = SV.bag.length >= BAG_MAX;
-        const poor = SV.gold < s.g;
-        Rr += '<div class="sitem' + ((full||poor)?' no':'') + '" data-buy="' + s.id + '">'
-          + '<div class="t"><span class="ic">' + it.ic + '</span><b>' + esc(it.nm) + '</b></div>'
-          + '<div class="d">' + esc(it.desc) + '</div>'
-          + '<div class="p">🪙 ' + s.g.toLocaleString() + '</div></div>';
-      });
-      Rr += '</div></div>';
-
-      Rr += '<div><div class="rsec">マップ</div><div class="maprow">'
-         + MAPS.map(function(m){ return '<div class="mcard' + (cfg.mapId===m.id?' on':'') + '" data-map="' + m.id + '">'
-             + '<span class="em">' + m.emoji + '</span>'
-             + '<b>' + esc(m.name) + '</b><i>' + esc(m.sub) + '</i></div>'; }).join('')
-         + '</div></div>';
-
-      Rr += '<div class="bagrow"><span class="lb">持ち込み</span>'
-         + (SV.bag.length
-             ? SV.bag.map((id,k)=>{ const it = itemById(id);
-                 return '<span class="bagchip" data-drop="' + k + '">' + (it?it.ic:'') + ' '
-                      + esc(it?it.nm:id) + ' <b style="color:#E8747E">×</b></span>'; }).join('')
-             : '<span class="lb" style="opacity:.6">まだ何も買っていません（無くても遊べます）</span>')
-         + '</div>';
-
-      el.innerHTML = '<div class="roomwrap">'
-        + '<div class="roomhd"><h2>待機部屋</h2>'
-        +   '<span class="mp">' + map.emoji + ' ' + esc(map.name) + '　／　のこり ' + cfg.turns + ' ターン</span>'
-        +   '<span class="sp"></span>' + walletHTML() + '</div>'
-        + '<div class="roombd"><div class="roomL">' + L + '</div><div class="roomR">' + Rr + '</div></div>'
-        + '<div class="roomft">'
-        +   '<button class="btn ghost" id="roomBack">もどる</button>'
-        +   '<span class="hint">ペンダントの枠を押すと装備を替えられます。サイコロは持っているものだけ選べます。</span>'
-        +   '<button class="btn gold" id="roomGo">ゲームスタート</button>'
-        + '</div></div>';
+      el.innerHTML = '<div class="rmwrap">'
+        /* ── 上の緑の帯 ── */
+        + '<div class="rm-top">'
+        +   '<div class="rm-umap" id="rmUmap"><span class="pl">🪐</span><b>宇宙マップ</b></div>'
+        +   '<div class="rm-ttl"><span class="a">個人戦</span>'
+        +     '<span class="b" id="rmMode">' + esc(map.name) + '</span>'
+        +     '<span class="c">' + Math.round(cfg.cash / 10000).toLocaleString() + '万</span></div>'
+        + '</div>'
+        /* ── 左ページ ── */
+        + '<div class="rm-lp"></div>'
+        + '<div class="rm-tab" style="top:11.4%"><b>おすすめアイテム</b></div>'
+        + '<div class="rm-hint">アイテムはゲーム内で使用できます</div>'
+        + '<div class="rm-box rm-box1"></div>'
+        + itemTile(TOP3[0], 6.4) + itemTile(TOP3[1], 21.0) + itemTile(TOP3[2], 34.4)
+        + '<div class="rm-tab" style="top:38.8%"><b>魔法アイテム</b></div>'
+        + '<div class="rm-box rm-box2"></div>'
+        + '<div class="rm-stone">' + (p0 ? p0.ic : '？') + '</div>'
+        + '<div class="rm-unset" id="rmSlot"><b>' + (p0 ? esc(p0.nm) : '未装着') + '</b></div>'
+        + '<div class="rm-mtxt">フォーチュンカード<br>' + held + '枚<br>'
+        +   '装着してゲームに<br>参加ができます</div>'
+        + '<div class="rm-mbtn blue' + (randNo ? ' no' : '') + '" data-buy="' + randId + '">'
+        +   '<span class="t">ランダムカード</span>'
+        +   '<span class="v"><span class="co"></span><b>' + randG.toLocaleString() + '</b></span></div>'
+        + '<div class="rm-mbtn gold' + (angNo ? ' no' : '') + '" data-gem="' + MAGIC.angel + '">'
+        +   '<span class="t">天使カード</span>'
+        +   '<span class="v"><b>すぐ購入</b><span class="gm"></span><b>' + ANGEL_GEM + '</b></span></div>'
+        /* ── 左下：装備カードとサイコロ ── */
+        + '<div class="rm-bp"></div>'
+        + '<div class="rm-bcard" id="rmCard"><div class="inn">'
+        +   '<canvas id="roomPic" width="240" height="340"></canvas></div>'
+        +   '<span class="chg">変更</span></div>'
+        + '<div class="rm-bars">' + bars + '</div>'
+        + '<div class="rm-bdice" id="rmDice"><i class="a"></i><i class="b"></i>'
+        +   '<span class="chg">変更</span></div>'
+        + '<div class="rm-bub rm-bub1"><b>タッチすると装着したサイコロを変更可能です</b></div>'
+        + '<div class="rm-bub rm-bub2"><b>タッチすると装着したカードを変更可能です</b></div>'
+        /* ── 右ページ ── */
+        + '<div class="rm-rp"></div>' + seatsHTML()
+        + '<div class="rm-add" id="rmAdd"><span class="t1">ゲーム友だち</span>'
+        +   '<span class="t2">＋追加</span></div>'
+        + '<div class="rm-go" id="rmGo"><div class="fc"><b>プレイ準備完了</b></div></div>'
+        + '<div class="rm-notice"><b>30秒以内に準備ないと自動退場されます</b></div>'
+        + walletHTML()
+        + '</div>';
 
       regPortrait(el.querySelector('#roomPic'), c.art, c.col, c.id);
-      el.querySelectorAll('.seat canvas.sp').forEach(cv=>{
+      el.querySelectorAll('.rm-seat canvas.sp').forEach(function(cv){
         regPortrait(cv, +cv.dataset.art, cv.dataset.col, cv.dataset.card);
       });
 
-      el.querySelectorAll('.pslot').forEach(b=>{
-        b.onclick = ()=>{ SFX.click(); slotPicker(+b.dataset.slot, render); };
-      });
-      el.querySelectorAll('.dcard').forEach(b=>{
-        b.onclick = ()=>{
-          const d = dieById(b.dataset.die);
-          if(!(SV.dice && SV.dice[d.id])){
-            SFX.warn();
-            toast('R','🎲','まだ持っていません', esc(d.nm) + ' はガチャで手に入ります', 2200);
-            return;
-          }
-          SFX.click(); SV.die = d.id; saveNow(); render();
-        };
-      });
-      el.querySelectorAll('.mcard').forEach(b=>{
-        b.onclick = ()=>{ SFX.click(); cfg.mapId = b.dataset.map; render(); };
-      });
-      el.querySelectorAll('.sitem').forEach(b=>{
-        b.onclick = ()=>{
+      el.querySelectorAll('[data-buy]').forEach(function(b){
+        b.onclick = function(){
           const id = b.dataset.buy, g = shopPrice(id);
-          if(SV.bag.length >= BAG_MAX){ SFX.warn(); toast('R','🎒','いっぱいです','持ち込みは ' + BAG_MAX + ' 個までです',2000); return; }
-          if(SV.gold < g){ SFX.warn(); toast('R','🪙','ゴールドが足りません','対戦するとたまります',2000); return; }
+          if(SV.bag.indexOf(id) >= 0){
+            SV.bag.splice(SV.bag.indexOf(id), 1);
+            SV.gold += Math.round(g * 0.7);                 // 返品は7割
+            saveNow(); SFX.click(); render(); return;
+          }
+          if(SV.bag.length >= BAG_MAX){
+            SFX.warn(); toast('R','🎒','いっぱいです','持ち込みは ' + BAG_MAX + ' 個までです', 2000); return; }
+          if(SV.gold < g){
+            SFX.warn(); toast('R','🪙','ゴールドが足りません','対戦するとたまります', 2000); return; }
           SV.gold -= g; SV.bag.push(id); saveNow(); SFX.buy(); render();
         };
       });
-      el.querySelectorAll('.bagchip').forEach(b=>{
-        b.onclick = ()=>{
-          const k = +b.dataset.drop, id = SV.bag[k];
-          SV.bag.splice(k,1); SV.gold += Math.round(shopPrice(id)*0.7);   // 返品は7割
-          saveNow(); SFX.click(); render();
+      el.querySelectorAll('[data-gem]').forEach(function(b){
+        b.onclick = function(){
+          const id = b.dataset.gem;
+          if(SV.bag.indexOf(id) >= 0){
+            SV.bag.splice(SV.bag.indexOf(id), 1); SV.gem += ANGEL_GEM;
+            saveNow(); SFX.click(); render(); return;
+          }
+          if(SV.bag.length >= BAG_MAX){
+            SFX.warn(); toast('R','🎒','いっぱいです','持ち込みは ' + BAG_MAX + ' 個までです', 2000); return; }
+          if(SV.gem < ANGEL_GEM){
+            SFX.warn(); toast('R','💎','ダイヤが足りません','出席簿とミッションでもらえます', 2000); return; }
+          SV.gem -= ANGEL_GEM; SV.bag.push(id); saveNow(); SFX.buy(); render();
         };
       });
-      el.querySelector('#roomGo').onclick = ()=>{ SFX.click(); resolve(true); };
-      el.querySelector('#roomBack').onclick = ()=>{ SFX.click(); resolve(false); };
+
+      const on = function(id, fn){
+        const b = el.querySelector(id); if(b) b.onclick = function(){ SFX.click(); fn(); }; };
+      on('#rmSlot', function(){ slotPicker(0, render); });
+      on('#rmCard', function(){ cardPicker(function(){ seat.cardId = SV.equip; render(); }); });
+      on('#rmDice', function(){ dicePicker(render); });
+      on('#rmMode', function(){
+        const i = MAPS.findIndex(function(m){ return m.id === cfg.mapId; });
+        cfg.mapId = MAPS[(i + 1) % MAPS.length].id; render();
+      });
+      on('#rmAdd', function(){
+        toast('R','👥','ともだち募集','いまはCPUと遊べます。ともだち対戦はこれからです', 2200);
+      });
+      on('#rmUmap', function(){ resolve(false); });
+      on('#rmGo',   function(){ resolve(true); });
     }
 
     render();
     bgm('room');
     screenTo('room');
+  });
+}
+
+/* 装備カードの付け替え（待機部屋とホームの「変更」から呼ぶ） */
+function cardPicker(after){
+  const owned = ownedCards();
+  let html = '<div class="modal"><div class="deed" style="max-width:720px"><div class="dhd">'
+    + '<b>装着するカードを選ぶ</b></div><div class="dbd">'
+    + '<div class="slotrow" style="grid-template-columns:repeat(5,1fr)">';
+  owned.forEach(function(c){
+    const o = SV.cards[c.id] || {lv:1};
+    html += '<div class="pslot' + (SV.equip === c.id ? ' on' : '') + '" data-c="' + c.id + '">'
+      + '<div class="ic">🎴</div><div class="nm">' + esc(c.nm) + '</div>'
+      + '<div class="em">' + RAR[c.rar].nm + ' ／ Lv.' + o.lv + '</div></div>';
+  });
+  html += '</div><p style="font-size:12px;color:#6b5a3c;margin-top:10px">'
+       + 'カードはガチャで増えます。同じカードが重なると強くできます。</p>'
+       + '<div class="btnrow"><button class="btn gold" data-act="ok">閉じる</button></div>'
+       + '</div></div></div>';
+  const wrap = $('#modalWrap'), body = $('#modalBody');
+  body.innerHTML = html; wrap.classList.add('on');
+  body.querySelectorAll('[data-c]').forEach(function(b){
+    b.onclick = function(){
+      SV.equip = b.dataset.c; saveNow(); SFX.click();
+      wrap.classList.remove('on'); if(after) after();
+    };
+  });
+  body.querySelectorAll('[data-act]').forEach(function(b){
+    b.onclick = function(){ SFX.click(); wrap.classList.remove('on'); if(after) after(); };
+  });
+}
+
+/* サイコロの付け替え */
+function dicePicker(after){
+  let html = '<div class="modal"><div class="deed" style="max-width:720px"><div class="dhd">'
+    + '<b>使うサイコロを選ぶ</b></div><div class="dbd">'
+    + '<div class="slotrow" style="grid-template-columns:repeat(5,1fr)">';
+  DICE.forEach(function(d){
+    const have = !!(SV.dice && SV.dice[d.id]);
+    html += '<div class="pslot' + (SV.die === d.id ? ' on' : '') + '" data-d="' + d.id + '"'
+      + (have ? '' : ' style="opacity:.42"') + '>'
+      + '<div class="ic">' + d.ic + '</div><div class="nm">' + esc(d.nm) + '</div>'
+      + '<div class="em">' + (have ? d.rar : '未所持') + '</div></div>';
+  });
+  html += '</div><p style="font-size:12px;color:#6b5a3c;margin-top:10px">'
+       + esc(dieById(SV.die).ds) + '</p>'
+       + '<div class="btnrow"><button class="btn gold" data-act="ok">閉じる</button></div>'
+       + '</div></div></div>';
+  const wrap = $('#modalWrap'), body = $('#modalBody');
+  body.innerHTML = html; wrap.classList.add('on');
+  body.querySelectorAll('[data-d]').forEach(function(b){
+    b.onclick = function(){
+      const d = dieById(b.dataset.d);
+      if(!(SV.dice && SV.dice[d.id])){
+        SFX.warn(); toast('R','🎲','まだ持っていません', esc(d.nm) + ' はガチャで手に入ります', 2200);
+        return;
+      }
+      SV.die = d.id; saveNow(); SFX.click();
+      wrap.classList.remove('on'); if(after) after();
+    };
+  });
+  body.querySelectorAll('[data-act]').forEach(function(b){
+    b.onclick = function(){ SFX.click(); wrap.classList.remove('on'); if(after) after(); };
   });
 }
 
@@ -1025,6 +1308,9 @@ function krWireFoot(el){
   if(fu) fu.onclick = async function(){
     const c = cardById(krCardSel), o = SV.cards[krCardSel];
     if(!c || !o) return;
+    // 装備中のカードを素材にすると、装備が「持っていないカード」を指したまま残ってしまう
+    if(SV.equip === c.id){ SFX.warn();
+      toast('R','🚫','装備中は素材にできません','ほかのカードを装備してからにしてください', 2400); return; }
     if(SV.locks && SV.locks[c.id]){ SFX.warn(); toast('R','🔒','ロック中です','カードの🔓を押すと外せます', 2200); return; }
     const nx = krNextRar(c.rar);
     if(!nx){ SFX.warn(); toast('R','✨','これ以上の等級はありません', RAR[c.rar].nm+' が最高です', 2400); return; }
@@ -1077,7 +1363,8 @@ function krWireFoot(el){
   /* 絞り込みのチェック */
   Array.prototype.forEach.call(el.querySelectorAll('.kr-checks label'), function(lb, i){
     lb.onclick = function(ev){
-      if(i === 0){ ev.preventDefault(); return; }   // キャラは常に表示
+      if(i === 0){ ev.preventDefault(); SFX.click();
+        toast('R','🎴','キャラは、いつも表示します','いまはキャラカードだけなので外せません', 2200); return; }
       ev.preventDefault(); SFX.click();
       toast('R','🚧','まだありません','イベントカードとその他は今後追加します', 2400);
     };
@@ -1226,7 +1513,11 @@ function drawKrGrid(){
       + '<span class="st">✹</span>'
       + (SV.equip===c.id?'<span class="eq">装備</span>':'');
     if(o) regPortrait(d.querySelector('canvas'), c.art, c.col, c.id);
-    d.onclick = ()=>{ if(!o) return; SFX.click(); krCardSel=c.id; drawKrGrid(); drawKrLeft(); drawKrCard(); };
+    d.onclick = ()=>{
+      if(!o){ SFX.click();
+        toast('R','🔒','まだ持っていません','ガチャで引き当てると使えるようになります（'+RAR[c.rar].nm+'）',2400);
+        return; }
+      SFX.click(); krCardSel=c.id; drawKrGrid(); drawKrLeft(); drawKrCard(); };
     g.appendChild(d);
   });
 }
@@ -1302,4 +1593,69 @@ function drawKrCard(){
     +   '<div class="kr-chip"><span class="ic">✹</span><b>成長状況</b></div></div>';
 }
 
-</script>
+
+/* ══════════════════════════════════════════════════════════════
+   押せそうなのに何も起きなかったボタンの後始末
+   ──────────────────────────────────────────────────────────────
+   機械点検（指カーソルが出るのに click 処理が無い要素を全画面で数える）で
+   見つかったもの。無反応のままだと「壊れている」と思われるので、
+   出来ることはその場でやり、まだ無い機能は一言返す。
+     ・通貨バーの「＋」×3 … 7画面すべてで無反応だった（合計21か所）
+     ・カード画面の ⚑ / ▦ … ミッションと出席簿へ飛ばす
+     ・カード画面の 並べかえ / 合成状況 / 成長状況 … 説明を返す
+   ══════════════════════════════════════════════════════════════ */
+(function(){
+  const stage = document.getElementById('stage');
+  if(!stage || stage.dataset.tapfix) return;
+  stage.dataset.tapfix = '1';
+
+  function say(icon, title, sub){
+    try{ SFX.click(); }catch(e){}
+    try{ toast('R', icon, title, sub||'', 2600); }catch(e){}
+  }
+
+  stage.addEventListener('click', function(ev){
+    const el = ev.target.closest ? ev.target.closest('*') : null;
+    if(!el) return;
+
+    /* ── 通貨バーの「＋」 ── */
+    const wp = ev.target.closest('.wallet .wp');
+    if(wp){
+      const all = Array.from(wp.parentElement.querySelectorAll('.wp'));
+      const k = all.indexOf(wp);
+      if(k === 0){
+        say('🍀', 'クローバーは時間でもどります', 'バーの時計がゼロになると1つ回復します');
+      } else if(k === 1){
+        say('🪙', 'ゴールドは対戦とミッションでたまります', 'ミッション画面をひらきます');
+        setTimeout(function(){ try{ showQuest(); }catch(e){} }, 260);
+      } else {
+        say('💎', 'ダイヤは出席簿とミッションでもらえます', '出席簿をひらきます');
+        setTimeout(function(){ try{ showDaily(); }catch(e){} }, 260);
+      }
+      return;
+    }
+
+    /* ── カード画面の右上アイコン ── */
+    const sys = ev.target.closest('.kr-sys i');
+    if(sys && !sys.id){
+      const t = (sys.textContent||'').trim();
+      if(t.indexOf('\u2691') === 0){ try{ SFX.click(); showQuest(); }catch(e){} }
+      else { try{ SFX.click(); showDaily(); }catch(e){} }
+      return;
+    }
+
+    /* ── カード画面：並べかえ／合成状況／成長状況 ── */
+    if(ev.target.closest('.kr-drop')){
+      say('🎴', 'カードの切り替えは右の一覧から', '一覧のカードを押すと、ここの表示が変わります');
+      return;
+    }
+    const chip = ev.target.closest('.kr-chip');
+    if(chip){
+      const t = chip.textContent || '';
+      if(t.indexOf('合成') >= 0) say('\u2728', '合成はまだ準備中です', '同じカードが2枚そろうと強くできる仕組みを用意しています');
+      else say('\u2739', '成長はカード強化でできます', '下の「強化」ボタンからレベルを上げられます');
+      return;
+    }
+  });
+})();
+

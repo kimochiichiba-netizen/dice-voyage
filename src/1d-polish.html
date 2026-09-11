@@ -24,8 +24,13 @@
     repeating-linear-gradient(-38deg,#4A3418 0 1px,transparent 1px 6px);
   z-index:0}
 
-/* 木目：暗い面に縦の木目を薄く通す */
-.tabs,.wallet{position:relative;overflow:hidden}
+/* 木目：暗い面に縦の木目を薄く通す
+   ※ .wallet は position:absolute;bottom:0 で画面の底に貼ってある。
+     ここで position:relative を付けると「ふつうの流れ」に戻ってしまい、
+     ホーム/待機部屋では画面の上へ、ガチャ等では底より16px下へずれて
+     Lv.や経験値バーが画面の外に出てしまう（実測で確認）。position は触らない。 */
+.tabs{position:relative;overflow:hidden}
+.wallet{overflow:hidden}
 .tabs::after,.wallet::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.22;
   background:repeating-linear-gradient(90deg,
     rgba(0,0,0,.55) 0 1px, rgba(255,255,255,.05) 1px 3px, transparent 3px 13px)}
@@ -147,4 +152,72 @@ button:focus-visible,.tab:focus-visible,.modebtn:focus-visible,.minicard:focus-v
 @media (prefers-reduced-motion:reduce){
   #wipe.go i{animation-duration:.01ms !important}
 }
+
+/* ══════════════════════════════════════════════════════════════
+   出席簿・ミッション・お知らせの3画面だけ、器の中央寄せが抜けていた。
+   ホーム/カード/ガチャ/ペンダントには position:relative と margin:auto が
+   付いているのに、この3つは幅だけ指定されていたため左端に寄り、
+   左の縦レールに食い込んで1日目のカードや本文の頭が隠れていた。
+   ══════════════════════════════════════════════════════════════ */
+#daily .inner,#quest .inner,#news .inner{position:relative;margin:auto}
+
+/* 中身が画面より高くなってもはみ出さず、指でなぞって読めるようにする */
+#daily .inner,#quest .inner,#news .inner{
+  max-height:calc(100% - 8px);overflow-y:auto;overscroll-behavior:contain;
+  scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+
+/* ── 出席簿を見やすく ───────────────────────────────── */
+#daily .dgrid{gap:12px}
+.dcell{min-height:132px;display:flex;flex-direction:column;justify-content:center}
+/* 今日のぶんだけ、ひと目で分かるようにする */
+.dcell.now{position:relative}
+.dcell.now::after{content:"今日";position:absolute;left:50%;top:-11px;transform:translateX(-50%);
+  font-size:11px;font-weight:900;letter-spacing:.08em;padding:2px 12px 3px;border-radius:999px;
+  background:linear-gradient(#FFE9A8,#F2C230);color:#3A2A10;border:2px solid #8A6314;
+  box-shadow:0 2px 0 rgba(0,0,0,.45);white-space:nowrap}
+#dGet{min-width:300px}
+#dGet:disabled{filter:grayscale(.75) brightness(.8)}
+
+/* ── お知らせを読みやすく ───────────────────────────── */
+/* 遊び方が縦に長く伸びて画面外へ出ていたので、2段組みにして収める */
+#news .pan:nth-of-type(2) .in > p{
+  column-count:2;column-gap:34px;column-rule:1px dashed rgba(138,99,20,.4)}
+#news .pan .in{padding:16px 20px 18px}
+#news .pan h3{font-size:19px;margin-bottom:8px}
+@media (max-aspect-ratio:1/1){
+  #news .pan:nth-of-type(2) .in > p{column-count:1}
+}
+
+
+/* ── 見出しが読めない問題 ────────────────────────────
+   金色のグラデは「背景を文字の形に切り抜く」やり方で出していた。
+   この描き方だと、画数の多い漢字（出席簿・待機部屋 など）は
+   4px の縁取りが字の内側まで食い込み、塗りと縁の色が近いせいで
+   真っ黒な塊に潰れて読めなくなる（実測で確認）。
+   30px 前後の小さい見出しだけ、切り抜きをやめて「べた塗り＋縁取り」に。
+   大きいロゴ（52px以上）は潰れないのでグラデのまま残す。           */
+.metahd h2,#pick h2,.mghd{
+  background:none;-webkit-background-clip:border-box;background-clip:border-box;
+  color:#FFD44A;
+  /* 31px の字に 2.8px の縁取りだと、金色の塗りが細い線しか残らず
+     暗い塊に見えて読めない（明るい画素の割合 1.7% ／ ふつうの見出しは 11.8%）。
+     縁取りを細くして塗りを見せる。 */
+  -webkit-text-stroke-width:1.2px;
+  -webkit-text-stroke-color:#4A2E06;
+  letter-spacing:.07em;
+  text-shadow:0 2px 0 #C98A12, 0 4px 0 rgba(40,24,4,.45)}
+.metahd h2{font-size:31px}
+.metahd{align-items:baseline;gap:16px;margin-bottom:16px}
+.metahd .note{font-size:14px;color:#EBD6AC}
+
+/* ── 出席簿：上下がスカスカだったのを画面いっぱいに ───────
+   7枚のカードを画面いっぱいに広げる。本家も1週間ぶんを大きく見せる */
+#daily .dgrid{gap:14px;align-items:stretch}
+#daily .dcell{min-height:290px;padding:18px 10px 20px;gap:6px}
+#daily .dcell .di{font-size:52px;line-height:1.1}
+#daily .dcell .dd{font-size:15px}
+#daily .dcell .dn{font-size:14px}
+#daily .dcell.now{transform:translateY(-6px) scale(1.04)}
+@media (max-aspect-ratio:1/1){ #daily .dcell{min-height:190px} }
+
 </style>

@@ -1,0 +1,375 @@
+<style>
+/* ══════════════════════════════════════════════════════════════
+   ダイスキングダム — 王宮スキン その2（画面ごとの組み方）
+   1600×900 の固定ステージに合わせた実寸で置く。
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── ヘッダーの右側 ───────────────────────────────── */
+.dkhdR{position:absolute;right:16px;top:14px;display:flex;align-items:center;gap:12px}
+.dkhdR .dkcur{position:static}
+/* ✕ は .dkclose で position:absolute のままだと横並びの列から外れ、
+   ダイヤの「＋」ボタン（ステージ x1534〜1573）の上に重なって押せなくなる（実測で確認）。
+   .dkcur と同じく、横並びの列の一員に戻す。 */
+.dkhdR .dkclose{position:static;flex:0 0 auto}
+.dkcur.gem b{min-width:72px}
+.dkic{width:62px;height:60px;border-radius:14px;cursor:pointer;position:relative;
+  background:linear-gradient(180deg,#6E5326,#3E2C11 52%,#271A07);
+  border:3px solid var(--dk-g4);
+  box-shadow:0 4px 0 rgba(0,0,0,.5),inset 0 2px 0 rgba(255,226,150,.35);
+  display:flex;align-items:center;justify-content:center;font-size:28px;
+  transition:transform .12s,filter .12s}
+.dkic:hover{filter:brightness(1.12)} .dkic:active{transform:translateY(3px)}
+.dkic .dot{position:absolute;right:-5px;top:-5px;width:18px;height:18px;border-radius:9px;
+  background:linear-gradient(180deg,#FF6A5E,var(--dk-red));border:2px solid #FFF1D0;
+  animation:dkBadge 1.6s ease-in-out infinite}
+.dklogo.dktext{display:flex;align-items:center;font-family:var(--pop);font-size:38px;
+  color:#FFD44A;-webkit-text-stroke:3px #3A2405;paint-order:stroke fill}
+
+/* ── ホームの上のイベント帯 ───────────────────────── */
+.dkev{position:absolute;left:500px;right:250px;top:20px;height:52px;z-index:7;cursor:pointer;
+  display:flex;align-items:center;gap:12px;padding:0 14px;border-radius:12px;
+  background:linear-gradient(180deg,rgba(30,20,8,.9),rgba(12,8,3,.94));
+  border:2px solid var(--dk-g4);
+  box-shadow:0 3px 10px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,220,150,.24);
+  transition:filter .14s}
+.dkev:hover{filter:brightness(1.15)}
+.dkev .dkmg{font-size:22px;animation:dkRing 3.2s ease-in-out infinite}
+@keyframes dkRing{0%,86%,100%{transform:rotate(0)}90%{transform:rotate(-14deg)}94%{transform:rotate(12deg)}}
+.dkev .tx{flex:1;font-size:17px;font-weight:900;color:#FFE9B5;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 0 rgba(0,0,0,.7)}
+.dkev .ar{font-size:26px;color:var(--dk-g2);line-height:1}
+
+/* ── ホームの左右レール ───────────────────────────── */
+.dkrail{position:absolute;top:104px;width:158px;z-index:5;
+  display:flex;flex-direction:column;gap:10px}
+.dkrail.left{left:14px}  .dkrail.right{right:14px}
+.dkrb{height:130px;border-radius:16px;cursor:pointer;position:relative;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  background:linear-gradient(180deg,#4A3517,#2A1C08 56%,#1A1004);
+  border:3px solid #7A5A22;
+  box-shadow:0 4px 0 rgba(0,0,0,.5),inset 0 2px 0 rgba(255,220,150,.2);
+  transition:transform .14s,filter .14s;
+  animation:dkTabIn .42s cubic-bezier(.2,1.5,.4,1) both}
+.dkrail.left  .dkrb:nth-child(1){animation-delay:.02s}
+.dkrail.left  .dkrb:nth-child(2){animation-delay:.07s}
+.dkrail.left  .dkrb:nth-child(3){animation-delay:.12s}
+.dkrail.left  .dkrb:nth-child(4){animation-delay:.17s}
+.dkrail.left  .dkrb:nth-child(5){animation-delay:.22s}
+.dkrail.right .dkrb{animation-name:dkTabInR}
+@keyframes dkTabInR{from{opacity:0;transform:translateX(30px) scale(.9)}to{opacity:1;transform:none}}
+.dkrb:hover{filter:brightness(1.14);transform:translateY(-3px)}
+.dkrb:active{transform:translateY(2px)}
+.dkrb .ic{font-size:44px;line-height:1;filter:drop-shadow(0 3px 3px rgba(0,0,0,.6))}
+.dkrb .tx{font-size:16px;font-weight:900;color:#F4E3BD;
+  -webkit-text-stroke:3.2px #241604;paint-order:stroke fill}
+.dkrb .nw{position:absolute;right:-6px;top:-6px;width:24px;height:24px;border-radius:12px;
+  background:linear-gradient(180deg,#FF6A5E,var(--dk-red));border:2px solid #FFF1D0;
+  font-size:14px;font-weight:900;font-style:normal;color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  animation:dkBadge 1.6s ease-in-out infinite}
+
+/* ── ホームの中身 ─────────────────────────────────── */
+.dkhome{position:absolute;left:184px;right:184px;top:96px;bottom:88px;z-index:4;
+  display:flex;gap:16px;
+  animation:dkBodyIn .46s cubic-bezier(.2,1.2,.4,1) both}
+.dkcard{width:452px;flex:0 0 auto;display:flex;flex-direction:column;gap:12px}
+.dkcard .frame{flex:1;min-height:0;border-radius:18px;overflow:hidden;
+  display:flex;flex-direction:column;position:relative;
+  background:linear-gradient(180deg,#3A2A12,#1A1004);
+  border:5px solid var(--dk-g3);
+  box-shadow:0 8px 24px rgba(0,0,0,.65),inset 0 0 0 2px rgba(255,228,160,.35),
+             0 0 26px rgba(240,180,60,.22)}
+.dkcard .hd{height:54px;flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:0 14px;
+  background:linear-gradient(180deg,#241708,#0E0903)}
+.dkcard .hd .rar{font-size:34px}
+.dkcard .hd .nm{margin-left:auto;font-size:20px;font-weight:900;color:#FFE9B5;
+  -webkit-text-stroke:3.2px #241604;paint-order:stroke fill}
+.dkcard .pic{flex:1;min-height:0;position:relative;background:center 12%/cover no-repeat #120B04}
+.dkcard .pic .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--pop);font-size:150px;color:rgba(255,220,150,.25)}
+.dkcard .pic .lv{position:absolute;right:14px;bottom:12px;width:66px;height:74px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--pop);font-size:30px;color:#fff;
+  -webkit-text-stroke:4px #0C2A52;paint-order:stroke fill;
+  background:linear-gradient(180deg,#7FC4F5,#2E8BE0 52%,#14559E);
+  clip-path:polygon(50% 0,100% 26%,100% 74%,50% 100%,0 74%,0 26%);
+  filter:drop-shadow(0 3px 5px rgba(0,0,0,.6))}
+.dkcard .ft{height:56px;flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:0 12px;
+  background:linear-gradient(180deg,#4A3517,#241708)}
+.dkcard .ft .sh{font-size:22px}
+.dkcard .ft b{font-size:21px;color:#FFF0CE;-webkit-text-stroke:3px #241604;paint-order:stroke fill}
+.dkcard .ft .sw{margin-left:auto;width:44px;height:40px;border-radius:9px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:21px;
+  background:linear-gradient(180deg,#F4E7CC,#C5AC82 58%,#9B8460);
+  border:2px solid #5B431F;box-shadow:0 2px 0 rgba(0,0,0,.4);transition:transform .1s}
+.dkcard .ft .sw:active{transform:translateY(2px)}
+.dkbtn.enter{height:86px;flex:0 0 auto;font-size:38px;letter-spacing:.08em}
+
+.dkside{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px}
+.dktab2{height:56px;flex:0 0 auto;display:flex;align-items:stretch;gap:8px}
+.dktab2 .t{flex:1;display:flex;align-items:center;justify-content:center;cursor:pointer;
+  border-radius:12px 12px 0 0;font-size:21px;font-weight:900;color:#6E5A34;
+  background:linear-gradient(180deg,#DCC79E,#BFA475);border:3px solid var(--dk-g4);border-bottom:none;
+  transition:filter .14s}
+.dktab2 .t.on{color:#4A3210;
+  background:linear-gradient(180deg,#FFF0BE,#F2C230 58%,#DFA71C);
+  box-shadow:0 -3px 12px rgba(255,200,80,.4)}
+.dktab2 .t:hover{filter:brightness(1.06)}
+.dktab2 .q{width:118px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:5px;
+  cursor:pointer;border-radius:12px;font-size:22px;color:#FFE9B5;
+  background:linear-gradient(180deg,#4A3517,#241708);border:3px solid var(--dk-g4)}
+.dktab2 .q i{font-size:12px;font-style:normal;line-height:1.15;color:#F0DCA8}
+
+.dkrks{flex:1;min-height:0;overflow-y:auto;border-radius:0 0 14px 14px;padding:8px;
+  display:flex;flex-direction:column;gap:6px;
+  background:linear-gradient(180deg,var(--dk-p1),var(--dk-p2) 50%,var(--dk-p3));
+  border:4px solid var(--dk-g4);border-top:none;
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.4)}
+.dkrk{display:flex;align-items:center;gap:12px;padding:7px 12px;border-radius:10px;
+  background:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,.05));
+  border:1px solid rgba(150,116,64,.3);
+  animation:dkQIn .4s cubic-bezier(.2,1.2,.4,1) both}
+.dkrk:nth-child(1){animation-delay:.08s} .dkrk:nth-child(2){animation-delay:.14s}
+.dkrk:nth-child(3){animation-delay:.2s}  .dkrk:nth-child(4){animation-delay:.26s}
+.dkrk:nth-child(5){animation-delay:.32s}
+.dkrk.top{background:linear-gradient(180deg,#FFF3CC,#F3D583);border-color:var(--dk-g3);
+  box-shadow:0 0 0 2px rgba(255,210,90,.45),0 2px 8px rgba(180,130,20,.35)}
+.dkrk.me{outline:2px solid #2E8BE0;outline-offset:-2px}
+.dkrk .no{width:44px;flex:0 0 auto;text-align:center;font-family:var(--pop);font-size:24px;color:#6E5A34}
+.dkrk .fc{width:50px;height:50px;flex:0 0 auto;border-radius:9px;
+  background:center 28%/235% auto no-repeat #C9B283;border:2px solid #8A6A34}
+.dkrk .nm{flex:1;min-width:0;font-size:20px;font-weight:900;color:#42300F;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dkrk .sc{font-family:var(--pop);font-size:23px;color:#5A3E12;font-variant-numeric:tabular-nums}
+
+.dkmile{height:50px;flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:0 14px;
+  border-radius:12px;background:linear-gradient(180deg,#2A1C08,#140C04);
+  border:3px solid var(--dk-g4)}
+.dkmile .l{font-size:17px;font-weight:900;color:#F0DCA8;flex:0 0 auto}
+.dkmile .dkbar{flex:1;height:28px;border-radius:8px}
+.dkmile .dkbar em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-style:normal;font-size:14px;font-weight:900;color:#FFF3D8;z-index:2;
+  text-shadow:0 1px 2px rgba(0,0,0,.85),0 0 6px rgba(0,0,0,.6)}
+.dkmile .key{font-family:var(--pop);font-size:19px;color:#FFE9B5;flex:0 0 auto}
+
+/* ── ミッション ───────────────────────────────────── */
+.dkqbox{flex:1;min-width:0;display:flex;flex-direction:column;padding:16px 18px 16px}
+.dkqhd{text-align:center;margin-bottom:10px;font-size:22px}
+.dkqlist{flex:1;min-height:0;overflow-y:auto;padding-right:4px;
+  scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+.dkq .rw .c .i{font-size:20px;line-height:1}
+.dkq .dkbtn{flex:0 0 auto;min-width:148px;font-size:23px;padding:12px 16px}
+.dkbtn.all{flex:0 0 auto;margin-top:12px;height:64px;font-size:30px;width:100%}
+.dkqside{width:318px;flex:0 0 auto;display:flex;flex-direction:column;align-items:center;
+  padding:16px 14px;gap:8px;position:relative}
+.dkqside .hd{font-size:22px;text-align:center}
+.dkqside p{font-size:14px;line-height:1.6;color:#EBD9B2;text-align:center;margin:0}
+.dkqside .chest{flex:1;min-height:0;width:100%;background:center/contain no-repeat;
+  display:flex;align-items:center;justify-content:center;font-size:110px;
+  animation:dkFloat 5.2s ease-in-out infinite;
+  filter:drop-shadow(0 6px 16px rgba(255,190,60,.35))}
+.dkqside .ft{width:100%;display:flex;align-items:center;gap:9px;font-size:15px;color:#F0DCA8}
+.dkqside .ft .dkbar{flex:1;height:22px}
+.dkqside .ft b{font-family:var(--pop);font-size:21px;color:#FFE9B5}
+
+/* ── ペンダント／サイコロ 共通 ────────────────────── */
+.dkbody.dkcol{flex-direction:column}
+.dkmain{flex:1;min-height:0;display:flex;gap:16px}
+.dkstage{flex:1;min-width:0;position:relative;border-radius:16px;overflow:hidden}
+.dkstage .cap{position:absolute;left:3%;top:8%;z-index:2;
+  font-size:26px;font-weight:900;line-height:1.85;color:#FFF3D8;
+  -webkit-text-stroke:4px rgba(28,16,4,.9);paint-order:stroke fill;letter-spacing:.08em}
+.dkdet{width:576px;flex:0 0 auto;padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.dkdet .hd{display:flex;align-items:center;gap:12px;padding-bottom:8px;
+  border-bottom:1px solid rgba(196,150,70,.34)}
+.dkdet .hd .r{font-size:40px}
+.dkdet .hd .nm{flex:1;font-family:var(--pop);font-size:29px;color:#FFF0CE;
+  -webkit-text-stroke:3.4px #241604;paint-order:stroke fill}
+.dkdet .hd .lv{font-family:var(--pop);font-size:23px;color:#3A2A08;padding:4px 12px;border-radius:9px;
+  background:linear-gradient(180deg,#FFF0BE,#E8B23A);border:2px solid #8A6206}
+.dkdet .ef{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border-radius:11px;
+  background:linear-gradient(180deg,rgba(255,240,200,.12),rgba(255,240,200,.03));
+  border:1px solid rgba(196,150,70,.3)}
+.dkdet .ef .ic{width:56px;height:56px;flex:0 0 auto;border-radius:11px;font-size:30px;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(180deg,#2E6FB8,#123A6B);border:2px solid #6FB8F5;
+  box-shadow:0 0 14px rgba(80,170,255,.5)}
+.dkdet .ef b{font-size:19px;color:#FFE9B5;display:block;margin-bottom:3px}
+.dkdet .ef p{margin:0;font-size:14px;line-height:1.55;color:#E6D4AE}
+.dkdet .st{display:flex;align-items:center;gap:10px}
+.dkdet .st .l{width:190px;flex:0 0 auto;font-size:16px;color:#F0DCA8}
+.dkdet .st .dkbar{flex:1;height:24px}
+.dkdet .st b{width:74px;flex:0 0 auto;text-align:right;font-family:var(--pop);font-size:19px;
+  color:#FFE9B5;font-variant-numeric:tabular-nums}
+.dkdet .btns{margin-top:auto;display:flex;gap:12px}
+.dkdet .btns .dkbtn{flex:1;height:64px;font-size:27px}
+.dkbottom{height:186px;flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:0 12px}
+.dkbottom .cnt{width:92px;flex:0 0 auto;text-align:center;font-size:14px;line-height:1.45;color:#EBD9B2}
+.dkbottom .cnt b{font-family:var(--pop);font-size:21px;color:#FFE9B5}
+.dkbottom .dkrow{flex:1;min-width:0}
+.dkitem.lock{filter:grayscale(.65) brightness(.72)}
+
+/* ── ショップ ─────────────────────────────────────── */
+.dkbody.dkshop{gap:0}
+.dkclerk{width:300px;flex:0 0 auto;margin-left:-30px;margin-bottom:-14px;
+  background:left bottom/contain no-repeat;
+  animation:dkFloat 7s ease-in-out infinite}
+.dkshopmain{flex:1;min-width:0;display:flex;flex-direction:column;gap:12px}
+.dkstabs{height:58px;flex:0 0 auto;display:flex;align-items:center;gap:12px}
+.dkstabs .s{padding:0 22px;height:52px;display:flex;align-items:center;cursor:pointer;
+  border-radius:12px;font-size:20px;font-weight:900;color:#EBD9B2;
+  background:linear-gradient(180deg,#3A2A12,#1A1004);border:3px solid #7A5A22;
+  transition:filter .14s,transform .12s}
+.dkstabs .s:hover{filter:brightness(1.14)}
+.dkstabs .s.on{color:#FFF3D8;
+  background:linear-gradient(180deg,#8A4FD0,#5A1C9E 56%,#3A0D6E);
+  border-color:var(--dk-g2);box-shadow:0 0 18px rgba(160,90,235,.55)}
+.dkstabs .note{margin-left:auto;font-size:15px;line-height:1.5;color:#F0DCA8;text-align:right}
+.dkgoods{flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.dkgood{position:relative;min-height:0;display:flex;flex-direction:column;gap:7px;
+  padding:12px 12px 14px;border-radius:16px;
+  background:linear-gradient(180deg,rgba(52,36,16,.94),rgba(18,10,4,.96));
+  border:4px solid var(--dk-g4);
+  box-shadow:0 8px 22px rgba(0,0,0,.6),inset 0 0 0 2px rgba(196,150,70,.3);
+  animation:dkQIn .42s cubic-bezier(.2,1.2,.4,1) both}
+.dkgood .tag{position:absolute;left:-6px;top:12px;z-index:2;padding:4px 26px 4px 12px;
+  font-size:17px;font-weight:900;color:#FFF3D8;
+  background:linear-gradient(180deg,#E8483A,#A8210F);border:2px solid #FFE0B0;
+  clip-path:polygon(0 0,100% 0,88% 50%,100% 100%,0 100%);
+  box-shadow:0 2px 6px rgba(0,0,0,.5)}
+.dkgood .pic{flex:1;min-height:0;border-radius:11px;background:center/cover no-repeat #1A1004;
+  border:2px solid #7A5A22;display:flex;align-items:center;justify-content:center}
+.dkgood .pic .ph{font-size:88px}
+.dkgood .nm{font-family:var(--pop);font-size:26px;color:#FFE9B5;text-align:center;
+  -webkit-text-stroke:3.4px #241604;paint-order:stroke fill}
+.dkgood .ds{font-size:13px;line-height:1.5;color:#E6D4AE;text-align:center;min-height:38px}
+.dkgood .pr{display:flex;justify-content:center}
+.dkgood .pr .c{font-family:var(--pop);font-size:21px;color:#FFF0CE;padding:5px 18px;border-radius:9px;
+  background:linear-gradient(180deg,#2A1C08,#120B03);border:2px solid var(--dk-g4)}
+.dkgood .dkbtn{height:54px;font-size:24px}
+
+/* ── 出席簿 ───────────────────────────────────────── */
+.dkdaily{flex:1;display:flex;flex-direction:column;padding:18px 20px}
+.dkdays{flex:0 1 auto;height:468px;margin:auto 0;display:grid;
+  grid-template-columns:repeat(7,1fr);gap:12px;align-items:stretch}
+.dkday{position:relative;border-radius:14px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:10px;padding:22px 6px 14px;
+  background:linear-gradient(180deg,#FFF7E4,#E8D5AE 58%,#CDB68C);
+  border:3px solid var(--dk-g4);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.7),0 3px 0 rgba(0,0,0,.22);
+  animation:dkQIn .42s cubic-bezier(.2,1.2,.4,1) both}
+.dkday .dd{font-size:20px;font-weight:900;color:#6E5A34}
+.dkday .di{font-size:92px;line-height:1;filter:drop-shadow(0 4px 4px rgba(0,0,0,.28))}
+.dkday .dn{font-size:17px;font-weight:900;color:#42300F;text-align:center;line-height:1.35}
+.dkday.got{filter:grayscale(.5) brightness(.86)}
+.dkday .chk{position:absolute;inset:auto 0 14px;font-size:17px;font-weight:900;color:#8A3A2A}
+.dkday.now{transform:translateY(-7px) scale(1.05);
+  border-color:var(--dk-g2);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.8),0 0 0 3px rgba(255,214,90,.5),
+             0 0 26px 6px rgba(255,190,60,.55);
+  animation:dkQIn .42s cubic-bezier(.2,1.2,.4,1) both,dkNow 2.2s ease-in-out infinite .6s}
+@keyframes dkNow{0%,100%{box-shadow:inset 0 2px 0 rgba(255,255,255,.8),
+                                    0 0 0 3px rgba(255,214,90,.45),0 0 20px 4px rgba(255,190,60,.45)}
+                 50%    {box-shadow:inset 0 2px 0 rgba(255,255,255,.9),
+                                    0 0 0 3px rgba(255,232,150,.7),0 0 34px 10px rgba(255,205,90,.7)}}
+.dkday .today{position:absolute;left:50%;top:-13px;transform:translateX(-50%);
+  padding:3px 12px;border-radius:9px;font-size:13px;font-weight:900;color:#3A2405;white-space:nowrap;
+  background:linear-gradient(180deg,#FFF0BE,#E8B23A);border:2px solid #8A6206}
+
+/* ── せまい画面 ───────────────────────────────────── */
+@media (max-aspect-ratio:1/1){
+  .dkev{left:420px;right:200px}
+  .dkrail{width:120px} .dkrb{height:98px} .dkrb .ic{font-size:34px} .dkrb .tx{font-size:13px}
+  .dkhome{left:146px;right:146px} .dkcard{width:330px} .dkbtn.enter{height:66px;font-size:30px}
+  .dkdet{width:420px} .dkdet .st .l{width:140px;font-size:14px}
+  .dkbottom{height:150px}
+  .dkclerk{display:none}
+  .dkgood .nm{font-size:21px}
+}
+
+/* ── 画像ロゴが無い画面の文字ロゴ ─────────────────── */
+.dklogo.dktext{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0}
+.dklogo.dktext b{font-family:var(--pop);font-size:42px;line-height:1;color:#FFD44A;
+  -webkit-text-stroke:4px #2A1604;paint-order:stroke fill;letter-spacing:.07em;
+  text-shadow:0 3px 0 #C98A12}
+.dklogo.dktext i{font-family:var(--caps);font-style:normal;font-size:13px;letter-spacing:.34em;
+  color:#E8CFA0;margin-top:5px;text-shadow:0 1px 0 rgba(0,0,0,.7)}
+
+/* ── 報酬を受け取ったときに弾けるコイン ───────────── */
+.dkburst{position:absolute;left:0;top:0;width:34px;height:34px;z-index:400;pointer-events:none;
+  font-size:30px;line-height:1;text-align:center;
+  animation:dkBurst .95s cubic-bezier(.2,.8,.4,1) forwards}
+@keyframes dkBurst{
+  0%  {opacity:0;transform:translate(0,0) scale(.4)}
+  18% {opacity:1;transform:translate(calc(var(--bx)*.42),calc(var(--by)*.42)) scale(1.2)}
+  100%{opacity:0;transform:translate(var(--bx),var(--by)) scale(.55)}}
+@media (prefers-reduced-motion:reduce){ .dkburst{display:none} }
+
+
+/* ── カード画面の大きなカード ─────────────────────── */
+.dkcardstage{display:flex;align-items:center;justify-content:center}
+.dkbigcard{width:330px;height:92%;max-height:520px;border-radius:18px;overflow:hidden;
+  display:flex;flex-direction:column;position:relative;
+  background:linear-gradient(180deg,#3A2A12,#1A1004);
+  border:5px solid var(--dk-g3);
+  box-shadow:0 10px 30px rgba(0,0,0,.7),inset 0 0 0 2px rgba(255,228,160,.35),
+             0 0 34px rgba(240,180,60,.3);
+  animation:dkFloat 6s ease-in-out infinite}
+.dkbigcard .hd{height:48px;flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:0 12px;
+  background:linear-gradient(180deg,#241708,#0E0903)}
+.dkbigcard .hd .rar{font-size:28px}
+.dkbigcard .hd .nm{margin-left:auto;font-size:17px;font-weight:900;color:#FFE9B5;
+  -webkit-text-stroke:3px #241604;paint-order:stroke fill}
+.dkbigcard .pic{flex:1;min-height:0;position:relative;background:center 12%/cover no-repeat #120B04}
+.dkbigcard .pic .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--pop);font-size:120px;color:rgba(255,220,150,.25)}
+.dkbigcard .pic .lv{position:absolute;right:12px;bottom:10px;width:58px;height:64px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--pop);font-size:26px;color:#fff;
+  -webkit-text-stroke:4px #0C2A52;paint-order:stroke fill;
+  background:linear-gradient(180deg,#7FC4F5,#2E8BE0 52%,#14559E);
+  clip-path:polygon(50% 0,100% 26%,100% 74%,50% 100%,0 74%,0 26%);
+  filter:drop-shadow(0 3px 5px rgba(0,0,0,.6))}
+.dkbigcard .ft{height:44px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+  font-size:16px;font-weight:900;color:#F0DCA8;
+  background:linear-gradient(180deg,#4A3517,#241708)}
+.dkdet .line{font-size:15px;color:#E8D2A6;font-style:italic;padding:2px 4px 4px;
+  border-left:3px solid var(--dk-g4);padding-left:12px;margin:2px 0 4px}
+
+/* ── キューブ（ガチャ） ───────────────────────────── */
+.dkcube{display:flex;align-items:center;justify-content:center}
+#gacha .dkcube .stage{width:92%;height:88%;position:relative;display:flex;
+  align-items:center;justify-content:center}
+.dkdet .free{font-size:15px;font-weight:900;color:#FFE9B5;text-align:center;
+  padding:9px 10px;border-radius:10px;
+  background:linear-gradient(180deg,rgba(255,240,200,.12),rgba(255,240,200,.03));
+  border:1px solid rgba(196,150,70,.3)}
+
+
+/* ── 仕上げ ───────────────────────────────────────── */
+/* 等級バッジは「背景を文字の形に切り抜く」描き方だと、SS など画数の少ない字でも
+   縁取りに埋もれて読めなくなることがある。べた塗り＋縁取りに変える（実測で確認） */
+.dkrar{background:none;-webkit-background-clip:border-box;background-clip:border-box;
+  color:#FFD44A;-webkit-text-stroke-width:3px;
+  text-shadow:0 2px 0 #C98A12,0 4px 0 rgba(40,24,4,.5)}
+
+/* キューブは大きく光らせる */
+#gacha .dkcube .stage .orb{width:250px;height:250px;border-radius:26px;
+  background:linear-gradient(145deg,#EAF6FF 0 12%,#8FD2FF 32%,#3E9BEC 58%,#1B63B8 82%,#0B2C5E);
+  box-shadow:0 0 60px 12px rgba(90,180,255,.45),inset 0 8px 18px rgba(255,255,255,.6),
+             inset 0 -14px 26px rgba(0,0,0,.4);
+  animation:dkCube 5s ease-in-out infinite}
+@keyframes dkCube{0%,100%{transform:rotate(-8deg) translateY(0)}
+                  50%    {transform:rotate(8deg) translateY(-16px)}}
+#gacha .dkcube .stage .orb::after{content:"";position:absolute;inset:0;border-radius:26px;
+  background:radial-gradient(circle at 32% 24%,rgba(255,255,255,.9),transparent 46%)}
+#gacha .dkcube .stage .orb::before{content:"👑";position:absolute;inset:0;z-index:2;
+  display:flex;align-items:center;justify-content:center;font-size:118px;
+  filter:drop-shadow(0 6px 12px rgba(0,0,0,.55))}
+
+/* 中身の少ない右パネルは、縦にのばさず内容ぶんだけ */
+#gacha .dkdet{align-self:flex-start;max-height:100%}
+#gacha .dkdet .btns{margin-top:14px}
+@media (prefers-reduced-motion:reduce){ #gacha .dkcube .stage .orb{animation:none} }
+
+</style>

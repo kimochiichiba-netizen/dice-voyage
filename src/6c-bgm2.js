@@ -451,7 +451,7 @@ function dvMusic2(ac){
 
     /* ───────── 勝利：150BPM / C メジャー / 最初の2小節で全部出し切る ───────── */
     win:{
-      bpm:150, swing:0.58, arpOct:1, dly:0.20, rev:0.30, cho:0.55, vib:5.0,
+      bpm:150, swing:0.58, arpOct:1, dly:0.14, rev:0.19, cho:0.40, vib:5.0,
       lop:0.08, bell:0.35, oct2:0.55,
       wave:{pad:'sawtooth', keys:'sawtooth', lead:'sawtooth', arp:'triangle'},
       cut :{pad:[280,1800], keys:[800,3800], lead:[800,5200], arp:[5800,1500], bass:[1300,195]},
@@ -460,7 +460,7 @@ function dvMusic2(ac){
             tam:0.060, shk:0.030, tom:0.40, rise:0.100},
       plan:['A','A','A','A', 'B','B','B','B', 'K', 'C','C','C','C','C','C','C'],
       sec:{
-        A:{lvl:1.00, pad:0.80, keys:1.00, kp:'horn', bass:1.00, bp:'drive', lead:1, arp:0.60, ap:'up',   as:0.25, drum:'big',  dk:0.62},
+        A:{lvl:0.92, pad:0.70, keys:0.88, kp:'horn', bass:1.00, bp:'drive', lead:1, arp:0.55, ap:'up',   as:0.25, drum:'big',  dk:0.62},
         B:{lvl:0.88, pad:0.85, keys:0.70, kp:'push', bass:1.00, bp:'bounce',lead:1, arp:0.00, ap:'up',   as:0.5,  drum:'four', dk:0.58},
         K:{lvl:0.70, pad:1.00, keys:0.00, kp:'soft', bass:0.60, bp:'half',  lead:0, arp:0.00, ap:'up',   as:0.5,  drum:'none', dk:0.00, rise:1},
         C:{lvl:1.00, pad:0.72, keys:1.00, kp:'horn', bass:1.00, bp:'roll',  lead:1, arp:0.80, ap:'leap', as:0.25, drum:'big',  dk:0.68}
@@ -735,7 +735,9 @@ function dvMusic2(ac){
     var len = Math.max(0.22, dur), end = t+len+0.30;
     var c0 = s.cut.lead[0], c1 = s.cut.lead[1], peak = s.vol.lead*lv;
     var lop = s.lop || 0.12, o2m = (s.oct2 == null) ? 1 : s.oct2, bl = s.bell || 0;
-    lp.type = 'lowpass'; lp.Q.value = 4.0;
+    /* フィルタが上へ開く（ブラス）ときは共振を弱める。
+       Q=4 のまま c0 を音の基音付近に置くと、その音だけ +12dB 跳ねて突出するため。 */
+    lp.type = 'lowpass'; lp.Q.value = (c1 > c0) ? 1.4 : 4.0;
     lp.frequency.setValueAtTime(c0, t);
     lp.frequency.exponentialRampToValueAtTime(c1, t+lop);       // lop 秒で c0→c1
     lp.frequency.exponentialRampToValueAtTime(Math.max(300, c1*0.7), t+len);

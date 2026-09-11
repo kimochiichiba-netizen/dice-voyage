@@ -111,11 +111,13 @@ let cfg = { mapId:'ice', turns:12, timeLimit:1200, cash:10000000, ai:1, speed:1,
 
 function newGame(){
   const map = MAPS.find(m=>m.id===cfg.mapId) || MAPS[0];
+  // 待機部屋で買った物は「この1試合ぶんの持ち込み」。ここで受け取って手ぶらに戻す。
+  // （戻さないと、一度買えば毎試合ずっと無料で持ち込めてしまう）
+  const myBag = (SV.bag && SV.bag.length) ? SV.bag.slice(0,3) : [];
   const pickItems = (isMe)=>{
     const pool = ITEMS.slice();
     const out = [];
-    // 自分は待機部屋で買った分を持ち込む（本家の「おすすめアイテム」）
-    if(isMe && SV.bag && SV.bag.length) out.push.apply(out, SV.bag.slice(0,3));
+    if(isMe && myBag.length) out.push.apply(out, myBag);
     for(let k=out.length;k<2;k++) out.push(pool.splice((Math.random()*pool.length)|0,1)[0].id);
     return out;
   };
@@ -148,6 +150,7 @@ function newGame(){
     clock: cfg.timeLimit, lastTick: 0, ev:{}
   };
   thisWeek().apply(G);          // 今週のイベントを反映（毎週月曜6時に自動で変わる）
+  if(myBag.length){ SV.bag = []; saveNow(); }   // 持ち込みは使い切り
   destPin = null; stepPreview = null; diceAnim = null; fxList.length = 0;
 }
 
@@ -392,7 +395,7 @@ function updHUD(){
   if(ie){
     const on = G.infl > 1;
     ie.classList.toggle('on', on);
-    ie.textContent = on ? '通行料 ×' + G.infl : '';
+    ie.textContent = on ? '通行料 ×' + inflTxt() : '';
   }
   $('#pGoal').textContent = yen(rk[0].a);
   $('#pGoalL').textContent = G.players[rk[0].i].name;
@@ -592,10 +595,21 @@ function give(pi, amount){
   if(amount>=0) SFX.coin(); else SFX.pay();
   updHUD();
 }
+function sellValue(t){
+  let v = Math.round(t.base*0.6);
+  for(let k=1;k<=t.lv;k++) v += Math.round(BUILD[k].cost(t.base)*0.6);
+  if(t.landmark) v += Math.round(BUILD[4].cost(t.base)*0.6);
+  return v;
+}
 function raiseCash(pi, need){
   const p = G.players[pi];
   const mine = G.tiles.map((t,i)=>({t,i})).filter(o=>o.t.type==='city'&&o.t.owner===pi);
   mine.sort((a,b)=>a.t.base-b.t.base);
+  // 全部売っても届かないなら、1つも売らずに破産する。
+  // 先に売ってしまうと街が市場へ散って、取り立てた相手の手に何も残らない（本家は債権者が受け取る）
+  let pot = p.cash;
+  for(const o of mine) pot += sellValue(o.t);
+  if(pot < need) return false;
   for(const o of mine){
     while(p.cash < need && (o.t.lv>0 || o.t.landmark)){
       if(o.t.landmark){ p.cash += Math.round(BUILD[4].cost(o.t.base)*0.6); o.t.landmark=false; }
@@ -616,6 +630,8 @@ function payFrom(pi, amt){ const p=G.players[pi]; return p.cash>=amt ? true : ra
 function dieOf(pi){
   const p = G && G.players[pi];
   if(!p || p.kind==="cpu") return DICE[0];
+  // 持っていないサイコロの効果は効かせない（セーブを書き換えられても素のサイコロに戻す）
+  if(!(SV.dice && SV.dice[SV.die])) return DICE[0];
   return dieById(SV.die);
 }
 function rollPair(force, forceDouble, die){
@@ -960,7 +976,7 @@ function buildHTML(i, pi){
   html += '</div>'
     + '<div class="sums"><span>選んだぶんの合計</span><em id="bSum">0</em></div>'
     + '<div style="font-size:12.5px;color:#6b5a3c;margin-top:6px">'
-    + '同じ色を3つ（トリプル独占）・1辺の街ぜんぶ（ライン独占）・ランドマーク3つ（観光地独占）の'
+    + '色を3つぶん独占（トリプル独占）・1辺の街ぜんぶ（ライン独占）・ランドマーク6つ（観光地独占）の'
     + 'どれかが成立した瞬間に勝ちです。'
     + lvLockNote(p)
     + (p.halfBuild>0 ? '　🏗 建設割引券 適用中（半額）' : '') + '</div>'
@@ -1182,7 +1198,9 @@ async function miniGame(pi){
       SFX.bad(); camShake(9);
       await wait(1200);
       wrap.classList.remove('on');
-      if(payFrom(pi, stake)){ give(pi, -stake); }
+      // 賭け金を払えないなら破産。ここだけ払えない時の処理が無く、無一文でも無料で賭けられた
+      if(!payFrom(pi, stake)){ await bankrupt(pi, -1); return; }
+      give(pi, -stake);
       toast('L','💀','脱出失敗', yen(stake)+' を失いました',2200);
       return;
     }
@@ -1289,7 +1307,7 @@ function checkWin(){
   if(G.over) return false;
   const alive = G.players.filter(p=>!p.out);
   if(alive.length === 1) return finish(G.players.indexOf(alive[0]),'独り勝ち');
-  // 開始5ラウンドは事故決着させない（3色独占が偶然そろうことはまず無いが保険）
+  // 開始2ラウンドは事故決着させない（3色独占が偶然そろうことはまず無いが保険）
   if(G.turnsLeft > cfg.turns - 2) return false;
   for(let pi=0; pi<G.players.length; pi++){
     if(G.players[pi].out) continue;
@@ -1348,10 +1366,12 @@ function alarmBand(a, b){
 }
 async function bankrupt(pi, toPi){
   const p = G.players[pi];
+  const left = Math.max(0, p.cash);      // 残った現金も債権者のもの（本家と同じ）
   p.out = true; p.cash = 0;
   G.tiles.forEach(t=>{ if(t.type==='city' && t.owner===pi){
     if(toPi>=0){ t.owner = toPi; } else { t.owner=-1; t.lv=0; t.landmark=false; }
   }});
+  if(toPi>=0 && left>0) give(toPi, left);
   SFX.bad(); camShake(14); jingle('bankrupt');
   if(toPi >= 0){                       // 破産＝全財産が勝者の席へ雪崩れ込む
     const sa = STACK_POS[pi],  a2 = proj(sa.p, sa.q);
@@ -1437,7 +1457,8 @@ async function turnLoop(){
     if(p.jail > 0){ await jailTurn(pi); nextTurn(); if(G.turnsLeft<=0){ timeUp(); break; } continue; }
 
     let again = true, guard = 0;
-    while(again && !G.over && guard++ < 4){
+    // p.out を毎回みる：通行料で破産した人がゾロ目でもう一度振ってしまうのを止める
+    while(again && !G.over && !p.out && guard++ < 4){
       again = false;
       G.phase = 'wait';
       updHUD();
@@ -1453,6 +1474,7 @@ async function turnLoop(){
         await moveSteps(pi, r.total);
         await resolve(pi);
         if(G.over) break;
+        if(p.out) break;                 // 破産した人はもう振らない（街も買えない）
         if(p.jail > 0) break;            // 監獄に入ったら、ゾロ目でももう一度は振れない
         toast('R','🎲','ゾロ目！','もう一回サイコロを振れます', 1700);
         again = true;
@@ -1460,6 +1482,13 @@ async function turnLoop(){
         p.dblRun = 0;
         await moveSteps(pi, r.total);
         await resolve(pi);
+        if(p.out) break;                 // 破産した人はもう振らない
+      }
+      // SSカードの「追加でもう一回振れる」。ここが無いと extraRoll は加算されるだけで効かなかった
+      if(!again && !G.over && !p.out && p.jail<=0 && p.extraRoll > 0){
+        p.extraRoll--;
+        toast('R','🔮','追加のサイコロ','もう一回サイコロを振れます', 1700);
+        again = true;
       }
     }
     if(G.over) break;
@@ -1472,6 +1501,7 @@ async function turnLoop(){
 }
 const INFL_FROM = 6;      // 残りこのターン数を切ったらインフレ開始（韓国版の公式値）
 const INFL_STEP = 1.5;    // 1ターンごとの倍率（韓国版の公式値）
+function inflTxt(){ return Math.round((G.infl||1)*10)/10; }   // 表示だけ0.1刻みに丸める
 function nextTurn(){
   const n = G.players.length;
   const before = G.turnsLeft;
@@ -1485,9 +1515,11 @@ function nextTurn(){
   // 終盤インフレ。序盤の差を「1回踏むだけ」で無効化できるので、
   // 負けている人が最後まで降りなくなる（本家が後から足した仕掛け）
   if(G.turnsLeft < before && G.turnsLeft <= INFL_FROM && G.turnsLeft > 0){
-    G.infl = Math.round(G.infl * INFL_STEP * 10) / 10;
-    raiseBanner('通行料 ×' + G.infl + '！');
-    news('🔥 のこり' + G.turnsLeft + 'ターン — 通行料が ×' + G.infl + ' になりました');
+    // 倍率そのものは丸めない。毎ターン0.1刻みに丸めると誤差が積もって
+    // 12ターン制の最終ターンが ×11.4 のはずが ×12（+5.4%）になってしまう
+    G.infl = G.infl * INFL_STEP;
+    raiseBanner('通行料 ×' + inflTxt() + '！');
+    news('🔥 のこり' + G.turnsLeft + 'ターン — 通行料が ×' + inflTxt() + ' になりました');
     SFX.warn(); camShake(9);
   }
   camReset(); updHUD();
@@ -1759,6 +1791,15 @@ async function aiRoll(pi){
       if(id==='salary') p.salaryX2++; if(id==='double') p.forceDouble++;
     }
   }
+  // 「出目を選ぶ」能力／サイコロ改造は人間だけでなく CPU も使える。
+  // ここが無いと kind1 のカードは CPU が撃っても何も起きないまま回数だけ減っていた
+  if(p.chooseEye > 0){
+    p.chooseEye--;
+    let best = 2, bs = -1e9;
+    for(let n=2;n<=12;n++){ const sc = scoreLanding(pi,n); if(sc > bs){ bs = sc; best = n; } }
+    gaugeOn = false; $('#diceui').classList.remove('on');
+    return doRoll(pi, null, false, best);
+  }
   let force = null;
   if(cfg.ai>=1 && (p.odd>0 || p.even>0)){
     const so = bestParity(pi,'odd'), se = bestParity(pi,'even'), sn = avgScore(pi);
@@ -1799,12 +1840,17 @@ async function aiBuy(pi, i){
   const mxAi = maxLvOf(p);
   for(let k = (own? t.lv+1 : 1); k<=mxAi; k++){
     const c = Math.round(BUILD[k].cost(t.base)*disc);
-    if(p.cash - spend - c < reserve - aggr*1500000) break;
+    // 独占がかかっている色は蓄えを崩してでも建てる。ただし所持金より多くは払えない（0円が下限）
+    const floor = Math.max(0, reserve - aggr*1500000);
+    if(p.cash - spend - c < floor) break;
     if(lvl===0 && k>1) break;
     if(lvl===1 && k>2 && !aggr) break;
     spend += c; lvTarget = k;
   }
-  if(lvl===2 && lvTarget===3 && near>=1){
+  // ランドマークは「すでに3段そろっている街へ、もう一度到着した時」だけ。
+  // 人間のUI（buildHTML の can: own && t.lv>=3）と同じ規則。ここを揃えないと
+  // CPU だけ未所有の土地から1回の到着でランドマークまで建ててしまう
+  if(lvl===2 && own && t.lv>=3 && !t.landmark && near>=1){
     const c = Math.round(BUILD[4].cost(t.base)*disc);
     if(p.cash - spend - c > reserve){ spend += c; lm = true; }
   }
@@ -1819,6 +1865,7 @@ async function aiBuy(pi, i){
       if(lvTarget<=t.lv && !land) { toast('L','✋','じゃま成功！','建設を止めました',2200); return; }
     }
   }
+  if(spend > p.cash) return;              // 念のため：所持金を超える投資はしない
   if(p.halfBuild>0) p.halfBuild--;
   give(pi, -spend);
   if(land || own) t.owner = pi;
@@ -1936,7 +1983,10 @@ async function pickPhase(){
     grid.innerHTML = '';
     const mine = ownedCards();
     const list = mine.length ? mine : [CARDPOOL[0]];
-    grid.style.gridTemplateColumns = 'repeat('+Math.min(5, Math.max(3, list.length))+',1fr)';
+    const cols = Math.min(6, Math.max(3, list.length));
+    grid.style.gridTemplateColumns = 'repeat('+cols+',1fr)';
+    // 2段になる枚数からはカードを小さくする（大きいままだと2段目が画面の外に出る）
+    grid.classList.toggle('many', list.length > cols);
     list.forEach(c=>{
       const o = SV.cards[c.id] || {lv:1};
       const st = cardStats(c.id, o.lv, SV.equip===c.id ? SV.slots : []);
@@ -1991,7 +2041,7 @@ async function pickPhase(){
 const TIPS = [
   '同じ色の街を全部そろえると、その色の通行料が2倍になります。',
   '色の独占を3つそろえると「トリプル独占」でその場で勝ちです。',
-  '独占されたら、その街を買収して崩せば負けを防げます。',
+  '同じ色をあと1つで独占される時は、その街を買収して崩すのが唯一の防ぎ方です。',
   'ランドマークを6つ持つと「観光地独占」で勝ちです（報酬5倍）。',
   '1辺の街をぜんぶ持つと「ライン独占」で勝ちです（報酬3倍）。',
   '建物は1周ごとに1段ずつ解放されます。スタートを通るのが近道です。',
@@ -2179,9 +2229,22 @@ setInterval(()=>{
 $('#tickerText').textContent = TIPS[0];
 
 renderMaps(); renderSeats(); fitStage();
-$('#optTurns').value = cfg.turns; $('#optCash').value = cfg.cash;
-$('#optAI').value = cfg.ai; $('#optPlayers').value = cfg.n; $('#optTime').value = cfg.timeLimit;
-$('#optArt').value = ART_STYLE;
+/* 選択欄に「今の設定」を入れる。
+   cfg の値が選択肢に無いと selectedIndex=-1 になって欄が真っ白になり、
+   さらに onchange が一度も走らないので表示と実際の設定が食い違う（実測で確認）。
+   無い値なら先頭を選び直して cfg 側も合わせる。 */
+function setOpt(sel, v, apply){
+  const el = $(sel); if(!el) return;
+  el.value = String(v);
+  if(el.selectedIndex < 0){ el.selectedIndex = 0; if(apply) apply(el.value); }
+}
+setOpt('#optTurns',   cfg.turns,     v => cfg.turns = +v);
+setOpt('#optCash',    cfg.cash,      v => cfg.cash = +v);
+setOpt('#optAI',      cfg.ai,        v => cfg.ai = +v);
+setOpt('#optPlayers', cfg.n,         v => { cfg.n = +v; renderSeats(); });
+setOpt('#optTime',    cfg.timeLimit, v => cfg.timeLimit = +v);
+setOpt('#optSpeed',   cfg.speed,     v => { cfg.speed = +v; SPEED = cfg.speed; });
+setOpt('#optArt',     ART_STYLE,     v => { setArtStyle(v); refreshArt(); });
 
 try{
   const boot = st => { if(st && st.cfg){ Object.assign(cfg, st.cfg); renderMaps(); renderSeats(); } };

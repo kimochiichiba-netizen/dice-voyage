@@ -424,7 +424,9 @@ html,body{height:100%;overflow:hidden;background:#04070f;font-family:var(--jp);c
 .hud.mini .portrait .in{width:58px;height:58px}
 .hud.mini .col{min-width:184px;gap:2px}
 .hud.mini .namebar{height:22px;font-size:13px;padding:0 10px;border-radius:11px}
-.hud.mini .statrow{height:21px;display:flex;align-items:center;gap:6px}
+.hud.mini .statrow{height:25px;display:flex;align-items:center;gap:6px}
+/* 四隅の小さいカードでも .big（31px）のままだと 21px の枠から13pxはみ出す（実測） */
+.hud.mini .big{font-size:19px;line-height:1;-webkit-text-stroke-width:2px}
 .hud.mini .lbl{font-size:10.5px;padding:2px 6px}
 .hud.mini .sub{font-family:var(--pop);font-size:17px;line-height:1;color:#9FD8F8;
   -webkit-text-stroke:2px #0C1B2E;paint-order:stroke fill}

@@ -1,3 +1,10 @@
+/* 音だけが使う乱数。ゲーム本体とは別にしておく。
+   オンライン対戦中は Math.random が「全端末で共有する乱数」に差し替わるが、
+   音は端末ごとに鳴り方が違う（消音・再生できない等）ので、
+   ここで消費してしまうと盤面がズレる。読み込み時の本物を掴んでおく。 */
+var _dvRndBase = Math.random;
+function _dvRnd(){ return _dvRndBase(); }
+
 /* ══════════════════════════════════════════════
    ダイスキングダム — 音と投擲（自動生成）
    ══════════════════════════════════════════════ */
@@ -239,7 +246,7 @@ function dvSfx(ac){
   var _dvNoise = ac.createBuffer(1, Math.floor(ac.sampleRate * _dvNSEC), ac.sampleRate);
   (function(){
     var d = _dvNoise.getChannelData(0);
-    for(var i=0;i<d.length;i++) d[i] = Math.random()*2 - 1;
+    for(var i=0;i<d.length;i++) d[i] = _dvRnd()*2 - 1;
   })();
 
   /* ── 残響用インパルス応答（減衰ノイズ＋一次ローパスで暗く） ── */
@@ -249,7 +256,7 @@ function dvSfx(ac){
     for(var ch=0; ch<2; ch++){
       var d = b.getChannelData(ch), y = 0;
       for(var i=0;i<len;i++){
-        y += ((Math.random()*2-1) - y) * dark;           // 高域を削って自然な響きに
+        y += ((_dvRnd()*2-1) - y) * dark;           // 高域を削って自然な響きに
         d[i] = y * Math.pow(1 - i/len, decay);
       }
     }
@@ -275,7 +282,7 @@ function dvSfx(ac){
     if(ac.state === 'suspended' && ac.resume){ try{ ac.resume(); }catch(e){} }
     return ac.currentTime + 0.002;
   }
-  function _dvR(a,b){ return a + Math.random()*(b-a); }
+  function _dvR(a,b){ return a + _dvRnd()*(b-a); }
 
   /* 残響への送り。終了時に切るので溜まらない */
   function _dvSend(node, amt, long){
@@ -396,7 +403,7 @@ function dvSfx(ac){
     /* diceShake：粒5〜8個×2層（1.2-2.6kHzノイズ＋木鳴り280-520Hz）／間隔0.045-0.11秒・全体約0.45秒 */
     diceShake: function(power){
       if(!_dvOn) return; var t = _dvT();
-      var n = 5 + Math.floor(Math.random()*4);           // 5〜8粒
+      var n = 5 + Math.floor(_dvRnd()*4);           // 5〜8粒
       var v = 0.11 + 0.06*(power==null?0.6:power);
       var at = 0;
       for(var i=0;i<n;i++){
@@ -779,7 +786,7 @@ function dvMusic(ac){
   // ホワイトノイズ（スネア・ハイハット用）
   var noiseBuf = (function(){
     var n = Math.floor(ac.sampleRate*2), b = ac.createBuffer(1,n,ac.sampleRate), d = b.getChannelData(0);
-    for(var i=0;i<n;i++) d[i] = Math.random()*2-1;
+    for(var i=0;i<n;i++) d[i] = _dvRnd()*2-1;
     return b;
   })();
   // インパルス応答（ノイズを指数減衰 → 短いリバーブ 1.2秒）
@@ -789,7 +796,7 @@ function dvMusic(ac){
       var d = b.getChannelData(c), pre = Math.floor(ac.sampleRate*0.012);
       for(var i=0;i<len;i++){
         var e = Math.pow(1-i/len, 3.0);
-        d[i] = i<pre ? 0 : (Math.random()*2-1)*e*0.7;
+        d[i] = i<pre ? 0 : (_dvRnd()*2-1)*e*0.7;
       }
     }
     return b;
@@ -1058,7 +1065,7 @@ function dvMusic(ac){
     var n = ac.createBufferSource(), hp = ac.createBiquadFilter(), g = ac.createGain();
     var len = open ? 0.16 : 0.045;
     n.buffer = noiseBuf; n.loop = true;
-    n.playbackRate.value = 1 + Math.random()*0.1;               // 毎回わずかに表情を変える
+    n.playbackRate.value = 1 + _dvRnd()*0.1;               // 毎回わずかに表情を変える
     hp.type = 'highpass'; hp.frequency.setValueAtTime(7200, t); hp.Q.value = 0.8;
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(vol, t+0.003);

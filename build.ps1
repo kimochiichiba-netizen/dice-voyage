@@ -2,9 +2,9 @@
 # src/ を結合して game.html（Artifact用）と index.html（単体で開ける版）を作る
 $d = Split-Path -Parent $MyInvocation.MyCommand.Path
 $enc = New-Object System.Text.UTF8Encoding($false)
-$parts = @("1-style.html","1b-ui.html","1c-meta.html","1d-polish.html","2-body.html",
+$parts = @("1-style.html","1b-ui.html","1c-meta.html","1d-polish.html","1e-dk.html","1f-dk2.html","1g-room.html","1h-board.html","2-body.html",
            "3-core.js","3b-art.js","3c-chars.js","3d-gems.js","3e-style.js","3f-anime.js","3g-opm.js",
-           "6-audio.js","6b-bgm.js","6c-bgm2.js","6d-jingle.js","4-game.js","5-meta.js")
+           "6-audio.js","6b-bgm.js","6c-bgm2.js","6d-jingle.js","4-game.js","7-online.js","5-meta.js","8-dk.js")
 $sb = New-Object System.Text.StringBuilder
 foreach($p in $parts){
   $f = Join-Path "$d\src" $p
@@ -80,11 +80,34 @@ if($crel.Count -gt 0){
   Write-Output "キャラ画像: ファイル無し → これまでどおりの手続き描画で動きます（assets/chars/README.md 参照）"
 }
 
-[System.IO.File]::WriteAllText("$d\game.html", (BgmBlock $dat) + (CharBlock $cdatUse) + $body, $enc)
+# 2 画面素材：assets/ui/ の画像（社長が用意した絵から切り出したもの）
+#   ロゴ・背景・主役の絵。window.DV_UI に「名前 -> URL」で入る
+$urel = @{}; $udat = @{}; $utotal = 0
+$udir = "$d/assets/ui"
+if(Test-Path $udir){
+  foreach($f in (Get-ChildItem $udir -File)){
+    if($f.Extension -notmatch "^[.](png|webp|jpg|jpeg)$"){ continue }
+    $n = $f.BaseName
+    $urel[$n] = "assets/ui/" + $f.Name
+    $ub = [System.IO.File]::ReadAllBytes($f.FullName)
+    $utotal += $ub.Length
+    $umime = switch($f.Extension){ ".png"{"image/png"} ".webp"{"image/webp"} default{"image/jpeg"} }
+    $udat[$n] = "data:$umime;base64," + [Convert]::ToBase64String($ub)
+  }
+}
+function UiBlock($map){
+  if($map.Count -eq 0){ return "" }
+  $pairs = ($map.GetEnumerator() | ForEach-Object { '"' + $_.Key + '":"' + $_.Value + '"' }) -join ","
+  return "<script>window.DV_UI={$pairs};</script>`n"
+}
+if($urel.Count -gt 0){
+  Write-Output ("画面素材: " + $urel.Count + " 点  (合計 " + [math]::Round($utotal/1MB,2) + " MB)")
+}
+[System.IO.File]::WriteAllText("$d\game.html",  (BgmBlock $dat) + (CharBlock $cdatUse) + (UiBlock $udat) + $body, $enc)
 $head = "<!doctype html>`n<html lang=`"ja`">`n<head>`n<meta charset=`"utf-8`">`n" +
         "<meta name=`"viewport`" content=`"width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no`">`n" +
         "<meta name=`"description`" content=`"ダイスボヤージュ — 横画面で遊ぶボードゲーム`">`n"
-$full = $head + (BgmBlock $rel) + (CharBlock $crel) + $body + "`n</html>"
+$full = $head + (BgmBlock $rel) + (CharBlock $crel) + (UiBlock $urel) + $body + "`n</html>"
 $full = $full -replace '(?s)^(.*?)(<div id="viewport">)', '$1</head><body>$2'
 [System.IO.File]::WriteAllText("$d\index.html", $full, $enc)
 Write-Output ("game.html  = " + [math]::Round((Get-Item "$d\game.html").Length/1024) + " KB")

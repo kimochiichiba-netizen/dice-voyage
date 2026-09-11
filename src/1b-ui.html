@@ -44,13 +44,17 @@
   border:1px solid rgba(255,255,255,.28);box-shadow:inset 0 1px 0 rgba(255,255,255,.35)}
 .hud .namebar::after{content:"";position:absolute;inset:0;
   background:linear-gradient(180deg,rgba(255,255,255,.28),rgba(255,255,255,0) 55%)}
-.hud .statrow{display:flex;align-items:center;gap:7px;height:27px;
+.hud .statrow{display:flex;align-items:center;gap:7px;height:32px;
   background:linear-gradient(#16283Fdd,#0C1728dd);border:1px solid #35506F;border-radius:6px;
   padding:0 9px}
 .hud.bot .statrow{flex-direction:row-reverse}
 .hud .lbl{font-size:11.5px;padding:2px 6px}
+/* 魔力ゲージは幅の指定が無いと、.hud.bot .col{align-items:flex-end} のせいで
+   中身ぶん（2px）まで縮む。その中に position:absolute で置いた .gtxt が
+   1文字ずつ折り返して縦に伸び、画面の下へ29pxはみ出していた（実測で確認）。 */
 .hud .gauge{height:11px;border-radius:6px;background:#0a1420;border:1px solid #3A5474;
-  position:relative;overflow:hidden}
+  position:relative;overflow:hidden;width:100%;align-self:stretch}
+.hud .gtxt{white-space:nowrap}
 .hud .gauge i{position:relative;z-index:1;
   background:linear-gradient(90deg,#E08A1A,#F2C230 55%,#FFF7D2);
   box-shadow:0 0 10px rgba(242,194,48,.9)}

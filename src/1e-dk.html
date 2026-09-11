@@ -1,0 +1,274 @@
+<style>
+/* ══════════════════════════════════════════════════════════════
+   ダイスキングダム — 王宮スキン（社長が用意した5枚の絵に合わせた見た目）
+   ──────────────────────────────────────────────────────────────
+   ここだけで「金枠・羊皮紙・緑ボタン・左タブ・上のヘッダー」を作る。
+   既存の画面CSSは触らず、後から読ませて上書きする。
+   ══════════════════════════════════════════════════════════════ */
+:root{
+  /* 金 */
+  --dk-g1:#FFF3C8; --dk-g2:#F5D36B; --dk-g3:#E0AE3A; --dk-g4:#A9761A; --dk-g5:#6B4408;
+  /* 羊皮紙 */
+  --dk-p1:#F7EDD6; --dk-p2:#EFE0C0; --dk-p3:#DCC79E; --dk-p4:#BFA475;
+  /* 暗い面 */
+  --dk-d1:#33240F; --dk-d2:#211508; --dk-d3:#140C04; --dk-d4:#0B0703;
+  /* 青（選択中） */
+  --dk-b1:#8FD2FF; --dk-b2:#2E8BE0; --dk-b3:#1656A8; --dk-b4:#0B2C5E;
+  /* 緑（実行ボタン） */
+  --dk-n1:#A8E877; --dk-n2:#5FBF3A; --dk-n3:#3A8C1C; --dk-n4:#22610E;
+  /* 文字 */
+  --dk-ink:#FFF6E2; --dk-ink-sh:#3A2405; --dk-ink-d:#4A3416;
+  --dk-red:#C9302C;
+}
+
+/* ══════ 画面の地（社長の絵から作った背景） ══════ */
+.dk{position:absolute;inset:0;overflow:hidden;
+  background-color:#0B0703!important;
+  background-image:var(--dk-bg,none)!important;
+  background-size:cover!important;background-position:center!important;
+  background-repeat:no-repeat!important;
+  font-family:system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif}
+.dk{opacity:1!important}
+.dk::before{content:none!important}
+.dk::after{                                   /* ロウソクの揺らぎ */
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(60% 44% at 50% 8%, rgba(255,196,96,.16), transparent 70%);
+  animation:dkFlicker 5.5s ease-in-out infinite}
+@keyframes dkFlicker{0%,100%{opacity:.75}35%{opacity:1}62%{opacity:.62}}
+
+/* ══════ 上のヘッダー ══════ */
+.dkhd{position:absolute;left:0;right:0;top:0;height:100px;z-index:6;pointer-events:none}
+.dkhd > *{pointer-events:auto}
+.dkback{position:absolute;left:16px;top:12px;width:78px;height:62px;border-radius:14px;cursor:pointer;
+  background:linear-gradient(180deg,#6E5326,#3E2C11 52%,#271A07);
+  border:3px solid var(--dk-g4);
+  box-shadow:0 4px 0 rgba(0,0,0,.5),inset 0 2px 0 rgba(255,226,150,.35),
+             inset 0 -6px 10px rgba(0,0,0,.5);
+  display:flex;align-items:center;justify-content:center;transition:transform .12s,filter .12s}
+.dkback::before{content:"";width:34px;height:26px;
+  background:linear-gradient(180deg,var(--dk-g1),var(--dk-g3));
+  clip-path:polygon(42% 0,42% 30%,100% 30%,100% 70%,42% 70%,42% 100%,0 50%)}
+.dkback:hover{filter:brightness(1.12)}
+.dkback:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.5)}
+
+.dklogo{position:absolute;left:108px;top:0;width:372px;height:98px;
+  background:center/contain no-repeat;
+  filter:drop-shadow(0 3px 6px rgba(0,0,0,.65))}
+.dklogo::after{                               /* 光が左から右へ走る */
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(105deg,transparent 36%,rgba(255,255,255,.55) 47%,transparent 58%);
+  mask:var(--dk-logo-mask) center/contain no-repeat;
+  -webkit-mask:var(--dk-logo-mask) center/contain no-repeat;
+  animation:dkShine 4.6s ease-in-out infinite}
+@keyframes dkShine{0%,72%{transform:translateX(-115%)}92%,100%{transform:translateX(115%)}}
+
+/* 通貨カプセル */
+.dkcur{position:absolute;top:16px;height:54px;display:flex;align-items:center;gap:10px;
+  padding:0 8px 0 10px;border-radius:12px;
+  background:linear-gradient(180deg,#0F0A04,#241706 58%,#120B03);
+  border:3px solid var(--dk-g4);
+  box-shadow:0 3px 0 rgba(0,0,0,.5),inset 0 2px 0 rgba(255,226,150,.25)}
+.dkcur .ic{width:34px;height:34px;flex:0 0 auto}
+.dkcur b{font-family:var(--pop);font-size:26px;color:var(--dk-ink);
+  -webkit-text-stroke:4px #231604;paint-order:stroke fill;
+  font-variant-numeric:tabular-nums;min-width:118px;text-align:right}
+.dkplus{width:38px;height:38px;border-radius:9px;cursor:pointer;flex:0 0 auto;
+  background:linear-gradient(180deg,#F4E7CC,#C5AC82 58%,#9B8460);
+  border:2px solid #5B431F;box-shadow:0 2px 0 rgba(0,0,0,.4),inset 0 2px 0 rgba(255,255,255,.6);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--pop);font-size:25px;color:#4E3714;line-height:1;transition:transform .1s}
+.dkplus:hover{filter:brightness(1.08)}
+.dkplus:active{transform:translateY(2px)}
+.dkcoin{background:radial-gradient(circle at 38% 26%,#FFF6C8,#F2C74F 42%,#C8930F 74%,#8A6206);
+  border-radius:50%;border:2px solid #7A5406;box-shadow:0 2px 4px rgba(0,0,0,.5)}
+.dkgem{background:linear-gradient(180deg,#EAF8FF,#6FC6F5 44%,#1E7FD0);
+  clip-path:polygon(24% 4%,76% 4%,98% 38%,50% 98%,2% 38%);
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))}
+.dkclose{position:absolute;right:16px;top:12px;width:64px;height:62px;border-radius:14px;cursor:pointer;
+  background:linear-gradient(180deg,#6E5326,#3E2C11 52%,#271A07);
+  border:3px solid var(--dk-g4);
+  box-shadow:0 4px 0 rgba(0,0,0,.5),inset 0 2px 0 rgba(255,226,150,.35);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--pop);font-size:34px;line-height:1;color:#F7E7C4;transition:transform .12s,filter .12s}
+.dkclose:hover{filter:brightness(1.12)}
+.dkclose:active{transform:translateY(3px)}
+
+/* ══════ 左の縦タブ ══════ */
+.dktabs{position:absolute;left:14px;top:112px;width:192px;z-index:5;
+  display:flex;flex-direction:column;gap:12px}
+.dktab{height:112px;border-radius:16px;cursor:pointer;position:relative;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  background:linear-gradient(180deg,#4A3517,#2A1C08 56%,#1A1004);
+  border:3px solid #7A5A22;
+  box-shadow:0 4px 0 rgba(0,0,0,.5),inset 0 2px 0 rgba(255,220,150,.2);
+  transition:transform .14s,filter .14s;
+  animation:dkTabIn .42s cubic-bezier(.2,1.5,.4,1) both}
+.dktab:nth-child(1){animation-delay:.02s} .dktab:nth-child(2){animation-delay:.07s}
+.dktab:nth-child(3){animation-delay:.12s} .dktab:nth-child(4){animation-delay:.17s}
+.dktab:nth-child(5){animation-delay:.22s} .dktab:nth-child(6){animation-delay:.27s}
+@keyframes dkTabIn{from{opacity:0;transform:translateX(-30px) scale(.9)}to{opacity:1;transform:none}}
+.dktab .ic{font-size:42px;line-height:1;filter:drop-shadow(0 3px 3px rgba(0,0,0,.6))}
+.dktab .tx{font-size:17px;font-weight:900;color:#F4E3BD;
+  -webkit-text-stroke:3.4px #241604;paint-order:stroke fill;letter-spacing:.04em}
+.dktab:hover{filter:brightness(1.14);transform:translateX(3px)}
+.dktab.on{background:linear-gradient(180deg,var(--dk-b1) 0 6%,var(--dk-b2) 18%,var(--dk-b3) 62%,var(--dk-b4));
+  border-color:var(--dk-g2);
+  box-shadow:0 4px 0 rgba(0,0,0,.5),inset 0 3px 0 rgba(255,255,255,.4),
+             0 0 0 2px rgba(255,225,140,.35),0 0 22px 4px rgba(90,180,255,.55);
+  animation:dkTabIn .42s cubic-bezier(.2,1.5,.4,1) both,dkTabGlow 2.4s ease-in-out infinite 1s}
+@keyframes dkTabGlow{
+  0%,100%{box-shadow:0 4px 0 rgba(0,0,0,.5),inset 0 3px 0 rgba(255,255,255,.4),
+                     0 0 0 2px rgba(255,225,140,.35),0 0 18px 3px rgba(90,180,255,.45)}
+  50%    {box-shadow:0 4px 0 rgba(0,0,0,.5),inset 0 3px 0 rgba(255,255,255,.45),
+                     0 0 0 2px rgba(255,235,170,.55),0 0 30px 8px rgba(110,200,255,.72)}}
+.dktab .nw{position:absolute;right:-6px;top:-7px;min-width:24px;height:24px;border-radius:12px;
+  background:linear-gradient(180deg,#FF6A5E,var(--dk-red));border:2px solid #FFF1D0;
+  font-size:14px;font-weight:900;color:#fff;display:flex;align-items:center;justify-content:center;
+  padding:0 5px;box-shadow:0 2px 4px rgba(0,0,0,.5);animation:dkBadge 1.6s ease-in-out infinite}
+@keyframes dkBadge{0%,100%{transform:scale(1)}50%{transform:scale(1.14)}}
+
+/* ══════ 本文の器 ══════ */
+.dkbody{position:absolute;left:220px;right:18px;top:104px;bottom:16px;z-index:4;
+  display:flex;gap:16px;animation:dkBodyIn .46s cubic-bezier(.2,1.2,.4,1) both}
+@keyframes dkBodyIn{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+
+/* 羊皮紙のパネル */
+.dkpar{position:relative;border-radius:16px;
+  background:
+    radial-gradient(120% 90% at 50% 0%,rgba(255,255,255,.5),transparent 58%),
+    linear-gradient(180deg,var(--dk-p1),var(--dk-p2) 46%,var(--dk-p3));
+  border:4px solid var(--dk-g4);
+  box-shadow:0 8px 22px rgba(0,0,0,.6),inset 0 0 0 2px rgba(255,255,255,.45),
+             inset 0 -10px 24px rgba(150,116,64,.28)}
+.dkpar::before{content:"";position:absolute;inset:7px;border-radius:10px;pointer-events:none;
+  border:1px solid rgba(140,106,54,.4)}
+
+/* 暗いパネル */
+.dkdark{position:relative;border-radius:16px;
+  background:linear-gradient(180deg,rgba(52,36,16,.94),rgba(20,12,4,.96));
+  border:4px solid var(--dk-g4);
+  box-shadow:0 8px 22px rgba(0,0,0,.6),inset 0 2px 0 rgba(255,220,150,.2),
+             inset 0 0 40px rgba(0,0,0,.6)}
+.dkdark::before{content:"";position:absolute;inset:6px;border-radius:10px;pointer-events:none;
+  border:1px solid rgba(196,150,70,.34)}
+
+/* 見出し帯 */
+.dkttl{font-family:var(--pop);font-size:26px;color:var(--dk-ink);
+  -webkit-text-stroke:3.4px #2A1A05;paint-order:stroke fill;letter-spacing:.05em}
+.dkttl.ink{color:#5A3E12;-webkit-text-stroke:0;text-shadow:0 1px 0 rgba(255,255,255,.6)}
+
+/* ══════ ボタン ══════ */
+.dkbtn{position:relative;border:none;cursor:pointer;border-radius:12px;
+  font-family:var(--pop);font-size:25px;line-height:1;color:#fff;
+  -webkit-text-stroke:4px rgba(30,18,4,.85);paint-order:stroke fill;
+  padding:14px 26px;overflow:hidden;transition:transform .1s,filter .12s;
+  box-shadow:0 5px 0 rgba(0,0,0,.42),inset 0 2px 0 rgba(255,255,255,.45)}
+.dkbtn::after{content:"";position:absolute;top:0;bottom:0;width:38%;
+  background:linear-gradient(105deg,transparent,rgba(255,255,255,.5),transparent);
+  transform:translateX(-160%);animation:dkBtnShine 3.4s ease-in-out infinite}
+@keyframes dkBtnShine{0%,70%{transform:translateX(-160%)}88%,100%{transform:translateX(360%)}}
+.dkbtn:hover{filter:brightness(1.09)}
+.dkbtn:active{transform:translateY(4px);box-shadow:0 1px 0 rgba(0,0,0,.42)}
+.dkbtn.gr{background:linear-gradient(180deg,var(--dk-n1) 0 8%,var(--dk-n2) 30%,var(--dk-n3) 72%,var(--dk-n4));
+  border:3px solid #1F5A0C}
+.dkbtn.gd{background:linear-gradient(180deg,var(--dk-g1) 0 8%,var(--dk-g2) 30%,var(--dk-g3) 70%,var(--dk-g4));
+  border:3px solid #7A5206;color:#5A3A04;-webkit-text-stroke:4px rgba(255,246,214,.8)}
+.dkbtn.gy{background:linear-gradient(180deg,#A79C92,#766C63 46%,#4E463F);
+  border:3px solid #3A332C;color:#E4DCD2;cursor:default}
+.dkbtn.gy::after{display:none}
+.dkbtn.gy:active{transform:none}
+.dkbtn:disabled{filter:grayscale(.7) brightness(.78);cursor:default}
+.dkbtn:disabled::after{display:none}
+
+/* ══════ 進捗バー ══════ */
+.dkbar{position:relative;height:26px;border-radius:13px;overflow:hidden;
+  background:linear-gradient(180deg,#2A2118,#453A2E);
+  border:2px solid #2A2118;box-shadow:inset 0 3px 6px rgba(0,0,0,.6)}
+.dkbar i{position:absolute;left:0;top:0;bottom:0;border-radius:11px;display:block;
+  background:linear-gradient(180deg,#B6F08A 0 26%,#61C238 52%,#3A8C1C);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.5);
+  transition:width .7s cubic-bezier(.2,1,.3,1)}
+.dkbar.bl i{background:linear-gradient(180deg,#A8DCFF 0 26%,#3E9BEC 52%,#1B63B8)}
+.dkbar.gd i{background:linear-gradient(180deg,#FFEDB0 0 26%,#F2C230 52%,#C08A0E)}
+.dkbar.rd i{background:linear-gradient(180deg,#FFB0A6 0 26%,#E8483A 52%,#A8210F)}
+.dkbar i::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.45) 50%,transparent 60%);
+  animation:dkBarFlow 2.2s linear infinite}
+@keyframes dkBarFlow{from{transform:translateX(-60%)}to{transform:translateX(160%)}}
+
+/* ══════ 等級バッジ ══════ */
+.dkrar{font-family:var(--caps);font-weight:900;line-height:1;
+  background:linear-gradient(180deg,#FFF8D8,#F2C230 52%,#B87F12);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  -webkit-text-stroke:5px #3A2405;paint-order:stroke fill;
+  filter:drop-shadow(0 3px 4px rgba(0,0,0,.6))}
+
+/* ══════ 主役の絵（浮遊＋きらめき） ══════ */
+.dkhero{position:absolute;background:center/contain no-repeat;pointer-events:none;
+  animation:dkFloat 5.2s ease-in-out infinite}
+@keyframes dkFloat{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-13px) rotate(.6deg)}}
+.dkspark{position:absolute;width:9px;height:9px;pointer-events:none;
+  background:radial-gradient(circle,#FFFDF0 0 22%,rgba(255,232,150,.85) 46%,transparent 70%);
+  animation:dkSpark 2.4s ease-in-out infinite}
+@keyframes dkSpark{0%,100%{opacity:0;transform:scale(.3)}
+                   40%{opacity:1;transform:scale(1.25)}70%{opacity:.2;transform:scale(.7)}}
+
+/* ══════ 下の持ち物リスト ══════ */
+.dkrow{display:flex;gap:12px;align-items:stretch;overflow-x:auto;padding:10px 12px;
+  scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+.dkitem{flex:0 0 auto;width:132px;border-radius:13px;cursor:pointer;position:relative;
+  background:linear-gradient(180deg,#4C381A,#2A1C08 60%,#1A1004);
+  border:3px solid #7A5A22;padding:8px 6px 7px;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  box-shadow:0 4px 0 rgba(0,0,0,.45),inset 0 2px 0 rgba(255,220,150,.18);
+  transition:transform .14s,filter .14s}
+.dkitem:hover{transform:translateY(-5px);filter:brightness(1.1)}
+.dkitem.on{border-color:var(--dk-g2);
+  box-shadow:0 4px 0 rgba(0,0,0,.45),0 0 0 2px rgba(255,225,140,.4),0 0 20px 3px rgba(255,200,80,.5)}
+.dkitem .pic{width:88px;height:88px;border-radius:10px;background:center/contain no-repeat;
+  display:flex;align-items:center;justify-content:center;font-size:48px;line-height:1}
+.dkitem .lv{font-family:var(--pop);font-size:15px;color:#FFEDBC;
+  -webkit-text-stroke:3px #241604;paint-order:stroke fill}
+.dkitem .nm{font-size:12px;color:#EBD9B2;text-align:center;line-height:1.25;
+  max-width:118px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dkitem .eq{position:absolute;left:50%;top:-9px;transform:translateX(-50%);
+  font-size:11px;font-weight:900;color:#3A2405;padding:2px 8px;border-radius:8px;white-space:nowrap;
+  background:linear-gradient(180deg,#FFF0BE,#E8B23A);border:1.5px solid #8A6206}
+
+/* ══════ 一覧の行（ミッション） ══════ */
+.dkq{display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:12px;
+  background:linear-gradient(180deg,rgba(255,255,255,.42),rgba(255,255,255,0));
+  border-bottom:1px solid rgba(140,106,54,.3);
+  animation:dkQIn .4s cubic-bezier(.2,1.2,.4,1) both}
+@keyframes dkQIn{from{opacity:0;transform:translateX(22px)}to{opacity:1;transform:none}}
+.dkq .ic{width:72px;height:72px;border-radius:12px;flex:0 0 auto;
+  background:linear-gradient(180deg,#F6E7C6,#D9BE8C);border:2px solid #A9761A;
+  display:flex;align-items:center;justify-content:center;font-size:38px;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.6)}
+.dkq .mid{flex:1 1 auto;min-width:0}
+.dkq .nm{font-size:21px;font-weight:900;color:#42300F}
+.dkq .ds{font-size:13px;color:#6E5А34;color:#6E5A34;margin-top:1px}
+.dkq .prog{display:flex;align-items:center;gap:9px;margin-top:7px}
+.dkq .prog .dkbar{flex:1 1 auto}
+.dkq .prog b{font-size:16px;color:#42300F;font-variant-numeric:tabular-nums;min-width:52px;text-align:right}
+.dkq .rw{display:flex;gap:7px;flex:0 0 auto}
+.dkq .rw .c{min-width:76px;padding:5px 8px;border-radius:9px;text-align:center;
+  background:linear-gradient(180deg,#FFF6E0,#E6D2A8);border:2px solid #A9761A}
+.dkq .rw .c .v{font-family:var(--pop);font-size:16px;color:#5A3E12}
+
+/* ══════ 画面の切り替え ══════ */
+.dk.dkGo{animation:dkScreenIn .34s ease-out}
+@keyframes dkScreenIn{from{opacity:0;transform:scale(.985)}to{opacity:1;transform:none}}
+
+/* ══════ 小さい画面 ══════ */
+@media (max-aspect-ratio:1/1){
+  .dktabs{width:150px} .dkbody{left:176px}
+  .dktab{height:92px} .dktab .ic{font-size:34px} .dktab .tx{font-size:14px}
+  .dklogo{width:290px;height:80px} .dkcur b{min-width:88px;font-size:22px}
+}
+@media (prefers-reduced-motion:reduce){
+  .dk::after,.dklogo::after,.dkbtn::after,.dkbar i::after,.dkhero,.dkspark,
+  .dktab,.dkbody,.dkq,.dkrb,.dkrk,.dkday,.dkgood,.dkhome,.dkic .dot,.dktab .nw,
+  .dkrb .nw,.dkev .mg,.dkqside .chest,.dkclerk{animation:none!important}
+}
+</style>

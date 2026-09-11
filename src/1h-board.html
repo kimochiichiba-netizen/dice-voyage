@@ -1,0 +1,36 @@
+<style>
+/* ══════════════════════════════════════════════════════════════
+   対戦中の画面まわりを王宮スキンの色に寄せる
+   ──────────────────────────────────────────────────────────────
+   盤そのものは canvas で描いているのでさわらない。
+   まわりの枠（四隅のプレイヤーカード・ボタン）だけ、青 → 暗褐＋金に。
+   プレイヤーごとの色（名前帯）は残す。どの駒が誰かを見分ける情報だから。
+   ══════════════════════════════════════════════════════════════ */
+
+.hud .face{
+  background:linear-gradient(160deg,#4A3517,#1A1004)!important;
+  box-shadow:0 3px 0 rgba(0,0,0,.55),inset 0 0 18px rgba(0,0,0,.55),
+             inset 0 2px 0 rgba(255,220,150,.2)!important}
+.hud .lbl{
+  background:linear-gradient(180deg,#5A4220,#2A1C08)!important;
+  color:#F0DCA8!important;border:1px solid #7A5A22}
+.hud .gauge{background:#241708!important;border-color:#7A5A22!important}
+.hud .sub{color:#F5D36B!important;-webkit-text-stroke-color:#2A1A05!important}
+.hud.top .sub{color:#FFB9A6!important;-webkit-text-stroke-color:#3A0E18!important}
+
+/* 右下の能力ボタン・絵文字ボタン・音・一時停止 */
+#emotebtn,#sound,.hud .skillbtn{
+  background:linear-gradient(180deg,#6E5326,#3E2C11 52%,#271A07)!important;
+  border:3px solid #A9761A!important;
+  box-shadow:0 4px 0 rgba(0,0,0,.5),inset 0 2px 0 rgba(255,226,150,.3)!important}
+
+/* 下のニュース帯 */
+#ticker{
+  border-top:2px solid #A9761A!important;border-bottom:2px solid #A9761A!important}
+
+/* 四隅のプレイヤーカードの帯も、青 → 暗褐＋金の縁に */
+.hud .statrow{
+  background:linear-gradient(180deg,rgba(74,53,23,.72),rgba(20,12,4,.82))!important;
+  border:1px solid rgba(169,118,26,.55)!important}
+
+</style>

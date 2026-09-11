@@ -1,0 +1,104 @@
+<style>
+/* ══════════════════════════════════════════════════════════════
+   待機部屋を王宮スキンに寄せる（形はそのまま、色と質感だけ差し替える）
+   ──────────────────────────────────────────────────────────────
+   元の作りは緑＋クリームの本家配色。ほかの画面が暗い宮殿＋金枠に
+   なったので、ここだけ浮かないように上から塗り替える。
+   ID を含めて詳細度を上げ、元のルールに確実に勝たせる。
+   ══════════════════════════════════════════════════════════════ */
+
+/* 地：宮殿の広間 */
+#room.meta{
+  background-color:#0B0703!important;
+  background-image:var(--dk-room-bg,none)!important;
+  background-size:cover!important;background-position:center!important;
+  background-repeat:no-repeat!important}
+#room.meta::before{content:none!important}
+
+/* 上の帯：緑 → 暗褐＋金の縁 */
+#room .rm-top{
+  background:linear-gradient(180deg,#5A4220 0 6%,#3A2A12 34%,#241708 78%,#140C04)!important;
+  border-bottom:3px solid var(--dk-g4)!important;
+  box-shadow:0 3px 12px rgba(0,0,0,.6)!important}
+#room .rm-ttl,#room .rm-ttl span,#room .rm-ttl b{color:#FFF0CE!important}
+#room .rm-ttl .a{color:#FFD44A!important}
+
+/* 左のパネル：クリーム → 羊皮紙 */
+#room .rm-box{
+  background:linear-gradient(180deg,var(--dk-p1),var(--dk-p2) 48%,var(--dk-p3))!important;
+  border:3px solid var(--dk-g4)!important;
+  box-shadow:0 6px 18px rgba(0,0,0,.55),inset 0 0 0 2px rgba(255,255,255,.42)!important}
+
+/* 見出しタブ：金 */
+#room .rm-tab{
+  background:linear-gradient(180deg,#FFF0BE,#F2C230 56%,#C88E12)!important;
+  border:2px solid #7A5206!important;
+  box-shadow:0 3px 0 rgba(0,0,0,.4)!important}
+#room .rm-tab b{color:#4A3210!important;-webkit-text-stroke:0!important}
+
+/* アイテムの札：金枠 */
+#room .rm-item .rm-stone,#room .rm-item > div{
+  border-color:var(--dk-g4)!important}
+
+/* 座席：暗褐＋金の縁 */
+#room .rm-seat{
+  background:linear-gradient(180deg,#4A3517,#2A1C08 58%,#1A1004)!important;
+  border:2px solid #7A5A22!important;
+  box-shadow:0 3px 0 rgba(0,0,0,.45),inset 0 2px 0 rgba(255,220,150,.16)!important}
+#room .rm-seat.me{
+  border-color:var(--dk-g2)!important;
+  box-shadow:0 3px 0 rgba(0,0,0,.45),0 0 0 2px rgba(255,225,140,.4),
+             0 0 18px 3px rgba(255,200,80,.45)!important}
+#room .rm-seat .nm,#room .rm-seat b{color:#FFF0CE!important}
+#room .rm-seat .rl,#room .rm-seat small{color:#D8C39A!important}
+
+/* 開始ボタン：王宮の緑 */
+#room .rm-go{
+  background:linear-gradient(180deg,var(--dk-n1) 0 8%,var(--dk-n2) 30%,var(--dk-n3) 72%,var(--dk-n4))!important;
+  border:3px solid #1F5A0C!important;
+  box-shadow:0 5px 0 rgba(0,0,0,.45),inset 0 2px 0 rgba(255,255,255,.45)!important}
+#room .rm-go b{color:#fff!important;-webkit-text-stroke:4px rgba(30,18,4,.85)!important;
+  paint-order:stroke fill!important}
+
+/* 吹き出し・お知らせ */
+#room .rm-bub{
+  background:linear-gradient(180deg,#FFF6E0,#E6D2A8)!important;
+  border:2px solid var(--dk-g4)!important;color:#42300F!important}
+#room .rm-notice{
+  background:linear-gradient(180deg,rgba(24,16,6,.94),rgba(10,6,2,.96))!important;
+  border-top:2px solid var(--dk-g4)!important;border-bottom:2px solid var(--dk-g4)!important;
+  color:#FFE9B5!important}
+
+/* 左下の自分のカード */
+#room .rm-bcard{
+  border:3px solid var(--dk-g3)!important;
+  box-shadow:0 5px 14px rgba(0,0,0,.6),inset 0 0 0 2px rgba(255,228,160,.3)!important}
+
+/* マップ選択ボタン */
+#room .rm-mbtn{
+  background:linear-gradient(180deg,#4A3517,#2A1C08 58%,#1A1004)!important;
+  border:2px solid #7A5A22!important}
+#room .rm-mbtn.on{
+  background:linear-gradient(180deg,var(--dk-b1) 0 8%,var(--dk-b2) 26%,var(--dk-b3) 70%,var(--dk-b4))!important;
+  border-color:var(--dk-g2)!important;
+  box-shadow:0 0 16px rgba(90,180,255,.5)!important}
+#room .rm-mtxt{color:#F4E3BD!important}
+
+/* 座席の中の白いパネルも暗く（白地に白文字で読めなくなるため） */
+#room .rm-seat .nm{background:linear-gradient(180deg,#3A2A12,#1A1004)!important}
+#room .rm-seat .fc{background-color:#241708!important}
+#room .rm-seat.empty{background:rgba(28,18,6,.55)!important;border-style:dashed!important}
+#room .rm-seat.empty .nm{background:rgba(28,18,6,.5)!important}
+#room .rm-seat.empty .nm b,#room .rm-seat.empty .nm i{color:#C9B283!important}
+
+/* 羊皮紙のパネルの中の文字は濃い茶に */
+#room .rm-box,#room .rm-box *{color:#42300F}
+#room .rm-box b{color:#2E2108}
+#room .rm-box .rm-mbtn,#room .rm-box .rm-mbtn *{color:#F4E3BD}
+
+/* 座席の顔を、カードの絵に差し替えたときの見た目 */
+#room .rm-seat .fc.dkpic{background-size:235% auto!important;
+  background-position:center 22%!important;background-repeat:no-repeat!important}
+#room .rm-seat .fc.dkpic canvas{display:none!important}
+
+</style>
