@@ -1,31 +1,32 @@
 
 /* ══════════════════════════════════════════════════════════════
-   ダイスキングダム — ホームまわり（9j-home.js / WP9）
+   ダイスキングダム — ホームまわり（9j-home.js / v9 WP9 → v10 WP16b）
    ──────────────────────────────────────────────────────────────
-   ・ホーム・イベント・郵便箱・リーグ・マイレージ・設定・ともだち・常設バー。
-   ・オンライン画面（#online / #olroom）とタイトルの「オンラインで遊ぶ」を王宮の見た目と動線にそろえる。
-   ・宣言し直す関数：showHome, dkGo, dkRank, showNews, walletHTML, showMail, showFriends, dkhSettings。
-     包む関数：mkScreen（'online' と 'olroom' の時だけ手を加える）。
+   ・ホーム・ランキング（友だち＝毎週／全体＝5等級×5段・毎月のシーズン）・プレゼントボックス・
+     マイレージガチャ・名札の枠・イベント・友達・設定・常設バー。オンライン画面とタイトルの「オンラインで遊ぶ」も。
+   ・宣言し直す関数：showHome, dkGo, dkRank, showNews, walletHTML, showMail, showFriends, dkhSettings, weekIndex。
+     包む関数：mkScreen（'online' と 'olroom' の時だけ）。WEEKLY の中身（ダイス増量など）もここで持つ（C28）。
    ・トップレベルは function 宣言と DKH_ 付きの var、最後の初期化 IIFE だけ。
-     DOM に触る初期化は IIFE の中（1ファイルの例外で後ろの初期化を止めないため）。
-   ・演出の乱数は DKFX.rnd()。ゲームの抽選（マイレージキューブ）だけ Math.random。
+   ・演出の乱数は DKFX.rnd()。ゲームの抽選（マイレージガチャ）だけ Math.random。
+   ・常時アニメは各画面8個まで。光の筋は dkhGlint が1本ずつ順に流す（無限のアニメを増やさない）。
    ══════════════════════════════════════════════════════════════ */
 
 /* ══════════ 定数（var にするのは、読み込み途中に呼ばれても TDZ で落ちないため） ══════════ */
-var DKH_MILE = 20;                       // マイレージ20で🔑1本
-var DKH_RP_WIN = 40, DKH_RP_LOSE = 10;   // 勝ち +40×クラス倍率 ／ 負け −10（0より下にしない）
-/* 表は関数で持つ（関数宣言は読み込み前でも使える。9d-flow.js の起動処理が walletHTML→dkhTier を先に呼ぶため） */
+var DKH_MILE = 20;                       // マイレージ20でゴールドキー1個
+var DKH_RP_WIN = 40, DKH_RP_LOSE = 10;   // 勝ち +40×クラスの倍率 ／ 負け −10（0より下にしない）
+var DKH_WEEK_MS = 604800000;
+/* 表は関数で持つ（9d-flow.js の起動処理が walletHTML→dkhTier を先に呼ぶため）。st＝1段の幅（5段で次の等級） */
 function dkhTierTable(){
   return [
-    { id:'bronze', nm:'ブロンズ', min:0,    col:'#D08A4E', dk:'#6B3A12', rw:{ g:3000,  d:0  } },
-    { id:'silver', nm:'シルバー', min:200,  col:'#D5DEE8', dk:'#56657A', rw:{ g:8000,  d:2  } },
-    { id:'gold',   nm:'ゴールド', min:600,  col:'#FFD44A', dk:'#8A5E06', rw:{ g:20000, d:5  } },
-    { id:'plat',   nm:'プラチナ', min:1200, col:'#8FF0DC', dk:'#1E6B62', rw:{ g:40000, d:10 } },
-    { id:'dia',    nm:'ダイヤ',   min:2000, col:'#9ED8FF', dk:'#1B4E9E', rw:{ g:80000, d:20 } }
+    { id:'bronze', nm:'ブロンズ', min:0,    st:40,  col:'#D08A4E', dk:'#6B3A12', rw:{ g:3000,  d:0  } },
+    { id:'silver', nm:'シルバー', min:200,  st:80,  col:'#D5DEE8', dk:'#56657A', rw:{ g:8000,  d:2  } },
+    { id:'gold',   nm:'ゴールド', min:600,  st:120, col:'#FFD44A', dk:'#8A5E06', rw:{ g:20000, d:5  } },
+    { id:'plat',   nm:'プラチナ', min:1200, st:160, col:'#8FF0DC', dk:'#1E6B62', rw:{ g:40000, d:10 } },
+    { id:'dia',    nm:'ダイヤ',   min:2000, st:200, col:'#9ED8FF', dk:'#1B4E9E', rw:{ g:80000, d:20 } }
   ];
 }
 var DKH_TIERS = dkhTierTable();
-/* リーグの相手。サーバが無いので「CPU」と明示する。点数は日付だけで決まる（ゴールドを使っても動かない） */
+/* 全体ランキングの相手。サーバが無いので「CPU」と明示する。点数は日付だけで決まる（ゴールドを使っても動かない） */
 var DKH_RIVALS = [
   { nm:'CPU ガル', card:'c03', base:60,  per:8  },
   { nm:'CPU リノ', card:'c05', base:210, per:13 },
@@ -33,32 +34,56 @@ var DKH_RIVALS = [
   { nm:'CPU ミラ', card:'c10', base:20,  per:5  },
   { nm:'CPU ドグ', card:'c12', base:820, per:27 }
 ];
+/* 友だちランキング（毎週）の相手。週の番号で強さが少し変わり、週が進むほど点が伸びる */
+var DKH_WRIVALS = [
+  { nm:'CPU ルナ',   card:'c04', w:90  },
+  { nm:'CPU ボルト', card:'c08', w:170 },
+  { nm:'CPU アマネ', card:'c11', w:280 },
+  { nm:'CPU ギル',   card:'c15', w:430 }
+];
+/* 友だちランキングの報酬（1位・2位・3位・4位以下。当作の数字） */
+var DKH_WRW = [
+  { g:20000, d:10, it:{ kind:'ticket', id:'first' } },
+  { g:12000, d:5,  it:{ kind:'ticket', id:'biz' } },
+  { g:8000,  d:3 },
+  { g:3000,  d:0 }
+];
+/* ホームの縦のボタン（本家ロビーの文言） */
 var DKH_LEFT = [
-  { id:'cards', ic:'card', nm:'カード',     m:'ruby'  },
+  { id:'cards', ic:'card', nm:'キャラクター<br>カード', m:'ruby'  },
   { id:'dice',  ic:'dice', nm:'サイコロ',   m:'amber' },
   { id:'pend',  ic:'pend', nm:'ペンダント', m:'emer'  },
-  { id:'gacha', ic:'cube', nm:'キューブ',   m:'sapph' },
-  { id:'shop',  ic:'shop', nm:'ショップ',   m:'amet'  }
+  { id:'cube',  ic:'cube', nm:'キューブ',   m:'sapph' },
+  { id:'gacha', ic:'shop', nm:'ガチャ<br>/ショップ', m:'amet' }
 ];
 var DKH_RIGHT = [
-  { id:'quest',   ic:'scroll', nm:'ミッション', m:'amber' },
-  { id:'news',    ic:'horn',   nm:'イベント',   m:'ruby'  },
-  { id:'daily',   ic:'cal',    nm:'出席簿',     m:'sapph' },
-  { id:'friends', ic:'duo',    nm:'ともだち',   m:'emer'  },
-  { id:'mail',    ic:'mail',   nm:'郵便箱',     m:'amet'  }
+  { id:'quest',    ic:'scroll', nm:'ミッション', m:'amber' },
+  { id:'news',     ic:'horn',   nm:'イベント',   m:'ruby'  },
+  { id:'daily',    ic:'cal',    nm:'出席簿',     m:'sapph' },
+  { id:'friends',  ic:'duo',    nm:'友達',       m:'emer'  },
+  { id:'guide',    ic:'book',   nm:'ガイド',     m:'amet'  },
+  { id:'settings', ic:'gear',   nm:'設定',       m:'wood'  }
 ];
 var DKH_NTABS = [
   { id:'week', ic:'horn',   nm:'今週' },
   { id:'info', ic:'scroll', nm:'お知らせ' },
-  { id:'tips', ic:'card',   nm:'遊び方' }
+  { id:'tips', ic:'book',   nm:'ガイド' }
 ];
 var DKH_SPEEDS = [ { v:1.4, nm:'ゆっくり' }, { v:1, nm:'ふつう' }, { v:0.62, nm:'はやい' } ];
 var DKH_ARTS   = [ { v:'human', nm:'手描き風' }, { v:'gem', nm:'宝石の守護獣' }, { v:'anime', nm:'アニメ風' } ];
-var DKH_homeTab = 'league';
+/* 品物の名前（C21・C22・C24） */
+var DKH_TKNM = { biz:'ビジネス入場券', first:'ファースト入場券', dia:'ダイヤモンド入場券' };
+var DKH_FRAMES = [ { id:'bronze', nm:'銅の名札枠' }, { id:'silver', nm:'銀の名札枠' }, { id:'gold', nm:'金の名札枠' } ];
+var DKH_CUBENM = { wood:'ウッド', silver:'シルバー', gold:'ゴールド', dia:'ダイヤ' };
+/* マイレージガチャ（本家：ノーマル🔑1・大当たり🔑5）。[重み, 種類, 値]。中身の数字は当作 */
+var DKH_MG = {
+  n:{ nm:'ノーマルガチャ', key:1, t:[[30,'g',1000],[22,'g',2000],[10,'g',5000],[14,'d',2],[6,'d',5],[12,'card','A'],[4,'pend'],[2,'tk','biz']] },
+  j:{ nm:'大当たりガチャ', key:5, t:[[22,'g',10000],[8,'g',30000],[18,'d',10],[6,'d',30],[1.5,'d',100],[25,'card','S'],[5,'card','SS'],[8,'pend'],[5,'tk','first'],[1.5,'tk','dia']] }
+};
+var DKH_homeTab = 'friends';
 var DKH_newsTab = 'week';
 var DKH_mk0 = null;                      // 包む前の mkScreen
 var DKH_boot = Date.now();               // オンラインの読み込み待ちを見分ける
-
 /* ══════════ 絵（CSS と SVG で自作。外の絵・ロゴは使わない） ══════════ */
 var DKH_ICON = {
   card: '<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="9" y="15" width="29" height="39" rx="5" transform="rotate(-13 23 34)" fill="#F4E3BD" stroke="#3A2405" stroke-width="3"/>'
@@ -115,7 +140,10 @@ var DKH_ICON = {
   trophy: '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M20 12h-8c0 11 4.4 15 10 15M44 12h8c0 11-4.4 15-10 15" fill="none" stroke="#3A2405" stroke-width="3.4"/>'
       + '<path d="M19 8h26v15a13 13 0 01-26 0z" fill="#FFD44A" stroke="#3A2405" stroke-width="3"/>'
       + '<path d="M28 36h8v8h7v9H21v-9h7z" fill="#E0AE3A" stroke="#3A2405" stroke-width="3" stroke-linejoin="round"/>'
-      + '<path d="M24 13v8" stroke="#FFF6D0" stroke-width="3" stroke-linecap="round"/></svg>'
+      + '<path d="M24 13v8" stroke="#FFF6D0" stroke-width="3" stroke-linecap="round"/></svg>',
+  book: '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 16c-6-5-15-6-23-4v38c8-2 17-1 23 4 6-5 15-6 23-4V12c-8-2-17-1-23 4z" fill="#FFF6E2" stroke="#3A2405" stroke-width="3" stroke-linejoin="round"/>'
+      + '<path d="M32 16v38" stroke="#3A2405" stroke-width="3"/><path d="M15 23c4-1 9-1 12 1M15 31c4-1 9-1 12 1M15 39c4-1 9-1 12 1" stroke="#8A6A34" stroke-width="2.6" stroke-linecap="round"/>'
+      + '<path d="M42 10v16l5-4 5 4V10" fill="#E8483A" stroke="#3A2405" stroke-width="2.4" stroke-linejoin="round"/></svg>'
 };
 function dkhIcon(k){ return DKH_ICON[k] || ''; }
 
@@ -145,15 +173,33 @@ function dkhNow(){ return Date.now(); }
 function dkhOnlineOK(){ return !!(window.DV_OL && window.DV_OL.lib && window.DV_OL_API && !window.claude); }
 function dkhSay(side, ic, t, s, ms){ try{ toast(side || 'R', ic, t, s || '', ms || 2200); }catch(e){} }
 
-/* ══════════ リーグ ══════════ */
+/* ══════════ 週（日本時間の月曜 朝5時で区切る。C33） ══════════
+   起点は 1970-01-05(月) 05:00 JST ＝ Date.UTC(1970,0,4,20)。旧 weekIndex（月曜 06:00 UTC＝15:00 JST 起点）とは
+   月曜 5:00〜15:00 の10時間だけ番号が1つ進み、それ以外は同じ番号。読み込み途中にも呼ばれるので var を使わない */
+function weekIndex(t){
+  var now = (typeof t === 'number') ? t : Date.now();
+  return Math.floor((now - Date.UTC(1970, 0, 4, 20, 0, 0)) / 604800000);
+}
+/* k 週あとの週の始まり（月曜 朝5時） */
+function dkhWeekStart(k, t){ return Date.UTC(1970, 0, 4, 20, 0, 0) + (weekIndex(t) + (k | 0)) * 604800000; }
+/* 残り時間「0日13時間9分」 */
+function dkhLeftTxt(ms){
+  ms = Math.max(0, ms);
+  return Math.floor(ms / 864e5) + '日' + Math.floor(ms % 864e5 / 36e5) + '時間' + Math.floor(ms % 36e5 / 6e4) + '分';
+}
+function dkhWeekLeft(){ return dkhLeftTxt(dkhWeekStart(1) - Date.now()); }
+
+/* ══════════ 全体ランキング（5等級×5段。シーズン＝月） ══════════ */
 function dkhTier(rp){
   rp = Math.max(0, rp | 0);
   var T = DKH_TIERS || dkhTierTable();   // 9d-flow.js の起動処理（walletHTML）から、表の var より先に呼ばれることがある
   var i = 0;
   for(var k = 0; k < T.length; k++) if(rp >= T[k].min) i = k;
   var t = T[i], nx = T[i + 1] || null;
-  return { i:i, id:t.id, nm:t.nm, col:t.col, dk:t.dk, rw:t.rw, min:t.min, next:nx,
-    prog: nx ? Math.min(1, (rp - t.min) / (nx.min - t.min)) : 1, left: nx ? nx.min - rp : 0 };
+  var j = Math.min(4, Math.floor((rp - t.min) / t.st)), lo = t.min + j * t.st;
+  var hi = (j < 4) ? lo + t.st : (nx ? nx.min : 0);
+  return { i:i, id:t.id, nm:t.nm, col:t.col, dk:t.dk, rw:t.rw, min:t.min, next:nx, dv:5 - j, dn:t.nm + (5 - j), lv:i * 5 + j,
+    prog: hi ? Math.min(1, (rp - lo) / (hi - lo)) : 1, left: hi ? hi - rp : 0 };
 }
 /* シーズン＝月。t を渡すとその時刻で（渡さなければ今） */
 function dkhSeasonKey(t){
@@ -170,43 +216,131 @@ function dkhSeasonLeft(t){
   var end = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime();
   return Math.max(0, Math.ceil((end - now) / 86400000));
 }
-/* 月が変わっていたら、前のシーズンの報酬を郵便で送り、RP を半分にする。何か起きたら結果を返す */
+/* 月が変わっていたら、前のシーズンの報酬をプレゼントボックスへ送り、RP を半分にする */
 function dkhSeasonCheck(t){
   if(typeof SV !== 'object' || !SV) return null;
   var k = dkhSeasonKey(t);
   if(!SV.season){ SV.season = k; saveNow(); return null; }
   if(SV.season === k) return null;
-  var old = SV.season, rp = SV.rp | 0, tier = dkhTier(rp), out = { from:old, to:k, tier:tier.nm, rp:rp, half:Math.floor(rp / 2) };
-  if(rp > 0){
-    out.mail = dkMail({ ic:'🏆', nm:'リーグ ' + dkhSeasonName(old) + ' の報酬（' + tier.nm + '）', g:tier.rw.g, d:tier.rw.d });
-  }
+  var old = SV.season, rp = SV.rp | 0, tier = dkhTier(rp), out = { from:old, to:k, tier:tier.dn, rp:rp, half:Math.floor(rp / 2) };
+  if(rp > 0) out.mail = dkMail({ ic:'🏆', nm:'全体ランキング ' + dkhSeasonName(old) + 'シーズンの報酬（' + tier.dn + '）', g:tier.rw.g, d:tier.rw.d });
   SV.rp = Math.floor(rp / 2);
   SV.season = k;
   saveNow();
   return out;
 }
-/* ライバル（CPU）の点数：月の何日目かだけで決まる */
+/* 全体ランキングの相手（CPU）の点数：月の何日目かだけで決まる */
 function dkhRivalRp(r, t){
   var d = new Date(typeof t === 'number' ? t : Date.now()).getDate();
   return r.base + r.per * d;
 }
-/* 順位表。tab='league' は自分＋CPU＋RP の分かっているともだち、'friends' はともだちだけ */
+
+/* ══════════ 友だちランキング（毎週。今週の RP＝SV.wk.rp） ══════════ */
+function dkhWkRp(){ var w = SV.wk; return (w && w.key === weekIndex()) ? Math.max(0, w.rp | 0) : 0; }
+function dkhWkFrac(t){
+  var now = (typeof t === 'number') ? t : Date.now();
+  return Math.max(0, Math.min(1, (now - dkhWeekStart(0, now)) / DKH_WEEK_MS));
+}
+/* 週 key の CPU i の点（k＝週の経過の割合 0〜1。週の番号で ±20% ゆらぐ） */
+function dkhWkCpu(i, key, k){
+  var h = (Math.imul((key | 0) + 1013, -1640531535) ^ Math.imul(i + 7, 40503)) >>> 0;
+  return Math.round(DKH_WRIVALS[i].w * (0.8 + (h % 41) / 100) * k);
+}
+/* 順位表。tab='friends'＝今週の友だちランキング、'all'＝全体ランキング（通算の RP） */
 function dkRank(tab){
-  var me = { nm:(SV.name || 'あなた'), rp:SV.rp | 0, me:true, cpu:false, card:SV.equip };
+  var me = { nm:(SV.name || 'あなた'), me:true, card:SV.equip }, list = [];
   if(tab === 'friends'){
-    return (SV.friends || []).slice().sort(function(a, b){ return (b.at || 0) - (a.at || 0); }).map(function(f){
-      return { nm:f.name, rp:(typeof f.rp === 'number' ? f.rp : null), n:f.n | 0, at:f.at || 0, card:f.card || null, friend:true };
+    var key = weekIndex(), k = dkhWkFrac();
+    me.rp = dkhWkRp();
+    DKH_WRIVALS.forEach(function(r, i){ list.push({ nm:r.nm, rp:dkhWkCpu(i, key, k), cpu:true, card:r.card }); });
+    (SV.friends || []).forEach(function(f){
+      if(f && f.wk && f.wk.key === key) list.push({ nm:f.name, rp:f.wk.rp | 0, friend:true, card:f.card || null });
+    });
+  } else {
+    me.rp = SV.rp | 0;
+    DKH_RIVALS.forEach(function(r){ list.push({ nm:r.nm, rp:dkhRivalRp(r), cpu:true, card:r.card }); });
+    (SV.friends || []).forEach(function(f){
+      if(f && typeof f.rp === 'number') list.push({ nm:f.name, rp:f.rp | 0, friend:true, card:f.card || null });
     });
   }
-  var list = DKH_RIVALS.map(function(r){ return { nm:r.nm, rp:dkhRivalRp(r), cpu:true, card:r.card }; });
-  (SV.friends || []).forEach(function(f){
-    if(typeof f.rp === 'number') list.push({ nm:f.name, rp:f.rp | 0, friend:true, card:f.card || null });
-  });
   list.push(me);
   return list.sort(function(a, b){ return (b.rp - a.rp) || (a.me ? -1 : b.me ? 1 : 0); });
 }
+/* 締めた週 key での順位（CPU は週の終わりの点） */
+function dkhWeekRank(key, rp){
+  var n = 1;
+  DKH_WRIVALS.forEach(function(r, i){ if(dkhWkCpu(i, key, 1) > rp) n++; });
+  (SV.friends || []).forEach(function(f){ if(f && f.wk && f.wk.key === key && (f.wk.rp | 0) > rp) n++; });
+  return n;
+}
+/* 前の週の友だちランキングの報酬をプレゼントボックスへ（1週に1回。SV.wkRw で二重に送らない。遊んでいない週は無し） */
+function dkhWeekReward(prev){
+  if(!prev || typeof prev.key !== 'number' || prev.key < 0 || prev.key >= weekIndex()) return null;
+  if(SV.wkRw === prev.key) return null;
+  SV.wkRw = prev.key;
+  var rp = Math.max(0, prev.rp | 0), m = null;
+  if(rp > 0){
+    var no = dkhWeekRank(prev.key, rp), rw = DKH_WRW[Math.min(no, DKH_WRW.length) - 1];
+    m = dkMail({ ic:'🏅', nm:'友だちランキング報酬（' + no + '位）', g:rw.g, d:rw.d, item:rw.it || null });
+  }
+  saveNow();
+  return m;
+}
+/* 週が変わっていたら報酬を送る。前の週の RP は自分で覚えた SV.wkMine から読む（SV.wk を誰が作り直しても失わない） */
+function dkhWeekCheck(){
+  var m = SV.wkMine;
+  if(m && typeof m.key === 'number' && m.key !== weekIndex()){ dkhWeekReward(m); SV.wkMine = null; saveNow(); }
+}
+/* 'week:roll'（C33・WP12 の DKCORE_week）でも同じ処理 */
+function dkhOnWeekRoll(e){
+  var p = e && e.prev, m = SV.wkMine;
+  if(!p || typeof p.key !== 'number') return;
+  dkhWeekReward({ key:p.key, rp:Math.max(p.rp | 0, (m && m.key === p.key) ? (m.rp | 0) : 0) });
+  if(m && m.key === p.key){ SV.wkMine = null; saveNow(); }
+}
 
-/* ══════════ 郵便 ══════════ */
+/* ══════════ 品物（C21・C22・C24）とプレゼントボックス ══════════ */
+function dkhTkNm(id){ return DKH_TKNM[id] || '入場券'; }
+function dkhFrame(id){ for(var i = 0; i < DKH_FRAMES.length; i++) if(DKH_FRAMES[i].id === id) return DKH_FRAMES[i]; return null; }
+function dkhFrNm(id){ var f = dkhFrame(id); return f ? f.nm : '名札の枠'; }
+function dkhFrOwn(id){ var o = SV.frames && SV.frames.own; return !!(o && (Array.isArray(o) ? o.indexOf(id) >= 0 : o[id])); }
+function dkhFrEq(){ var e = SV.frames && SV.frames.eq; return (e && dkhFrame(e) && dkhFrOwn(e)) ? e : ''; }
+function dkhItemNm(it){
+  if(!it || !it.kind) return '';
+  var k = it.kind, id = String(it.id || ''), o = null;
+  try{
+    if(k === 'card') o = cardById(id);
+    else if(k === 'pend') o = pendById(id);
+    else if(k === 'die' && DICE.some(function(x){ return x.id === id; })) o = dieById(id);
+  }catch(e){ o = null; }
+  if(o) return o.nm;
+  return k === 'key' ? 'ゴールドキー' : k === 'ticket' ? dkhTkNm(id) : k === 'frame' ? dkhFrNm(id)
+       : k === 'cube' ? (DKH_CUBENM[id] || '') + 'キューブ' : '';
+}
+/* 品物を渡す。C21 の dkGrantItem を先に使い、仮の部品（false を返す）の間だけここで渡す。渡せたら true。
+   キューブは WP12 の本物が要る（ここでは渡さず false） */
+function dkhGrant(it){
+  if(!it || !it.kind) return false;
+  var k = String(it.kind), id = String(it.id || ''), n = Math.max(1, it.n | 0), r = false, i;
+  try{ if(typeof dkGrantItem === 'function') r = dkGrantItem({ kind:k, id:id, n:n }); }catch(e){ console.error('[WP16b]', e); r = false; }
+  if(r !== false) return true;
+  if(k === 'card' && cardById(id)){ for(i = 0; i < n; i++) grant(cardById(id)); return true; }
+  if(k === 'pend' && pendById(id)){ for(i = 0; i < n; i++) dkGivePend(id); return true; }
+  if(k === 'die' && DICE.some(function(x){ return x.id === id; })){ SV.dice[id] = Math.max(1, SV.dice[id] | 0); return true; }
+  if(k === 'key'){ SV.keys = (SV.keys | 0) + n; return true; }
+  if(k === 'ticket' && DKH_TKNM[id]){
+    if(!SV.tickets || typeof SV.tickets !== 'object') SV.tickets = { biz:0, first:0, dia:0 };
+    SV.tickets[id] = (SV.tickets[id] | 0) + n;
+    return true;
+  }
+  if(k === 'frame' && dkhFrame(id)){
+    var f = (SV.frames && typeof SV.frames === 'object') ? SV.frames : (SV.frames = { own:[], eq:'' });
+    if(Array.isArray(f.own)){ if(f.own.indexOf(id) < 0) f.own.push(id); }
+    else { if(!f.own || typeof f.own !== 'object') f.own = {}; f.own[id] = true; }
+    return true;
+  }
+  return false;
+}
 function dkhMailList(){
   var now = Date.now();
   if(!Array.isArray(SV.mail)) SV.mail = [];
@@ -215,49 +349,89 @@ function dkhMailList(){
   return SV.mail;
 }
 function dkhMailCount(){ return dkhMailList().length; }
-/* 1通ぶんを受け取る（アイテムも渡す）。受け取った中身を返す */
+/* 1通ぶんを受け取る。渡せない品物はプレゼントボックスに残す（{kept:true}）。受け取った中身を返す */
 function dkhTakeMail(m){
-  var got = { g:m.g | 0, d:m.d | 0, item:null };
-  SV.gold += got.g; SV.gem += got.d;
   var it = m.item;
-  if(it && it.kind){
-    try{
-      if(it.kind === 'card' && cardById(it.id)){ grant(cardById(it.id)); got.item = cardById(it.id).nm; }
-      else if(it.kind === 'pend' && pendById(it.id)){ dkGivePend(it.id); got.item = pendById(it.id).nm; }
-      else if(it.kind === 'die' && typeof dieById === 'function'){
-        var dd = dieById(it.id); if(dd){ SV.dice[dd.id] = Math.max(1, SV.dice[dd.id] || 0); got.item = dd.nm; } }
-      else if(it.kind === 'key'){ SV.keys = (SV.keys | 0) + 1; got.item = '🔑'; }
-    }catch(e){ console.error('[WP9]', e); }
-  }
+  if(it && it.kind && !dkhGrant({ kind:it.kind, id:it.id, n:it.n })) return { g:0, d:0, item:null, kept:true };
+  var got = { g:m.g | 0, d:m.d | 0, item:(it && it.kind) ? (dkhItemNm(it) || null) : null, kept:false };
+  SV.gold += got.g; SV.gem += got.d;
   var i = SV.mail.indexOf(m);
   if(i >= 0) SV.mail.splice(i, 1);
   return got;
 }
 
-/* ══════════ 対戦が終わった時（リーグ・マイレージ・ともだち） ══════════ */
+/* ══════════ 対戦が終わった時（RP・友だちランキング・マイレージ・ともだち） ══════════ */
+/* サイコロの RP ボーナス（C05 dkDieAb(pi).rp。1以上は％、1未満は割合として読む） */
+function dkhDieRp(pi){
+  var v = 0;
+  try{ if(typeof dkDieAb === 'function' && typeof pi === 'number' && pi >= 0) v = +((dkDieAb(pi) || {}).rp) || 0; }catch(e){ v = 0; }
+  return v >= 1 ? v / 100 : Math.max(0, v);
+}
+/* 相手の RP。人間は分かる時だけ。CPU は強さで：よわい 0.7・ふつう 1.0・つよい 1.3 ×自分の RP（最低200） */
+function dkhFoeRp(p, mine){
+  if(p && typeof p.rp === 'number') return p.rp;
+  if(!p || p.kind !== 'cpu') return mine;
+  var ai = (typeof cfg === 'object' && cfg) ? Math.max(0, Math.min(2, cfg.ai | 0)) : 1;
+  return Math.round(Math.max(200, mine) * [0.7, 1, 1.3][ai]);
+}
+function dkhBeatHigh(me, mine){
+  try{
+    if(!G || !G.players || typeof me !== 'number') return false;
+    return G.players.some(function(p, i){
+      return i !== me && !(typeof dkAlly === 'function' && dkAlly(me, i)) && dkhFoeRp(p, mine) > mine;
+    });
+  }catch(e){ return false; }
+}
+/* match:end（C20）。勝ち RP＝40×クラスの倍率×(1＋サイコロの RP)、本日のマップ +20%、ポイントが高い相手 +30%。
+   負け −10（0より下にしない。'rp:guard' で戻す）。SV.wk.rp にも足す。chips は短く（WP4#4：8文字程度） */
 function dkhOnMatchEnd(p){
   if(!p || typeof SV !== 'object') return;
   if(typeof p.me === 'number' && p.me < 0) return;           // 人間のいない観戦
-  dkhSeasonCheck();
+  dkhSeasonCheck(); dkhWeekCheck();
+  var x = +p.x;
+  if(!(x > 0)){ try{ x = +(dkClassOf(p.cls || SV.cls) || {}).x; }catch(e){ x = 1; } }
+  if(!(x > 0)) x = 1;
+  var before = SV.rp | 0, d, mapB = 0, hiB = 0;
+  if(p.won){
+    var d0 = Math.round(DKH_RP_WIN * x * (1 + dkhDieRp(p.me))), today = '';
+    try{ today = (typeof dkTodayMap === 'function') ? dkTodayMap() : ''; }catch(e){ today = ''; }
+    if(p.mapId && today && p.mapId === today) mapB = Math.round(d0 * 0.2);
+    if(dkhBeatHigh(p.me, before)) hiB = Math.round(d0 * 0.3);
+    d = d0 + mapB + hiB;
+  } else d = -Math.min(DKH_RP_LOSE, before);
+  SV.rp = Math.max(0, before + d);
+  var w = (typeof DKCORE_week === 'function') ? DKCORE_week() : SV.wk, wd = 0;
+  if(w){ var w0 = w.rp | 0; w.rp = Math.max(0, w0 + d); wd = w.rp - w0; SV.wkMine = { key:w.key, rp:w.rp }; }
+  SV.rpLast = (d < 0) ? { d:d, wd:wd, wk:w ? w.key : -1 } : null;
+  var t0 = dkhTier(before), t1 = dkhTier(SV.rp);
+  if(t1.i > t0.i) SV.tierUp = { from:t0.id, to:t1.id };
   /* マイレージ */
   SV.mile = (SV.mile | 0) + 1;
   var key = false;
   if(SV.mile >= DKH_MILE){ SV.mile -= DKH_MILE; SV.keys = (SV.keys | 0) + 1; key = true; }
-  /* リーグ */
-  var x = +p.x;
-  if(!(x > 0)){ try{ x = +(dkClassOf(p.cls || SV.cls) || {}).x; }catch(e){ x = 1; } }
-  if(!(x > 0)) x = 1;
-  var before = SV.rp | 0, d = p.won ? Math.round(DKH_RP_WIN * x) : -Math.min(DKH_RP_LOSE, before);
-  SV.rp = Math.max(0, before + d);
-  var t0 = dkhTier(before), t1 = dkhTier(SV.rp);
-  /* オンラインで遊んだ相手をともだちに */
   if(p.online) dkhNoteFriends(p);
   saveNow();
-  if(Array.isArray(p.chips)){
-    p.chips.push({ ic:'🏆', label:'リーグ ' + t1.nm, v:(d >= 0 ? '+' : '') + d + ' RP' });
-    if(t1.i > t0.i) p.chips.push({ ic:'👑', label:'リーグ昇格', v:t1.nm });
-    p.chips.push({ ic:'🎫', label:'マイレージ', v:key ? '🔑+1' : (SV.mile + '/' + DKH_MILE) });
-  }
+  if(!Array.isArray(p.chips)) return;
+  var add = [{ ic:'🏆', label:'RP', v:(d >= 0 ? '+' : '') + d, k:'rp' }];
+  if(mapB) add.push({ ic:'🗺️', label:'本日のマップ', v:'+20%', k:'map' });
+  if(hiB) add.push({ ic:'⚔️', label:'格上に勝利！', v:'+30%', k:'high', ds:'ポイントが高い相手の勝利！ 30%' });
+  if(t1.i > t0.i) add.push({ ic:'👑', label:'昇格', v:t1.nm, k:'tier', from:t0.dn, to:t1.dn });
+  else if(t1.lv !== t0.lv) add.push({ ic:t1.lv > t0.lv ? '⬆️' : '⬇️', label:t1.lv > t0.lv ? '昇段' : '降段', v:t1.dn, k:'div', from:t0.dn, to:t1.dn });
+  add.push(key ? { ic:'🔑', label:'ゴールドキー', v:'+1', k:'key' } : { ic:'🎫', label:'マイレージ', v:SV.mile + '/' + DKH_MILE, k:'mile' });
+  /* 行商人の行（9i が先に足す）は最後へ */
+  var ped = [];
+  for(var i = p.chips.length - 1; i >= 0; i--) if(p.chips[i] && p.chips[i].k === 'ped') ped.unshift(p.chips.splice(i, 1)[0]);
+  Array.prototype.push.apply(p.chips, add.concat(ped));
+}
+/* 'rp:guard'（C20）：直前の負けの −10 を戻す（1回だけ。その週の友だちランキングの分も） */
+function dkhOnRpGuard(){
+  var L = SV.rpLast;
+  if(!L || !(L.d < 0)) return;
+  SV.rp = (SV.rp | 0) - L.d;
+  var w = SV.wk;
+  if(w && w.key === L.wk && L.wd){ w.rp = Math.max(0, (w.rp | 0) - L.wd); SV.wkMine = { key:w.key, rp:w.rp }; }
+  SV.rpLast = null;
+  saveNow();
 }
 function dkhNoteFriends(p){
   var OL = window.DV_OL, now = Date.now(), names = [];
@@ -278,6 +452,7 @@ function dkhNoteFriends(p){
     f.at = now; f.n = (f.n | 0) + 1;
     if(o.prof){
       if(typeof o.prof.rp === 'number') f.rp = o.prof.rp | 0;
+      if(typeof o.prof.wkrp === 'number') f.wk = { key:weekIndex(), rp:o.prof.wkrp | 0 };
       if(o.prof.cardId && cardById(o.prof.cardId)) f.card = o.prof.cardId;
     }
   });
@@ -286,15 +461,16 @@ function dkhNoteFriends(p){
 
 /* ══════════ 常設バー（Lv・経験値・ゴールド・ダイヤ・RP） ══════════
    ＋は .dkh-plus[data-dkbuy]（.wp にしないのは 5-meta.js の古いクリック処理に拾わせないため）。
-   dkWire(el) が showShop('osusume'|'gem') につなぐ。つながれていない画面でも、下の IIFE の委任で開く。 */
+   ショップの無料の宝が受け取れる時はゴールドの＋に赤い印。 */
 function walletHTML(){
   var need = playerLvNeed(SV.lv), exp = Math.max(0, SV.exp | 0), k = Math.min(1, exp / Math.max(1, need));
-  var t = dkhTier(SV.rp | 0);
+  var t = dkhTier(SV.rp | 0), fr = false;
+  try{ fr = (typeof dksFreeReady === 'function') && !!dksFreeReady(); }catch(e){ fr = false; }
   return '<div class="wallet dkh-wallet">'
     + '<div class="dkh-wi dkh-wlv"><span class="dkh-lvb"><i>Lv</i><b id="wLv">' + SV.lv + '</b></span>'
     +   '<span class="dkh-xp"><i style="transform:scaleX(' + k.toFixed(3) + ')"></i><em>' + dkhNum(exp) + ' / ' + dkhNum(need) + '</em></span></div>'
     + '<div class="dkh-wi dkh-wg"><i class="dkh-coin" aria-hidden="true"></i><b id="wGold">' + SV.gold.toLocaleString() + '</b>'
-    +   '<button type="button" class="dkh-plus" data-dkbuy="gold" aria-label="ゴールドをふやす">＋</button></div>'
+    +   '<button type="button" class="dkh-plus' + (fr ? ' dot' : '') + '" data-dkbuy="gold" aria-label="ショップ">＋</button></div>'
     + '<div class="dkh-wi dkh-wd"><i class="dkh-gem" aria-hidden="true"></i><b id="wGem">' + SV.gem.toLocaleString() + '</b>'
     +   '<button type="button" class="dkh-plus" data-dkbuy="gem" aria-label="ダイヤをふやす">＋</button></div>'
     + '<div class="dkh-wi dkh-wr">' + dkhEmblem(t) + '<b id="wRp">' + dkhNum(SV.rp) + '</b><i class="dkh-rpu">RP</i></div>'
@@ -308,12 +484,15 @@ function dkGo(id){
     case 'home':     return showHome();
     case 'cards':    return showCards();
     case 'gacha':    return showGacha();
+    case 'cube':     return showGacha('cube');     // キューブ（報酬の箱の置き場）は WP16a の showGacha('cube')
     case 'pend':     return showPend();
     case 'dice':     return showDice();
     case 'shop':     return showShop();
     case 'quest':    return showQuest();
     case 'daily':    return showDaily();
-    case 'news':     return showNews();
+    case 'news':     return showNews('week');
+    case 'info':     return showNews('info');
+    case 'guide':    return showNews('tips');
     case 'mail':     return showMail();
     case 'friends':  return showFriends();
     case 'online':   return dkhOpenOnline(true);
@@ -338,56 +517,73 @@ function dkhOpenOnline(quiet){
 }
 function DKH_BOOT_T(){ return (typeof DKH_boot === 'number') ? DKH_boot : 0; }
 
+/* ══════════ 演出の小道具（常時アニメを増やさない） ══════════ */
+/* 光の筋：root の中の sel（.dkh-gl、pe を渡すとその疑似要素）を1本ずつ順に、1.4秒ごとに1回だけ流す
+   （el.animate・transform だけ。無限のアニメにしない）。スマホ・控えめ・動きを減らすでは流さない。画面が変わると dkEvery が止まる */
+function dkhGlint(root, sel, key, pe){
+  if(!root || DKFX.mob || DKFX.lite || DKFX.reduced) return;
+  var n = 0, kf = [{ transform:'translateX(-160%) skewX(-16deg)' }, { transform:'translateX(430%) skewX(-16deg)' }];
+  dkEvery(key, function(){
+    if(!root.isConnected || !root.classList.contains('on') || document.hidden) return;
+    var list = root.querySelectorAll(sel);
+    if(!list.length) return;
+    var g = list[n++ % list.length], o = { duration:900, easing:'ease-in-out' };
+    if(pe) o.pseudoElement = pe;
+    try{ g.animate(kf, o); }catch(e){}
+  }, 1400);
+}
+/* 画面の背景の光（fxAmbient）を、漂う粒なしで先に作る（粒は1個ずつ無限のアニメになるため） */
+function dkhAmb(el){ try{ fxAmbient(el, { motes:0 }); }catch(e){} return el; }
+
 /* ══════════════════════════════════════════════════════════════
-   ホーム（本家ロビー G/v2/f002 の組み方：左右レール・首から下げたカード・右にリーグ）
+   ホーム（本家ロビー：左右の縦のボタン・首から下げたカード・右にランキング）
    ══════════════════════════════════════════════════════════════ */
 function dkhRail(list, side){
   return '<div class="dkh-rail ' + side + '">' + list.map(function(t){
     var b = '';
     try{
       if(t.id === 'quest' && questReady()) b = '!';
-      if(t.id === 'daily' && canDaily()) b = '!';
-      if(t.id === 'gacha' && typeof freeLeft === 'function' && freeLeft() === 0) b = '!';
-      if(t.id === 'mail'){ var n = dkhMailCount(); if(n) b = String(Math.min(99, n)); }
+      else if(t.id === 'daily' && canDaily()) b = '!';
+      else if(t.id === 'gacha' && typeof freeLeft === 'function' && freeLeft() === 0) b = '!';
+      else if(t.id === 'cube' && Array.isArray(SV.cubes) && SV.cubes.length) b = String(Math.min(7, SV.cubes.length));
     }catch(e){}
-    return '<div class="dkh-rb" data-dkgo="' + t.id + '" data-fx="' + (side === 'l' ? 'riseL' : 'riseR') + '">'
-      + '<i class="dkh-med ' + t.m + '">' + dkhIcon(t.ic) + '</i><b class="dkh-rbt">' + t.nm + '</b>'
+    return '<div class="dkh-rb" data-dkgo="' + t.id + '" data-fx="' + (side === 'l' ? 'riseL' : 'riseR') + '" role="button">'
+      + '<i class="dkh-med ' + t.m + '">' + dkhIcon(t.ic) + '<i class="dkh-gl" aria-hidden="true"></i></i>'
+      + '<b class="dkh-rbt' + (t.nm.indexOf('<br>') > 0 ? ' two' : '') + '">' + t.nm + '</b>'
       + (b ? '<em class="dkh-badge">' + b + '</em>' : '') + '</div>';
   }).join('') + '</div>';
 }
+function dkhRowHTML(r, no, tab, i){
+  var t = dkhTier(r.rp);
+  return '<div class="dkh-row' + (no < 3 ? ' top' + (no + 1) : '') + '" style="--i:' + i + '">'
+    + '<span class="dkh-no">' + (no < 3 ? '<i class="dkh-medal m' + (no + 1) + '">' + (no + 1) + '</i>' : (no + 1)) + '</span>'
+    + dkhFace(r.card || CARDPOOL[0].id)
+    + '<span class="dkh-nm">' + esc(r.nm) + (r.cpu ? '<i class="dkh-cpu">CPU</i>' : '') + '</span>'
+    + (tab === 'all' ? '<span class="dkh-tier" style="--tc:' + t.col + ';--td:' + t.dk + '">' + t.dn + '</span>' : '')
+    + '<b class="dkh-rpv"><i class="dkh-cup" aria-hidden="true"></i>' + dkhNum(r.rp) + '</b></div>';
+}
+/* 自分の行（いちばん上に固定。✉ と件数でプレゼントボックスへ） */
+function dkhMeHTML(rows){
+  var i = rows.findIndex(function(r){ return r.me; }), r = rows[i], n = dkhMailCount();
+  return '<div class="dkh-me"><span class="dkh-no">' + (i + 1) + '</span>' + dkhFace(r.card || CARDPOOL[0].id)
+    + '<span class="dkh-nm">' + esc(r.nm) + '<i class="dkh-you">YOU</i></span>'
+    + '<b class="dkh-rpv"><i class="dkh-cup" aria-hidden="true"></i>' + dkhNum(r.rp) + '</b>'
+    + '<button type="button" class="dkh-mailb" data-dkgo="mail" aria-label="プレゼントボックス">' + dkhIcon('mail')
+    + '<b>' + Math.min(99, n) + '</b></button>' + (n ? '<i class="dkh-new">new</i>' : '') + '</div>';
+}
+/* 全体ランキングの上の段の札（例「シルバー3」・シーズン・次の段まで） */
+function dkhLeagueHTML(){
+  var t = dkhTier(SV.rp | 0);
+  return '<div class="dkh-lg">' + dkhEmblem(t, 'big')
+    + '<div class="dkh-lgt"><b class="dkh-tnm" style="--tc:' + t.col + '">' + t.dn + '</b>'
+    +   '<span class="dkh-lgs">' + dkhSeasonName(SV.season || dkhSeasonKey()) + 'シーズン・のこり ' + dkhSeasonLeft() + '日</span></div>'
+    + '<div class="dkh-tbar"><span class="dkh-tbg"><i style="transform:scaleX(' + t.prog.toFixed(3) + ');--tc:' + t.col + '"></i></span>'
+    +   '<em>' + (t.left ? 'つぎの段まで あと ' + dkhNum(t.left) + ' RP' : '最上位の段です') + '</em></div></div>';
+}
 function dkhRowsHTML(tab){
-  var rows = dkRank(tab);
-  if(tab === 'friends'){
-    if(!rows.length){
-      return '<div class="dkh-empty"><i class="dkh-emptyic">' + dkhIcon('duo') + '</i>'
-        + '<b>オンラインで遊んだ相手が、ここに並びます</b>'
-        + '<span>あいことばを伝えるだけで、はなれた友だちと同じ盤で遊べます</span>'
-        + '<button type="button" class="dkbtn gr dkh-go-ol" data-dkgo="online">オンラインで遊ぶ</button></div>';
-    }
-    return rows.slice(0, 6).map(function(r, i){
-      var d = r.at ? new Date(r.at) : null;
-      return '<div class="dkh-row fr" style="--i:' + i + '">'
-        + (r.card ? dkhFace(r.card) : '<span class="dkh-face dkh-noface">' + dkhIcon('duo') + '</span>')
-        + '<span class="dkh-nm">' + esc(r.nm) + '</span>'
-        + '<span class="dkh-meta">いっしょに ' + r.n + '回' + (d ? '・' + (d.getMonth() + 1) + '/' + d.getDate() : '') + '</span>'
-        + (r.rp != null ? '<b class="dkh-rpv">' + dkhNum(r.rp) + '<i>RP</i></b>' : '')
-        + '</div>';
-    }).join('');
-  }
-  var meI = rows.findIndex(function(r){ return r.me; });
-  var show = rows.slice(0, 6);
-  if(meI >= 6) show[5] = rows[meI];
-  return show.map(function(r, i){
-    var no = r === rows[meI] ? meI : i;
-    var t = dkhTier(r.rp);
-    return '<div class="dkh-row' + (r.me ? ' me' : '') + (no < 3 ? ' top' + (no + 1) : '') + '" style="--i:' + i + '">'
-      + '<span class="dkh-no">' + (no < 3 ? '<i class="dkh-medal m' + (no + 1) + '">' + (no + 1) + '</i>' : (no + 1)) + '</span>'
-      + dkhFace(r.card || CARDPOOL[0].id)
-      + '<span class="dkh-nm">' + esc(r.nm) + (r.cpu ? '<i class="dkh-cpu">CPU</i>' : '') + (r.me ? '<i class="dkh-you">YOU</i>' : '') + '</span>'
-      + '<span class="dkh-tier" style="--tc:' + t.col + ';--td:' + t.dk + '">' + t.nm + '</span>'
-      + '<b class="dkh-rpv">' + dkhNum(r.rp) + '<i>RP</i></b>'
-      + '</div>';
-  }).join('');
+  var rows = dkRank(tab), others = rows.filter(function(r){ return !r.me; });
+  return (tab === 'all' ? dkhLeagueHTML() : '') + dkhMeHTML(rows)
+    + others.slice(0, tab === 'all' ? 4 : 5).map(function(r, i){ return dkhRowHTML(r, rows.indexOf(r), tab, i); }).join('');
 }
 function dkhPeddler(){
   try{
@@ -399,28 +595,23 @@ function dkhPeddler(){
   }catch(e){ return null; }
 }
 function showHome(){
-  dkhSeasonCheck();
-  dkhMailList();
+  dkhSeasonCheck(); dkhWeekCheck(); dkhMailList();
   var c = cardById(SV.equip) || CARDPOOL[0], own = SV.cards[c.id] || { lv:1 };
-  var img = dkhImg(c.id), w = thisWeek(), t = dkhTier(SV.rp | 0);
+  var img = dkhImg(c.id), w = thisWeek(), rc = RAR[c.rar] ? RAR[c.rar].cls : 'rA';
   var mails = dkhMailCount(), keys = SV.keys | 0, mile = Math.min(DKH_MILE, SV.mile | 0);
-  var logo = dkhUi('logo-home'), pd = dkhPeddler();
-  var ticks = '';
-  for(var i = 5; i < DKH_MILE; i += 5) ticks += '<i style="left:' + (i / DKH_MILE * 100).toFixed(2) + '%"></i>';
-
+  var logo = dkhUi('logo-home'), pd = dkhPeddler(), fr = dkhFrEq();
   var html = ''
-    /* 上段：ロゴ・今週のイベント・郵便・設定 */
+    /* 上段：ロゴ・今週のイベント・お知らせ・メール */
     + '<div class="dkh-top">'
     +   (logo ? '<div class="dkh-logo" style="background-image:url(' + logo + ');--dkh-logo:url(' + logo + ')" data-fx="pop"></div>'
               : '<div class="dkh-logo dkh-logotx" data-fx="pop"><b>ダイスキングダム</b></div>')
-    +   '<div class="dkh-ev" data-dkgo="news" data-fx="pop"><span class="dkh-evtag">今週</span>'
+    +   '<div class="dkh-ev" data-dkgo="news" data-fx="pop" role="button"><span class="dkh-evtag">今週</span>'
     +     '<i class="dkh-evic">' + w.ic + '</i><b class="dkh-evnm">' + esc(w.nm) + '</b>'
-    +     '<span class="dkh-evds">' + esc(w.ds) + '</span>'
-    +     '<span class="dkh-evtime">のこり ' + weekEndsIn() + '</span><i class="dkh-evshine" aria-hidden="true"></i></div>'
+    +     '<span class="dkh-evds">' + esc(w.ds) + '</span><i class="dkh-gl" aria-hidden="true"></i></div>'
     +   '<div class="dkh-tr">'
-    +     '<div class="dkh-ic" data-dkgo="mail" data-fx="pop" role="button" aria-label="郵便箱">' + dkhIcon('mail')
-    +       (mails ? '<em class="dkh-dot">' + Math.min(99, mails) + '</em>' : '') + '</div>'
-    +     '<div class="dkh-ic" data-dkgo="settings" data-fx="pop" role="button" aria-label="設定">' + dkhIcon('gear') + '</div>'
+    +     '<div class="dkh-oshi" data-dkgo="info" data-fx="pop" role="button"><i>!</i><b>お知らせ</b></div>'
+    +     '<div class="dkh-ic" data-dkgo="mail" data-fx="pop" role="button" aria-label="プレゼントボックス">' + dkhIcon('mail')
+    +       '<b class="dkh-ict">メール</b>' + (mails ? '<em class="dkh-dot">' + Math.min(99, mails) + '</em>' : '') + '</div>'
     +   '</div>'
     + '</div>'
     + dkhRail(DKH_LEFT, 'l') + dkhRail(DKH_RIGHT, 'r')
@@ -429,17 +620,17 @@ function showHome(){
     + '<div class="dkh-cardcol">'
     +   '<div class="dkh-badgewrap" data-fx="hero">'
     +     '<div class="dkh-strap" aria-hidden="true"><i></i></div>'
-    +     '<div class="dkh-card ' + (RAR[c.rar] ? RAR[c.rar].cls : 'rA') + '">'
+    +     '<div class="dkh-card ' + rc + '">'
     +       '<div class="dkh-chd"><span class="dkh-rar">' + esc(RAR[c.rar] ? RAR[c.rar].nm : c.rar) + '</span>'
     +         '<b class="dkh-cnm">' + esc(c.nm) + '</b></div>'
     +       '<div class="dkh-pic"><i class="dkh-glow" aria-hidden="true"></i>'
     +         (img ? '<i class="dkh-art" style="background-image:url(' + img + ')"></i>'
                    : '<b class="dkh-ph">' + esc(c.nm.slice(0, 1)) + '</b>')
-    +         '<i class="dkh-gloss" aria-hidden="true"></i>'
+    +         '<i class="dkh-gl" aria-hidden="true"></i>'
     +         '<span class="dkh-role">' + esc(c.role) + '</span>'
     +         '<span class="dkh-lv"><i>Lv</i>' + own.lv + '</span></div>'
-    +       '<div class="dkh-plate"><span class="dkh-ttl' + (SV.title ? '' : ' none') + '">' + esc(SV.title || '称号なし') + '</span>'
-    +         '<b class="dkh-pnm">' + esc(SV.name || 'あなた') + '</b>'
+    +       '<div class="dkh-plate' + (fr ? ' fr-' + fr : '') + '"><span class="dkh-ttl' + (SV.title ? '' : ' none') + '">' + esc(SV.title || '称号なし') + '</span>'
+    +         '<b class="dkh-pnm" data-dkh="frame" role="button" aria-label="名札の枠">' + esc(SV.name || 'あなた') + '</b>'
     +         '<span class="dkh-sw" data-dkgo="cards" role="button" aria-label="カードを替える">' + dkhIcon('swap') + '</span></div>'
     +     '</div>'
     +   '</div>'
@@ -447,37 +638,38 @@ function showHome(){
     +     '<span class="dkh-entx">入場する</span><i class="dkh-chev" aria-hidden="true"><b></b><b></b></i></button>'
     + '</div>'
 
-    /* 右：リーグ（リーグ／ともだち）とマイレージ */
+    /* 右：友だちランキング／全体ランキング・マイレージ */
     + '<div class="dkh-side" data-fx="riseR">'
-    +   '<div class="dkh-lgh">' + dkhEmblem(t, 'big')
-    +     '<div class="dkh-lgt"><b class="dkh-tnm" style="--tc:' + t.col + '">' + t.nm + 'リーグ</b>'
-    +       '<span class="dkh-lgs">' + dkhSeasonName(SV.season || dkhSeasonKey()) + 'シーズン・のこり ' + dkhSeasonLeft() + '日</span></div>'
-    +     '<div class="dkh-lgrp"><b id="dkhRp">' + dkhNum(SV.rp) + '</b><i>RP</i></div>'
-    +     '<button type="button" class="dkh-q" data-dkh="help" aria-label="等級と報酬">？</button></div>'
-    +   '<div class="dkh-tbar"><span class="dkh-tbg"><i style="transform:scaleX(' + t.prog.toFixed(3) + ');--tc:' + t.col + '"></i></span>'
-    +     '<em>' + (t.next ? '次の' + t.next.nm + 'まで あと ' + dkhNum(t.left) + ' RP' : '最上位の等級です') + '</em></div>'
-    +   '<div class="dkh-tabs" role="tablist">'
-    +     '<button type="button" class="dkh-tab' + (DKH_homeTab === 'league' ? ' on' : '') + '" data-dkh-tab="league">リーグ</button>'
-    +     '<button type="button" class="dkh-tab' + (DKH_homeTab === 'friends' ? ' on' : '') + '" data-dkh-tab="friends">ともだち</button></div>'
+    +   '<div class="dkh-rkh"><div class="dkh-tabs" role="tablist">'
+    +     '<button type="button" class="dkh-tab' + (DKH_homeTab === 'friends' ? ' on' : '') + '" data-dkh-tab="friends">友だちランキング</button>'
+    +     '<button type="button" class="dkh-tab' + (DKH_homeTab === 'all' ? ' on' : '') + '" data-dkh-tab="all">全体ランキング</button></div>'
+    +     '<button type="button" class="dkh-q" data-dkh="help" aria-label="ランキングの報酬">？</button>'
+    +     '<span class="dkh-left" id="dkhLeft">' + dkhWeekLeft() + '</span></div>'
     +   '<div class="dkh-list" id="dkhList" data-tab="' + DKH_homeTab + '">' + dkhRowsHTML(DKH_homeTab) + '</div>'
     +   '<div class="dkh-mile">'
-    +     '<span class="dkh-ml">マイレージ</span>'
-    +     '<span class="dkh-mbar"><i class="dkh-mfill" style="transform:scaleX(' + (mile / DKH_MILE).toFixed(3) + ')"></i>' + ticks
-    +       '<em>' + mile + ' / ' + DKH_MILE + '</em></span>'
-    +     '<span class="dkh-key">' + dkhIcon('key') + '<b>×' + keys + '</b></span>'
-    +     '<button type="button" class="dkh-mbtn' + (keys ? ' ready' : '') + '" id="dkhMileBtn">キューブ</button></div>'
+    +     '<span class="dkh-mbar"><i class="dkh-mfill" style="transform:scaleX(' + (mile / DKH_MILE).toFixed(3) + ')"></i>'
+    +       '<em>' + mile + '/' + DKH_MILE + ' マイレージを貯めてガチャ</em></span>'
+    +     '<button type="button" class="dkh-mbtn' + (keys ? ' ready' : '') + '" id="dkhMileBtn">マイレージガチャ'
+    +       '<span class="dkh-key">' + dkhIcon('key') + '<b>' + keys + '</b></span></button></div>'
     + '</div>'
     + (pd ? '<div class="dkh-ped" data-dkh="ped" role="button" data-fx="pop"><i class="dkh-lantern" aria-hidden="true"></i>'
           + '<b>行商人が来た！</b><span>のこり ' + pd.min + '分</span></div>' : '')
     + walletHTML();
 
-  var el = dkMake('home', 'home', html);
+  var el = dkhAmb(dkMake('home', 'home', html));
   el.classList.add('dkh-home');
   if(pd) el.classList.add('dkh-hasped');
   el.setAttribute('data-fx-step', '40');
   dkWire(el);
   dkhWireHome(el);
   screenTo('home');
+  /* タイマーは screenTo のあと（画面が変わる時に DKFX.stopTimers が前の画面のタイマーを止めるため） */
+  dkEvery('dkh-left', function(){
+    var e = document.getElementById('dkhLeft'), s = dkhWeekLeft();
+    if(e && e.isConnected && e.textContent !== s) e.textContent = s;
+  }, 20000);
+  dkhGlint(el, '.dkh-med > .dkh-gl, .dkh-pic > .dkh-gl, .dkh-ev > .dkh-gl', 'dkh-glint');
+  if(SV.tierUp) setTimeout(dkhTierUpFx, 700);
   try{ bgm('lobby'); }catch(e){}
   return el;
 }
@@ -494,15 +686,17 @@ function dkhWireHome(el){
     b.onclick = function(){ dkhHomeTab(b.getAttribute('data-dkh-tab')); };
   });
   var q = el.querySelector('[data-dkh="help"]');
-  if(q) q.onclick = function(){ try{ SFX.click(); }catch(e){} dkhLeagueHelp(); };
+  if(q) q.onclick = function(){ try{ SFX.click(); }catch(e){} dkhRankHelp(); };
   var mb = el.querySelector('#dkhMileBtn');
-  if(mb) mb.onclick = function(){ dkhMileCube(mb); };
+  if(mb) mb.onclick = function(){ dkhMileGacha(); };
   var pd = el.querySelector('[data-dkh="ped"]');
   if(pd) pd.onclick = function(){ try{ SFX.click(); }catch(e){} showShop('peddler'); };
+  var fr = el.querySelector('[data-dkh="frame"]');
+  if(fr) fr.onclick = function(){ dkhFramePick(); };
 }
-/* リーグ／ともだちの切り替え（画面は作り直さず、表だけ差し替える） */
+/* 友だちランキング／全体ランキングの切り替え（画面は作り直さず、表だけ差し替える） */
 function dkhHomeTab(tab){
-  tab = (tab === 'friends') ? 'friends' : 'league';
+  tab = (tab === 'all') ? 'all' : 'friends';
   try{ SFX.click(); }catch(e){}
   DKH_homeTab = tab;
   var el = document.getElementById('home'); if(!el) return;
@@ -510,73 +704,180 @@ function dkhHomeTab(tab){
   var L = el.querySelector('#dkhList'); if(!L) return;
   L.innerHTML = dkhRowsHTML(tab);
   L.setAttribute('data-tab', tab);
-  L.classList.remove('swap'); void L.offsetWidth; L.classList.add('swap');
   dkWire(L);
+  if(DKFX.reduced) return;
+  Array.prototype.forEach.call(L.children, function(r, i){
+    try{ r.animate([{ transform:'translateX(28px) scale(.97)' }, { transform:'none' }], { duration:360, delay:i * 40, easing:'cubic-bezier(.16,1,.3,1)', fill:'backwards' }); }catch(e){}
+  });
 }
-/* ❓ 等級と報酬の表 */
-function dkhLeagueHelp(){
+/* ？ ランキングの報酬（友だち＝毎週・全体＝毎月のシーズン） */
+function dkhRankHelp(){
   var t = dkhTier(SV.rp | 0);
+  var wk = DKH_WRW.map(function(r, i){
+    return '<div class="dkh-hrow"><b class="dkh-hnm">' + (i < 3 ? (i + 1) + '位' : '4位以下') + '</b>'
+      + '<span class="dkh-hrw"><i class="dkh-coin"></i>' + dkhNum(r.g) + (r.d ? '<i class="dkh-gem"></i>' + r.d : '')
+      + (r.it ? '<em>' + esc(dkhItemNm(r.it)) + '</em>' : '') + '</span></div>';
+  }).join('');
   var rows = DKH_TIERS.map(function(x, i){
     var nx = DKH_TIERS[i + 1];
     return '<div class="dkh-hrow' + (i === t.i ? ' on' : '') + '">' + dkhEmblem(x)
       + '<b class="dkh-hnm">' + x.nm + '</b>'
-      + '<span class="dkh-hrange">' + dkhNum(x.min) + (nx ? '〜' + dkhNum(nx.min - 1) : '以上') + ' RP</span>'
+      + '<span class="dkh-hrange">' + dkhNum(x.min) + (nx ? '〜' + dkhNum(nx.min - 1) : '以上') + '</span>'
       + '<span class="dkh-hrw"><i class="dkh-coin"></i>' + dkhNum(x.rw.g) + (x.rw.d ? '<i class="dkh-gem"></i>' + x.rw.d : '') + '</span>'
-      + (i === t.i ? '<em class="dkh-now">いまここ</em>' : '') + '</div>';
+      + (i === t.i ? '<em class="dkh-now">' + t.dn + '</em>' : '') + '</div>';
   }).join('');
-  modal('<div class="modal dkh-modal dkh-help"><div class="dkh-mhd"><b>等級と報酬</b></div>'
-    + '<div class="dkh-hrows">' + rows + '</div>'
-    + '<p class="dkh-hnote">勝つと <b>+' + DKH_RP_WIN + '×クラスの倍率</b>、負けると <b>−' + DKH_RP_LOSE + '</b>（0より下にはなりません）。'
-    + '月が変わると、その時の等級の報酬が郵便箱に届き、RP は半分になります。</p>'
-    + '<div class="dkh-mbtns"><button class="dkbtn gd" data-act="ok">とじる</button></div></div>');
+  modal('<div class="modal dkh-modal dkh-help"><div class="dkh-mhd"><b>ランキングの報酬</b></div>'
+    + '<div class="dkh-hcols"><div class="dkh-hcol"><b class="dkh-hsub">友だちランキング（毎週）</b>' + wk
+    +   '<p class="dkh-hnote">毎週 月曜 朝5時に締めて、プレゼントボックスに届きます（その週に遊んだ時）。</p></div>'
+    + '<div class="dkh-hcol"><b class="dkh-hsub">全体ランキング（毎月）</b>' + rows
+    +   '<p class="dkh-hnote">各等級は5段（5→1）。月が変わると報酬が届き、RP は半分になります。</p></div></div>'
+    + '<p class="dkh-hnote">勝つと <b>+' + DKH_RP_WIN + '×クラスの倍率</b>（本日のマップ +20%・ポイントが高い相手に勝つと +30%）、負けると <b>−' + DKH_RP_LOSE + '</b>。</p>'
+    + '<div class="dkh-mbtns"><button class="dkbtn gd" data-act="ok">閉じる</button></div></div>');
 }
-/* マイレージキューブ：🔑1本で S 以上のカードを1枚 */
-function dkhMileCube(btn){
-  if((SV.keys | 0) < 1){
-    try{ SFX.warn && SFX.warn(); }catch(e){}
-    try{ fxShake(btn, 220); }catch(e){}
-    dkhSay('L', dkhIcon('key'), '🔑が足りません', 'マイレージを' + DKH_MILE + 'ためると🔑が1本もらえます', 2200);
-    return;
+
+/* ══════════ マイレージガチャ（J56） ══════════ */
+function dkhMgDraw(kind){
+  var T = DKH_MG[kind].t, sum = 0, i;
+  for(i = 0; i < T.length; i++) sum += T[i][0];
+  var r = Math.random() * sum, e = T[T.length - 1];
+  for(i = 0; i < T.length; i++){ r -= T[i][0]; if(r < 0){ e = T[i]; break; } }
+  var o = { k:e[1], v:e[2] };
+  if(o.k === 'card'){
+    var pool = CARDPOOL.filter(function(c){ return c.rar === o.v; });
+    if(!pool.length) pool = CARDPOOL;
+    o.c = pool[(Math.random() * pool.length) | 0];
+  } else if(o.k === 'pend') o.p = PENDANTS[(Math.random() * PENDANTS.length) | 0];
+  return o;
+}
+function dkhMgGive(o){
+  if(o.k === 'g') SV.gold += o.v;
+  else if(o.k === 'd') SV.gem += o.v;
+  else if(o.k === 'card'){
+    var r = grant(o.c); o.fresh = !!(r && r.card && r.card.fresh);
+    try{ dkEmit('gacha:pull', { lane:'mile', n:1, got:[o.c.id] }); }catch(e){}
   }
+  else if(o.k === 'pend'){ var q = dkGivePend(o.p.id); o.fresh = !!(q && q.fresh); }
+  else if(o.k === 'tk') dkhGrant({ kind:'ticket', id:o.v, n:1 });
+}
+function dkhMgIn(o){
+  var art, nm, sub;
+  if(o.k === 'g'){ art = '<i class="dkh-coin"></i>'; nm = dkhNum(o.v); sub = 'ゴールド'; }
+  else if(o.k === 'd'){ art = '<i class="dkh-gem"></i>'; nm = '×' + o.v; sub = 'ダイヤ'; }
+  else if(o.k === 'card'){ art = dkhFace(o.c.id); nm = o.c.nm; sub = (RAR[o.c.rar] ? RAR[o.c.rar].nm : o.c.rar) + 'カード'; }
+  else if(o.k === 'pend'){ art = '<i class="dkh-pem">' + esc(o.p.ic || '📿') + '</i>'; nm = o.p.nm; sub = 'ペンダント'; }
+  else { art = '<i class="dkh-tk"></i>'; nm = dkhTkNm(o.v); sub = '入場券'; }
+  return '<span class="dkh-bart">' + art + '</span><b class="dkh-bnm">' + esc(nm) + '</b>'
+    + '<span class="dkh-bsub">' + sub + (o.fresh ? '・NEW' : '') + '</span>';
+}
+/* ［ノーマルガチャ 🔑1個］［大当たりガチャ 🔑5個］を選ぶ */
+function dkhMileGacha(){
   try{ SFX.click(); }catch(e){}
-  SV.keys = (SV.keys | 0) - 1;
-  var rar = Math.random() < 0.2 ? 'SS' : 'S';
-  var pool = CARDPOOL.filter(function(c){ return c.rar === rar; });
-  if(!pool.length) pool = CARDPOOL.filter(function(c){ return c.rar === 'S' || c.rar === 'SS'; });
-  var c = pool[(Math.random() * pool.length) | 0];
-  var r = grant(c);
+  var keys = SV.keys | 0, mile = Math.min(DKH_MILE, SV.mile | 0);
+  var opt = function(k){
+    var g = DKH_MG[k];
+    return '<button type="button" class="dkh-mgo ' + k + (keys >= g.key ? '' : ' short') + '" data-act="' + k + '">'
+      + '<i class="dkh-chest ' + k + '" aria-hidden="true"></i><b>' + g.nm + '</b>'
+      + '<span class="dkh-mgk">' + dkhIcon('key') + '<b>' + g.key + '個</b></span></button>';
+  };
+  return modal('<div class="modal dkh-modal dkh-mg"><div class="dkh-mhd"><b>マイレージガチャ</b></div>'
+    + '<p class="dkh-mgnote">マイレージが' + DKH_MILE + 'ポイントごとにゴールドキー1個獲得！'
+    +   '<span>いま ' + mile + '/' + DKH_MILE + '・ゴールドキー <b>' + keys + '</b>個</span></p>'
+    + '<div class="dkh-mgos">' + opt('n') + opt('j') + '</div>'
+    + '<div class="dkh-mbtns"><button class="dkbtn dkh-wood" data-act="x">閉じる</button></div></div>')
+  .then(function(a){ if(a === 'n' || a === 'j') dkhMileOpen(a); return a; });
+}
+/* 「箱を選んでください！」：結果は押した時に決まっている。残りの2箱も同じ抽選表から実際に引いた中身を見せる */
+function dkhMileOpen(kind){
+  var g = DKH_MG[kind];
+  if(!g) return null;
+  if((SV.keys | 0) < g.key){
+    try{ if(SFX.warn) SFX.warn(); }catch(e){}
+    dkhSay('L', dkhIcon('key'), 'ゴールドキーが足りません', 'マイレージを' + DKH_MILE + '貯めるとゴールドキーが1個もらえます', 2400);
+    return null;
+  }
+  SV.keys = (SV.keys | 0) - g.key;
+  var got = dkhMgDraw(kind), rest = [dkhMgDraw(kind), dkhMgDraw(kind)];
+  dkhMgGive(got);
   saveNow();
-  try{ dkEmit('gacha:pull', { lane:'mile', n:1, got:[c.id] }); }catch(e){}
-  var fresh = r && r.card && r.card.fresh, img = dkhImg(c.id);
-  var p = modal('<div class="modal dkh-modal dkh-rev ' + (RAR[c.rar] ? RAR[c.rar].cls : '') + '">'
-    + '<div class="dkh-mhd"><b>マイレージキューブ</b></div>'
-    + '<div class="dkh-revstage"><div class="dkh-revcard ' + (RAR[c.rar] ? RAR[c.rar].cls : '') + '">'
-    +   '<span class="dkh-rar">' + esc(RAR[c.rar].nm) + '</span>'
-    +   '<div class="dkh-revpic"><i class="dkh-revart"' + (img ? ' style="background-image:url(' + img + ')"' : '') + '></i></div>'
-    +   (fresh ? '<em class="dkh-new">NEW!</em>' : '') + '</div></div>'
-    + '<b class="dkh-revnm">' + esc(c.nm) + '</b>'
-    + '<span class="dkh-revsub">' + (fresh ? 'はじめて手に入れた！' : '重なりが1枚ふえました（強化に使えます）') + '</span>'
-    + '<div class="dkh-mbtns"><button class="dkbtn gd" data-act="ok">受け取る</button></div></div>');
-  try{
-    var st = document.querySelector('#modalBody .dkh-revstage');
-    if(st) fxRays(st, { tone:'gold', fast:c.rar === 'SS' });
-    var card = document.querySelector('#modalBody .dkh-revcard');
-    setTimeout(function(){
-      if(card) fxBurst(card, { kind:'star', n:c.rar === 'SS' ? 30 : 18, power:1.2 });
-      if(c.rar === 'SS'){ fxFlash(); try{ SFX.gachaRare(); }catch(e){} } else { try{ SFX.coin(); }catch(e){} }
-    }, 260);
-  }catch(e){}
+  var box = function(i){
+    return '<button type="button" class="dkh-box ' + kind + '" data-i="' + i + '" aria-label="箱' + (i + 1) + '">'
+      + '<i class="dkh-chest ' + kind + '" aria-hidden="true"></i><span class="dkh-bin"></span></button>';
+  };
+  var p = modal('<div class="modal dkh-modal dkh-mg dkh-mgpick"><div class="dkh-mhd"><b>' + g.nm + '</b></div>'
+    + '<p class="dkh-mgq">箱を選んでください！</p><div class="dkh-boxes">' + box(0) + box(1) + box(2) + '</div>'
+    + '<div class="dkh-mbtns"><button class="dkbtn gd" data-act="ok" hidden>確認</button></div></div>');
+  var body = document.getElementById('modalBody'), picked = false;
+  body.querySelectorAll('.dkh-box').forEach(function(b){
+    b.onclick = function(){
+      if(picked) return;
+      picked = true;
+      var j = +b.getAttribute('data-i'), k = 0;
+      body.querySelectorAll('.dkh-box').forEach(function(x, i){
+        var o = (i === j) ? got : rest[k++];
+        var fin = function(){
+          var s = x.querySelector('.dkh-bin'); if(s) s.innerHTML = dkhMgIn(o);
+          x.classList.add('open'); if(i !== j) x.classList.add('dim');
+        };
+        if(i !== j){ setTimeout(fin, 520); return; }
+        fin();
+        try{ fxRays(x, { tone:'gold' }); fxBurst(x, { kind:'star', n:22, power:1.1 }); SFX.coin(); }catch(e){}
+      });
+      var hd = body.querySelector('.dkh-mgq'); if(hd) hd.textContent = 'おめでとうございます！';
+      var ok = body.querySelector('[data-act="ok"]'); if(ok) setTimeout(function(){ ok.hidden = false; }, 620);
+    };
+  });
   p.then(function(){ if(document.querySelector('#home.on')) showHome(); });
-  return c;
+  return got;
+}
+
+/* ══════════ 名札の枠（G22。能力は付かない飾り。SV.frames={own,eq}） ══════════ */
+function dkhFramePick(){
+  try{ SFX.click(); }catch(e){}
+  var eq = dkhFrEq(), nm = esc(SV.name || 'あなた');
+  var opts = [{ id:'', nm:'なし' }].concat(DKH_FRAMES).map(function(f){
+    var own = !f.id || dkhFrOwn(f.id);
+    return '<button type="button" class="dkh-fro' + (f.id ? ' fr-' + f.id : '') + (f.id === eq ? ' on' : '') + '"'
+      + (own ? ' data-act="f:' + f.id + '"' : ' disabled') + '>'
+      + '<span class="dkh-frs">' + nm + '</span><b>' + (own ? '' : '🔒 ') + esc(f.nm) + '</b></button>';
+  }).join('');
+  return modal('<div class="modal dkh-modal dkh-frm"><div class="dkh-mhd"><b>名札の枠</b></div>'
+    + '<p class="dkh-hnote">能力は変わりません。ホームの名札と対戦中の肖像に出ます。<br>銅・銀・金の枠は限定ミッションとアルバムで手に入ります。</p>'
+    + '<div class="dkh-fros">' + opts + '</div>'
+    + '<div class="dkh-mbtns"><button class="dkbtn dkh-wood" data-act="x">閉じる</button></div></div>')
+  .then(function(a){
+    if(typeof a !== 'string' || a.indexOf('f:') !== 0) return a;
+    if(!SV.frames || typeof SV.frames !== 'object') SV.frames = { own:[], eq:'' };
+    SV.frames.eq = a.slice(2);
+    saveNow();
+    if(document.querySelector('#home.on')) showHome();
+    return a;
+  });
+}
+
+/* ══════════ 等級が上がった時だけ、メダルが入れ替わる演出（G16） ══════════ */
+function dkhTierUpFx(){
+  var u = SV.tierUp;
+  if(!u || !document.querySelector('#home.on') || document.querySelector('#modalWrap.on')) return;
+  SV.tierUp = null; saveNow();
+  var a = null, b = null;
+  DKH_TIERS.forEach(function(x){ if(x.id === u.from) a = x; if(x.id === u.to) b = x; });
+  if(!a || !b) return;
+  modal('<div class="modal dkh-modal dkh-up"><div class="dkh-mhd"><b>昇格！</b></div>'
+    + '<div class="dkh-upst"><span class="dkh-upa">' + dkhEmblem(a) + '</span><i class="dkh-uparr" aria-hidden="true"></i>'
+    +   '<span class="dkh-upb">' + dkhEmblem(b) + '</span></div>'
+    + '<b class="dkh-upnm">' + a.nm + ' → ' + b.nm + '</b>'
+    + '<span class="dkh-upsub">シーズンの報酬が ' + dkhNum(b.rw.g) + 'G' + (b.rw.d ? '・ダイヤ' + b.rw.d : '') + ' に上がりました</span>'
+    + '<div class="dkh-mbtns"><button class="dkbtn gd" data-act="ok">確認</button></div></div>');
+  try{
+    var st = document.querySelector('#modalBody .dkh-upst'), nb = document.querySelector('#modalBody .dkh-upb');
+    if(st) fxRays(st, { tone:'gold' });
+    setTimeout(function(){ if(nb) fxBurst(nb, { kind:'star', n:24, power:1.1 }); try{ SFX.gachaRare(); }catch(e){} }, 380);
+  }catch(e){}
 }
 
 /* ══════════════════════════════════════════════════════════════
-   イベント（今週のイベント／お知らせ／遊び方）
+   イベント（今週のイベント／お知らせ／ガイド）
    ══════════════════════════════════════════════════════════════ */
-var DKH_WEEK_MS = 7 * 24 * 3600 * 1000;
-function dkhWeekStart(k){               // k 週あとの週の始まり（月曜 朝6時）
-  return Date.UTC(1970, 0, 5, 6, 0, 0) + (weekIndex() + (k | 0)) * DKH_WEEK_MS;
-}
 function dkhWeekLeftTxt(){
   var ms = Math.max(0, dkhWeekStart(1) - Date.now());
   var d = Math.floor(ms / 86400000), h = Math.floor(ms % 86400000 / 3600000);
@@ -590,7 +891,7 @@ function dkhFeatCard(c, tag, sub, cls){
   return '<div class="dkh-fc ' + (RAR[c.rar] ? RAR[c.rar].cls : '') + (cls ? ' ' + cls : '') + '" data-fx="deal">'
     + '<span class="dkh-fctag">' + tag + '</span>'
     + '<div class="dkh-fcpic"><i class="dkh-fcart"' + (img ? ' style="background-image:url(' + img + ')"' : '') + '></i>'
-    +   '<span class="dkh-rar">' + esc(RAR[c.rar] ? RAR[c.rar].nm : c.rar) + '</span><i class="dkh-gloss" aria-hidden="true"></i></div>'
+    +   '<span class="dkh-rar">' + esc(RAR[c.rar] ? RAR[c.rar].nm : c.rar) + '</span></div>'
     + '<b class="dkh-fcnm">' + esc(c.nm) + '</b><span class="dkh-fcsub">' + sub + '</span></div>';
 }
 function dkhNewsWeek(){
@@ -606,12 +907,12 @@ function dkhNewsWeek(){
     + '<div class="dkh-wkmain"><i class="dkh-wkic">' + w.ic + '</i>'
     +   '<div class="dkh-wktx"><b class="dkh-wknm">' + esc(w.nm) + '</b><p class="dkh-wkds">' + esc(w.ds) + '</p></div></div>'
     + '<div class="dkh-wkleft"><span>のこり</span><b id="dkhWeekLeft">' + dkhWeekLeftTxt() + '</b>'
-    +   '<em>毎週 月曜 朝6時に切り替わります</em></div><i class="dkh-evshine" aria-hidden="true"></i></div>'
+    +   '<em>毎週 月曜 朝5時に切り替わります</em></div></div>'
     + '<div class="dkh-wkrow">'
     +   '<div class="dkh-feats">'
-    +     dkhFeatCard(f, '今週の注目', 'キューブで出やすさ ×2', 'now')
+    +     dkhFeatCard(f, '今週の注目', 'ガチャで出やすさ ×2', 'now')
     +     dkhFeatCard(f2, '来週の注目', dkhMD(nt) + ' から ×2', 'next')
-    +     '<button type="button" class="dkbtn gd dkh-togacha fx-primary" data-dkgo="gacha" data-fx="pop">キューブを引く</button>'
+    +     '<button type="button" class="dkbtn gd dkh-togacha fx-primary" data-dkgo="gacha" data-fx="pop">ガチャを引く</button>'
     +   '</div>'
     +   '<div class="dkh-sched fx-panel" data-fx="riseR"><b class="dkh-schd">イベントの予定</b>' + sched + '</div>'
     + '</div>';
@@ -619,20 +920,20 @@ function dkhNewsWeek(){
 function dkhNewsInfo(){
   var n = dkhMailCount(), t = dkhTier(SV.rp | 0);
   var items = [
-    { ic:'trophy', nm:'リーグ ' + dkhSeasonName(SV.season || dkhSeasonKey()) + 'シーズン',
-      ds:'いまは ' + t.nm + '（' + dkhNum(SV.rp) + ' RP）。のこり ' + dkhSeasonLeft() + '日。月が変わると、その時の等級の報酬が郵便箱に届きます。',
+    { ic:'trophy', nm:'友だちランキング・全体ランキング',
+      ds:'友だちランキングは毎週 月曜 朝5時に締めます。全体ランキングは月ごとのシーズンで、いまは ' + t.dn + '（' + dkhNum(SV.rp) + ' RP）。報酬はプレゼントボックスに届きます。',
       go:'home', bt:'ホームへ' },
-    { ic:'key', nm:'マイレージ',
-      ds:'対戦1回で1たまり、' + DKH_MILE + 'で🔑が1本。🔑を使うと、S 以上のカードが必ず出るマイレージキューブを引けます。',
+    { ic:'key', nm:'マイレージガチャ',
+      ds:'対戦1回でマイレージが1たまり、' + DKH_MILE + 'でゴールドキーが1個。ノーマルガチャはキー1個、大当たりガチャはキー5個で回せます。',
       go:'home', bt:'ホームへ' },
-    { ic:'mail', nm:'郵便箱' + (n ? '（' + n + '通）' : ''),
-      ds:'報酬やおわびは郵便箱に届きます。届いてから30日で消えるので、早めに受け取ってください。',
+    { ic:'mail', nm:'プレゼントボックス' + (n ? '（' + n + '件）' : ''),
+      ds:'報酬やおわびはプレゼントボックスに届きます。保管期限は30日間なので、早めに受け取ってください。',
       go:'mail', bt:'ひらく' },
     { ic:'globe', nm:'オンライン対戦',
-      ds:'4文字の あいことば を伝えるだけで、はなれた友だちと同じ盤で遊べます。遊んだ相手は「ともだち」に並びます。',
-      go:'friends', bt:'ともだち' },
+      ds:'4文字の あいことば を伝えるだけで、はなれた友だちと同じ盤で遊べます。遊んだ相手は「ゲーム友だち」に並びます。',
+      go:'friends', bt:'友達' },
     { ic:'horn', nm:'週替わりイベント',
-      ds:'毎週 月曜 朝6時に、盤のルールが少し変わるイベントと、注目カードが切り替わります。',
+      ds:'毎週 月曜 朝5時に、盤のルールが少し変わるイベントと、注目カードが切り替わります。',
       go:'news', bt:'今週を見る', tab:'week' }
   ];
   return '<div class="dkh-info dkh-parch" data-fx="rise" data-fx-step="50">' + items.map(function(it){
@@ -648,7 +949,7 @@ function dkhNewsTips(){
     var k = String(t).replace(/（[^）]*）/g, '').replace(/で(その場で)?勝ちです.*$/, '');
     if(seen[k]) return; seen[k] = 1; list.push(String(t));
   });
-  return '<div class="dkh-tips dkh-parch" data-fx="rise"><div class="dkh-tiphd"><b>遊び方のコツ</b></div><ol class="dkh-tipl">'
+  return '<div class="dkh-tips dkh-parch" data-fx="rise"><div class="dkh-tiphd"><b>ゲームガイド</b></div><ol class="dkh-tipl">'
     + list.map(function(t, i){ return '<li><i>' + (i + 1) + '</i><span>' + esc(t) + '</span></li>'; }).join('')
     + '</ol></div>';
 }
@@ -657,70 +958,60 @@ function showNews(tab){
   var T = DKH_newsTab;
   var tabs = DKH_NTABS.map(function(t){ return { id:t.id, ic:dkhIcon(t.ic), nm:t.nm }; });
   var body = (T === 'info') ? dkhNewsInfo() : (T === 'tips') ? dkhNewsTips() : dkhNewsWeek();
-  var el = dkMake('news', 'quest', dkHead('news', { title:'イベント' }) + dkTabs(tabs, T)
-    + '<div class="dkh-nbody" data-tab="' + T + '">' + body + '</div>');
+  var el = dkhAmb(dkMake('news', 'quest', dkHead('news', { title:'イベント' }) + dkTabs(tabs, T)
+    + '<div class="dkh-nbody" data-tab="' + T + '">' + body + '</div>'));
   el.classList.add('dkh-news');
   dkWire(el, function(id){ showNews(id); });
   el.querySelectorAll('[data-dkh-ntab]').forEach(function(b){
     b.onclick = function(){ try{ SFX.click(); }catch(e){} showNews(b.getAttribute('data-dkh-ntab')); };
   });
+  screenTo('news');
   if(T === 'week'){
     dkEvery('dkh-week', function(){
       var e = document.getElementById('dkhWeekLeft');
       if(e && e.isConnected) e.textContent = dkhWeekLeftTxt();
     }, 1000);
   } else { dkEvery('dkh-week', null); }
-  screenTo('news');
   return el;
 }
 
 /* ══════════════════════════════════════════════════════════════
-   郵便箱（受け取る／すべて受け取る・30日で消える）
+   プレゼントボックス（受け取る／すべて受け取る・保管期限30日）
    ══════════════════════════════════════════════════════════════ */
 function dkhMailRow(m){
   var now = Date.now(), days = Math.max(0, Math.ceil(((m.exp || 0) - now) / 86400000));
-  var it = '';
-  if(m.item && m.item.kind){
-    var k = m.item.kind, id = m.item.id, nm = '';
-    try{
-      if(k === 'card' && cardById(id)) nm = cardById(id).nm;
-      else if(k === 'pend' && pendById(id)) nm = pendById(id).nm;
-      else if(k === 'die' && typeof dieById === 'function' && dieById(id)) nm = dieById(id).nm;
-      else if(k === 'key') nm = '🔑';
-    }catch(e){}
-    if(nm) it = '<span class="dkh-chip it">' + esc(nm) + '</span>';
-  }
+  var nm = (m.item && m.item.kind) ? dkhItemNm(m.item) : '';
   return '<div class="dkh-mrow' + (days <= 3 ? ' soon' : '') + '" data-fx="riseR">'
     + '<i class="dkh-mic">' + esc(m.ic || '✉️') + '</i>'
     + '<div class="dkh-mmid"><b class="dkh-mnm">' + esc(m.nm || 'おしらせ') + '</b>'
-    +   '<span class="dkh-mdate">' + dkhMD(m.at || now) + ' に届きました・<em>のこり ' + days + '日</em></span></div>'
+    +   '<span class="dkh-mdate">ダイスキングダム運営・' + dkhMD(m.at || now) + ' に届きました・<em>のこり ' + days + '日</em></span></div>'
     + '<div class="dkh-mrw">'
     +   ((m.g | 0) ? '<span class="dkh-chip g"><i class="dkh-coin"></i>' + dkhNum(m.g) + '</span>' : '')
     +   ((m.d | 0) ? '<span class="dkh-chip d"><i class="dkh-gem"></i>' + dkhNum(m.d) + '</span>' : '')
-    +   it + '</div>'
+    +   (nm ? '<span class="dkh-chip it">' + esc(nm) + '</span>' : '') + '</div>'
     + '<button type="button" class="dkbtn gr dkh-take" data-dkh-take="' + esc(m.id) + '">受け取る</button></div>';
 }
 function showMail(){
-  dkhSeasonCheck();
+  dkhSeasonCheck(); dkhWeekCheck();
   var list = dkhMailList().slice();
-  var sg = 0, sd = 0, ni = 0;
-  var soon = 0, now = Date.now();
+  var sg = 0, sd = 0, ni = 0, soon = 0, now = Date.now();
   list.forEach(function(m){ sg += m.g | 0; sd += m.d | 0; if(m.item && m.item.kind) ni++; if((m.exp || 0) - now <= 3 * 86400000) soon++; });
   var rows = list.map(dkhMailRow).join('');
-  var el = dkMake('mail', 'quest', dkHead('mail', { title:'郵便箱' })
+  var el = dkhAmb(dkMake('mail', 'quest', dkHead('mail', { title:'プレゼントボックス' })
     + '<div class="dkh-mb">'
-    +   '<div class="dkh-mlist dkh-parch" data-fx="rise"><div class="dkh-lhd"><b>とどいた郵便</b><span>' + list.length + '通</span></div>'
+    +   '<div class="dkh-mlist dkh-parch" data-fx="rise"><div class="dkh-lhd"><b>プレゼント</b><span>' + list.length + '件</span>'
+    +     '<em class="dkh-mwarn">プレゼントの保管期限は30日間です</em></div>'
     +     '<div class="dkh-mrows" data-fx-step="40">' + (rows || ('<div class="dkh-empty"><i class="dkh-emptyic">' + dkhIcon('mail') + '</i>'
-    +       '<b>郵便は届いていません</b><span>リーグの報酬やおわびは、ここに届きます</span></div>')) + '</div></div>'
+    +       '<b>プレゼントは届いていません</b><span>ランキングの報酬や、対戦で獲得したアイテムはここに届きます</span></div>')) + '</div></div>'
     +   '<div class="dkh-mside fx-panel" data-fx="riseR"><i class="dkh-msic">' + dkhIcon('mail') + '</i>'
     +     '<b class="dkh-mst">受け取れる報酬</b>'
     +     '<div class="dkh-msum"><span><i class="dkh-coin"></i><b>' + dkhNum(sg) + '</b></span>'
     +       '<span><i class="dkh-gem"></i><b>' + dkhNum(sd) + '</b></span>'
-    +       (ni ? '<span class="dkh-msit">アイテム ' + ni + 'こ</span>' : '') + '</div>'
-    +     (soon ? '<span class="dkh-msoon">もうすぐ消える郵便 ' + soon + '通</span>' : '')
+    +       (ni ? '<span class="dkh-msit">アイテム ' + ni + '個</span>' : '') + '</div>'
+    +     (soon ? '<span class="dkh-msoon">もうすぐ期限が切れるプレゼント ' + soon + '件</span>' : '')
     +     '<button type="button" class="dkbtn gd dkh-all fx-primary" id="dkhAll"' + (list.length ? '' : ' disabled') + '>すべて受け取る</button>'
-    +     '<p class="dkh-mnote">郵便は届いてから30日で消えます</p></div>'
-    + '</div>');
+    +     '<p class="dkh-mnote">獲得したアイテムはここから受け取れます</p></div>'
+    + '</div>'));
   el.classList.add('dkh-mail');
   dkWire(el);
   el.querySelectorAll('[data-dkh-take]').forEach(function(b){
@@ -743,9 +1034,13 @@ function dkhClaimFx(from, g, d){
 function dkhClaim(id, btn){
   var m = (SV.mail || []).find(function(x){ return x.id === id; });
   if(!m || (btn && btn._busy)) return null;
+  var got = dkhTakeMail(m);
+  if(got.kept){
+    dkhSay('R', '<i class="dkh-tic">🎁</i>', 'まだ受け取れません', 'このプレゼントは、あとで受け取れます', 2000);
+    return got;
+  }
   if(btn){ btn._busy = 1; btn.disabled = true; }
   var row = btn ? btn.closest('.dkh-mrow') : null;
-  var got = dkhTakeMail(m);
   saveNow();
   if(row) row.classList.add('fx-claim', 'dkh-taken');
   try{ SFX.coin(); }catch(e){}
@@ -760,23 +1055,24 @@ function dkhClaimAll(btn){
   var list = dkhMailList().slice();
   if(!list.length || (btn && btn._busy)) return null;
   if(btn){ btn._busy = 1; btn.disabled = true; }
-  var g = 0, d = 0, items = [];
-  list.forEach(function(m){ var r = dkhTakeMail(m); g += r.g; d += r.d; if(r.item) items.push(r.item); });
+  var g = 0, d = 0, items = [], kept = 0;
+  list.forEach(function(m){ var r = dkhTakeMail(m); if(r.kept){ kept++; return; } g += r.g; d += r.d; if(r.item) items.push(r.item); });
   saveNow();
   document.querySelectorAll('#mail .dkh-mrow').forEach(function(r, i){
     setTimeout(function(){ r.classList.add('fx-claim', 'dkh-taken'); }, i * 60);
   });
-  try{ SFX.coinBurst ? SFX.coinBurst() : SFX.coin(); }catch(e){}
+  try{ if(SFX.coinBurst) SFX.coinBurst(); else SFX.coin(); }catch(e){}
   dkhSay('R', '<i class="dkh-tic">🎁</i>', 'まとめて受け取りました',
-    [g ? dkhNum(g) + ' ゴールド' : '', d ? 'ダイヤ ' + d : '', items.length ? 'アイテム ' + items.length + 'こ' : ''].filter(Boolean).join('・'), 2200);
+    [g ? dkhNum(g) + ' ゴールド' : '', d ? 'ダイヤ ' + d : '', items.length ? 'アイテム ' + items.length + '個' : '',
+     kept ? 'あとで受け取れる物 ' + kept + '件' : ''].filter(Boolean).join('・'), 2200);
   dkhClaimFx(document.querySelector('#mail .dkh-mrows') || btn, g, d).then(function(){
     if(document.querySelector('#mail.on')) showMail();
   });
-  return { g:g, d:d, items:items };
+  return { g:g, d:d, items:items, kept:kept };
 }
 
 /* ══════════════════════════════════════════════════════════════
-   ともだち（オンラインで遊んだ相手の一覧）
+   友達（オンラインで遊んだゲーム友だちの一覧）
    ══════════════════════════════════════════════════════════════ */
 function showFriends(){
   var fr = (SV.friends || []).slice().sort(function(a, b){ return (b.at || 0) - (a.at || 0); });
@@ -786,10 +1082,10 @@ function showFriends(){
       + (f.card ? dkhFace(f.card) : '<span class="dkh-face dkh-noface">' + dkhIcon('duo') + '</span>')
       + '<div class="dkh-frmid"><b>' + esc(f.name) + '</b><span>いっしょに遊んだ回数 ' + (f.n | 0) + '回</span></div>'
       + '<div class="dkh-frlast"><span>最後に遊んだ日</span><b>' + (f.at ? dkhMD(f.at) : '—') + '</b></div>'
-      + (typeof f.rp === 'number' ? '<b class="dkh-rpv">' + dkhNum(f.rp) + '<i>RP</i></b>' : '')
+      + (typeof f.rp === 'number' ? '<b class="dkh-rpv"><i class="dkh-cup" aria-hidden="true"></i>' + dkhNum(f.rp) + '</b>' : '')
       + '</div>';
   }).join('');
-  var el = dkMake('friends', 'home', dkHead('friends', { title:'ともだち' })
+  var el = dkhAmb(dkMake('friends', 'home', dkHead('friends', { title:'友達' })
     + '<div class="dkh-fb">'
     +   '<div class="dkh-frlist dkh-parch" data-fx="rise"><div class="dkh-lhd"><b>ゲーム友だち</b><span>' + fr.length + '人</span></div>'
     +     '<div class="dkh-frrows" data-fx-step="40">' + (rows || ('<div class="dkh-empty"><i class="dkh-emptyic">' + dkhIcon('duo') + '</i>'
@@ -804,7 +1100,7 @@ function showFriends(){
     +     '<p class="dkh-frnote">' + (ok ? '遊んだ相手は、自動でここに並びます'
                                         : (window.claude ? 'この版ではオンライン対戦が使えません（GitHub Pages 版で遊べます）'
                                                          : 'ネットにつながると、オンライン対戦が使えます')) + '</p></div>'
-    + '</div>');
+    + '</div>'));
   el.classList.add('dkh-friends');
   dkWire(el);
   screenTo('friends');
@@ -812,7 +1108,7 @@ function showFriends(){
 }
 
 /* ══════════════════════════════════════════════════════════════
-   設定（音量・アニメの速さ・キャラの絵柄・演出・タイトルへ）
+   設定（音楽・効果音・アニメの速さ・キャラの絵柄・演出・時間切れで自動・タイトルへ）
    ══════════════════════════════════════════════════════════════ */
 function dkhSeg(key, list, cur){
   return '<div class="fx-seg dkh-seg" data-dkh-seg="' + key + '">' + list.map(function(o){
@@ -838,14 +1134,17 @@ function dkhSetSpeed(v){
 }
 function dkhSettings(){
   var bv = Math.round(((typeof bgmOn !== 'undefined' && !bgmOn) ? 0 : bgmVol) * 100), sv = Math.round(sfxVol * 100);
+  var tt = (SV.rules && SV.rules.turnTimer) ? '1' : '0';
   var p = modal('<div class="modal dkh-modal dkh-set"><div class="dkh-mhd"><b>設定</b></div><div class="dkh-srows">'
     + dkhSetRow('音楽', '<input type="range" class="dkh-range" id="dkhBgm" min="0" max="100" value="' + bv + '" aria-label="音楽の大きさ"><b class="dkh-rv" id="dkhBgmV">' + bv + '</b>')
     + dkhSetRow('効果音', '<input type="range" class="dkh-range" id="dkhSfx" min="0" max="100" value="' + sv + '" aria-label="効果音の大きさ"><b class="dkh-rv" id="dkhSfxV">' + sv + '</b>')
     + dkhSetRow('アニメの速さ', dkhSeg('speed', DKH_SPEEDS, cfg.speed))
     + dkhSetRow('キャラの絵柄', dkhSeg('art', DKH_ARTS, (typeof ART_STYLE === 'string') ? ART_STYLE : 'human'))
     + dkhSetRow('演出', dkhSeg('fx', [{ v:'std', nm:'標準' }, { v:'lite', nm:'控えめ' }], DKFX.lite ? 'lite' : 'std'))
+    + dkhSetRow('時間切れで自動', dkhSeg('tt', [{ v:'0', nm:'オフ' }, { v:'1', nm:'オン' }], tt)
+      + '<span class="dkh-shint">手番の時間が切れたら自動で進めます</span>')
     + '</div><div class="dkh-mbtns"><button class="dkbtn dkh-wood" data-act="title">タイトルへ</button>'
-    + '<button class="dkbtn gd" data-act="ok">とじる</button></div></div>');
+    + '<button class="dkbtn gd" data-act="ok">閉じる</button></div></div>');
   var body = document.getElementById('modalBody');
   try{
     var rg = function(id, set){
@@ -878,12 +1177,17 @@ function dkhSettings(){
             var oa = document.getElementById('optArt'); if(oa) oa.value = v;
           }
           else if(key === 'fx') DKFX.setLite(v === 'lite');
+          else if(key === 'tt'){
+            if(!SV.rules || typeof SV.rules !== 'object') SV.rules = {};
+            SV.rules.turnTimer = (v === '1');
+            saveNow();
+          }
           try{ SFX.click(); }catch(e){}
         };
       });
     });
     requestAnimationFrame(function(){ body.querySelectorAll('[data-dkh-seg]').forEach(dkhSegThumb); });
-  }catch(e){ console.error('[WP9]', e); }
+  }catch(e){ console.error('[WP16b]', e); }
   p.then(function(a){ if(a === 'title') screenTo('title'); });
   return p;
 }
@@ -952,16 +1256,28 @@ function dkhOnScreen(p){
       var sp = parseFloat(localStorage.getItem('dv_speed'));
       if(DKH_SPEEDS.some(function(o){ return o.v === sp; })) dkhSetSpeed(sp);
     }catch(e){}
+    /* 週替わりイベントの中身（C28：WEEKLY の持ち主）。ダイス増量は奇数・偶数を直接ふやさず g.ev={dice:1} だけ
+       （+1 は WP12 の dkInitPlayers が thisWeek().id==='dice' を見て足す）。説明文は本家の言葉に */
+    if(typeof WEEKLY !== 'undefined' && Array.isArray(WEEKLY)){
+      var ds = { luck:'フォーチュンカードで良い効果が出やすい週', mini:'ボーナスゲームの倍率が最初から×4の週',
+                 dice:'奇数・偶数アイテムが1回ずつ増える週' };
+      WEEKLY.forEach(function(w){
+        if(ds[w.id]) w.ds = ds[w.id];
+        if(w.id === 'dice') w.apply = function(g){ g.ev = { dice:1 }; };
+      });
+    }
     /* mkScreen を包む（'online' と 'olroom' の時だけ手を加える） */
     if(typeof mkScreen === 'function' && !DKH_mk0){
       DKH_mk0 = mkScreen;
       mkScreen = function(id){
         var el = DKH_mk0.apply(this, arguments);
-        if(id === 'online' || id === 'olroom'){ try{ dkhOnlineSkin(el, id); }catch(e){ console.error('[WP9]', e); } }
+        if(id === 'online' || id === 'olroom'){ try{ dkhOnlineSkin(el, id); }catch(e){ console.error('[WP16b]', e); } }
         return el;
       };
     }
     dkOn('match:end', dkhOnMatchEnd);
+    dkOn('rp:guard', dkhOnRpGuard);
+    dkOn('week:roll', dkhOnWeekRoll);
     dkOn('screen', dkhOnScreen);
     /* トーストに「出た時刻」を付ける（画面が変わった時の片付けに使う） */
     var mo = new MutationObserver(function(recs){
@@ -971,10 +1287,11 @@ function dkhOnScreen(p){
     ['toastL', 'toastR'].forEach(function(id){ var b = document.getElementById(id); if(b) mo.observe(b, { childList:true }); });
     /* タイトルの「オンラインで遊ぶ」：読み込み時と3秒後 */
     dkhTitleOnline();
-    setTimeout(function(){ try{ dkhTitleOnline(); }catch(e){ console.error('[WP9]', e); } }, 3000);
+    setTimeout(function(){ try{ dkhTitleOnline(); }catch(e){ console.error('[WP16b]', e); } }, 3000);
     if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', dkhTitleOnline);
-    /* シーズンの切り替え（前の月の報酬は郵便へ） */
+    /* シーズン・週の切り替え（前の月・前の週の報酬はプレゼントボックスへ） */
     dkhSeasonCheck();
+    dkhWeekCheck();
     /* dkWire されていない画面の常設バーの＋（例：旧・待機部屋） */
     var st = document.getElementById('stage');
     if(st) st.addEventListener('click', function(e){
@@ -985,5 +1302,5 @@ function dkhOnScreen(p){
       if(showShop.length === 0 && typeof dkShopTab !== 'undefined') dkShopTab = tab;
       showShop(tab);
     });
-  }catch(e){ console.error('[WP9]', e); }
+  }catch(e){ console.error('[WP16b]', e); }
 })();

@@ -1,15 +1,15 @@
 
 /* ══════════════════════════════════════════════════════════════
-   ダイスキングダム — ショップ・ミッション・出席簿（9i-shop.js / WP8）
+   ダイスキングダム — ショップ・ミッション・出席簿（9i-shop.js / v9 WP8 → v10 WP16b）
    ──────────────────────────────────────────────────────────────
    ・宣言し直す関数：showShop(tab), dkGoods, dkBuy, showQuest, dkQuestList,
      dkTakeQuest, questReady, showDaily（関数宣言は後勝ち）。
    ・購読するイベント：match:end / card:up / pend:up / dice:up / shop:buy
      （日・週・通算の回数はここで数える。SV.today / SV.wk / SV.stat）
+   ・v10：入場券（C22）を売る・ミッションと出席簿で配る。「実績」→「限定ミッション」（SV.lmq）。出席簿は28日（J41）。
    ・両替の無限増殖は「レート差（売り6,000G／買い30,000G）」と
      「ゴールド→ダイヤは1日1回・5💎まで」の両方でふさぐ。
-   ・トップレベルは function 宣言と DKS_ の var と、最後の初期化 IIFE だけ。
-   ・見た目の乱数は DKFX.rnd()、日替わりは todayKey を種にした固定の乱数。
+   ・トップレベルは function 宣言と DKS_ の var と、最後の初期化 IIFE だけ。常時アニメは各画面8個まで。
    ══════════════════════════════════════════════════════════════ */
 
 /* ══════════ 数字の決まり ══════════ */
@@ -25,9 +25,10 @@ var DKS_CHEST = { g:3000, d:3 };                          // デイリーコン�
 var DKS_TABS = [
   { id:'osusume', ic:'👑', nm:'おすすめ' },
   { id:'free',    ic:'🎁', nm:'むりょう' },
+  { id:'ticket',  ic:'🎫', nm:'入場券' },
   { id:'dice',    ic:'🎲', nm:'サイコロ' },
   { id:'card',    ic:'🎴', nm:'カード' },
-  { id:'gem',     ic:'💎', nm:'両替所' }
+  { id:'gem',     ic:'💎', nm:'財貨' }
 ];
 var DKS_PED_TAB = { id:'peddler', ic:'🏮', nm:'行商人' };
 
@@ -61,13 +62,22 @@ var DKS_PEDS = [
   { id:'ppb', act:'pend',  pay:'gold', base:40000, step:500,  nm:'ペンダントの小箱',  ds:'ペンダントが1つ', art:'pend' },
   { id:'pgm', act:'gem3',  pay:'gold', base:90000, step:1000, gems:3, nm:'ダイヤ×3', ds:'ダイヤが3個', art:'gem' }
 ];
+/* 入場券（C22 SV.tickets={biz,first,dia}。クラスの入場で1枚使う＝WP15）。ビジネス550G・ファースト3,000G は本家の値 */
+var DKS_TK = [
+  { id:'tkb1', tk:'biz',   n:1, pay:'gold', base:550,  nm:'ビジネス入場券',     ds:'ビジネスクラス（500万）に1回入場' },
+  { id:'tkb5', tk:'biz',   n:5, pay:'gold', base:2500, nm:'ビジネス入場券×5',   ds:'1枚あたり500G。まとめてお得' },
+  { id:'tkf1', tk:'first', n:1, pay:'gold', base:3000, nm:'ファースト入場券',   ds:'ファーストクラス（1000万）に1回入場' },
+  { id:'tkd1', tk:'dia',   n:1, pay:'gem',  base:50,   nm:'ダイヤモンド入場券', ds:'ダイヤモンドクラス（1対1）に1回入場' }
+];
+var DKS_TKCOL = { biz:'#6FB8F5', first:'#F2C230', dia:'#9ED8FF' };
+var DKS_FRCOL = { bronze:'#D08A4E', silver:'#D5DEE8', gold:'#FFD44A' };
 var DKS_EX_SELL = [1, 10, 50];                            // ダイヤ→ゴールドの束
 
 /* ══════════ ミッション ══════════ */
 var DKS_QTABS = [
   { id:'daily',  ic:'🪶', nm:'デイリー' },
   { id:'weekly', ic:'📅', nm:'ウィークリー' },
-  { id:'trophy', ic:'🏆', nm:'実績' }
+  { id:'limit',  ic:'🏅', nm:'限定ミッション' }
 ];
 var DKS_QD = [
   { id:'d1', ic:'🎲', nm:'対戦を3回する',             need:3, unit:'回', go:'play',  ds:'きょう対戦した回数。',     get:function(c){ return c.t.plays; }, rw:{ g:2000 } },
@@ -77,30 +87,41 @@ var DKS_QD = [
   { id:'d5', ic:'🛒', nm:'ショップで1回買う',         need:1, unit:'回', go:'shop',  ds:'両替と無料の品は数えない。', get:function(c){ return c.t.buy; }, rw:{ d:2 } }
 ];
 var DKS_QW = [
-  { id:'w1', ic:'🎲', nm:'対戦を10回する',       need:10, unit:'回', go:'play',  ds:'今週の対戦回数。',     get:function(c){ return c.w.plays; }, rw:{ g:8000 } },
+  { id:'w1', ic:'🎲', nm:'対戦を10回する',       need:10, unit:'回', go:'play',  ds:'今週の対戦回数。',     get:function(c){ return c.w.plays; }, rw:{ g:8000, tk:'biz' } },
   { id:'w2', ic:'🏆', nm:'5回勝つ',             need:5,  unit:'回', go:'play',  ds:'今週1位になった回数。', get:function(c){ return c.w.wins; },  rw:{ d:12 } },
   { id:'w3', ic:'🎴', nm:'カードを3回強化する', need:3,  unit:'回', go:'cards', ds:'カード画面の強化で進む。', get:function(c){ return c.w.cup; }, rw:{ g:6000 } },
   { id:'w4', ic:'📿', nm:'ペンダントを +1 にする', need:1, unit:'回', go:'pend', ds:'強化に成功すると進む。', get:function(c){ return c.w.pup; },  rw:{ d:8 } },
   { id:'w5', ic:'🛒', nm:'ショップで3回買う',   need:3,  unit:'回', go:'shop',  ds:'両替と無料の品は数えない。', get:function(c){ return c.w.buy; }, rw:{ g:5000 } }
 ];
-var DKS_QT = [
-  { id:'t1', ic:'🎲', nm:'通算50回 対戦する',        need:50, unit:'回', go:'play',  ds:'これまでの対戦回数。', get:function(c){ return Math.max(c.st.plays | 0, SV.plays | 0); }, rw:{ g:20000 } },
-  { id:'t2', ic:'🏆', nm:'通算25回 勝つ',           need:25, unit:'回', go:'play',  ds:'これまでの勝ち数。',   get:function(c){ return Math.max(c.st.wins | 0, SV.wins | 0); },   rw:{ d:30 } },
-  { id:'t3', ic:'🎴', nm:'カードを12種あつめる',     need:12, unit:'種', go:'gacha', ds:'キューブやショップで集まる。', get:function(){ return dksOwnCards(); }, rw:{ d:20 } },
-  { id:'t4', ic:'👑', nm:'カード24種をコンプリート', need:24, unit:'種', go:'gacha', ds:'すべてのカードをそろえる。', get:function(){ return dksOwnCards(); }, rw:{ g:50000 } },
-  { id:'t5', ic:'⭐', nm:'カードを Lv30 にする',     need:30, unit:'Lv', go:'cards', ds:'S+のカードは Lv30 まで育つ。', get:function(){ return dksMaxCardLv(); }, rw:{ pend:'SS' } },
-  { id:'t6', ic:'📿', nm:'ペンダント8種をあつめる',  need:8,  unit:'種', go:'pend',  ds:'すべてのペンダントをそろえる。', get:function(){ return dksOwnPends(); }, rw:{ d:25 } },
-  { id:'t7', ic:'💠', nm:'ペンダントを +7 にする',   need:7,  unit:'段', go:'pend',  ds:'強化の最高段は +7。', get:function(){ return dksMaxPendPlus(); }, rw:{ g:30000 } },
-  { id:'t8', ic:'🎲', nm:'サイコロ5種をあつめる',    need:5,  unit:'種', go:'diceshop', ds:'ショップのサイコロで買える。', get:function(){ return dksOwnDice(); }, rw:{ d:25 } },
-  { id:'t9', ic:'💎', nm:'サイコロを Lv10 にする',   need:10, unit:'Lv', go:'dice',  ds:'サイコロ画面の強化で上がる。', get:function(){ return dksMaxDieLv(); }, rw:{ g:40000 } }
+/* 限定ミッション（J55）：系統ごとに1段ずつ。今の段をクリアすると次の段が開く（SV.lmq＝系統→今の段の番号）。
+   報酬に入場券（tk）と名札の枠（fr：銅・銀・金）を入れる（G22）。数字は当作 */
+var DKS_LM = [
+  { s:'play', ic:'🎲', nm:'通算%回 対戦する',        unit:'回', go:'play',     st:[10, 50, 100, 300],
+    rw:[{ g:5000 }, { g:20000, tk:'biz' }, { d:30, fr:'bronze' }, { d:60, tk:'first' }], get:function(c){ return Math.max(c.st.plays | 0, SV.plays | 0); } },
+  { s:'win',  ic:'🏆', nm:'通算%回 勝つ',            unit:'回', go:'play',     st:[5, 25, 50, 150],
+    rw:[{ g:8000 }, { d:30 }, { d:50, fr:'silver' }, { d:100, fr:'gold' }], get:function(c){ return Math.max(c.st.wins | 0, SV.wins | 0); } },
+  { s:'card', ic:'🎴', nm:'カードを%種あつめる',     unit:'種', go:'gacha',    st:[6, 12, 24],
+    rw:[{ d:10 }, { d:20 }, { g:50000, tk:'dia' }], get:function(){ return dksOwnCards(); } },
+  { s:'clv',  ic:'⭐', nm:'カードを Lv% にする',     unit:'Lv', go:'cards',    st:[10, 20, 30],
+    rw:[{ g:10000 }, { d:20 }, { pend:'SS' }], get:function(){ return dksMaxCardLv(); } },
+  { s:'pend', ic:'📿', nm:'ペンダントを%種あつめる', unit:'種', go:'pend',     st:[4, 8],
+    rw:[{ d:10 }, { d:25 }], get:function(){ return dksOwnPends(); } },
+  { s:'pup',  ic:'💠', nm:'ペンダントを +% にする',  unit:'段', go:'pend',     st:[3, 5, 7],
+    rw:[{ g:10000 }, { g:20000 }, { g:30000, tk:'first' }], get:function(){ return dksMaxPendPlus(); } },
+  { s:'dice', ic:'🎲', nm:'サイコロを%種あつめる',   unit:'種', go:'diceshop', st:[3, 5],
+    rw:[{ d:15 }, { d:25 }], get:function(){ return dksOwnDice(); } },
+  { s:'dlv',  ic:'💎', nm:'サイコロを Lv% にする',   unit:'Lv', go:'dice',     st:[5, 10],
+    rw:[{ g:15000 }, { g:40000 }], get:function(){ return dksMaxDieLv(); } }
 ];
+/* 旧「実績」（t1〜t9）を受け取っていた人は、その段まで進めておく（同じ報酬を二度もらわない。1回だけ） */
+var DKS_LMOLD = { t1:['play', 1], t2:['win', 1], t3:['card', 1], t4:['card', 2], t5:['clv', 2], t6:['pend', 1], t7:['pup', 2], t8:['dice', 1], t9:['dlv', 1] };
 var DKS_PLACE = {
   play:     { nm:'対戦へ行く',       tip:'対戦すると進みます。' },
   cards:    { nm:'カード画面へ',     tip:'カード画面の「強化」で進みます。' },
   pend:     { nm:'ペンダント画面へ', tip:'ペンダント画面の「強化」で進みます。' },
   dice:     { nm:'サイコロ画面へ',   tip:'サイコロ画面の「強化」で上がります。' },
   shop:     { nm:'ショップへ',       tip:'ショップのおすすめ・カード・サイコロで買うと進みます。' },
-  gacha:    { nm:'キューブへ',       tip:'キューブを引くとカードが集まります。' },
+  gacha:    { nm:'ガチャへ',         tip:'ガチャを引くとカードが集まります。' },
   diceshop: { nm:'サイコロを見る',   tip:'ショップの「サイコロ」タブで買えます。' }
 };
 
@@ -202,7 +223,7 @@ function dksOnMatch(e){
   dksAdd(t, 'plays'); dksAdd(w, 'plays'); dksAdd(st, 'plays');
   if(e.won){ dksAdd(t, 'wins'); dksAdd(w, 'wins'); dksAdd(st, 'wins'); }
   var ped = dksPedArrive(false);
-  if(ped && Array.isArray(e.chips)) e.chips.push({ ic:'🏮', label:'行商人がやってきた！ショップへ', v:'30分' });
+  if(ped && Array.isArray(e.chips)) e.chips.push({ ic:'🏮', label:'行商人が来た', v:'30分', k:'ped' });
   saveNow();
 }
 function dksOnCardUp(){ dksAdd(dksToday(), 'cup'); dksAdd(dksWeek(), 'cup'); dksAdd(dksStat(), 'cup'); saveNow(); }
@@ -302,6 +323,12 @@ function dkGoods(tab){
       else if((SV.lv | 0) < d.lv){ b.state = 'lock'; b.why = 'プレイヤーLv' + d.lv + 'で解放（いまLv' + (SV.lv | 0) + '）'; }
       out.push(dksFin(a), dksFin(b));
     });
+  } else if(tab === 'ticket'){
+    var tks = (SV.tickets && typeof SV.tickets === 'object') ? SV.tickets : {};
+    DKS_TK.forEach(function(t){
+      out.push(dksFin({ key:'tk:' + t.id, id:t.id, act:'tk', tk:t.tk, n:t.n, pay:t.pay, cost:t.base, base:t.base, nm:t.nm,
+        ds:t.ds + '（いま ' + (tks[t.tk] | 0) + '枚）', art:'tk' }));
+    });
   } else if(tab === 'gem'){
     DKS_EX_SELL.forEach(function(n){
       out.push(dksFin({ key:'ex:d2g:' + n, act:'ex_d2g', pay:'gem', cost:n, base:n, give:n * DKS_D2G, n:n,
@@ -330,6 +357,7 @@ function dksTabOfKey(k){
   if(k.indexOf('dice:') === 0) return 'dice';
   if(k.indexOf('ex:') === 0)   return 'gem';
   if(k.indexOf('ped:') === 0)  return 'peddler';
+  if(k.indexOf('tk:') === 0)   return 'ticket';
   return '';
 }
 function dksFind(key){
@@ -338,16 +366,18 @@ function dksFind(key){
 }
 
 /* ══════════ 渡す ══════════ */
-function dksDrawS(){
+/* S以上のカードを1枚（rar==='SS' ならS+だけ） */
+function dksDrawS(rar){
   var ss = CARDPOOL.filter(function(c){ return c.rar === 'SS'; }), s = CARDPOOL.filter(function(c){ return c.rar === 'S'; });
-  var from = (Math.random() < 0.2 && ss.length) ? ss : s;
+  var from = (rar === 'SS' || (Math.random() < 0.2 && ss.length)) ? ss : s;
+  if(!from.length) from = CARDPOOL;
   return from[(Math.random() * from.length) | 0];
 }
-function dksNewGot(){ return { gold:0, gem:0, cards:[], pend:[], dice:[] }; }
+function dksNewGot(){ return { gold:0, gem:0, cards:[], pend:[], dice:[], tk:[], fr:[] }; }
 /* grant のおまけ（ペンダント・サイコロ・2,000G）も got に写す */
 function dksGiveCards(n, sOnly, got){
   for(var i = 0; i < n; i++){
-    var c = sOnly ? dksDrawS() : drawOne();
+    var c = sOnly ? dksDrawS(sOnly) : drawOne();
     var r = grant(c) || {};
     got.cards.push({ c:c, r:r });
     if(r.pend && pendById(r.pend.id)) got.pend.push({ p:pendById(r.pend.id), r:r.pend });
@@ -370,6 +400,7 @@ function dksGive(g){
   else if(g.act === 'ex_d2g'){ SV.gold += g.give; got.gold += g.give; }
   else if(g.act === 'ex_g2d'){ SV.gem += g.give; got.gem += g.give; }
   else if(g.act === 'die'){ if(!SV.dice[g.die]) SV.dice[g.die] = 1; got.dice.push(g.die); }
+  else if(g.act === 'tk'){ if(dkhGrant({ kind:'ticket', id:g.tk, n:g.n })) got.tk.push({ id:g.tk, n:g.n }); }
   return got;
 }
 
@@ -472,7 +503,8 @@ async function dksAfter(at, got, before, title, redraw, noModal){
   if(redraw) redraw();
   dksShowWallet(before);
   dkWallet();
-  if(!noModal && (got.cards.length || got.pend.length || got.dice.length)) await dksRewardModal(title || '手に入れた！', dksItemsOf(got), '');
+  if(!noModal && (got.cards.length || got.pend.length || got.dice.length || (got.tk || []).length || (got.fr || []).length))
+    await dksRewardModal(title || '手に入れた！', dksItemsOf(got), '');
 }
 async function dksBuyFx(el, g, got, before){
   DKS_busy = true;
@@ -530,6 +562,8 @@ function dksItemsOf(got){
     items.push({ pend:x.p, v:x.p.nm, l:fresh ? 'ペンダント' : '重なり +1（素材' + ((x.r && x.r.dup) | 0) + '個）', rar:x.p.rar, fresh:fresh });
   });
   got.dice.forEach(function(id){ var d = dieById(id); items.push({ die:d, v:d.nm, l:'サイコロ', rar:d.rar, fresh:true }); });
+  (got.tk || []).forEach(function(x){ items.push({ art:'tk', c:DKS_TKCOL[x.id], v:dkhTkNm(x.id) + (x.n > 1 ? ' ×' + x.n : ''), l:'入場券' }); });
+  (got.fr || []).forEach(function(id){ items.push({ art:'frame', c:DKS_FRCOL[id], v:dkhFrNm(id), l:'名札の枠', fresh:true }); });
   return items;
 }
 function dksItemHTML(it, i){
@@ -540,7 +574,7 @@ function dksItemHTML(it, i){
         + (u ? '' : '<b>' + esc(it.card.nm.slice(0, 1)) + '</b>') + '</i>';
   } else if(it.pend) art = dksArt('pend', { c:dksRarCol(it.pend.rar), ic:it.pend.ic });
   else if(it.die) art = dksArt('die', { c:it.die.col });
-  else art = dksArt(it.art);
+  else art = dksArt(it.art, { c:it.c });
   return '<div class="dks-it' + (r ? ' r' + r : '') + '" style="--i:' + i + '">' + art
     + (r ? '<span class="dks-rr">' + (r === 'SS' ? 'S+' : r) + '</span>' : '')
     + '<div class="v">' + esc(it.v) + '</div><div class="l">' + esc(it.l) + '</div>'
@@ -567,6 +601,9 @@ function dksRewardModal(title, items, sub){
 
 /* ══════════ ショップの画面 ══════════ */
 function dksPic(g, crop){
+  if(g.art === 'tk') return '<div class="pic art tkbg" style="--c:' + DKS_TKCOL[g.tk] + '">' + dksArt('tk', { c:DKS_TKCOL[g.tk] })
+    + '<em class="dks-tkl fx-deco">' + ({ biz:'BUSINESS', first:'FIRST', dia:'DIAMOND' })[g.tk] + '</em>'
+    + (g.n > 1 ? '<em class="dks-pb">×' + g.n + '</em>' : '') + '</div>';
   var map = { card:'goods-card', cardS:'goods-card', gem:'goods-gem', gold:'goods-gold' };
   var n = g.act === 'card3' ? 3 : g.act === 'card5' ? 5 : g.act === 'card10' ? 10 : 0;
   var u = (!n && map[g.art]) ? dkU(map[g.art]) : '';
@@ -623,7 +660,7 @@ function dksPaneOsusume(ped){
     + '<div class="dks-goods n4">' + dkGoods('osusume').map(function(g, i){ return dksGoodHTML(g, i); }).join('') + '</div>';
 }
 function dksPaneCard(){
-  return dksStrip('カード', '同じ品を続けて買うと 2個目から <b>20%OFF</b>')
+  return dksStrip('カード', '同じ品を続けて買うと 2個目から <b>20%OFF</b>', '<button class="dks-pedlink dks-golink" data-dkgo="gacha">ガチャを引く</button>')
     + '<div class="dks-goods n3">' + dkGoods('card').map(function(g, i){ return dksGoodHTML(g, i); }).join('') + '</div>';
 }
 function dksPaneDice(){
@@ -672,8 +709,8 @@ function dksPaneGem(){
   }
   var info = '<div class="dks-exinfo"><div><span>今日の交換</span><b>' + (buy.state === 'done' ? 1 : 0) + ' / 1 回</b></div>'
     + '<div><span>売ってから買い戻すと</span><b>5分の1</b></div></div>';
-  var use = '<div class="dks-exuse"><span>ダイヤの使い道</span><b>キューブ</b><b>カードチケット</b><b>サイコロ</b></div>';
-  return dksStrip('両替所', '行ったり来たりしても増えないしくみ')
+  var use = '<div class="dks-exuse"><span>ダイヤの使い道</span><b>ガチャ</b><b>入場券</b><b>サイコロ</b></div>';
+  return dksStrip('財貨', '行ったり来たりしても増えないしくみ')
     + '<div class="dks-ex">'
     + '<div class="dks-exbox sell" data-fx="riseL"><div class="dks-exhd"><b>ダイヤ → ゴールド</b><span>1' + gi + ' = 6,000G</span></div>' + rows + use + '</div>'
     + '<div class="dks-exbox buy" data-fx="riseR"><div class="dks-exhd"><b>ゴールド → ダイヤ</b><span>1' + gi + ' = 30,000G</span></div>'
@@ -694,7 +731,7 @@ function dksPaneFree(){
     var pre = '';
     for(var j = 0; j < DKS_PICKS; j++) pre += '<span class="dks-rock lock"><b>？</b></span>';
     mineAct = '<div class="dks-rocks">' + pre + '</div><div class="dks-picks">入ると つるはしで <b>' + DKS_PICKS + '</b> 回掘れる</div>'
-      + '<button class="dkbtn gd dks-b fx-primary" data-dks-free="mine"><i class="dks-sh"></i>鉱山に入る ' + dksPrice('gem', DKS_MINE_D) + '</button>';
+      + '<button class="dkbtn gd dks-b" data-dks-free="mine"><i class="dks-sh"></i>鉱山に入る ' + dksPrice('gem', DKS_MINE_D) + '</button>';
   } else {
     var rocks = '';
     for(var i = 0; i < DKS_PICKS; i++){
@@ -716,11 +753,17 @@ function dksPaneFree(){
     + '<div class="nm">宝の地図</div><div class="ds">7日ごとに S以上のカードが1枚</div>'
     + dksPips('地図が届くまで', f.map ? 7 : Math.max(0, Math.min(7, Math.floor((DKS_MAP_MS - f.mapLeft) / DKS_DAYMS))), 7,
         f.map ? 'とどいた！' : 'あと' + Math.max(1, Math.ceil(f.mapLeft / DKS_DAYMS)) + '日')
-    + (f.map ? '<button class="dkbtn gd dks-b fx-primary" data-dks-free="map"><i class="dks-sh"></i>宝を掘り出す</button>'
+    + (f.map ? '<button class="dkbtn gd dks-b" data-dks-free="map"><i class="dks-sh"></i>宝を掘り出す</button>'
              : dksWait(now + f.mapLeft, true))
     + '</div>';
   return dksStrip('むりょう', 'ためておける無料の宝。赤い印はいま受け取れる合図')
     + '<div class="dks-frees">' + pot + mine + map + '</div>';
+}
+/* 入場券（C22）。持っている枚数も出す */
+function dksPaneTicket(){
+  var t = (SV.tickets && typeof SV.tickets === 'object') ? SV.tickets : {};
+  return dksStrip('入場券', 'いま ビジネス <b>' + (t.biz | 0) + '</b>・ファースト <b>' + (t.first | 0) + '</b>・ダイヤモンド <b>' + (t.dia | 0) + '</b> 枚')
+    + '<div class="dks-goods n4">' + dkGoods('ticket').map(function(g, i){ return dksGoodHTML(g, i); }).join('') + '</div>';
 }
 function dksPanePed(ped){
   return '<div class="dks-pedbar" data-fx="pop">' + dksArt('lantern')
@@ -811,13 +854,13 @@ function showShop(tab){
   try{ dkShopTab = (DKS_tab === 'peddler') ? 'osusume' : DKS_tab; }catch(e){}
   var t = DKS_tab;
   var body = t === 'free' ? dksPaneFree() : t === 'dice' ? dksPaneDice() : t === 'card' ? dksPaneCard()
-           : t === 'gem' ? dksPaneGem() : t === 'peddler' ? dksPanePed(ped) : dksPaneOsusume(ped);
-  var el = dkMake('shop', 'shop', dkHead('shop', {})
+           : t === 'gem' ? dksPaneGem() : t === 'ticket' ? dksPaneTicket() : t === 'peddler' ? dksPanePed(ped) : dksPaneOsusume(ped);
+  var el = dkhAmb(dkMake('shop', 'shop', dkHead('shop', {})
     + '<div class="dks-shop' + (t === 'peddler' ? ' is-ped' : '') + '">'
     + dksLeftHTML(t, ped)
     + '<div class="dks-main">' + dksTabsHTML(t, ped, dksFreeReady())
     + '<div class="dks-pane p-' + t + '" data-fx-step="70">' + body + '</div></div>'
-    + '</div>');
+    + '</div>'));
   el.classList.add('dks-scr');
   el.classList.toggle('dks-pedscr', t === 'peddler');
   dkWire(el, function(id){ showShop(id); });
@@ -838,21 +881,23 @@ function showShop(tab){
     b.onclick = function(){ dksSfx('click'); dksGoKey(b.getAttribute('data-dks-go')); };
   });
   DKS_ready = dksShopSig();
-  dkEvery('dks-shop', dksShopTick, 1000);
   screenTo('shop');
+  /* タイマーは screenTo のあと（画面が変わると DKFX.stopTimers が前の画面のタイマーを止めるため） */
+  dkEvery('dks-shop', dksShopTick, 1000);
+  dkhGlint(el, '.dks-good > .dks-gl, .dks-die > .dks-gl, .dks-free > .dks-gl', 'dks-glint', '::after');
   return el;
 }
 
-/* ══════════ ミッション ══════════ */
+/* ══════════ ミッション（デイリー・ウィークリー・限定ミッション） ══════════ */
 function dksQCtx(){ return { t:dksToday(), w:dksWeek(), st:dksStat() }; }
-/* qdone の鍵：デイリー d_{日付}_id ／ ウィークリー w_{週}_id ／ 実績 t_id */
+/* qdone の鍵：デイリー d_{日付}_id ／ ウィークリー w_{週}_id ／ 限定 L_{系統}_{段} */
 function dksQKey(tab, id){
   if(tab === 'daily') return 'd_' + todayKey() + '_' + id;
   if(tab === 'weekly') return 'w_' + weekIndex() + '_' + id;
   return 't_' + id;
 }
-function dksTabOfQ(id){ id = String(id || ''); return id.indexOf('d_') === 0 ? 'daily' : id.indexOf('w_') === 0 ? 'weekly' : 'trophy'; }
-/* 過ぎた日・週の受取記録を捨てる（増え続けないように）。実績 t_ は消さない */
+function dksTabOfQ(id){ id = String(id || ''); return id.indexOf('d_') === 0 ? 'daily' : id.indexOf('w_') === 0 ? 'weekly' : 'limit'; }
+/* 過ぎた日・週の受取記録を捨てる（増え続けないように）。限定 L_・旧実績 t_ は消さない */
 function dksQPrune(){
   var dp = 'd_' + todayKey() + '_', wp = 'w_' + weekIndex() + '_', q = SV.qdone || (SV.qdone = {}), n = 0;
   Object.keys(q).forEach(function(k){
@@ -860,31 +905,66 @@ function dksQPrune(){
   });
   return n;
 }
-/* タブの一覧 {id(=qdone の鍵), qid, nm, ds, ic, need, unit, go, rw, cur, ok, got, get(SV)} */
+/* 限定ミッションの段（SV.lmq）。初めての時だけ旧「実績」の受取記録から進める */
+function dksLmq(){
+  var q = SV.lmq;
+  if(!q || typeof q !== 'object' || Array.isArray(q)) q = SV.lmq = {};
+  if(!SV.lmqMig){
+    SV.lmqMig = 1;
+    var d = SV.qdone || {};
+    Object.keys(DKS_LMOLD).forEach(function(t){ var m = DKS_LMOLD[t]; if(d['t_' + t]) q[m[0]] = Math.max(q[m[0]] | 0, m[1] + 1); });
+  }
+  return q;
+}
+function dksLmRow(L, i, q, lock){
+  var need = L.st[i], key = 'L_' + L.s + '_' + i;
+  var get = function(){ return Math.max(0, Math.min(need, (L.get(dksQCtx()) | 0) || 0)); };
+  var cur = lock ? 0 : get();
+  return { id:key, qid:L.s + i, tab:'limit', s:L.s, step:i, lock:!!lock, nm:L.nm.replace('%', need),
+    ds:lock ? 'ひとつ前の段のあとに挑戦できます' : (i + 1) + '段目／全' + L.st.length + '段', ic:L.ic, need:need, unit:L.unit, go:L.go, rw:L.rw[i],
+    cur:cur, ok:!lock && cur >= need, got:!!q[key], get:get };
+}
+/* 系統ごとに「今の段」と、その次の段（🔒）を1行ずつ。全部クリアした系統はコンプリートの行 */
+function dksLmList(q){
+  var lm = dksLmq(), out = [];
+  DKS_LM.forEach(function(L){
+    var i = Math.max(0, lm[L.s] | 0);
+    if(i >= L.st.length){
+      var r = dksLmRow(L, L.st.length - 1, q, false);
+      r.got = true; r.ok = true; r.cur = r.need; r.ds = 'コンプリート';
+      out.push(r); return;
+    }
+    out.push(dksLmRow(L, i, q, false));
+    if(i + 1 < L.st.length) out.push(dksLmRow(L, i + 1, q, true));
+  });
+  return out;
+}
+/* タブの一覧 {id(=qdone の鍵), qid, nm, ds, ic, need, unit, go, rw, cur, ok, got, lock, get(SV)} */
 function dkQuestList(tab){
   tab = tab || DKS_qtab;
-  var src = tab === 'weekly' ? DKS_QW : tab === 'trophy' ? DKS_QT : DKS_QD;
-  var ctx = dksQCtx(), q = SV.qdone || (SV.qdone = {});
+  var q = SV.qdone || (SV.qdone = {});
+  if(tab === 'limit' || tab === 'trophy') return dksLmList(q);
+  var src = tab === 'weekly' ? DKS_QW : DKS_QD, ctx = dksQCtx();
   return src.map(function(d){
     var need = d.need;
     var cur = Math.max(0, Math.min(need, (d.get(ctx) | 0) || 0));
     var key = dksQKey(tab, d.id);
     return { id:key, qid:d.id, tab:tab, nm:d.nm, ds:d.ds, ic:d.ic, need:need, unit:d.unit, go:d.go, rw:d.rw,
-             cur:cur, ok:cur >= need, got:!!q[key],
+             cur:cur, ok:cur >= need, got:!!q[key], lock:false,
              get:function(){ return Math.max(0, Math.min(need, (d.get(dksQCtx()) | 0) || 0)); } };
   });
 }
-function dksQCount(tab){ return dkQuestList(tab).filter(function(q){ return q.ok && !q.got; }).length; }
+function dksQCount(tab){ return dkQuestList(tab).filter(function(q){ return q.ok && !q.got && !q.lock; }).length; }
 function dksChestState(){
   var list = dkQuestList('daily'), got = list.filter(function(q){ return q.got; }).length;
   return { got:got, n:list.length, all:got >= list.length, taken:SV.qchest === todayKey() };
 }
 function dksChestReady(){ var c = dksChestState(); return c.all && !c.taken; }
-/* 受け取れる物があるか（ホームのレールの「!」） */
+/* 受け取れる物がある時だけ true（ホームの縦のボタンの「!」） */
 function questReady(){
   try{
     if(dksChestReady()) return true;
-    return ['daily', 'weekly', 'trophy'].some(function(t){ return dksQCount(t) > 0; });
+    return ['daily', 'weekly', 'limit'].some(function(t){ return dksQCount(t) > 0; });
   }catch(e){ return false; }
 }
 /* 1つ受け取る。list と quiet は旧版と同じ引数。戻り値は手に入れた物（受け取れなければ null） */
@@ -892,17 +972,20 @@ function dkTakeQuest(id, list, quiet){
   list = list || dkQuestList(dksTabOfQ(id));
   var q = list.find(function(x){ return x.id === id; });
   if(!SV.qdone) SV.qdone = {};
-  if(!q || SV.qdone[q.id]) return null;
+  if(!q || q.lock || SV.qdone[q.id]) return null;
   if((q.get(SV) | 0) < q.need) return null;
-  var before = { gold:SV.gold, gem:SV.gem }, got = dksNewGot();
+  var before = { gold:SV.gold, gem:SV.gem }, got = dksNewGot(), rw = q.rw || {};
   SV.qdone[q.id] = 1;
-  if(q.rw.g){ SV.gold += q.rw.g; got.gold += q.rw.g; }
-  if(q.rw.d){ SV.gem += q.rw.d; got.gem += q.rw.d; }
-  if(q.rw.pend){
-    var pool = PENDANTS.filter(function(p){ return p.rar === q.rw.pend; });
+  if(rw.g){ SV.gold += rw.g; got.gold += rw.g; }
+  if(rw.d){ SV.gem += rw.d; got.gem += rw.d; }
+  if(rw.pend){
+    var pool = PENDANTS.filter(function(p){ return p.rar === rw.pend; });
     var p = pool[(Math.random() * pool.length) | 0];
     if(p) got.pend.push({ p:p, r:dkGivePend(p.id) });
   }
+  if(rw.tk && dkhGrant({ kind:'ticket', id:rw.tk, n:1 })) got.tk.push({ id:rw.tk, n:1 });
+  if(rw.fr && dkhGrant({ kind:'frame', id:rw.fr, n:1 })) got.fr.push(rw.fr);
+  if(q.tab === 'limit'){ var lm = dksLmq(); lm[q.s] = Math.max(lm[q.s] | 0, q.step + 1); }
   saveNow();
   if(!quiet) dksTakeFx(null, q, got, before);
   return got;
@@ -916,8 +999,8 @@ async function dksTakeFx(btn, q, got, before){
     var at = dksAt(row ? (row.querySelector('.rw') || row) : btn);
     fxBurst(at, { kind:got.gem && !got.gold ? 'gem' : 'coin', n:12 });
     fxPopText(at, got.gold ? '+' + dksN(got.gold) + 'G' : got.gem ? '💎+' + got.gem : '達成！', { tone:'gold', size:34 });
-    await dksAfter(at, got, before, 'ミッション達成', function(){ if(dksOn() === 'quest') showQuest(); });
-  }catch(e){ console.error('[WP8]', e); }
+    await dksAfter(at, got, before, q.tab === 'limit' ? '限定ミッション達成' : 'ミッション達成', function(){ if(dksOn() === 'quest') showQuest(); });
+  }catch(e){ console.error('[WP16b]', e); }
   DKS_busy = false;
 }
 function dksTakeUI(btn, id){
@@ -928,10 +1011,10 @@ function dksTakeUI(btn, id){
   if(!got){ dksNo(btn, '📜', 'まだ受け取れません', ''); return; }
   dksTakeFx(btn, q, got, before);
 }
-/* 一括受け取り：120ms 間隔で1つずつ判子を押していく */
+/* 一括受け取り：120ms 間隔で1つずつ判子を押していく（限定ミッションは次の段が開くので1巡だけ） */
 async function dksAllUI(btn){
   if(DKS_busy) return;
-  var list = dkQuestList(DKS_qtab).filter(function(q){ return q.ok && !q.got; });
+  var list = dkQuestList(DKS_qtab).filter(function(q){ return q.ok && !q.got && !q.lock; });
   if(!list.length){ dksNo(btn, '🎁', '受け取れる報酬がありません', ''); return; }
   DKS_busy = true;
   var before = { gold:SV.gold, gem:SV.gem }, total = dksNewGot();
@@ -939,7 +1022,8 @@ async function dksAllUI(btn){
     for(var i = 0; i < list.length; i++){
       var g = dkTakeQuest(list[i].id, null, true);
       if(!g) continue;
-      total.gold += g.gold; total.gem += g.gem; total.pend = total.pend.concat(g.pend);
+      total.gold += g.gold; total.gem += g.gem;
+      total.pend = total.pend.concat(g.pend); total.tk = total.tk.concat(g.tk); total.fr = total.fr.concat(g.fr);
       var row = document.querySelector('#quest .dks-q[data-q="' + list[i].id + '"]');
       if(row){
         row.classList.add('fx-claim', 'got');
@@ -954,10 +1038,10 @@ async function dksAllUI(btn){
     await fxWait(620);
     if(dksOn() === 'quest') showQuest();
     dksShowWallet(before); dkWallet();
-    if(total.pend.length) await dksRewardModal('ミッション達成', dksItemsOf(total), '');
+    if(total.pend.length || total.tk.length || total.fr.length) await dksRewardModal('ミッション達成', dksItemsOf(total), '');
     else try{ toast('R', '🎁', 'まとめて受け取りました',
       (total.gold ? dksN(total.gold) + 'G' : '') + (total.gold && total.gem ? '・' : '') + (total.gem ? 'ダイヤ' + total.gem + '個' : ''), 1800); }catch(e){}
-  }catch(e){ console.error('[WP8]', e); }
+  }catch(e){ console.error('[WP16b]', e); }
   DKS_busy = false;
 }
 /* デイリーコンプリートの宝箱（1日1回） */
@@ -979,7 +1063,7 @@ async function dksChestUI(btn){
     fxBurst(at, { kind:'coin', n:24, power:1.3 }); fxBurst(at, { kind:'star', n:16, power:1.2 });
     await dksAfter(at, got, before, '', function(){ if(dksOn() === 'quest') showQuest(); }, true);
     await dksRewardModal('デイリーコンプリート', dksItemsOf(got), '毎日0時に宝箱がもどります');
-  }catch(e){ console.error('[WP8]', e); }
+  }catch(e){ console.error('[WP16b]', e); }
   DKS_busy = false;
 }
 /* 「進行中」を押した時：あと何回か＋その場所への案内 */
@@ -1009,21 +1093,34 @@ function dksGuide(q){
     +       '<b>' + q.cur + '/' + q.need + '</b></div>'
     +     '<p>' + esc(pl.tip) + '</p></div>'
     + '</div>'
-    + '<div class="dks-mbtns"><button class="dkbtn dks-b dks-wood" data-act="x"><i class="dks-sh"></i>とじる</button>'
+    + '<div class="dks-mbtns"><button class="dkbtn dks-b dks-wood" data-act="x"><i class="dks-sh"></i>閉じる</button>'
     +   '<button class="dkbtn gr dks-b fx-primary green" data-act="go"><i class="dks-sh"></i>' + esc(pl.nm) + '</button></div>'
     + '</div>';
   dksSfx('click');
   return modal(html).then(function(a){ if(a === 'go') dksPlace(q.go); return a; });
 }
+/* 報酬の小さな札（ゴールド・ダイヤ・ペンダント・入場券・名札の枠） */
+function dksRwHTML(rw){
+  rw = rw || {};
+  return (rw.g ? '<span class="c">' + dksArt('coin') + '<b>' + dksN(rw.g) + '</b></span>' : '')
+    + (rw.d ? '<span class="c">' + dksArt('gem') + '<b>' + rw.d + '</b></span>' : '')
+    + (rw.pend ? '<span class="c">' + dksArt('pend', { c:'#F2C230', ic:'✦' }) + '<b>S+</b></span>' : '')
+    + (rw.tk ? '<span class="c" title="' + dkhTkNm(rw.tk) + '">' + dksArt('tk', { c:DKS_TKCOL[rw.tk] }) + '<b>券</b></span>' : '')
+    + (rw.fr ? '<span class="c" title="' + dkhFrNm(rw.fr) + '">' + dksArt('frame', { c:DKS_FRCOL[rw.fr] }) + '<b>枠</b></span>' : '');
+}
 function dksQRow(q){
+  var rw = dksRwHTML(q.rw);
+  if(q.lock){
+    return '<div class="dks-q lock" data-q="' + q.id + '" data-fx="riseR">'
+      + '<div class="ic" aria-hidden="true"><span>🔒</span></div>'
+      + '<div class="mid"><div class="nm">' + esc(q.nm) + '</div><div class="ds">' + esc(q.ds) + '</div></div>'
+      + '<div class="rw">' + rw + '</div><div class="dks-qlock"><i class="dks-stamp">🔒</i><span>クリアすると開きます</span></div></div>';
+  }
   var st = q.got ? 'got' : q.ok ? 'ok' : 'wip';
-  var rw = (q.rw.g ? '<span class="c">' + dksArt('coin') + '<b>' + dksN(q.rw.g) + '</b></span>' : '')
-         + (q.rw.d ? '<span class="c">' + dksArt('gem') + '<b>' + q.rw.d + '</b></span>' : '')
-         + (q.rw.pend ? '<span class="c">' + dksArt('pend', { c:'#F2C230', ic:'✦' }) + '<b>S+</b></span>' : '');
-  var act = q.got ? '<div class="dks-qdone"><i class="dks-stamp">済</i><span>受取済</span></div>'
-          : q.ok  ? '<button class="dkbtn gr dks-b fx-primary green" data-dks-take="' + q.id + '"><i class="dks-sh"></i>受け取る</button>'
+  var act = q.got ? '<div class="dks-qdone"><i class="dks-stamp">済</i><span>' + (q.ds === 'コンプリート' ? 'コンプリート' : '受取済') + '</span></div>'
+          : q.ok  ? '<button class="dkbtn gr dks-b green" data-dks-take="' + q.id + '"><i class="dks-sh"></i>受け取る</button>'
           : '<button class="dkbtn dks-b dks-wip" data-dks-guide="' + q.id + '"><i class="dks-sh"></i><b>進行中</b><small>' + dksLeftTx(q) + '</small></button>';
-  var num = (q.qid === 't7') ? '+' + q.cur + '/+' + q.need : q.cur + '/' + q.need;
+  var num = (q.unit === '段') ? '+' + q.cur + '/+' + q.need : q.cur + '/' + q.need;
   return '<div class="dks-q ' + st + '" data-q="' + q.id + '" data-fx="riseR">'
     + '<div class="ic" aria-hidden="true"><span>' + q.ic + '</span></div>'
     + '<div class="mid"><div class="nm">' + esc(q.nm) + '</div><div class="ds">' + esc(q.ds) + '</div>'
@@ -1033,19 +1130,18 @@ function dksQRow(q){
 }
 function dksQSig(){ return todayKey() + '|' + weekIndex(); }
 var DKS_qsig = '';
-/* tab を渡すとそのタブで開く（省略すると今のタブ） */
+/* tab を渡すとそのタブで開く（省略すると今のタブ。旧名 'trophy' は限定ミッション） */
 function showQuest(tab){
-  if(typeof tab === 'string' && tab) DKS_qtab = tab;
+  if(typeof tab === 'string' && tab) DKS_qtab = (tab === 'trophy') ? 'limit' : tab;
   if(!DKS_QTABS.some(function(t){ return t.id === DKS_qtab; })) DKS_qtab = 'daily';
   try{ dkQuestTab = DKS_qtab; }catch(e){}
   if(dksQPrune()) saveNow();
   var list = dkQuestList(DKS_qtab), ch = dksChestState(), ready = ch.all && !ch.taken;
   var tabs = DKS_QTABS.map(function(t){ var n = dksQCount(t.id); return Object.assign({}, t, { badge:n ? String(n) : '' }); });
-  var nextWeek = (weekIndex() + 1) * 7 * DKS_DAYMS + Date.UTC(1970, 0, 5, 6, 0, 0);
   var head = DKS_qtab === 'daily'  ? ['デイリーミッション', '毎日0時にリセット　あと ' + dksCd(dksNextMidnight())]
-           : DKS_qtab === 'weekly' ? ['ウィークリーミッション', '毎週月曜に入れ替え　あと ' + dksCd(nextWeek, true)]
-           : ['実績', '一度達成すると、ずっと残る記録'];
-  var any = list.some(function(q){ return q.ok && !q.got; });
+           : DKS_qtab === 'weekly' ? ['ウィークリーミッション', '毎週 月曜 朝5時に入れ替え　あと ' + dksCd(dkhWeekStart(1), true)]
+           : ['限定ミッション', '1つずつ進みます。クリアすると次の段が開きます'];
+  var any = list.some(function(q){ return q.ok && !q.got && !q.lock; });
   var img = dkU('hero-chest');
   var side = '<div class="dkdark dks-qside" data-fx="riseR">'
     + '<div class="dks-rib gold"><b>デイリーコンプリート</b></div>'
@@ -1063,7 +1159,7 @@ function showQuest(tab){
        : '<button class="dkbtn gd dks-b' + (ready ? ' fx-primary' : ' dim') + '" data-dks-chest="1"><i class="dks-sh"></i>'
          + (ready ? '宝箱を開ける' : 'あと ' + (ch.n - ch.got) + 'つ') + '</button>')
     + '</div>';
-  var el = dkMake('quest', 'quest', dkHead('quest', {}) + dkTabs(tabs, DKS_qtab)
+  var el = dkhAmb(dkMake('quest', 'quest', dkHead('quest', {}) + dkTabs(tabs, DKS_qtab)
     + '<div class="dkbody dks-qbody">'
     +   '<div class="dkpar dks-qbox">'
     +     '<div class="dks-qhd"><div class="dks-rib"><b>' + head[0] + '</b></div><span class="c">' + head[1] + '</span></div>'
@@ -1072,7 +1168,7 @@ function showQuest(tab){
     +       '<i class="dks-sh"></i>一括受け取り</button>'
     +   '</div>'
     +   side
-    + '</div>');
+    + '</div>'));
   el.classList.add('dks-scr');
   dkWire(el, function(id){ showQuest(id); });
   el.querySelectorAll('[data-dks-take]').forEach(function(b){
@@ -1089,81 +1185,96 @@ function showQuest(tab){
   var cb = el.querySelector('[data-dks-chest]');
   if(cb) cb.onclick = function(){ dksChestUI(cb); };
   DKS_qsig = dksQSig();
+  screenTo('quest');
   dkEvery('dks-quest', function(){
     if(dksOn() !== 'quest'){ dkEvery('dks-quest', null); return; }
     dksTickCd(document.getElementById('quest'));
     if(!DKS_busy && dksQSig() !== DKS_qsig && !document.querySelector('#modalWrap.on')) showQuest();
   }, 1000);
-  screenTo('quest');
   return el;
 }
 
-/* ══════════ 出席簿 ══════════ */
-function dksDailyArt(d){
-  if(d.ic === '🪙') return dksArt('coin');
-  if(d.ic === '💎') return dksArt('gem');
-  if(d.ic === '📿') return dksArt('pend', { c:'#B07CE8', ic:'？' });
+/* ══════════ 出席簿（J41：28日。7・14・21・28日目は金の枠と放射光） ══════════
+   1日1回。取り逃しても次の日に続きから（SV.dailyN＝次に受け取る日の番号 0〜27。28日目のあとは0）。数字は当作 */
+var DKS_D28 = [
+  { k:'g', v:1000 }, { k:'g', v:1500 }, { k:'d', v:2 }, { k:'g', v:2000 }, { k:'tk', v:1, id:'biz' }, { k:'g', v:2500 }, { k:'card', v:1, r:'S' },
+  { k:'g', v:2000 }, { k:'d', v:3 }, { k:'g', v:3000 }, { k:'pend', v:1 }, { k:'g', v:3000 }, { k:'tk', v:1, id:'biz' }, { k:'d', v:20 },
+  { k:'g', v:3000 }, { k:'d', v:3 }, { k:'g', v:4000 }, { k:'card', v:1 }, { k:'g', v:4000 }, { k:'tk', v:1, id:'first' }, { k:'g', v:30000 },
+  { k:'g', v:4000 }, { k:'d', v:5 }, { k:'g', v:5000 }, { k:'pend', v:1 }, { k:'g', v:5000 }, { k:'tk', v:1, id:'first' }, { k:'card', v:1, r:'SS' }
+];
+function dksD28Nm(d){
+  return d.k === 'g' ? 'ゴールド' : d.k === 'd' ? 'ダイヤ' : d.k === 'tk' ? dkhTkNm(d.id) : d.k === 'pend' ? 'ペンダント'
+       : d.r === 'SS' ? 'S+カード確定' : d.r === 'S' ? 'S以上カード' : 'カード';
+}
+function dksD28Art(d){
+  if(d.k === 'g') return dksArt('coin');
+  if(d.k === 'd') return dksArt('gem');
+  if(d.k === 'tk') return dksArt('tk', { c:DKS_TKCOL[d.id] });
+  if(d.k === 'pend') return dksArt('pend', { c:'#B07CE8', ic:'？' });
   return dksArt('card');
 }
 function dksDailyView(){
-  var n = SV.dailyN | 0, can = canDaily(), day = n % 7;
-  return { n:n, can:can, day:day, full:(!can && n > 0 && day === 0) };   // full＝7日目を受け取った日（全部に判子）
+  var n = ((SV.dailyN | 0) % 28 + 28) % 28, can = canDaily();
+  return { day:n, can:can, full:(!can && n === 0 && !!SV.daily28 && SV.daily28 === SV.dailyAt) };   // full＝28日目を受け取った日
 }
 function dksDailySig(){ return todayKey() + '|' + canDaily(); }
 var DKS_dsig = '';
 function showDaily(){
-  var v = dksDailyView();
-  var cells = DAILY.map(function(d, i){
-    var got = v.full || i < v.day, now = (i === v.day && v.can), last = (i === DAILY.length - 1);
-    return '<div class="dks-day' + (got ? ' got' : '') + (now ? ' now' : '') + (last ? ' d7' : '') + '" data-i="' + i + '" data-fx="deal">'
-      + (last ? '<div class="dks-d7rays fx-deco" aria-hidden="true"><div class="fx-rays"></div></div>' : '')
-      + '<i class="dks-gl" aria-hidden="true"></i>'
+  var v = dksDailyView(), gold = -1;
+  for(var j = v.day; j < 28 && gold < 0; j++) if((j + 1) % 7 === 0) gold = j;      // 次の豪華な日だけ光を回す
+  var cells = DKS_D28.map(function(d, i){
+    var got = v.full || i < v.day, now = (i === v.day && v.can), big = ((i + 1) % 7 === 0);
+    return '<div class="dks-day' + (got ? ' got' : '') + (now ? ' now' : '') + (big ? ' d7' : '') + '" data-i="' + i + '">'
+      + (big ? '<div class="dks-d7rays fx-deco' + (i === gold && !v.full ? ' spin' : '') + '" aria-hidden="true"><div class="fx-rays"></div></div>' : '')
+      + ((big || now) ? '<i class="dks-gl" aria-hidden="true"></i>' : '')
       + '<div class="dd"><b>' + (i + 1) + '日目</b></div>'
-      + '<div class="di">' + dksDailyArt(d) + '</div>'
-      + '<div class="dv">' + (d.ic === '🪙' ? dksN(d.v) : '×' + d.v) + '</div>'
-      + '<div class="dn">' + esc(d.ic === '✨' ? 'カード' : d.nm) + '</div>'
+      + '<div class="di">' + dksD28Art(d) + '</div>'
+      + '<div class="dv">' + (d.k === 'g' ? dksN(d.v) : '×' + d.v) + '</div>'
+      + '<div class="dn">' + esc(dksD28Nm(d)) + '</div>'
       + (got ? '<i class="dks-stamp">済</i>' : '')
       + (now ? '<span class="dks-today">今日</span>' : '')
-      + (last ? '<span class="dks-crown fx-deco" aria-hidden="true"></span>' : '')
+      + (big ? '<span class="dks-crown fx-deco" aria-hidden="true"></span>' : '')
       + '</div>';
   }).join('');
   var info = v.can ? '今日は <b>' + (v.day + 1) + '日目</b>'
-           : v.full ? '<b>7日</b>そろいました！明日から1日目にもどります'
+           : v.full ? '<b>28日</b>そろいました！明日から1日目にもどります'
            : '<b>' + v.day + '日目</b>まで受け取り済み';
-  var el = dkMake('daily', 'quest', dkHead('daily', { title:'出席簿' })
+  var el = dkhAmb(dkMake('daily', 'quest', dkHead('daily', { title:'出席簿' })
     + '<div class="dkbody dks-dbody">'
     +   '<div class="dkpar dks-daily">'
-    +     '<div class="dks-dhd"><div class="dks-rib"><b>毎日ログインで7日ぶんの報酬</b></div><span class="c">' + info + '</span></div>'
-    +     '<div class="dks-days" data-fx-step="60">' + cells + '</div>'
+    +     '<div class="dks-dhd"><div class="dks-rib"><b>毎日ログインで28日ぶんの報酬</b></div><span class="c">7日ごとに豪華・' + info + '</span></div>'
+    +     '<div class="dks-days" data-fx="rise">' + cells + '</div>'
     +     (v.can
         ? '<button class="dkbtn gd dks-b fx-primary dks-dget" id="dGet"><i class="dks-sh"></i>今日のぶんを受け取る</button>'
         : '<div class="dks-dnext"><i class="dks-stamp">済</i><b>今日は受け取りました</b>' + dksWait(dksNextMidnight(), false, '次の報酬まで') + '</div>')
     +   '</div>'
-    + '</div>');
+    + '</div>'));
   el.classList.add('dks-scr');
   dkWire(el);
   var b = el.querySelector('#dGet');
   if(b) b.onclick = function(){ dksDailyClaim(b); };
   DKS_dsig = dksDailySig();
+  screenTo('daily');
   dkEvery('dks-daily', function(){
     if(dksOn() !== 'daily'){ dkEvery('dks-daily', null); return; }
     dksTickCd(document.getElementById('daily'));
     if(!DKS_busy && dksDailySig() !== DKS_dsig && !document.querySelector('#modalWrap.on')) showDaily();
   }, 1000);
-  screenTo('daily');
+  dkhGlint(el, '.dks-day > .dks-gl', 'dks-glint', '::after');
   return el;
 }
-/* 受け取る：判子を押す → 粒 → お金は財布へ → 王宮の報酬モーダル。
-   📿 は dkGivePend（持っていれば重なり）、✨ は grant（カード1枚） */
+/* 受け取る：判子を押す → 粒 → お金は財布へ → 王宮の報酬モーダル */
 async function dksDailyClaim(btn){
   if(DKS_busy) return null;
   if(!canDaily()){ dksNo(btn, '📅', '今日はもう受け取りました', '明日また来てね'); return null; }
-  var idx = (SV.dailyN | 0) % 7, d = DAILY[idx], before = { gold:SV.gold, gem:SV.gem }, got = dksNewGot();
-  SV.dailyAt = todayKey(); SV.dailyN = (SV.dailyN | 0) + 1;
-  if(d.ic === '🪙'){ SV.gold += d.v; got.gold = d.v; }
-  else if(d.ic === '💎'){ SV.gem += d.v; got.gem = d.v; }
-  else if(d.ic === '📿'){ var p = PENDANTS[(Math.random() * PENDANTS.length) | 0]; got.pend.push({ p:p, r:dkGivePend(p.id) }); }
-  else dksGiveCards(1, false, got);
+  var idx = ((SV.dailyN | 0) % 28 + 28) % 28, d = DKS_D28[idx], before = { gold:SV.gold, gem:SV.gem }, got = dksNewGot();
+  SV.dailyAt = todayKey(); SV.dailyN = (idx + 1) % 28;
+  if(idx === 27) SV.daily28 = SV.dailyAt;
+  if(d.k === 'g'){ SV.gold += d.v; got.gold = d.v; }
+  else if(d.k === 'd'){ SV.gem += d.v; got.gem = d.v; }
+  else if(d.k === 'tk'){ if(dkhGrant({ kind:'ticket', id:d.id, n:d.v })) got.tk.push({ id:d.id, n:d.v }); }
+  else if(d.k === 'pend'){ var p = PENDANTS[(Math.random() * PENDANTS.length) | 0]; got.pend.push({ p:p, r:dkGivePend(p.id) }); }
+  else dksGiveCards(1, d.r || false, got);
   saveNow();
   DKS_busy = true;
   try{
@@ -1175,14 +1286,14 @@ async function dksDailyClaim(btn){
       await fxWait(250);
       dksSfx('build');
       fxShake(cell, 180);
-      fxBurst(cell, { kind:'conf', n:10, power:0.7 });
+      fxBurst(cell, { kind:(idx + 1) % 7 === 0 ? 'star' : 'conf', n:(idx + 1) % 7 === 0 ? 22 : 10, power:0.8 });
       await fxWait(160);
     }
     var at = cell ? fxPt(cell) : { x:800, y:450 };
     await dksAfter(at, got, before, '', function(){ if(dksOn() === 'daily') showDaily(); }, true);
-    await dksRewardModal('出席ボーナス ' + (idx + 1) + '日目', dksItemsOf(got),
-      idx === DAILY.length - 1 ? '7日そろいました！明日から1日目にもどります' : '明日もログインしてね');
-  }catch(e){ console.error('[WP8]', e); }
+    await dksRewardModal('出席簿 ' + (idx + 1) + '日目', dksItemsOf(got),
+      idx === 27 ? '28日そろいました！明日から1日目にもどります' : (idx + 1) % 7 === 0 ? '7日ごとの豪華な報酬です' : '明日もログインしてね');
+  }catch(e){ console.error('[WP16b]', e); }
   DKS_busy = false;
   return got;
 }

@@ -29,13 +29,21 @@ html,body{background-color:#140C05}
   linear-gradient(180deg,#2E1C0A 0%,#1A1005 48%,#0C0702 100%)}
 
 /* ══════════════════════════════════════════════════════════════
-   ホーム
+   ホーム（本家ロビー：左右の縦のボタン・首から下げたカード・右にランキング）
+   常時アニメは8個まで（背景の光2・ロゴ・カードの光輪・カードの揺れ・入場するの光と呼吸）。光の筋は dkhGlint が1本ずつ
    ══════════════════════════════════════════════════════════════ */
-#home.dkh-home::before{content:""!important;position:absolute;inset:0;z-index:0;pointer-events:none;
+#home.dkh-home::before{content:""!important;position:absolute;inset:0;z-index:0;pointer-events:none;animation:none;opacity:.55;
   background:radial-gradient(64% 70% at 50% 44%,rgba(0,0,0,0) 40%,rgba(10,5,0,.55) 100%),
              linear-gradient(180deg,rgba(0,0,0,.35),rgba(0,0,0,0) 16%,rgba(0,0,0,0) 80%,rgba(0,0,0,.45))}
+#home::after,#news::after,#mail::after,#friends::after{animation:none}
+/* 行ごとのボタン・木のボタンの光の筋は止める（並ぶ数だけ無限のアニメが増えるため） */
+.dkh-ingo::after,.dkh-take::after,.dkbtn.dkh-wood::after{animation:none}
 #home.dkh-home > *{z-index:2}
 #home.dkh-home > .fx-amb{z-index:1}
+#home > .fx-amb > .fx-ray{display:none}
+/* 光の筋（ふだんは左の外に隠れている。dkhGlint が el.animate で1本ずつ流す） */
+.dkh-gl{position:absolute;top:-10%;bottom:-10%;left:0;width:30%;z-index:2;pointer-events:none;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);transform:translateX(-140%) skewX(-16deg)}
 
 /* ── 上段 ── */
 .dkh-top{position:absolute;left:0;right:0;top:0;height:100px;z-index:6;pointer-events:none}
@@ -49,74 +57,68 @@ html,body{background-color:#140C05}
 .dkh-logotx{display:flex;align-items:center}
 .dkh-logotx b{font-family:var(--pop);font-size:44px;color:var(--dkh-gold);-webkit-text-stroke:6px var(--dkh-edge);paint-order:stroke fill}
 
-.dkh-ev{position:absolute;left:402px;right:192px;top:15px;height:66px;cursor:pointer;overflow:hidden;
+.dkh-ev{position:absolute;left:402px;right:340px;top:15px;height:66px;cursor:pointer;overflow:hidden;
   display:flex;align-items:center;gap:14px;padding:0 20px 0 10px;border-radius:14px;
   background:var(--dkh-lacq) padding-box,var(--dkh-rimSS) border-box;border:3px solid transparent;
   box-shadow:0 5px 0 rgba(0,0,0,.4),0 10px 22px rgba(0,0,0,.45),inset 0 2px 0 rgba(255,200,160,.35);
   transition:transform var(--fx-t-release) var(--fx-back)}
-.dkh-home.dkh-hasped .dkh-ev{right:430px}
+.dkh-home.dkh-hasped .dkh-ev{right:578px}
 .dkh-ev:hover{transform:translateY(-2px)}
 .dkh-ev:active{transform:translateY(2px) scale(.99);transition-duration:var(--fx-t-press)}
 .dkh-evtag{flex:0 0 auto;padding:6px 14px;border-radius:10px;font-family:var(--pop);font-size:20px;line-height:1;color:#5A3A04;
   background:linear-gradient(180deg,#FFF3C8,#F2C230 55%,#C08A0E);border:2px solid #7A5206;box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}
-.dkh-evic{flex:0 0 auto;font-style:normal;font-size:34px;line-height:1;filter:drop-shadow(0 2px 2px rgba(0,0,0,.6));
-  animation:dkhRing 3.6s ease-in-out infinite}
-@keyframes dkhRing{0%,82%,100%{transform:rotate(0)}87%{transform:rotate(-14deg)}92%{transform:rotate(12deg)}96%{transform:rotate(-5deg)}}
+.dkh-evic{flex:0 0 auto;font-style:normal;font-size:34px;line-height:1;filter:drop-shadow(0 2px 2px rgba(0,0,0,.6))}
 .dkh-evnm{flex:0 0 auto;font-family:var(--pop);font-size:28px;line-height:1;color:var(--dkh-gold);
   -webkit-text-stroke:5px #3A0806;paint-order:stroke fill;text-shadow:0 3px 0 rgba(0,0,0,.45)}
 .dkh-evds{flex:1 1 auto;min-width:0;font-size:20px;font-weight:900;color:#FFE6D0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dkh-evtime{flex:0 0 auto;font-size:20px;font-weight:900;color:#FFF3D8;padding:5px 12px;border-radius:9px;background:rgba(0,0,0,.35);
-  border:1px solid rgba(255,210,120,.4)}
-.dkh-evshine{position:absolute;top:0;bottom:0;left:0;width:26%;pointer-events:none;
-  background:linear-gradient(100deg,transparent,rgba(255,236,200,.28),transparent);
-  transform:translateX(-120%) skewX(-18deg);animation:dkhSweep 7s ease-in-out infinite}
-@keyframes dkhSweep{0%,70%{transform:translateX(-120%) skewX(-18deg)}100%{transform:translateX(520%) skewX(-18deg)}}
 
-.dkh-tr{position:absolute;right:18px;top:14px;display:flex;gap:14px}
-.dkh-ic{position:relative;width:72px;height:68px;border-radius:16px;cursor:pointer;display:grid;place-items:center;
+.dkh-tr{position:absolute;right:16px;top:12px;display:flex;align-items:center;gap:14px}
+/* 赤い「! お知らせ」 */
+.dkh-oshi{position:relative;height:58px;display:flex;align-items:center;gap:8px;padding:0 20px 0 9px;border-radius:29px;cursor:pointer;
+  background:linear-gradient(180deg,#FF8A74 0 10%,#D8321E 52%,#8E1410);border:3px solid #FFE0B0;
+  box-shadow:0 4px 0 rgba(0,0,0,.45),inset 0 2px 0 rgba(255,255,255,.4);transition:transform var(--fx-t-release) var(--fx-back)}
+.dkh-oshi > i{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-family:var(--pop);font-size:24px;line-height:1;
+  color:#C9302C;background:#FFF6E2;box-shadow:inset 0 -3px 0 rgba(0,0,0,.18)}
+.dkh-oshi > b{font-size:22px;font-weight:900;line-height:1;color:#FFF6E2;-webkit-text-stroke:4px #5A0A08;paint-order:stroke fill;white-space:nowrap}
+.dkh-oshi:hover{transform:translateY(-2px)} .dkh-oshi:active{transform:translateY(3px) scale(.96);transition-duration:var(--fx-t-press)}
+.dkh-ic{position:relative;width:96px;height:76px;border-radius:16px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;
   background:var(--dkh-wood2) padding-box,var(--dkh-rimSS) border-box;border:3px solid transparent;
   box-shadow:0 5px 0 rgba(0,0,0,.45),inset 0 2px 0 rgba(255,226,150,.35);transition:transform var(--fx-t-release) var(--fx-back)}
-.dkh-ic svg{width:46px;height:46px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.5))}
+.dkh-ic svg{width:42px;height:42px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.5))}
+.dkh-ict{font-size:18px;font-weight:900;line-height:1;color:#FFF3D8;-webkit-text-stroke:3px var(--dkh-edge);paint-order:stroke fill}
 .dkh-ic:hover{transform:translateY(-3px)} .dkh-ic:active{transform:translateY(3px) scale(.96);transition-duration:var(--fx-t-press)}
-.dkh-ic[data-dkgo="settings"]:hover svg{transform:rotate(40deg);transition:transform .5s var(--fx-out)}
 .dkh-dot,.dkh-badge{position:absolute;right:-9px;top:-10px;min-width:30px;height:30px;padding:0 7px;border-radius:15px;z-index:3;
   display:flex;align-items:center;justify-content:center;font-style:normal;font-size:18px;font-weight:900;color:#fff;line-height:1;
-  background:linear-gradient(180deg,#FF6A5E,#C9302C);border:2px solid #FFF1D0;box-shadow:0 2px 4px rgba(0,0,0,.5);
-  animation:dkBadge 1.6s ease-in-out infinite;pointer-events:none}
+  background:linear-gradient(180deg,#FF6A5E,#C9302C);border:2px solid #FFF1D0;box-shadow:0 2px 4px rgba(0,0,0,.5);pointer-events:none}
 
-/* ── 左右のレール（宝石のメダル＋金縁の木札） ── */
-.dkh-rail{position:absolute;top:108px;width:164px;z-index:5;display:flex;flex-direction:column;gap:10px}
-.dkh-rail.l{left:14px} .dkh-rail.r{right:14px}
-.dkh-rb{position:relative;height:128px;border-radius:20px;cursor:pointer;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+/* ── 左右の縦のボタン（宝石のメダル＋金縁の木札。左5つ・右6つ） ── */
+.dkh-rail{position:absolute;top:104px;width:168px;z-index:5;display:flex;flex-direction:column;gap:8px}
+.dkh-rail.l{left:12px} .dkh-rail.r{right:12px}
+.dkh-rb{position:relative;height:108px;border-radius:18px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
   background:var(--dkh-wood) padding-box,linear-gradient(180deg,#C8952F,#6B4408 60%,#A8752A) border-box;border:3px solid transparent;
   box-shadow:0 5px 0 rgba(0,0,0,.5),0 10px 18px rgba(0,0,0,.35),inset 0 2px 0 rgba(255,220,150,.22),inset 0 -12px 18px rgba(0,0,0,.35);
   transition:transform var(--fx-t-release) var(--fx-back)}
+.dkh-rail.l .dkh-rb{height:124px}
 .dkh-rb:hover{transform:translateY(-4px)}
 .dkh-rb:active{transform:translateY(3px) scale(.97);transition-duration:var(--fx-t-press);transition-timing-function:var(--fx-out)}
-.dkh-med{position:relative;width:78px;height:78px;border-radius:50%;display:grid;place-items:center;overflow:hidden;
+.dkh-med{position:relative;width:64px;height:64px;flex:0 0 auto;border-radius:50%;display:grid;place-items:center;overflow:hidden;
   border:3px solid #F3D583;box-shadow:0 0 0 3px #3A2405,0 4px 8px rgba(0,0,0,.6),inset 0 -8px 14px rgba(0,0,0,.35),inset 0 6px 10px rgba(255,255,255,.35)}
-.dkh-med svg{position:relative;z-index:1;width:54px;height:54px;filter:drop-shadow(0 2px 1px rgba(0,0,0,.45));transition:transform .3s var(--fx-back)}
+.dkh-med svg{position:relative;z-index:1;width:44px;height:44px;filter:drop-shadow(0 2px 1px rgba(0,0,0,.45));transition:transform .3s var(--fx-back)}
 .dkh-rb:hover .dkh-med svg{transform:scale(1.1) rotate(-6deg)}
 .dkh-med::before{content:"";position:absolute;left:10%;right:10%;top:5%;height:42%;border-radius:50%;z-index:2;pointer-events:none;
   background:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,0))}
-.dkh-med::after{content:"";position:absolute;top:-10%;bottom:-10%;left:0;width:34%;z-index:2;pointer-events:none;
-  background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);transform:translateX(-140%) skewX(-16deg);
-  animation:dkhSweep 6.4s ease-in-out infinite}
-.dkh-rail .dkh-rb:nth-child(2) .dkh-med::after{animation-delay:.5s}
-.dkh-rail .dkh-rb:nth-child(3) .dkh-med::after{animation-delay:1s}
-.dkh-rail .dkh-rb:nth-child(4) .dkh-med::after{animation-delay:1.5s}
-.dkh-rail .dkh-rb:nth-child(5) .dkh-med::after{animation-delay:2s}
-.dkh-rail.r .dkh-rb .dkh-med::after{animation-duration:7.2s}
 .dkh-med.ruby {background:radial-gradient(circle at 38% 30%,#FF9A86,#E0402E 45%,#8E1410 85%)}
 .dkh-med.amber{background:radial-gradient(circle at 38% 30%,#FFE9A0,#F2A81C 45%,#9A5A04 85%)}
 .dkh-med.emer {background:radial-gradient(circle at 38% 30%,#C6F59A,#4FB43A 45%,#1C5E10 85%)}
 .dkh-med.sapph{background:radial-gradient(circle at 38% 30%,#BFE8FF,#2E8BE0 45%,#0B2C5E 85%)}
 .dkh-med.amet {background:radial-gradient(circle at 38% 30%,#FFB0C8,#C23B6A 45%,#5E0A2C 85%)}
-.dkh-rbt{font-size:20px;font-weight:900;line-height:1;color:#FFF3D8;-webkit-text-stroke:4px var(--dkh-edge);paint-order:stroke fill;letter-spacing:.03em}
+.dkh-med.wood {background:radial-gradient(circle at 38% 30%,#FFF1CC,#C8A064 45%,#5A3E18 85%)}
+.dkh-rbt{font-size:20px;font-weight:900;line-height:1;text-align:center;color:#FFF3D8;-webkit-text-stroke:4px var(--dkh-edge);paint-order:stroke fill;letter-spacing:.02em}
+.dkh-rbt.two{font-size:19px;line-height:1.08}
 
 /* ── 首から下げたカード ── */
-.dkh-cardcol{position:absolute;left:194px;top:96px;width:456px;bottom:86px;z-index:4;display:flex;flex-direction:column;gap:14px}
+.dkh-cardcol{position:absolute;left:194px;top:96px;width:456px;bottom:88px;z-index:4;display:flex;flex-direction:column;gap:14px}
 .dkh-badgewrap{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;padding-top:34px;
   animation:dkhSway 7s ease-in-out infinite;transform-origin:50% 0}
 @keyframes dkhSway{0%,100%{transform:rotate(0)}50%{transform:rotate(.7deg) translateY(3px)}}
@@ -132,7 +134,7 @@ html,body{background-color:#140C05}
 .dkh-card.rS{background:var(--dkh-rimS)}
 .dkh-card.rSS{background:var(--dkh-rimSS)}
 .dkh-card::after{content:"";position:absolute;inset:-4px;border-radius:26px;z-index:-1;pointer-events:none;
-  box-shadow:0 0 30px 8px rgba(255,200,80,.55);opacity:.35;animation:fxBreath 2.6s var(--fx-inout) infinite}
+  box-shadow:0 0 30px 8px rgba(255,200,80,.55);opacity:.45}
 .dkh-card.rA::after{box-shadow:0 0 28px 6px rgba(110,190,255,.5)}
 .dkh-card.rS::after{box-shadow:0 0 28px 6px rgba(190,140,255,.5)}
 .dkh-chd{flex:0 0 56px;display:flex;align-items:center;gap:12px;padding:0 16px;border-radius:16px 16px 0 0;
@@ -153,9 +155,7 @@ html,body{background-color:#140C05}
   animation:fxSpin 46s linear infinite}
 .dkh-art{position:absolute;inset:0;background-repeat:no-repeat;background-size:128% auto;background-position:50% 86%;mix-blend-mode:multiply}
 .dkh-ph{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--pop);font-size:160px;color:rgba(90,58,4,.35)}
-.dkh-gloss{position:absolute;top:-10%;bottom:-10%;left:0;width:28%;pointer-events:none;z-index:2;
-  background:linear-gradient(100deg,transparent,rgba(255,255,255,.4),transparent);transform:translateX(-150%) skewX(-16deg);
-  animation:dkhSweep 5.6s ease-in-out 1.2s infinite}
+.dkh-pic > .dkh-gl{width:28%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.4),transparent)}
 .dkh-role{position:absolute;left:12px;bottom:12px;z-index:3;padding:6px 14px;border-radius:10px;font-size:20px;font-weight:900;color:#FFF3D8;
   background:rgba(26,14,4,.78);border:2px solid rgba(255,210,120,.55)}
 .dkh-lv{position:absolute;right:12px;bottom:10px;z-index:3;width:76px;height:84px;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -164,11 +164,15 @@ html,body{background-color:#140C05}
 .dkh-lv i{font-style:normal;font-size:18px;-webkit-text-stroke:3px #0C2A52}
 .dkh-plate{flex:0 0 76px;display:flex;align-items:center;gap:12px;padding:0 12px 0 14px;border-radius:0 0 16px 16px;
   background:linear-gradient(180deg,#5A4220,#2A1C08)}
+/* 名札の枠（G22・能力なしの飾り） */
+.dkh-plate.fr-bronze{box-shadow:inset 0 0 0 4px #D08A4E,inset 0 0 0 7px #6B3A12}
+.dkh-plate.fr-silver{box-shadow:inset 0 0 0 4px #EEF4FA,inset 0 0 0 7px #56657A,0 0 16px rgba(220,235,255,.45)}
+.dkh-plate.fr-gold{box-shadow:inset 0 0 0 4px #FFD44A,inset 0 0 0 7px #8A5E06,0 0 22px rgba(255,210,90,.65)}
 .dkh-ttl{flex:0 0 auto;max-width:150px;padding:5px 12px;border-radius:9px;font-size:18px;font-weight:900;line-height:1.1;color:#3A2405;
   background:linear-gradient(180deg,#FFF0BE,#E8B23A);border:2px solid #8A6206;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dkh-ttl.none{color:#E8D6B0;background:rgba(0,0,0,.3);border-color:rgba(232,200,120,.35)}
 .dkh-pnm{flex:1;min-width:0;font-size:26px;font-weight:900;color:#FFF0CE;-webkit-text-stroke:4px var(--dkh-edge);paint-order:stroke fill;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .dkh-sw{position:relative;flex:0 0 auto;width:58px;height:54px;border-radius:12px;cursor:pointer;display:grid;place-items:center;
   background:linear-gradient(180deg,#F4E7CC,#C5AC82 58%,#9B8460);border:2px solid #5B431F;box-shadow:0 3px 0 rgba(0,0,0,.4);
   transition:transform var(--fx-t-release) var(--fx-back)}
@@ -176,73 +180,56 @@ html,body{background-color:#140C05}
 .dkh-sw:hover svg{transform:rotate(180deg);transition:transform .5s var(--fx-out)}
 .dkh-sw:active{transform:translateY(2px) scale(.95)}
 
-/* 入場する（エメラルド＋金枠。矢印が流れる） */
+/* 入場する（エメラルド＋金枠。光が流れる） */
 .dkh-enter{position:relative;flex:0 0 104px;cursor:pointer;border-radius:22px;overflow:hidden;
   display:flex;align-items:center;justify-content:center;gap:22px;
   background:linear-gradient(180deg,#D2F7A6 0%,#86DA55 16%,#46A626 56%,#1F5E0C 100%) padding-box,var(--dkh-rimSS) border-box;
   border:5px solid transparent;transition:transform var(--fx-t-release) var(--fx-back)}
 .dkh-enter:hover{transform:translateY(-3px)}
+.dkh-enter:hover .dkh-chev{transform:translateX(8px)}
 .dkh-enter:active{transform:translateY(4px) scale(.98);transition-duration:var(--fx-t-press)}
 .dkh-enter::after{content:"";position:absolute;top:-20%;bottom:-20%;left:0;width:22%;pointer-events:none;
   background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);transform:translateX(-150%) skewX(-18deg);
   animation:dkhSweep 3.6s ease-in-out infinite}
+@keyframes dkhSweep{0%,70%{transform:translateX(-150%) skewX(-18deg)}100%{transform:translateX(520%) skewX(-18deg)}}
 .dkh-entx{position:relative;font-family:var(--pop);font-size:50px;line-height:1;color:#fff;letter-spacing:.12em;
   -webkit-text-stroke:9px #123A06;paint-order:stroke fill;text-shadow:0 5px 0 rgba(0,0,0,.35)}
-.dkh-chev{position:relative;display:flex;gap:4px}
+.dkh-chev{position:relative;display:flex;gap:4px;transition:transform .3s var(--fx-back)}
 .dkh-chev b{width:26px;height:36px;background:#FFFBE8;clip-path:polygon(0 0,55% 0,100% 50%,55% 100%,0 100%,45% 50%);
-  filter:drop-shadow(0 2px 0 #123A06);animation:dkhChev 1.2s ease-in-out infinite}
-.dkh-chev b + b{animation-delay:.18s}
-@keyframes dkhChev{0%,100%{transform:translateX(-4px)}50%{transform:translateX(6px)}}
+  filter:drop-shadow(0 2px 0 #123A06)}
+.dkh-chev b + b{opacity:.7}
 
-/* ── 右：リーグ ── */
-.dkh-side{position:absolute;left:666px;right:192px;top:96px;bottom:86px;z-index:4;display:flex;flex-direction:column;gap:10px;
-  padding:14px 16px 14px;border-radius:20px;
+/* ── 右：友だちランキング／全体ランキング ── */
+.dkh-side{position:absolute;left:666px;right:194px;top:96px;bottom:88px;z-index:4;display:flex;flex-direction:column;gap:10px;
+  padding:12px 14px 14px;border-radius:20px;
   background:linear-gradient(180deg,rgba(56,38,16,.96),rgba(22,13,4,.97)) padding-box,var(--dkh-rimSS) border-box;border:4px solid transparent;
   box-shadow:0 10px 0 rgba(0,0,0,.3),0 18px 36px rgba(0,0,0,.55),inset 0 2px 0 rgba(255,220,150,.22),inset 0 0 40px rgba(0,0,0,.55)}
-.dkh-lgh{flex:0 0 92px;display:flex;align-items:center;gap:14px;padding:0 6px}
-.dkh-emb{display:block;width:44px;height:50px;flex:0 0 auto;filter:drop-shadow(0 3px 3px rgba(0,0,0,.55))}
-.dkh-emb.big{width:76px;height:86px;animation:dkhEmb 4s ease-in-out infinite}
-@keyframes dkhEmb{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-4px) rotate(2deg)}}
-.dkh-lgt{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
-.dkh-tnm{font-family:var(--pop);font-size:34px;line-height:1;color:var(--tc,#FFD44A);-webkit-text-stroke:6px var(--dkh-edge);paint-order:stroke fill;
-  text-shadow:0 3px 0 rgba(0,0,0,.4)}
-.dkh-lgs{font-size:20px;font-weight:900;color:#EBD6AC}
-.dkh-lgrp{display:flex;align-items:baseline;gap:6px}
-.dkh-lgrp b{font-family:var(--pop);font-size:44px;line-height:1;color:var(--dkh-gold);-webkit-text-stroke:6px var(--dkh-edge);paint-order:stroke fill;
-  font-variant-numeric:tabular-nums}
-.dkh-lgrp i{font-style:normal;font-family:var(--caps);font-size:22px;color:#F0DCA8}
-.dkh-q{position:relative;flex:0 0 auto;width:58px;height:58px;border-radius:50%;cursor:pointer;
-  font-family:var(--pop);font-size:30px;line-height:1;color:#fff;-webkit-text-stroke:4px #0B2C5E;paint-order:stroke fill;
-  background:radial-gradient(circle at 38% 30%,#BFE8FF,#2E8BE0 50%,#0B2C5E) padding-box,var(--dkh-rimSS) border-box;border:3px solid transparent;
-  box-shadow:0 4px 0 rgba(0,0,0,.45);transition:transform var(--fx-t-release) var(--fx-back)}
-.dkh-q:active{transform:translateY(3px) scale(.95)}
-.dkh-tbar{flex:0 0 34px;display:flex;align-items:center;gap:14px;padding:0 6px}
-.dkh-tbg{position:relative;flex:1;height:18px;border-radius:9px;overflow:hidden;background:linear-gradient(180deg,#1A1004,#3A2A14);
-  border:2px solid #6B4E22;box-shadow:inset 0 2px 4px rgba(0,0,0,.6)}
-.dkh-tbg i{position:absolute;inset:0;transform-origin:left center;border-radius:9px;
-  background:linear-gradient(180deg,rgba(255,255,255,.65) 0 22%,var(--tc,#FFD44A) 50%,rgba(0,0,0,.25) 100%)}
-.dkh-tbar em{flex:0 0 auto;font-style:normal;font-size:18px;font-weight:900;color:#F0DCA8}
-.dkh-tabs{flex:0 0 58px;display:flex;gap:10px}
-.dkh-tab{position:relative;flex:1;border:0;cursor:pointer;border-radius:14px 14px 4px 4px;
-  font-family:var(--pop);font-size:24px;line-height:1;color:#E6D4AE;-webkit-text-stroke:4px var(--dkh-edge);paint-order:stroke fill;
+.dkh-rkh{flex:0 0 58px;display:flex;align-items:center;gap:10px}
+.dkh-tabs{flex:1;min-width:0;height:58px;display:flex;gap:8px}
+.dkh-tab{position:relative;flex:1;min-width:0;padding:0 8px;border:0;cursor:pointer;border-radius:14px 14px 4px 4px;white-space:nowrap;
+  font-family:var(--pop);font-size:22px;line-height:1;color:#E6D4AE;-webkit-text-stroke:4px var(--dkh-edge);paint-order:stroke fill;
   background:linear-gradient(180deg,#5A4220,#2C1D09) padding-box,linear-gradient(180deg,#8A6A34,#4A3314) border-box;border:3px solid transparent;
   transition:transform var(--fx-t-release) var(--fx-back)}
 .dkh-tab.on{color:#fff;-webkit-text-stroke-color:#0B2C5E;
   background:linear-gradient(180deg,var(--dk-b1) 0 8%,var(--dk-b2) 32%,var(--dk-b3) 72%,var(--dk-b4)) padding-box,var(--dkh-rimSS) border-box;
   box-shadow:0 0 18px rgba(90,180,255,.45);animation:fxSelPop 260ms var(--fx-back)}
 .dkh-tab:active{transform:translateY(2px) scale(.98)}
-.dkh-list{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;gap:5px;padding:8px;border-radius:12px;overflow:hidden;
+.dkh-q{position:relative;flex:0 0 auto;width:52px;height:52px;border-radius:50%;cursor:pointer;
+  font-family:var(--pop);font-size:28px;line-height:1;color:#fff;-webkit-text-stroke:4px #0B2C5E;paint-order:stroke fill;
+  background:radial-gradient(circle at 38% 30%,#BFE8FF,#2E8BE0 50%,#0B2C5E) padding-box,var(--dkh-rimSS) border-box;border:3px solid transparent;
+  box-shadow:0 4px 0 rgba(0,0,0,.45);transition:transform var(--fx-t-release) var(--fx-back)}
+.dkh-q:active{transform:translateY(3px) scale(.95)}
+.dkh-left{flex:0 0 auto;height:48px;padding:0 12px;border-radius:12px;display:flex;align-items:center;white-space:nowrap;
+  font-size:20px;font-weight:900;color:#FFF3D8;background:rgba(0,0,0,.42);border:1px solid rgba(255,210,120,.45);font-variant-numeric:tabular-nums}
+.dkh-list{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:12px;overflow:hidden;
   background:var(--fx-parch);border:3px solid #A9761A;box-shadow:inset 0 0 0 2px rgba(255,255,255,.4),inset 0 -10px 20px rgba(150,116,64,.25)}
-.dkh-row{position:relative;flex:0 0 57px;display:flex;align-items:center;gap:12px;padding:0 14px 0 8px;border-radius:11px;
+.dkh-row,.dkh-me{position:relative;flex:0 0 62px;display:flex;align-items:center;gap:12px;padding:0 14px 0 8px;border-radius:11px;
   background:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,.08));border:1px solid rgba(150,116,64,.35)}
-.dkh-list.swap .dkh-row,.dkh-list.swap .dkh-empty{animation:dkhRowIn .36s var(--fx-out) both;animation-delay:calc(var(--i,0) * 40ms)}
-@keyframes dkhRowIn{from{transform:translateX(28px) scale(.97)}}
-.dkh-row.me{background:linear-gradient(180deg,#E4F3FF,#B8DCF8);border:2px solid #2E8BE0;box-shadow:0 0 12px rgba(46,139,224,.45)}
-.dkh-row.top1:not(.me){background:linear-gradient(180deg,#FFF6D2,#F3D583);border-color:#C8952F}
-.dkh-row.top1::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;overflow:hidden;
-  background:linear-gradient(100deg,transparent 40%,rgba(255,255,255,.55) 50%,transparent 60%) no-repeat;background-size:200% 100%;
-  animation:dkhRowShine 4.4s linear infinite}
-@keyframes dkhRowShine{0%,60%{background-position:160% 0}100%{background-position:-60% 0}}
+.dkh-row.top1{background:linear-gradient(180deg,#FFF6D2,#F3D583);border-color:#C8952F}
+/* 自分の行（本家どおり、いちばん上に黄色で固定。✉ と件数） */
+.dkh-me{flex-basis:76px;padding-right:10px;background:linear-gradient(180deg,#FFF8D6,#F6D46E 70%,#E8B93E);border:3px solid #C8952F;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.75),0 3px 0 rgba(120,80,10,.25)}
+.dkh-me .dkh-no{color:#7A5206}
 .dkh-no{flex:0 0 44px;text-align:center;font-family:var(--pop);font-size:26px;color:#6E5A34}
 .dkh-medal{display:inline-grid;place-items:center;width:40px;height:40px;border-radius:50%;font-style:normal;font-family:var(--pop);font-size:22px;color:#fff;
   -webkit-text-stroke:3px rgba(0,0,0,.55);paint-order:stroke fill;border:2px solid rgba(0,0,0,.4);box-shadow:inset 0 3px 3px rgba(255,255,255,.6),0 2px 3px rgba(0,0,0,.4)}
@@ -259,51 +246,60 @@ html,body{background-color:#140C05}
 .dkh-you{background:linear-gradient(180deg,#5AB0FF,#1656A8)}
 .dkh-tier{flex:0 0 auto;padding:3px 10px;border-radius:8px;font-size:17px;font-weight:900;color:var(--td);
   background:linear-gradient(180deg,#fff,var(--tc));border:1px solid var(--td)}
-.dkh-rpv{flex:0 0 auto;min-width:92px;text-align:right;font-family:var(--pop);font-size:26px;color:#5A3E12;font-variant-numeric:tabular-nums}
-.dkh-rpv i{font-style:normal;font-family:var(--caps);font-size:16px;margin-left:4px;color:#8A6A34}
-.dkh-meta{flex:0 0 auto;font-size:18px;font-weight:900;color:#6E5A34}
-.dkh-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:6px 20px}
-.dkh-emptyic svg{width:84px;height:84px;filter:drop-shadow(0 4px 4px rgba(0,0,0,.25))}
-.dkh-empty b{font-size:24px;font-weight:900;color:#42300F}
-.dkh-empty span{font-size:18px;font-weight:700;color:#6E5A34}
-.dkh-empty .dkbtn{font-size:24px;padding:14px 26px}
+.dkh-rpv{flex:0 0 auto;min-width:92px;text-align:right;font-family:var(--pop);font-size:26px;color:#5A3E12;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dkh-cup{display:inline-block;width:22px;height:24px;margin-right:6px;vertical-align:-2px;
+  background:linear-gradient(180deg,#FFF3C8,#F2C230 55%,#A9761A);
+  clip-path:polygon(8% 0,92% 0,88% 36%,62% 58%,62% 76%,78% 84%,78% 100%,22% 100%,22% 84%,38% 76%,38% 58%,12% 36%)}
+.dkh-mailb{position:relative;flex:0 0 auto;width:88px;height:58px;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;padding:0 6px;
+  background:linear-gradient(180deg,#A8DCFF,#2E8BE0 55%,#14559E);border:3px solid #FFF6E2;box-shadow:0 3px 0 rgba(0,0,0,.35);
+  transition:transform var(--fx-t-release) var(--fx-back)}
+.dkh-mailb:active{transform:translateY(2px) scale(.95)}
+.dkh-mailb svg{width:34px;height:34px}
+.dkh-mailb b{font-family:var(--pop);font-size:22px;line-height:1;color:#fff;-webkit-text-stroke:4px #0B2C5E;paint-order:stroke fill}
+.dkh-new{position:absolute;right:2px;top:-11px;z-index:2;font-style:normal;font-family:var(--caps);font-size:16px;line-height:1;padding:3px 8px;border-radius:8px;
+  color:#fff;background:linear-gradient(180deg,#FF6A5E,#C9302C);border:2px solid #FFF1D0;pointer-events:none}
+/* 全体ランキングの段の札 */
+.dkh-lg{flex:0 0 76px;display:flex;align-items:center;gap:12px;padding:0 12px 0 8px;border-radius:12px;
+  background:linear-gradient(180deg,#3E2C12,#1A1004);border:2px solid #A9761A}
+.dkh-emb{display:block;width:44px;height:50px;flex:0 0 auto;filter:drop-shadow(0 3px 3px rgba(0,0,0,.55))}
+.dkh-emb.big{width:56px;height:64px}
+.dkh-lgt{flex:0 0 auto;display:flex;flex-direction:column;gap:4px}
+.dkh-tnm{font-family:var(--pop);font-size:30px;line-height:1;color:var(--tc,#FFD44A);-webkit-text-stroke:5px var(--dkh-edge);paint-order:stroke fill}
+.dkh-lgs{font-size:17px;font-weight:900;color:#EBD6AC;white-space:nowrap}
+.dkh-tbar{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.dkh-tbg{position:relative;height:16px;border-radius:8px;overflow:hidden;background:linear-gradient(180deg,#1A1004,#3A2A14);
+  border:2px solid #6B4E22;box-shadow:inset 0 2px 4px rgba(0,0,0,.6)}
+.dkh-tbg i{position:absolute;inset:0;transform-origin:left center;border-radius:8px;
+  background:linear-gradient(180deg,rgba(255,255,255,.65) 0 22%,var(--tc,#FFD44A) 50%,rgba(0,0,0,.25) 100%)}
+.dkh-tbar em{font-style:normal;font-size:17px;font-weight:900;color:#F0DCA8;white-space:nowrap}
 
-/* マイレージ（本物：20で🔑） */
-.dkh-mile{flex:0 0 72px;display:flex;align-items:center;gap:12px;padding:0 10px 0 14px;border-radius:14px;
+/* マイレージ（本家：「12/20 マイレージを貯めてガチャ」［マイレージガチャ 🔑3］） */
+.dkh-mile{flex:0 0 68px;display:flex;align-items:center;gap:12px;padding:0 8px 0 10px;border-radius:14px;
   background:linear-gradient(180deg,#1E1406,#0E0902);border:2px solid #7A5A22;box-shadow:inset 0 2px 6px rgba(0,0,0,.6)}
-.dkh-ml{flex:0 0 auto;font-size:20px;font-weight:900;color:#F0DCA8}
-.dkh-mbar{position:relative;flex:1;height:32px;border-radius:10px;overflow:hidden;background:linear-gradient(180deg,#2A2118,#453A2E);
+.dkh-mbar{position:relative;flex:1;min-width:0;height:42px;border-radius:10px;overflow:hidden;background:linear-gradient(180deg,#2A2118,#453A2E);
   border:2px solid #2A2118;box-shadow:inset 0 3px 6px rgba(0,0,0,.6)}
-.dkh-mfill{position:absolute;inset:0;transform-origin:left center;
-  background:linear-gradient(180deg,#FFEDB0 0 24%,#F2C230 52%,#C08A0E)}
-.dkh-mfill::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 40%,rgba(255,255,255,.5) 50%,transparent 60%);
-  animation:dkBarFlow 2.4s linear infinite}
-.dkh-mbar > i:not(.dkh-mfill){position:absolute;top:6px;bottom:6px;width:2px;margin-left:-1px;background:rgba(0,0,0,.35)}
-.dkh-mbar > i.big{top:2px;bottom:2px;background:rgba(0,0,0,.55)}
-.dkh-mbar em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:20px;font-weight:900;
+.dkh-mfill{position:absolute;inset:0;transform-origin:left center;background:linear-gradient(180deg,#B6F08A 0 24%,#61C238 55%,#2E7A14)}
+.dkh-mbar em{position:absolute;inset:0;display:flex;align-items:center;padding-left:14px;font-style:normal;font-size:19px;font-weight:900;white-space:nowrap;
   color:#FFF6E2;-webkit-text-stroke:4px rgba(30,18,4,.9);paint-order:stroke fill;z-index:2}
-.dkh-key{flex:0 0 auto;display:flex;align-items:center;gap:2px}
-.dkh-key svg{width:40px;height:40px;animation:dkhKey 3s ease-in-out infinite}
-@keyframes dkhKey{0%,100%{transform:rotate(-10deg)}50%{transform:rotate(8deg)}}
-.dkh-key b{font-family:var(--pop);font-size:26px;color:var(--dkh-gold);-webkit-text-stroke:4px var(--dkh-edge);paint-order:stroke fill}
-.dkh-mbtn{position:relative;flex:0 0 auto;height:52px;padding:0 18px;border-radius:12px;cursor:pointer;border:0;
-  font-family:var(--pop);font-size:22px;color:#fff;-webkit-text-stroke:4px #1B3A6B;paint-order:stroke fill;
-  background:linear-gradient(180deg,#A8DCFF 0 10%,#3E9BEC 45%,#1656A8) padding-box,var(--dkh-rimSS) border-box;border:3px solid transparent;
-  box-shadow:0 4px 0 rgba(0,0,0,.45);filter:saturate(.55) brightness(.85);transition:transform var(--fx-t-release) var(--fx-back)}
-.dkh-mbtn.ready{filter:none;box-shadow:0 4px 0 rgba(0,0,0,.45),0 0 16px rgba(110,190,255,.7)}
+.dkh-mbtn{position:relative;flex:0 0 auto;height:54px;display:flex;align-items:center;gap:8px;padding:0 8px 0 16px;border-radius:12px;cursor:pointer;border:0;
+  font-family:var(--pop);font-size:22px;color:#5A3A04;-webkit-text-stroke:4px rgba(255,246,214,.9);paint-order:stroke fill;white-space:nowrap;
+  background:linear-gradient(180deg,#FFF3C8 0 10%,#F5D36B 40%,#C8952F) padding-box,var(--dkh-rimSS) border-box;border:3px solid transparent;
+  box-shadow:0 4px 0 rgba(0,0,0,.45);filter:saturate(.6) brightness(.86);transition:transform var(--fx-t-release) var(--fx-back)}
+.dkh-mbtn.ready{filter:none;box-shadow:0 4px 0 rgba(0,0,0,.45),0 0 16px rgba(255,210,90,.7)}
 .dkh-mbtn:active{transform:translateY(3px) scale(.96)}
+.dkh-key{display:flex;align-items:center;gap:2px;padding:2px 8px;border-radius:10px;background:rgba(60,36,4,.35)}
+.dkh-key svg{width:30px;height:30px}
+.dkh-key b{font-family:var(--pop);font-size:22px;color:#fff;-webkit-text-stroke:4px var(--dkh-edge);paint-order:stroke fill}
 
 /* 行商人の帯（来ている時だけ） */
-.dkh-ped{position:absolute;right:192px;top:15px;width:226px;height:66px;z-index:7;cursor:pointer;
+.dkh-ped{position:absolute;right:340px;top:15px;width:226px;height:66px;z-index:7;cursor:pointer;
   display:flex;flex-direction:column;justify-content:center;padding-left:64px;border-radius:14px;
   background:linear-gradient(180deg,#6B2A7A,#3A0E48) padding-box,var(--dkh-rimSS) border-box;border:3px solid transparent;
   box-shadow:0 5px 0 rgba(0,0,0,.4),0 0 18px rgba(255,170,80,.45)}
 .dkh-ped b{font-size:20px;font-weight:900;color:#FFE9B5;line-height:1.1}
 .dkh-ped span{font-size:18px;font-weight:900;color:#FFD9A0}
-.dkh-lantern{position:absolute;left:14px;top:9px;width:38px;height:44px;border-radius:10px 10px 14px 14px;
-  background:radial-gradient(circle at 50% 55%,#FFF6C8,#FFB030 45%,#B8440E);border:3px solid #3A2405;
-  box-shadow:0 0 16px 4px rgba(255,170,60,.7);animation:dkhLamp 2.2s ease-in-out infinite}
-@keyframes dkhLamp{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
+.dkh-lantern{position:absolute;left:14px;top:9px;width:38px;height:44px;border-radius:10px 10px 14px 14px;transform:rotate(-6deg);
+  background:radial-gradient(circle at 50% 55%,#FFF6C8,#FFB030 45%,#B8440E);border:3px solid #3A2405;box-shadow:0 0 16px 4px rgba(255,170,60,.7)}
 
 /* ══════════════════════════════════════════════════════════════
    常設バー（Lv・経験値・ゴールド・ダイヤ・RP）
@@ -346,6 +342,7 @@ html,body{background-color:#140C05}
    イベント・郵便箱・ともだち（王宮ヘッダー＋左タブの画面）共通
    ══════════════════════════════════════════════════════════════ */
 #news .dklogo.dktext i,#mail .dklogo.dktext i,#friends .dklogo.dktext i{font-size:18px}
+#mail .dklogo.dktext b{font-size:35px}
 #news .dktab .tx{font-size:22px}
 #news .dktab .ic svg{width:54px;height:54px;display:block;filter:drop-shadow(0 3px 3px rgba(0,0,0,.6))}
 .dkh-nbody,.dkh-mb,.dkh-fb{position:absolute;right:18px;top:106px;bottom:18px;z-index:4}
@@ -373,7 +370,7 @@ html,body{background-color:#140C05}
 .dkh-wkmain{flex:1;min-width:0;display:flex;align-items:center;gap:28px}
 .dkh-wkic{flex:0 0 150px;height:150px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:84px;line-height:1;
   background:radial-gradient(circle at 38% 30%,#FFF6D2,#F2C230 45%,#8A5E06 88%);border:5px solid #FFF0BE;
-  box-shadow:0 0 0 4px #3A0806,0 8px 18px rgba(0,0,0,.55),0 0 40px rgba(255,200,80,.5);animation:dkhEmb 4.4s ease-in-out infinite}
+  box-shadow:0 0 0 4px #3A0806,0 8px 18px rgba(0,0,0,.55),0 0 40px rgba(255,200,80,.5)}
 .dkh-wktx{min-width:0}
 .dkh-wknm{display:block;font-family:var(--pop);font-size:58px;line-height:1.1;color:var(--dkh-gold);-webkit-text-stroke:8px #3A0806;paint-order:stroke fill;
   text-shadow:0 5px 0 rgba(0,0,0,.4)}
@@ -484,7 +481,7 @@ html,body{background-color:#140C05}
 .dkh-olbtn{width:100%;height:84px;font-size:30px;margin-top:auto}
 
 /* ══════════════════════════════════════════════════════════════
-   モーダル（設定・等級と報酬・マイレージキューブ）
+   モーダル（設定・ランキングの報酬・マイレージガチャ・名札の枠・昇格）
    ══════════════════════════════════════════════════════════════ */
 .dkh-modal{position:relative;border-radius:22px;padding:66px 34px 26px;
   background:linear-gradient(180deg,rgba(58,40,18,.98),rgba(20,12,4,.99)) padding-box,var(--dkh-rimSS) border-box;border:5px solid transparent;
@@ -495,12 +492,19 @@ html,body{background-color:#140C05}
 .dkh-mbtns{display:flex;justify-content:center;gap:18px;margin-top:22px}
 .dkh-mbtns .dkbtn{min-width:220px;height:70px;font-size:28px}
 .dkbtn.dkh-wood{background:var(--dkh-wood2);border:3px solid #A9761A;color:#FFF3D8;-webkit-text-stroke:4px var(--dkh-edge)}
+.dkh-hnote{margin-top:14px;font-size:20px;font-weight:700;line-height:1.6;color:#E6D4AE;text-align:center}
+.dkh-hnote b{color:var(--dkh-gold)}
+/* 常設バーのゴールドの＋：ショップの無料の宝が受け取れる時の赤い印 */
+.dkh-plus.dot::before{content:"";position:absolute;right:-6px;top:-6px;width:16px;height:16px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#FF9A8E,#E8302A 55%,#9A1410);border:2px solid #FFF1D0;pointer-events:none}
+.dkh-mwarn{margin-left:auto;font-style:normal;font-size:18px;font-weight:900;color:#B8200E}
 
-.dkh-set{width:900px}
-.dkh-srows{display:flex;flex-direction:column;gap:12px}
-.dkh-srow{display:flex;align-items:center;gap:20px;min-height:76px;padding:6px 18px;border-radius:14px;background:rgba(255,240,200,.06);border:1px solid rgba(196,150,70,.3)}
+.dkh-set{width:940px}
+.dkh-srows{display:flex;flex-direction:column;gap:10px}
+.dkh-srow{display:flex;align-items:center;gap:20px;min-height:72px;padding:6px 18px;border-radius:14px;background:rgba(255,240,200,.06);border:1px solid rgba(196,150,70,.3)}
 .dkh-sl{flex:0 0 200px;font-size:24px;font-weight:900;color:#F4E3BD}
 .dkh-sc{flex:1;min-width:0;display:flex;align-items:center;gap:18px}
+.dkh-shint{font-size:18px;font-weight:700;color:#D8C49A;line-height:1.3}
 .dkh-range{flex:1;-webkit-appearance:none;appearance:none;height:14px;border-radius:7px;cursor:pointer;
   background:linear-gradient(180deg,#1A1004,#3A2A14);border:2px solid #7A5A22;box-shadow:inset 0 2px 4px rgba(0,0,0,.6)}
 .dkh-range::-webkit-slider-thumb{-webkit-appearance:none;width:40px;height:40px;border-radius:50%;
@@ -509,38 +513,99 @@ html,body{background-color:#140C05}
 .dkh-rv{flex:0 0 64px;text-align:right;font-family:var(--pop);font-size:28px;color:var(--dkh-gold);-webkit-text-stroke:4px var(--dkh-edge);paint-order:stroke fill}
 .dkh-seg button{flex:0 0 auto;min-width:128px;height:54px;padding:0 16px;font-size:22px;white-space:nowrap}
 
-.dkh-help{width:960px}
+/* ？ ランキングの報酬 */
+.dkh-help{width:1280px}
+.dkh-hcols{display:flex;gap:26px}
+.dkh-hcol{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.dkh-hcol:first-child{flex:0 0 440px}
+.dkh-hsub{font-family:var(--pop);font-size:26px;color:var(--dkh-gold);-webkit-text-stroke:4px var(--dkh-edge);paint-order:stroke fill;text-align:center;margin-bottom:4px}
+.dkh-hcol .dkh-hnote{margin-top:4px;font-size:18px;line-height:1.5}
 .dkh-hrows{display:flex;flex-direction:column;gap:8px}
-.dkh-hrow{position:relative;display:flex;align-items:center;gap:18px;height:76px;padding:0 20px;border-radius:14px;background:rgba(255,240,200,.06);
+.dkh-hrow{position:relative;display:flex;align-items:center;gap:16px;height:66px;padding:0 18px;border-radius:14px;background:rgba(255,240,200,.06);
   border:1px solid rgba(196,150,70,.3)}
 .dkh-hrow.on{background:linear-gradient(90deg,rgba(46,139,224,.45),rgba(46,139,224,.1));border:2px solid #8FD2FF}
-.dkh-hrow .dkh-emb{width:52px;height:59px}
-.dkh-hnm{flex:0 0 150px;font-size:28px;font-weight:900;color:#FFF0CE;-webkit-text-stroke:4px var(--dkh-edge);paint-order:stroke fill}
-.dkh-hrange{flex:1;font-size:22px;font-weight:900;color:#F0DCA8;font-variant-numeric:tabular-nums;white-space:nowrap}
-.dkh-hrw{flex:0 0 auto;display:flex;align-items:center;gap:8px;font-family:var(--pop);font-size:24px;color:#FFF6E2}
-.dkh-hrw .dkh-coin{width:30px;height:30px;border-width:2px} .dkh-hrw .dkh-gem{width:30px;height:26px;margin-left:8px}
+.dkh-hrow .dkh-emb{width:46px;height:52px}
+.dkh-hnm{flex:0 0 130px;font-size:26px;font-weight:900;color:#FFF0CE;-webkit-text-stroke:4px var(--dkh-edge);paint-order:stroke fill}
+.dkh-hrange{flex:1;font-size:20px;font-weight:900;color:#F0DCA8;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dkh-hrw{flex:0 0 auto;display:flex;align-items:center;gap:8px;font-family:var(--pop);font-size:22px;color:#FFF6E2}
+.dkh-hrw em{font-style:normal;font-family:inherit;font-size:18px;color:#FFD9A0;margin-left:6px}
+.dkh-hrw .dkh-coin{width:28px;height:28px;border-width:2px} .dkh-hrw .dkh-gem{width:28px;height:24px;margin-left:8px}
 .dkh-now{position:absolute;left:-12px;top:-12px;font-style:normal;font-size:16px;font-weight:900;color:#fff;padding:3px 10px;border-radius:8px;
   background:linear-gradient(180deg,#FF6A5E,#C9302C);border:2px solid #FFF1D0}
-.dkh-hnote{margin-top:16px;font-size:20px;font-weight:700;line-height:1.6;color:#E6D4AE;text-align:center}
-.dkh-hnote b{color:var(--dkh-gold)}
 
-.dkh-rev{width:640px;display:flex;flex-direction:column;align-items:center;gap:10px}
-.dkh-revstage{position:relative;width:100%;height:380px;display:grid;place-items:center;overflow:hidden;border-radius:16px;
-  background:radial-gradient(60% 60% at 50% 50%,rgba(255,200,90,.35),transparent 70%)}
-.dkh-revstage .fx-rays{opacity:.9}
-.dkh-revcard{position:relative;z-index:1;width:236px;height:330px;border-radius:18px;padding:6px;background:var(--dkh-rimS);
-  box-shadow:0 10px 0 rgba(0,0,0,.35),0 0 40px 10px rgba(190,140,255,.55);animation:dkhRevIn .7s var(--fx-spring) both}
-.dkh-revcard.rSS{background:var(--dkh-rimSS);box-shadow:0 10px 0 rgba(0,0,0,.35),0 0 50px 14px rgba(255,200,80,.7)}
-@keyframes dkhRevIn{0%{transform:scale(.86) rotateY(90deg)}60%{transform:scale(1.08) rotateY(0)}}
-.dkh-revpic{position:absolute;inset:6px;border-radius:13px;overflow:hidden;isolation:isolate;
-  background:radial-gradient(92% 80% at 50% 40%,#FFFCF0 0%,#FDEFC8 38%,#EBC274 64%,#A06C22 88%,#4A2E08 100%)}
-.dkh-revcard.rS .dkh-revpic{background:radial-gradient(90% 76% at 50% 40%,#FFFFFF 0%,#F2E4FF 30%,#C6A2F0 60%,#6A3AA8 88%,#2A0E4E 100%)}
-.dkh-revart{position:absolute;inset:0;background-repeat:no-repeat;background-size:130% auto;background-position:50% 86%;mix-blend-mode:multiply}
-.dkh-revcard .dkh-rar{position:absolute;left:14px;top:10px;z-index:2;font-size:34px}
-.dkh-new{position:absolute;right:-14px;top:-14px;z-index:3;font-style:normal;padding:6px 14px;border-radius:12px;font-family:var(--caps);font-size:22px;color:#fff;
-  background:linear-gradient(180deg,#FF6A5E,#C9302C);border:3px solid #FFF1D0;animation:fxPop 320ms var(--fx-spring) .5s both}
-.dkh-revnm{font-family:var(--pop);font-size:38px;color:var(--dkh-gold);-webkit-text-stroke:6px var(--dkh-edge);paint-order:stroke fill}
-.dkh-revsub{font-size:22px;font-weight:900;color:#F0DCA8}
+/* マイレージガチャ（2つのガチャ→3つの箱） */
+.dkh-mg{width:900px;display:flex;flex-direction:column;align-items:center;gap:16px}
+.dkh-mgnote{font-size:22px;font-weight:900;line-height:1.5;color:#FFE9B5;text-align:center}
+.dkh-mgnote span{display:block;font-size:20px;color:#F0DCA8}
+.dkh-mgnote b{color:var(--dkh-gold)}
+.dkh-mgos{display:flex;gap:28px}
+.dkh-mgo{position:relative;width:350px;height:260px;border-radius:20px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+  background:radial-gradient(70% 50% at 50% 38%,rgba(255,200,90,.3),transparent 70%),linear-gradient(180deg,rgba(90,64,28,.96),rgba(30,18,6,.98)) padding-box,var(--dkh-rimSS) border-box;
+  border:4px solid transparent;box-shadow:0 8px 0 rgba(0,0,0,.35),0 14px 28px rgba(0,0,0,.5);transition:transform var(--fx-t-release) var(--fx-back)}
+.dkh-mgo.j{background:radial-gradient(70% 50% at 50% 38%,rgba(120,200,255,.32),transparent 70%),linear-gradient(180deg,rgba(30,70,140,.96),rgba(8,20,48,.98)) padding-box,var(--dkh-rimA) border-box}
+.dkh-mgo > b{font-family:var(--pop);font-size:32px;line-height:1;color:#fff;-webkit-text-stroke:6px var(--dkh-edge);paint-order:stroke fill}
+.dkh-mgo.short{filter:saturate(.45) brightness(.78)}
+.dkh-mgo:hover{transform:translateY(-4px)} .dkh-mgo:active{transform:translateY(3px) scale(.97)}
+.dkh-mgk{display:flex;align-items:center;gap:4px;padding:4px 14px;border-radius:12px;background:rgba(0,0,0,.4)}
+.dkh-mgk svg{width:34px;height:34px}
+.dkh-mgk b{font-family:var(--pop);font-size:26px;color:var(--dkh-gold);-webkit-text-stroke:4px var(--dkh-edge);paint-order:stroke fill}
+.dkh-chest{position:relative;display:block;width:124px;height:98px;border-radius:14px 14px 10px 10px;
+  background:linear-gradient(180deg,transparent 34%,#E0AE3A 34% 42%,transparent 42%),linear-gradient(180deg,#9A5424,#4A2408);border:5px solid #E0AE3A;
+  box-shadow:0 8px 0 rgba(0,0,0,.35),inset 0 0 18px rgba(0,0,0,.45),inset 0 3px 0 rgba(255,220,150,.4)}
+.dkh-chest::before{content:"";position:absolute;left:50%;top:24%;width:26px;height:30px;margin-left:-13px;border-radius:6px;
+  background:linear-gradient(180deg,#FFF3C8,#F2C230 55%,#8A5E06);border:2px solid #5A3A04}
+.dkh-chest.j{background:linear-gradient(180deg,transparent 34%,#F2F6FF 34% 42%,transparent 42%),linear-gradient(180deg,#3C7AD8,#12306A);border-color:#BFE8FF;
+  box-shadow:0 8px 0 rgba(0,0,0,.35),0 0 26px rgba(120,200,255,.55),inset 0 0 18px rgba(0,0,0,.45)}
+.dkh-mgq{font-family:var(--pop);font-size:36px;line-height:1.2;color:var(--dkh-gold);-webkit-text-stroke:6px var(--dkh-edge);paint-order:stroke fill}
+.dkh-boxes{display:flex;gap:28px}
+.dkh-box{position:relative;width:240px;height:290px;border-radius:20px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;overflow:hidden;
+  background:radial-gradient(60% 50% at 50% 45%,rgba(255,200,90,.3),transparent 70%),rgba(0,0,0,.35);border:3px solid rgba(255,210,120,.45);
+  transition:transform var(--fx-t-release) var(--fx-back)}
+.dkh-box > .fx-rays{opacity:.85}
+.dkh-box .dkh-chest{transition:transform .3s var(--fx-back)}
+.dkh-box:hover .dkh-chest{transform:translateY(-6px) rotate(-3deg)}
+.dkh-box.open .dkh-chest{display:none}
+.dkh-bin{display:none;position:relative;z-index:1;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:0 12px}
+.dkh-box.open .dkh-bin{display:flex;animation:fxPop 420ms var(--fx-spring) both}
+.dkh-box.dim{filter:grayscale(.55) brightness(.72)}
+.dkh-box.open:not(.dim){border-color:#FFD44A;box-shadow:0 0 30px 8px rgba(255,210,90,.55)}
+.dkh-bart{display:grid;place-items:center;width:112px;height:112px}
+.dkh-bart .dkh-face{flex-basis:108px;width:108px;height:108px;border-radius:16px}
+.dkh-bart .dkh-coin{width:86px;height:86px} .dkh-bart .dkh-gem{width:92px;height:80px}
+.dkh-pem{font-style:normal;font-size:80px;line-height:1}
+.dkh-tk{display:block;width:124px;height:76px;border-radius:10px;filter:drop-shadow(0 3px 0 #8A5E06);
+  background:radial-gradient(circle at 0 50%,transparent 13px,#F2C230 14px) left/51% 100% no-repeat,
+             radial-gradient(circle at 100% 50%,transparent 13px,#F2C230 14px) right/51% 100% no-repeat}
+.dkh-bnm{font-size:24px;font-weight:900;line-height:1.2;color:#FFF0CE;-webkit-text-stroke:4px var(--dkh-edge);paint-order:stroke fill}
+.dkh-bsub{font-size:20px;font-weight:900;color:#FFD9A0}
+
+/* 名札の枠 */
+.dkh-frm{width:940px}
+.dkh-fros{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.dkh-fro{position:relative;height:124px;border-radius:16px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  background:linear-gradient(180deg,rgba(90,66,32,.9),rgba(30,20,6,.95));border:3px solid rgba(196,150,70,.5);transition:transform var(--fx-t-release) var(--fx-back)}
+.dkh-fro:active{transform:translateY(2px) scale(.98)}
+.dkh-fro.on{border-color:#8FD2FF;box-shadow:0 0 0 3px rgba(143,210,255,.4),0 0 18px rgba(90,180,255,.5)}
+.dkh-fro:disabled{filter:grayscale(.7) brightness(.7);cursor:default}
+.dkh-frs{padding:8px 26px;border-radius:10px;font-size:24px;font-weight:900;color:#FFF0CE;background:linear-gradient(180deg,#5A4220,#2A1C08)}
+.dkh-fro.fr-bronze .dkh-frs{box-shadow:inset 0 0 0 4px #D08A4E,inset 0 0 0 7px #6B3A12}
+.dkh-fro.fr-silver .dkh-frs{box-shadow:inset 0 0 0 4px #EEF4FA,inset 0 0 0 7px #56657A}
+.dkh-fro.fr-gold .dkh-frs{box-shadow:inset 0 0 0 4px #FFD44A,inset 0 0 0 7px #8A5E06,0 0 18px rgba(255,210,90,.6)}
+.dkh-fro > b{font-size:22px;font-weight:900;color:#F4E3BD}
+
+/* 昇格（等級が上がった時だけメダルが入れ替わる） */
+.dkh-up{width:720px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.dkh-upst{position:relative;width:100%;height:230px;display:flex;align-items:center;justify-content:center;gap:40px;overflow:hidden;border-radius:16px;
+  background:radial-gradient(60% 60% at 50% 50%,rgba(255,200,90,.3),transparent 70%)}
+.dkh-upst > span{position:relative;z-index:1}
+.dkh-upst .dkh-emb{width:130px;height:146px}
+.dkh-upa{animation:dkhUpOut .6s var(--fx-out) both}
+.dkh-upb{animation:dkhUpIn .7s var(--fx-spring) .25s both}
+@keyframes dkhUpOut{to{transform:scale(.78);filter:grayscale(.6) brightness(.8)}}
+@keyframes dkhUpIn{0%{transform:scale(.4) rotate(-20deg)}70%{transform:scale(1.15) rotate(4deg)}100%{transform:none}}
+.dkh-uparr{position:relative;z-index:1;width:60px;height:40px;background:#FFD44A;clip-path:polygon(0 30%,60% 30%,60% 0,100% 50%,60% 100%,60% 70%,0 70%)}
+.dkh-upnm{font-family:var(--pop);font-size:38px;color:var(--dkh-gold);-webkit-text-stroke:6px var(--dkh-edge);paint-order:stroke fill}
+.dkh-upsub{font-size:22px;font-weight:900;color:#F0DCA8}
 .dkh-tic{font-style:normal;font-size:26px;line-height:1}
 #toastL .toast .ic svg,#toastR .toast .ic svg{width:34px;height:34px}
 
@@ -617,39 +682,44 @@ html,body{background-color:#140C05}
    横長スマホ（高さ560px未満）：主要な文字 26px・本文 22px、押せる範囲 96px
    ══════════════════════════════════════════════════════════════ */
 @media (max-height:560px){
-  .dkh-rbt,.dkh-cnm,.dkh-pnm,.dkh-tab,.dkh-nm,.dkh-rpv,.dkh-no,.dkh-mbtn,.dkh-key b,.dkh-evnm,.dkh-lgrp b,.dkh-mnm,.dkh-take,
-  .dkh-chip,.dkh-frmid b,.dkh-frlast b,.dkh-ingo,.dkh-intx b,.dkh-sl,.dkh-seg button,.dkh-hnm,.dkh-hrw,.dkh-revnm,.dkh-fcnm,.dkh-scnm,
-  .dkh-wi b,.dkh-mbtns .dkbtn,.dkh-empty .dkbtn,.dkh-rv,.dkh-togacha,#news .dktab .tx,.dkh-tnm,.dkh-medal,.dkh-evtag{font-size:26px}
-  .dkh-evds,.dkh-evtime,.dkh-lgs,.dkh-tbar em,.dkh-ml,.dkh-mbar em,.dkh-meta,.dkh-role,.dkh-ttl,.dkh-tier,.dkh-cpu,.dkh-you,.dkh-rpv i,
+  .dkh-rbt,.dkh-cnm,.dkh-pnm,.dkh-nm,.dkh-rpv,.dkh-no,.dkh-evnm,.dkh-mnm,.dkh-take,.dkh-oshi > b,
+  .dkh-chip,.dkh-frmid b,.dkh-frlast b,.dkh-ingo,.dkh-intx b,.dkh-sl,.dkh-seg button,.dkh-hnm,.dkh-hrw,.dkh-fcnm,.dkh-scnm,
+  .dkh-wi b,.dkh-mbtns .dkbtn,.dkh-empty .dkbtn,.dkh-rv,.dkh-togacha,#news .dktab .tx,.dkh-medal,.dkh-evtag,.dkh-mailb b,
+  .dkh-bnm,.dkh-mgo > b,.dkh-mgk b,.dkh-frs,.dkh-upnm,.dkh-hsub{font-size:26px}
+  .dkh-tab,.dkh-mbtn,.dkh-key b{font-size:24px}
+  .dkh-evds,.dkh-lgs,.dkh-tbar em,.dkh-mbar em,.dkh-meta,.dkh-role,.dkh-ttl,.dkh-tier,.dkh-cpu,.dkh-you,.dkh-left,.dkh-ict,.dkh-new,
   .dkh-xp em,.dkh-lvb i,.dkh-rpu,.dkh-dot,.dkh-badge,.dkh-intx p,.dkh-tipl li span,.dkh-mdate,.dkh-mnote,.dkh-frnote,.dkh-frmid span,
   .dkh-frlast span,.dkh-steps li span,.dkh-empty span,.dkh-empty b,.dkh-lhd span,.dkh-msit,.dkh-fcsub,.dkh-fctag,.dkh-scwhen,.dkh-scd,
-  .dkh-wkleft em,.dkh-wkleft span,.dkh-hrange,.dkh-hnote,.dkh-now,.dkh-revsub,.dkh-chip.it,.dkh-ped b,.dkh-ped span,.dkh-lv i,
+  .dkh-wkleft em,.dkh-wkleft span,.dkh-hrange,.dkh-hnote,.dkh-now,.dkh-chip.it,.dkh-ped b,.dkh-ped span,.dkh-lv i,.dkh-mwarn,.dkh-shint,
+  .dkh-bsub,.dkh-mgnote,.dkh-mgnote span,.dkh-fro > b,.dkh-upsub,.dkh-hrw em,.dkh-rbt.two,
   #news .dklogo.dktext i,#mail .dklogo.dktext i,#friends .dklogo.dktext i{font-size:22px}
   /* ホーム：大きな字でもはみ出さない組み方 */
   .dkh-evds{display:none}
-  .dkh-rbt{-webkit-text-stroke-width:5px}
-  .dkh-rb{gap:2px} .dkh-med{width:70px;height:70px} .dkh-med svg{width:48px;height:48px}
+  .dkh-rbt{-webkit-text-stroke-width:5px} .dkh-rbt.two{line-height:1}
+  .dkh-rb{gap:3px} .dkh-med{width:52px;height:52px} .dkh-med svg{width:36px;height:36px}
   .dkh-ttl{max-width:170px}
-  .dkh-lgh{gap:10px} .dkh-lgt{gap:4px} .dkh-tnm{font-size:30px}
   .dkh-tier{display:none}
-  .dkh-row{gap:10px} .dkh-rpv{min-width:0} .dkh-rpv i{font-size:22px}
+  .dkh-row,.dkh-me{gap:10px} .dkh-rpv{min-width:0}
   .dkh-no{flex-basis:40px}
-  .dkh-mile{gap:8px} .dkh-ml{font-size:22px}
+  .dkh-left{padding:0 8px} .dkh-q{width:50px;height:50px} .dkh-tab{padding:0 6px}
+  .dkh-lgs{display:none} .dkh-tnm{font-size:28px}
+  .dkh-mile{gap:8px} .dkh-mbar em{padding-left:10px} .dkh-mbtn{padding-left:12px}
+  .dkh-ic{width:100px} .dkh-oshi{padding-right:16px}
   .dkh-wi b{-webkit-text-stroke-width:5px}
   .dkh-wg b{min-width:170px} .dkh-wd b{min-width:80px} .dkh-wr b{min-width:70px}
   .dkh-xp{width:210px}
-  .dkh-chip.it{font-size:22px}
   .dkh-inrow{gap:14px} .dkh-inic{flex-basis:70px;height:70px} .dkh-inic svg{width:46px;height:46px}
   .dkh-intx p{line-height:1.3}
   .dkh-tipl li{margin-bottom:10px} .dkh-tipl li span{line-height:1.3}
   .dkh-tipl li i{flex-basis:44px;height:44px;font-size:26px}
   #olroom.dkh-online div[style*="margin-top:16px"] .btn.ghost{font-size:26px!important;min-width:120px}
-  .dkh-sl{flex-basis:230px}
+  .dkh-sl{flex-basis:230px} .dkh-shint{display:none}
   .dkh-seg button{min-width:150px;height:58px}
   .dkh-sched{flex-basis:380px} .dkh-scwhen{flex-basis:96px}
   .dkh-fc{flex-basis:230px}
   .dkh-steps li span{line-height:1.2}
   .dkh-mside,.dkh-frside{flex-basis:430px}
+  .dkh-mwarn{display:none} #mail .dklogo.dktext b{font-size:30px}
   #online.dkh-online p,#online.dkh-online label,#online.dkh-online #olMsg,#online.dkh-online #olJoinBox > div:first-child,
   #olroom.dkh-online div[style*="margin-bottom:4px"],#olroom.dkh-online div[style*="margin-bottom:20px"],
   #olroom.dkh-online div[style*="margin-top:16px"],#olroom.dkh-online div[style*="margin-top:6px"],
@@ -657,38 +727,37 @@ html,body{background-color:#140C05}
   #olroom.dkh-online div[style*="border-radius:10px"] > span:last-child{font-size:22px!important}
   #online.dkh-online .btn.ghost,#olroom.dkh-online .btn.ghost,#olroom.dkh-online div[style*="border-radius:10px"] b{font-size:26px!important}
   #online.dkh-online p{line-height:1.35!important}
-  .dkh-set{width:1080px} .dkh-help{width:1040px} .dkh-msoon{font-size:22px}
+  .dkh-set{width:1080px} .dkh-help{width:1400px} .dkh-hcol:first-child{flex-basis:480px} .dkh-msoon{font-size:22px}
+  .dkh-mg{width:1000px} .dkh-mgo{width:400px} .dkh-box{width:280px} .dkh-frm{width:1040px}
   #online.dkh-online > div[style] > div[style*="display:flex"]::before{font-size:22px}
   /* 押せる範囲（透明な当たり判定。見た目は変えない） */
   .dkh-ic::after,.dkh-sw::after,.dkh-plus::after,.dkh-q::after,.dkh-mbtn::after,.dkh-tab::after,.dkh-rb::after,.dkh-enter::before,
-  .dkh-ev::before,.dkh-ped::before,.dkh-seg button::after,.dkh-take::before,.dkh-ingo::before{
+  .dkh-ev::before,.dkh-ped::before,.dkh-seg button::after,.dkh-take::before,.dkh-ingo::before,.dkh-oshi::after,.dkh-mailb::after{
     content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
     width:calc(100% + var(--gx,0px) * 2);height:calc(100% + var(--gy,0px) * 2);background:transparent;border:0;z-index:1;pointer-events:auto}
-  .dkh-ic::after{--gx:12px;--gy:14px}
+  .dkh-ic::after{--gx:0px;--gy:10px}
   .dkh-sw::after{--gx:19px;--gy:21px}
   .dkh-plus::after{--gx:25px;--gy:12px}
-  .dkh-q::after{--gx:12px;--gy:19px}
+  .dkh-q::after{--gx:8px;--gy:20px}
   .dkh-mbtn::after{--gy:10px}
   .dkh-tab::after{--gy:5px}
-  .dkh-rb::after{--gy:5px}
   .dkh-ev::before{--gy:6px}
   .dkh-seg button::after{--gy:19px}
   .dkh-take::before,.dkh-ingo::before{--gy:12px}
   .dkh-ped::before{--gy:6px}
+  .dkh-oshi::after{--gy:19px}
+  .dkh-mailb::after{--gx:4px;--gy:19px}
 }
 
 /* ══════════ 控えめ・動きを減らす ══════════ */
-html.fx-lite .dkh-glow,html.fx-lite .dkh-orbit,html.fx-lite .dkh-olring,html.fx-lite .dkh-row.top1::after{display:none}
-html.fx-lite .dkh-badgewrap,html.fx-lite .dkh-med::after,html.fx-lite .dkh-evshine,html.fx-lite .dkh-emb.big,html.fx-lite .dkh-key svg{animation:none}
+html.fx-lite .dkh-glow,html.fx-lite .dkh-orbit,html.fx-lite .dkh-olring{display:none}
+html.fx-lite .dkh-badgewrap,html.fx-lite .dkh-logo::after{animation:none}
 @media (prefers-reduced-motion:reduce){
-  .dkh-badgewrap,.dkh-glow,.dkh-gloss,.dkh-med::after,.dkh-evshine,.dkh-evic,.dkh-emb,.dkh-chev b,.dkh-enter::after,.dkh-key svg,
-  .dkh-orbit,.dkh-olring,.dkh-lantern,.dkh-row.top1::after,.dkh-wkic,.dkh-msic svg,.dkh-mfill::after,.dkh-card::after{animation:none!important}
+  .dkh-badgewrap,.dkh-glow,.dkh-enter::after,.dkh-orbit,.dkh-olring,.dkh-msic svg,.dkh-logo::after,.dkh-box .dkh-bin,.dkh-upa,.dkh-upb{animation:none!important}
 }
-/* スマホ（html.fx-mob）：「動きを減らす」と同じ物を止める（大きな光輪・カードの揺れ・光のしま）。
+/* スマホ（html.fx-mob）：大きな光輪・カードの揺れ・光のしまを止める（止まった絵）。
    iPhone の WebKit は動く要素とその上に重なる中身を CSS の大きさ×3×3 の画素の層で持つ（1k-fx.html の説明） */
-html.fx-mob .dkh-badgewrap,html.fx-mob .dkh-glow,html.fx-mob .dkh-gloss,html.fx-mob .dkh-med::after,html.fx-mob .dkh-evshine,
-html.fx-mob .dkh-evic,html.fx-mob .dkh-emb,html.fx-mob .dkh-chev b,html.fx-mob .dkh-enter::after,html.fx-mob .dkh-key svg,
-html.fx-mob .dkh-orbit,html.fx-mob .dkh-olring,html.fx-mob .dkh-lantern,html.fx-mob .dkh-row.top1::after,html.fx-mob .dkh-wkic,
-html.fx-mob .dkh-msic svg,html.fx-mob .dkh-mfill::after,html.fx-mob .dkh-card::after{animation:none!important}
-html.fx-mob .dkh-logo::after{display:none}
+html.fx-mob .dkh-badgewrap,html.fx-mob .dkh-glow,html.fx-mob .dkh-enter::after,html.fx-mob .dkh-orbit,html.fx-mob .dkh-olring,
+html.fx-mob .dkh-msic svg,html.fx-mob .dkh-upa,html.fx-mob .dkh-upb,html.fx-mob .dkh-box .dkh-bin{animation:none!important}
+html.fx-mob .dkh-logo::after,html.fx-mob .dkh-gl{display:none}
 </style>
