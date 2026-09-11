@@ -1,35 +1,117 @@
 
 /* ══════════════════════════════════════════════════════════════
-   ダイスキングダム — 盤のマスとお金のルール（9f-tiles.js / WP5）
+   ダイスキングダム — 盤のマスとお金のルール（9f-tiles.js / WP11・v10）
    ──────────────────────────────────────────────────────────────
-   ・観光地（空色×2・ピンク×1）、建設ポップアップ（本家の4枚カード）、買収後の建設、
-     フォーチュンカード（攻撃・防御・移動・お金）、人間の売却画面、ボーナスゲーム、
-     リーチ判定（トリプル／ライン／観光地があと1マス）。
-   ・宣言し直す関数（§5 WP5）：buildTiles, tollOf, monoOf, checkWin, buildHTML, buyUI,
-     deedCard, maybeBuyout, parchHTML, aiBuy, chanceCard, miniGame, miniHTML, dkPayFrom。
-   ・代入ラッパ：drawTile（マスの厚み・ベベル・観光地の塗り）, drawBuilding（建物 1.38倍・観光地の記念碑）。
-   ・トップレベルは function 宣言と DKR_ 付きの var と、最後の初期化 IIFE だけ。
-   ・宣言し直した関数は、このファイルの var を読む前に呼ばれても落ちないように書く
-     （盤の描画は requestAnimationFrame から始まるので実際には後になる）。
-   ・見た目の乱数は DKFX.rnd() か決まった擬似乱数。Math.random は対戦の乱数だけに使う。
+   ・並び（本家ワールドと同じ位置・名前は当作）・値段表・観光地・建設（1周するまでビルまで）・
+     ランドマーク・フォーチュンカード21種・ボーナスゲーム・売却・独占・チーム戦の味方の扱い。
+   ・宣言する関数（所有表 v10 の WP11）：buildTiles tollOf monoOf checkWin buildHTML buyUI deedCard
+     maybeBuyout parchHTML aiBuy chanceCard miniGame miniHTML dkPayFrom maxLvOf lvLockNote sellValue
+     raiseCash aiBuyout cityValue。内部の関数は dkr*、変数は DKR_*。
+   ・中身を書き換える（C28）：MAPS・CITY_SLOTS・SPECIAL・GBASE・GCOL・BUILD（最後の起動 IIFE）。
+   ・tile.bm（C34）＝建物のビット（1マンション・2ビル・4ホテル）、lv＝最上段、ランドマークは bm===7。
+     前の版のコードが lv だけを書き換えた時は dkrBmSync が bm を合わせる（tollOf・cityValue・checkWin で）。
+   ・代入ラッパ：drawTile（マスの厚み・観光地・CARD の札）・drawBuilding（観光地の記念碑）・
+     nextTurn（砂嵐・伝染病の残りラウンドを減らす）。
+   ・見た目の乱数は DKFX.rnd() か決まった擬似乱数。Math.random は対戦の乱数だけ。
    ══════════════════════════════════════════════════════════════ */
 
-/* ══════════ 観光地の配置と名前（マップごとに自作） ══════════ */
-var DKR_TOUR_SLOTS = [ { i:6, kind:'sky', g:1 }, { i:15, kind:'pink', g:4 }, { i:23, kind:'sky', g:6 } ];
-var DKR_TOUR_BASE = { sky:320000, pink:420000 };
-var DKR_TOUR_NAMES = {
-  ice:   { 6:'氷晶の滝',   15:'オーロラ丘', 23:'雪うさぎ村' },
-  world: { 6:'珊瑚の海',   15:'さくら並木', 23:'氷河クルーズ' },
-  oita:  { 6:'九重の星空', 15:'湯けむり丘', 23:'姫島の浜' }
+/* ══════════ 盤の並び（J10：本家ワールドと同じ位置） ══════════ */
+var DKR_SLOTS = [[1, 3], [5, 6, 7], [10, 11], [13, 15], [17, 19], [21, 22, 23], [26, 27], [29, 31]];
+var DKR_SPECIAL = { 2:'bonus', 12:'card', 20:'card', 28:'card', 30:'tax' };
+var DKR_GCOL = ['#79CDBD', '#6DA83F', '#6BB2D2', '#5E8FD0', '#EFAAA0', '#8F6BC8', '#D2913A', '#C0564B'];
+var DKR_TOURS = [ { i:4, kind:'sky', g:1 }, { i:9, kind:'pink', g:2 }, { i:14, kind:'sky', g:3 },
+                  { i:18, kind:'sky', g:4 }, { i:25, kind:'pink', g:6 } ];
+var DKR_SKY_I = [4, 14, 18];
+/* 値段表（J08・200万基準・万円）：c＝建設費［土地権利書,マンション,ビル,ホテル,ランドマーク］、t＝通行料の上乗せ。
+   実額は ×(開始額÷200)。ランドマーク＝ホテルと同額。本家の3マップは同じ金額なので当作の3マップも同じ表 */
+var DKR_PRICE = {
+  1:{ c:[2, 1, 3, 5, 5],          t:[0.2, 0.6, 2, 5, 25.6] },
+  3:{ c:[2.6, 1, 3, 5, 5],        t:[0.2, 0.8, 2.2, 6, 25] },
+  5:{ c:[4.8, 2, 6, 10, 10],      t:[0.6, 1.8, 4.6, 12, 45] },
+  6:{ c:[4.8, 2, 6, 10, 10],      t:[0.6, 1.8, 4.6, 12, 45] },
+  7:{ c:[5.4, 2, 6, 10, 10],      t:[0.8, 2, 4.8, 12.4, 45] },
+  10:{ c:[7.2, 3, 9, 15, 15],     t:[1.4, 3.2, 8.4, 22, 60] },
+  11:{ c:[7.2, 3, 9, 15, 15],     t:[1.4, 3.2, 8.4, 22, 60] },
+  13:{ c:[9.4, 4, 12, 20, 20],    t:[2, 4.6, 11.4, 27, 70] },
+  15:{ c:[10, 4, 12, 20, 20],     t:[2.4, 4.8, 11.8, 28, 70] },
+  17:{ c:[11.8, 5, 15, 25, 25],   t:[3.2, 7, 16.8, 38, 75] },
+  19:{ c:[12.4, 5, 15, 25, 25],   t:[3.4, 7.4, 17.2, 39, 75] },
+  21:{ c:[14, 6, 18, 30, 30],     t:[4.4, 8.6, 20, 46, 75] },
+  22:{ c:[14.6, 6, 18, 30, 30],   t:[4.8, 9.2, 22, 47, 75] },
+  23:{ c:[14.6, 6, 18, 30, 30],   t:[4.8, 9.2, 22, 47, 75] },
+  26:{ c:[16.4, 7, 21, 35, 35],   t:[5.6, 12.4, 28, 60, 70] },
+  27:{ c:[17, 7, 21, 35, 35],     t:[6, 13, 29, 62, 70] },
+  29:{ c:[19.2, 8, 24, 40, 40],   t:[7.2, 14.8, 32, 68, 60] },
+  31:{ c:[20, 8, 24, 40, 40],     t:[8, 16, 34, 70, 60] }
+};
+/* マップごとの名前（当作。本家の都市名の並びは写さない） */
+var DKR_MAPDATA = {
+  ice:   { corners:['スタート', '氷の監獄', '水晶の遺跡', '洞窟探検'],
+           cities:[['氷結の泉', '霜の小屋'], ['凍り村', '雪見の丘', '氷柱回廊'], ['白銀通り', '銀嶺市場'], ['蒼氷広場', '凍湖港'],
+                   ['水晶坑道', '極光台'], ['氷紋宮', '氷刃城塞', '蒼玉神殿'], ['極夜宮殿', '白帝の塔'], ['氷王の玉座', '原初の氷核']],
+           tours:{ 4:'氷晶の滝', 9:'オーロラ丘', 14:'雪うさぎ村', 18:'天空氷城', 25:'永久氷河' } },
+  world: { corners:[null, '無人島', 'ワールドフェスティバル', null],
+           cities:[['バリ', 'セブ'], ['シンガポール', '香港', 'ドバイ'], ['台北', 'イスタンブール'], ['ソウル', 'カイロ'],
+                   ['リオ', 'ケープタウン'], ['バンクーバー', 'シドニー', 'ロサンゼルス'], ['バルセロナ', 'ベルリン'], ['ロンドン', 'ニューヨーク']],
+           tours:{ 4:'珊瑚の海', 9:'さくら並木', 14:'氷河クルーズ', 18:'オーロラの谷', 25:'バラの宮殿' } },
+  oita:  { corners:null,
+           cities:[['佐賀関', '佐伯'], ['蒲江', '臼杵', '津久見'], ['豊後大野', '竹田'], ['日田', '玖珠'],
+                   ['国東', '杵築'], ['日出', '中津', '宇佐'], ['大分駅前', '大分港'], ['由布院', '別府温泉']],
+           tours:{ 4:'九重の星空', 9:'湯けむり丘', 14:'姫島の浜', 18:'高崎山', 25:'鉄輪地獄めぐり' } }
 };
 var DKR_SKY = '#8FD8F8', DKR_PINK = '#F6A9C9';
 var DKR_BSCALE = 1.38;            /* 建物の拡大率（本家は建物がマスから大きくはみ出す） */
+var DKR_BYBASE = {};              /* 土地の値段 → 位置（BUILD[k].cost(t.base) の互換用。同じ値段の位置は表も同じ） */
 var DKR_o = {};                   /* 包む前の関数 */
 
+/* ══════════ 値段（C01・J08） ══════════ */
+function dkrUnit(){ return ((typeof cfg === 'object' && cfg && cfg.cash > 0) ? cfg.cash : 10000000) / 200; }
+function dkrRate(key, frac){ var v = 0; try{ v = dkRate(key); }catch(e){} return v > 0 ? v : Math.round((cfg.cash || 10000000) * frac); }
+function dkrRowOf(t){ return (t && DKR_PRICE[t.idx]) || null; }
+/* base だけが分かる時（7-online.js などが BUILD[k].cost(t.base) で呼ぶ）の表 */
+function dkrRowByBase(b){
+  var i = DKR_BYBASE[b];
+  if(i !== undefined && DKR_PRICE[i]) return DKR_PRICE[i];
+  var man = b / dkrUnit(), best = null, bd = 1e9;
+  for(var k in DKR_PRICE){ var d = Math.abs(DKR_PRICE[k].c[0] - man); if(d < bd){ bd = d; best = DKR_PRICE[k]; } }
+  return best;
+}
+/* 段 k の定価（その都市の土地の値段からの比＝開始額に比例） */
+function dkrPrice(t, k){
+  if(!t) return 0;
+  if(t.tour) return k === 0 ? t.base : 0;
+  var r = dkrRowOf(t) || dkrRowByBase(t.base);
+  if(!r) return k === 0 ? t.base : 0;
+  return Math.round(r.c[k] * t.base / r.c[0]);
+}
+function dkrTollAdd(t, k){
+  var r = dkrRowOf(t) || dkrRowByBase(t.base);
+  return r ? Math.round(r.t[k] * t.base / r.c[0]) : 0;
+}
+
+/* ══════════ 建物のビット（C34） ══════════ */
+function dkrTop(bm){ return (bm & 4) ? 3 : (bm & 2) ? 2 : (bm & 1) ? 1 : 0; }
+function dkrBits(bm){ return (bm & 1) + ((bm >> 1) & 1) + ((bm >> 2) & 1); }
+/* lv だけ書き換える前の版のコード（スタートの建設・オンラインの建設・破産）に bm を合わせる */
+function dkrBmSync(t){
+  if(!t || t.type !== 'city') return;
+  var bm = t.bm | 0, lv = Math.max(0, Math.min(3, t.lv | 0)), top;
+  if(t.tour){ if(t.bm !== 0 || t.lv !== 0){ t.bm = 0; t.lv = 0; } return; }
+  if(t.landmark){ if(t.bm !== 7 || t.lv !== 3){ t.bm = 7; t.lv = 3; } return; }
+  top = dkrTop(bm);
+  if(top === lv && t.bm === bm && t.lv === lv) return;
+  if(lv <= 0) bm = 0;
+  else if(lv === top + 1) bm |= 1 << (lv - 1);
+  else if(lv > top) bm |= (1 << lv) - 1;
+  else if(lv < top) bm = (bm & ((1 << lv) - 1)) | (1 << (lv - 1));
+  t.bm = bm; t.lv = dkrTop(bm);
+}
+function dkrSetBm(t, bm){ t.bm = bm & 7; t.lv = dkrTop(t.bm); if(t.bm !== 7) t.landmark = false; }
+
+/* ══════════ 観光地（J11） ══════════ */
 function dkrTourName(map, i, kind){
-  var tb = (map && DKR_TOUR_NAMES && DKR_TOUR_NAMES[map.id]) || null;
-  if(tb && tb[i]) return tb[i];
-  return kind === 'pink' ? '桃色の名所' : '空色の名所';
+  var d = map && DKR_MAPDATA[map.id], nm = d && d.tours && d.tours[i];
+  return nm || (kind === 'pink' ? '桃色の名所' : '空色の名所');
 }
 function dkrTours(G){
   var out = [];
@@ -37,94 +119,128 @@ function dkrTours(G){
   for(var i = 0; i < G.tiles.length; i++){ var t = G.tiles[i]; if(t && t.tour) out.push(i); }
   return out;
 }
+/* 同じ持ち主の水色の数（位置は決まっているので3マスだけ見る） */
+function dkrSkyCount(G2, owner){
+  if(!G2 || !G2.tiles || !(owner >= 0)) return 0;
+  var n = 0;
+  for(var k = 0; k < DKR_SKY_I.length; k++){ var t = G2.tiles[DKR_SKY_I[k]]; if(t && t.tour === 'sky' && t.owner === owner) n++; }
+  return n;
+}
+/* 倍率：水色＝持ち数 1/2/3 で ×1/×2/×4、ピンク＝止まられた回数 0/1/2〜 で ×1/×2/×4 */
+function dkrTourMul(tile, G2){
+  if(!tile || !tile.tour) return 1;
+  if(tile.tour === 'pink') return [1, 2, 4][Math.min(2, Math.max(0, tile.visits | 0))];
+  var n = Math.max(1, dkrSkyCount(G2, tile.owner));
+  return n >= 3 ? 4 : n;
+}
 
 /* ══════════ マスを作る ══════════ */
+function dkrCityTile(name, g, base, idx){
+  return { type:'city', name:name, g:g, base:base, idx:idx, owner:-1, lv:0, bm:0, landmark:false,
+           x2:false, frozen:0, grow:1, bind:0, olym:1, sand:0, plague:0 };
+}
 function buildTiles(map){
-  var slots = [ { i:6, kind:'sky', g:1 }, { i:15, kind:'pink', g:4 }, { i:23, kind:'sky', g:6 } ];
-  var tourAt = {};
-  slots.forEach(function(s){ tourAt[s.i] = s; });
-  var t = new Array(32).fill(null);
+  var U = dkrUnit(), t = new Array(32).fill(null);
   t[0]  = { type:'start',   name:map.corners[0] };
   t[8]  = { type:'jail',    name:map.corners[1] };
   t[16] = { type:'olympic', name:map.corners[2] };
   t[24] = { type:'travel',  name:map.corners[3] };
   for(var k in SPECIAL){
     var i = +k, v = SPECIAL[k];
-    if(tourAt[i]) continue;                            /* 6・15・23 は観光地にする（元はチャンス） */
-    if(v === 'card')  t[i] = { type:'card',  name:'フォーチュン' };
+    if(v === 'card')  t[i] = { type:'card',  name:'フォーチュンカード' };
     if(v === 'tax')   t[i] = { type:'tax',   name:'国税庁', rate:0.10 };
-    if(v === 'bonus') t[i] = { type:'bonus', name:'ボーナス', amount:1500000 };
+    if(v === 'bonus') t[i] = { type:'bonus', name:'ボーナスゲーム' };
   }
+  DKR_BYBASE = {};
   CITY_SLOTS.forEach(function(sl, g){
     sl.forEach(function(idx, j){
-      var base = Math.round(GBASE[g] * (1 + j * 0.13));
-      t[idx] = { type:'city', name:map.cities[g][j], g:g, base:base,
-                 owner:-1, lv:0, landmark:false, x2:false, frozen:0, grow:1, bind:0, olym:1 };
+      var r = DKR_PRICE[idx];
+      var base = r ? Math.round(r.c[0] * U) : Math.round((GBASE[g] || 100000) * (1 + j * 0.13));
+      if(DKR_BYBASE[base] === undefined) DKR_BYBASE[base] = idx;
+      var nm = (map.cities && map.cities[g] && map.cities[g][j]) || ('都市' + idx);
+      t[idx] = dkrCityTile(nm, g, base, idx);
     });
   });
-  /* 観光地：type は 'city' のまま（AI とオンラインが CITY_SLOTS[t.g] を引くため g は近くの色） */
-  slots.forEach(function(s){
-    t[s.i] = { type:'city', tour:s.kind, name:dkrTourName(map, s.i, s.kind), g:s.g,
-               base:(s.kind === 'pink' ? 420000 : 320000),
-               owner:-1, lv:0, landmark:false, x2:false, frozen:0, grow:1, bind:0, olym:1, visits:0 };
+  var land = dkrRate('tourLand', 0.05);
+  DKR_TOURS.forEach(function(s){
+    var o = dkrCityTile(dkrTourName(map, s.i, s.kind), s.g, land, s.i);
+    o.tour = s.kind; o.visits = 0;
+    t[s.i] = o;
   });
-  /* 祭り都市：毎試合ランダムで3ヶ所が通行料2倍。観光地は祭り都市にならない */
+  /* 祭り都市（本家の「お祭り FESTIVAL」×2）：毎試合ランダムで3都市。観光地はならない */
   var cities = [];
   for(var c = 0; c < 32; c++) if(t[c] && t[c].type === 'city' && !t[c].tour) cities.push(c);
   for(var n = 0; n < 3 && cities.length; n++){
     t[cities.splice((Math.random() * cities.length) | 0, 1)[0]].x2 = true;
   }
-  for(var z = 0; z < 32; z++) if(!t[z]) t[z] = { type:'card', name:'フォーチュン' };
+  for(var z = 0; z < 32; z++) if(!t[z]) t[z] = { type:'card', name:'フォーチュンカード' };
+  /* C09：マップの仕掛け（WP12 の 9k）。無い間は仮の部品がそのまま返す */
+  if(typeof dkMapTiles === 'function'){
+    try{ var t2 = dkMapTiles(t, map); if(Array.isArray(t2) && t2.length === 32) t = t2; }catch(e){ console.error('[WP11]', e); }
+  }
   return t;
 }
 
-/* ══════════ 通行料 ══════════ */
-/* 観光地の倍率：空色は同じ持ち主の空色の数（1→×1, 2→×2, 3→×4）、ピンクは訪問数（1+visits、最大×4） */
-function dkrTourMul(tile, G){
-  if(!tile || !tile.tour) return 1;
-  if(tile.tour === 'pink') return Math.min(4, 1 + Math.max(0, tile.visits | 0));
-  var n = 0;
-  if(G && G.tiles) G.tiles.forEach(function(o){ if(o && o.tour === 'sky' && o.owner === tile.owner) n++; });
-  n = Math.max(1, n);
-  return n >= 3 ? 4 : (n === 2 ? 2 : 1);
-}
+/* ══════════ 通行料（J08・J11） ══════════ */
 function tollOf(tile, G){
   if(!tile || tile.type !== 'city' || tile.owner < 0) return 0;
   if(tile.frozen > 0) return 0;
-  var m = 1, ow;
+  dkrBmSync(tile);
+  var v, m = 1, ow;
   if(tile.tour){
-    var tv = Math.round(tile.base * 0.45);
+    v = dkrRate('tourToll', 0.04);
     m = dkrTourMul(tile, G);
-    if(G){
-      if(G.ev && G.ev.tollX) m *= G.ev.tollX;         /* 週替わり「通行料値上げ」 */
-      if(G.infl && G.infl > 1) m *= G.infl;           /* 終盤インフレ */
-      ow = G.players && G.players[tile.owner];
-      if(ow && ow.tollUp > 0) m *= 1.6;               /* 能力「地価高騰」 */
+  } else {
+    var bm = tile.bm | 0;
+    v = dkrTollAdd(tile, 0);
+    if(bm & 1) v += dkrTollAdd(tile, 1);
+    if(bm & 2) v += dkrTollAdd(tile, 2);
+    if(bm & 4) v += dkrTollAdd(tile, 3);
+    if(tile.landmark) v += dkrTollAdd(tile, 4);
+    if(tile.x2) m *= 2;                                 /* 祭り都市 */
+    if(tile.olym > 1) m *= tile.olym;                   /* フェスティバル開催（最大5倍） */
+    if(G && G.tiles){
+      var idx = (typeof tile.idx === 'number' && G.tiles[tile.idx] === tile) ? tile.idx : G.tiles.indexOf(tile);
+      if(hasTriple(G, tile.owner, tile.g)) m *= 2 * ((G.ev && G.ev.monoX) || 1);   /* カラー独占 */
+      if(idx >= 0 && hasLine(G, tile.owner, Math.floor(idx / 8))) m *= 2;
     }
-    return Math.round(tv * m);
   }
-  var v = BUILD[0].toll(tile.base);
-  for(var i = 1; i <= tile.lv; i++) v += BUILD[i].toll(tile.base);
-  if(tile.landmark) v += BUILD[4].toll(tile.base);
-  if(tile.x2) m *= 2;                                 /* 祭り都市 */
-  if(tile.olym > 1) m *= tile.olym;                   /* フェスティバル開催（最大5倍） */
   if(G){
-    var idx = G.tiles ? G.tiles.indexOf(tile) : -1;
-    if(hasTriple(G, tile.owner, tile.g)) m *= 2 * ((G.ev && G.ev.monoX) || 1);
-    if(idx >= 0 && hasLine(G, tile.owner, Math.floor(idx / 8))) m *= 2;
-    if(G.ev && G.ev.tollX) m *= G.ev.tollX;
-    if(G.infl && G.infl > 1) m *= G.infl;
+    if(G.ev && G.ev.tollX) m *= G.ev.tollX;             /* 週替わり「通行料値上げ」 */
+    if(G.infl && G.infl > 1) m *= G.infl;               /* 短縮ルールの終盤インフレ */
     ow = G.players && G.players[tile.owner];
-    if(ow && ow.tollUp > 0) m *= 1.6;
+    if(ow && ow.tollUp > 0) m *= 1.6;                   /* 能力「地価高騰」 */
+  }
+  if(tile.sand > 0) m *= 0.5;                           /* 砂嵐 */
+  if(tile.plague > 0) m *= 0.5;                         /* 伝染病 */
+  if(G && typeof dkMapToll === 'function'){
+    try{ var mt = +dkMapToll(tile, G); if(mt > 0 && isFinite(mt)) m *= mt; }catch(e){ console.error('[WP11]', e); }
   }
   return Math.round(v * m);
 }
+/* 都市の価値（土地＋建てた建物の建設費用。国税庁・買収・総資産の元） */
+function cityValue(t){
+  if(!t || t.type !== 'city') return 0;
+  dkrBmSync(t);
+  if(t.tour) return t.base;
+  var v = t.base, bm = t.bm | 0;
+  if(bm & 1) v += dkrPrice(t, 1);
+  if(bm & 2) v += dkrPrice(t, 2);
+  if(bm & 4) v += dkrPrice(t, 3);
+  if(t.landmark) v += dkrPrice(t, 4);
+  return v;
+}
+/* 売値＝価値の半額（J52。強制売却の「半額で売却」と同じ） */
+function sellValue(t){ return Math.round(cityValue(t) * 0.5); }
+/* 建てられる最上段：1周する（最初の給料をもらう）まではビルまで、ホテルは1周してから（J07） */
+function maxLvOf(p){ return (p && (p.laps | 0) >= 1) ? 3 : 2; }
+function lvLockNote(p){ return maxLvOf(p) >= 3 ? '' : '1周すると建設可能'; }
 
 /* ══════════ 独占 ══════════ */
-/* 成立している独占をひとつ返す（無ければ null）。同時に成立したら倍率の高いほう */
+/* 成立している独占をひとつ返す（無ければ null）。同時に成立したら倍率の高いほう。味方の都市も合わせる */
 function monoOf(G, pi){
   var tours = dkrTours(G);
-  if(tours.length && tours.every(function(i){ return G.tiles[i].owner === pi; }))
+  if(tours.length && tours.every(function(i){ var o = G.tiles[i].owner; return o >= 0 && dkAlly(pi, o); }))
     return { kind:'tour', label:'観光地独占', col:'#7FE6FF', key:'m', x:5 };
   for(var s = 0; s < 4; s++) if(hasLine(G, pi, s))
     return { kind:'line', label:'ライン独占', col:'#FFD24D', key:'l' + s, x:3 };
@@ -132,51 +248,53 @@ function monoOf(G, pi){
     return { kind:'triple', label:'トリプル独占', col:'#FFD24D', key:'t', x:2 };
   return null;
 }
-/* あと1マスで独占：そのマスを取れるか（空き地、または相手の街で買収できる） */
+/* あと1マスで独占：そのマスを取れるか（空き地、または相手の都市で買収できる） */
 function dkrTakeable(i, pi){
   var t = G.tiles[i];
   if(!t || t.type !== 'city') return false;
   if(t.owner < 0) return true;
-  if(t.owner === pi) return false;
+  if(dkAlly(pi, t.owner)) return false;
   return !t.tour && !t.landmark;
 }
-/* いまのリーチを全部 [{pi, kind, label, tiles:[i]}] で返す */
+function dkrMineT(i, pi){ var t = G.tiles[i]; return !!t && t.owner >= 0 && dkAlly(pi, t.owner); }
+/* いまのリーチを全部 [{pi, kind, label, tiles:[i]}] で返す（チーム戦は同じチームで1つ） */
 function dkrReachList(){
-  var list = [];
+  var list = [], seen = {};
   if(!G || !G.players) return list;
   var tours = dkrTours(G);
+  var add = function(pi, kind, label, tiles){
+    var key = dkTeamOf(pi) + ':' + kind + ':' + tiles.join(',');
+    if(seen[key]) return;
+    seen[key] = 1;
+    list.push({ pi:pi, kind:kind, label:label, tiles:tiles });
+  };
   for(var pi = 0; pi < G.players.length; pi++){
     if(G.players[pi].out) continue;
     if(monoOf(G, pi)) continue;                      /* もう独占している人はリーチではない */
-    /* トリプル：2色そろっていて、3色目があと1マス */
     if(colorMono(G, pi) === 2){
       var tt = [];
       for(var g = 0; g < CITY_SLOTS.length; g++){
         if(hasTriple(G, pi, g)) continue;
-        var miss = CITY_SLOTS[g].filter(function(i){ return G.tiles[i].owner !== pi; });
+        var miss = CITY_SLOTS[g].filter(function(i){ return !dkrMineT(i, pi); });
         if(miss.length === 1 && dkrTakeable(miss[0], pi)) tt.push(miss[0]);
       }
-      if(tt.length) list.push({ pi:pi, kind:'triple', label:'トリプル独占', tiles:tt });
+      if(tt.length) add(pi, 'triple', 'トリプル独占', tt);
     }
-    /* ライン：1辺の街（観光地も含む）があと1マス */
     for(var s = 0; s < 4; s++){
       var idx = [];
       for(var k = 1; k < 8; k++){ var i2 = s * 8 + k; if(G.tiles[i2].type === 'city') idx.push(i2); }
-      var mine = idx.filter(function(i){ return G.tiles[i].owner === pi; });
-      var rest = idx.filter(function(i){ return G.tiles[i].owner !== pi; });
-      if(idx.length > 1 && mine.length >= 2 && rest.length === 1 && dkrTakeable(rest[0], pi))
-        list.push({ pi:pi, kind:'line', label:'ライン独占', tiles:[rest[0]] });
+      var mine = idx.filter(function(i){ return dkrMineT(i, pi); });
+      var rest = idx.filter(function(i){ return !dkrMineT(i, pi); });
+      if(idx.length > 1 && mine.length >= 2 && rest.length === 1 && dkrTakeable(rest[0], pi)) add(pi, 'line', 'ライン独占', [rest[0]]);
     }
-    /* 観光地：あと1つ（観光地は買収できないので空き地の時だけ） */
     if(tours.length >= 2){
-      var tm = tours.filter(function(i){ return G.tiles[i].owner !== pi; });
-      if(tm.length === 1 && G.tiles[tm[0]].owner < 0)
-        list.push({ pi:pi, kind:'tour', label:'観光地独占', tiles:[tm[0]] });
+      var tm = tours.filter(function(i){ return !dkrMineT(i, pi); });
+      if(tm.length === 1 && G.tiles[tm[0]].owner < 0) add(pi, 'tour', '観光地独占', [tm[0]]);
     }
   }
   return list;
 }
-/* リーチを WP7 の表示へ渡す。新しく出たリーチの時だけ boss の曲とニュース */
+/* リーチを表示の係（dkShowReach）へ渡す。新しく出たリーチの時だけ boss の曲とニュース */
 function dkrReachUpdate(){
   var list = dkrReachList();
   var prev = G.dkrReach || {}, now = {}, fresh = [];
@@ -186,129 +304,189 @@ function dkrReachUpdate(){
     if(!prev[key]) fresh.push(r);
   });
   G.dkrReach = now;
-  try{ dkShowReach(list); }catch(e){ console.error('[WP5]', e); }
+  try{ dkShowReach(list); }catch(e){ console.error('[WP11]', e); }
   if(fresh.length){
     try{ SFX.warn(); }catch(e){}
     try{ bgm('boss'); }catch(e){}
     fresh.forEach(function(r){
-      var nm = G.players[r.pi].name;
       var ts = r.tiles.map(function(i){ return G.tiles[i].name; }).join('・');
-      try{ news('🚨 ' + nm + ' が' + r.label + 'リーチ！ のこり ' + ts); }catch(e){}
+      try{ news('🚨 ' + G.players[r.pi].name + ' が' + r.label + 'リーチ！ 残り都市 ' + ts); }catch(e){}
     });
   }
   return list;
 }
+/* カラー独占が成立した瞬間に1回だけ知らせる（C12・J50）。崩れたら、また成立した時に知らせる */
+function dkrColorMonoCheck(){
+  var seen = G.dkrMono || {}, now = {};
+  for(var pi = 0; pi < G.players.length; pi++){
+    if(G.players[pi].out) continue;
+    for(var g = 0; g < CITY_SLOTS.length; g++){
+      if(!hasTriple(G, pi, g)) continue;
+      var key = dkTeamOf(pi) + ':' + g;
+      if(now[key]) continue;
+      now[key] = 1;
+      if(!seen[key]){ try{ dkColorMono(pi, g); }catch(e){ console.error('[WP11]', e); } }
+    }
+  }
+  G.dkrMono = now;
+}
 
-/* ══════════ 勝敗 ══════════ */
+/* ══════════ 勝敗（J51：開始直後の例外は無い） ══════════ */
 function checkWin(){
   if(!G || G.over) return false;
+  G.tiles.forEach(dkrBmSync);
   var alive = G.players.filter(function(p){ return !p.out; });
   if(alive.length === 1) return finish(G.players.indexOf(alive[0]), '独り勝ち');
-  /* 開始2ラウンドは事故決着させない（リーチの表示は出す） */
-  var early = G.turnsLeft > cfg.turns - 2;
-  if(!early){
-    for(var pi = 0; pi < G.players.length; pi++){
-      if(G.players[pi].out) continue;
-      var m = monoOf(G, pi);
-      if(m){ G.winX = m.x; G.winKind = m.kind; return finish(pi, m.label, m.col); }
-    }
+  dkrColorMonoCheck();
+  for(var pi = 0; pi < G.players.length; pi++){
+    if(G.players[pi].out) continue;
+    var m = monoOf(G, pi);
+    if(m){ G.winX = m.x; G.winKind = m.kind; return finish(pi, m.label, m.col); }
   }
   dkrReachUpdate();
   return false;
 }
 
-/* ══════════ 建設ポップアップ（本家 s10/r4c0：4枚のカードが最初から選ばれている） ══════════ */
-var DKR_STEP_NM = ['土地権利書', '別荘', 'ビル', 'ホテル', 'ランドマーク'];
+/* ══════════ 建設ポップアップ（J03：本家 s10/r4c0・v6 t0028 の形） ══════════ */
+var DKR_STEP_NM = ['土地権利書', 'マンション', 'ビル', 'ホテル', 'ランドマーク'];
 
-function dkrDisc(p){ return statMul(p, 'build', 0.3) * (p.halfBuild > 0 ? 0.5 : 1) * ((G.ev && G.ev.buildX) || 1); }
-function dkrFull(t, k){ return k === 0 ? t.base : BUILD[k].cost(t.base); }
-function dkrCost(t, k, disc){ return Math.round(dkrFull(t, k) * disc); }
-function dkrColOf(t){ return t.tour ? (t.tour === 'pink' ? '#F6A9C9' : '#8FD8F8') : GCOL[t.g]; }
-function dkrArtKeyOf(t){
-  if(t.tour) return 'tour-' + t.tour;
-  if(t.landmark) return 'b4';
-  return 'b' + Math.max(0, Math.min(3, t.lv | 0));
+/* サイコロの能力（C05）。5（%）で来ても 0.05（割合）で来ても同じにする */
+function dkrAb(pi, key){
+  var a = null;
+  try{ a = dkDieAb(pi); }catch(e){}
+  var v = a ? (+a[key] || 0) : 0;
+  if(v > 1) v = v / 100;
+  return Math.max(0, Math.min(0.6, v));
 }
-/* 建てられる段の一覧。mode = 'city' | 'lm'（3段そろった後のランドマーク） | 'tour' */
-function dkrSteps(i, pi){
-  var t = G.tiles[i], p = G.players[pi], own = t.owner === pi, disc = dkrDisc(p), mx = maxLvOf(p);
-  var mk = function(k, have, can, lock){ return { k:k, have:have, can:can, lock:lock, cost:dkrCost(t, k, disc), full:dkrFull(t, k) }; };
-  if(t.tour) return { mode:'tour', steps:[ mk(0, own, !own, false) ] };
-  if(own && t.lv >= 3 && !t.landmark) return { mode:'lm', steps:[ mk(4, false, true, false) ] };
-  var out = [ mk(0, own, !own, false) ];
+/* 能力の発動（C04）：'build'・'buyout' はこの班が呼んで dkNotify で知らせる。発動したら費用を半額にする */
+function dkrSkill(pi, when){
+  var r = null;
+  try{ r = dkSkillRoll(pi, when); }catch(e){ console.error('[WP11]', e); }
+  if(!r || !r.fired) return null;
+  var p = G.players[pi];
+  try{ dkNotify(pi, '✨', r.label || ((p ? p.name : '') + 'のスペシャル能力'),
+    when === 'buyout' ? '買収費用が半額になりました' : '建設費用が半額になりました', { ms:1800 }); }catch(e){}
+  return r;
+}
+/* 建設費の倍率（能力値・建設割引券・週イベント・サイコロの能力・スキル） */
+function dkrDisc(pi, skill){
+  var p = G.players[pi];
+  return statMul(p, 'build', 0.3) * (p.halfBuild > 0 ? 0.5 : 1) * ((G.ev && G.ev.buildX) || 1)
+    * (1 - dkrAb(pi, 'build')) * (skill ? 0.5 : 1);
+}
+function dkrCost(t, k, disc){ return Math.round(dkrPrice(t, k) * disc); }
+function dkrColOf(t){ return t.tour ? (t.tour === 'pink' ? DKR_PINK : DKR_SKY) : (GCOL[t.g] || '#79CDBD'); }
+function dkrArtKeyOf(t){ if(t.tour) return 'tour-' + t.tour; if(t.landmark) return 'b4'; return 'b' + dkrTop(t.bm | 0); }
+/* 自分の都市か、チーム戦の味方の都市（止まった人が建てて払う。持ち主は味方のまま） */
+function dkrOwnSide(t, pi){ return !!t && t.owner >= 0 && dkAlly(pi, t.owner); }
+/* 建てられる段の一覧。mode＝'city'｜'lm'（3建物がそろった後のランドマーク）｜'tour' */
+function dkrSteps(i, pi, disc){
+  var t = G.tiles[i], p = G.players[pi], side = dkrOwnSide(t, pi), mx = maxLvOf(p);
+  if(typeof disc !== 'number') disc = dkrDisc(pi, false);
+  dkrBmSync(t);
+  var bm = t.bm | 0;
+  var mk = function(k, have, can, lock){ return { k:k, have:have, can:can, lock:lock, cost:dkrCost(t, k, disc), full:dkrPrice(t, k) }; };
+  if(t.tour) return { mode:'tour', steps:[ mk(0, side, !side, false) ] };
+  if(side && bm === 7 && !t.landmark) return { mode:'lm', steps:[ mk(4, false, true, false) ] };
+  var out = [ mk(0, side, !side, false) ];
   for(var k = 1; k <= 3; k++){
-    var have = own && t.lv >= k;
+    var have = !!(bm & (1 << (k - 1)));
     out.push(mk(k, have, !have && k <= mx, !have && k > mx));
   }
   return { mode:'city', steps:out };
 }
-/* 最初から選んでおく段：下から順に、払える分だけ（途中で足りなくなったらそこまで） */
-function dkrPresel(i, pi){
-  var p = G.players[pi], S = dkrSteps(i, pi), sum = 0, out = [];
-  for(var n = 0; n < S.steps.length; n++){
-    var s = S.steps[n];
-    if(s.have) continue;
-    if(!s.can) break;
-    if(sum + s.cost > p.cash) break;
+/* 最初から選んでおく段（本家は払える分に全部チェックが付いて出る）。土地権利書が買えない時は何も選ばない */
+function dkrPresel(S, cash){
+  var sum = 0, out = [];
+  S.steps.forEach(function(s){
+    if(s.have || !s.can || sum + s.cost > cash) return;
     sum += s.cost; out.push(s.k);
-  }
+  });
+  if(S.mode !== 'lm' && S.steps[0].can && out.indexOf(0) < 0) return [];
   return out;
 }
-function dkrLockText(p, k){
-  var need = Math.max(1, k - 1 - (p.laps | 0));
-  return 'あと' + need + '周で解放';
+function dkrStepCard(s, pre, pc, landNeed, cash){
+  var poor = !s.have && s.can && (s.cost + (s.k === 0 ? 0 : landNeed) > cash);
+  var must = s.k === 0 && !s.have;
+  var c = 'bcard' + (s.have ? ' own' : '') + ((!s.can && !s.have) || poor ? ' dis' : '') + (poor ? ' dkr-nomoney' : '')
+    + (s.lock ? ' dkr-locked' : '') + (pre.indexOf(s.k) >= 0 ? ' sel' : '') + (must ? ' dkr-must' : '');
+  return '<div class="' + c + '" data-k="' + s.k + '" data-c="' + s.cost + '" data-dkr-full="' + s.full + '">'
+    + '<div class="dkr-cap">' + DKR_STEP_NM[s.k] + '</div>'
+    + '<div class="dkr-art"><canvas data-dkr-art="b' + s.k + '" data-dkr-col="' + pc + '" width="16" height="12"></canvas></div>'
+    + (must ? '<em class="dkr-mustag">必須建設地</em>' : '')
+    + '<div class="pr">' + (s.have ? '所有中' : yen(s.full)) + '</div>'
+    + '<i class="dkr-chk" aria-hidden="true"></i>'
+    + (s.lock ? '<div class="dkr-lock"><b>1</b><span>1周すると<br>建設可能</span></div>' : '')
+    + '</div>';
+}
+/* 観光地：左に絵のカード、右に本家の「通行料」表（J11） */
+function dkrTourBody(t, pi, S, pre, cash){
+  var pink = t.tour === 'pink', toll = dkrRate('tourToll', 0.04), s = S.steps[0];
+  var cur = pink ? Math.min(2, t.visits | 0) : Math.min(2, dkrSkyCount(G, pi));
+  var labels = pink ? ['1回目の訪問', '2回目の訪問', '3回目以降'] : ['一カ所所有', '二カ所所有', '三カ所所有'];
+  var poor = !s.have && s.can && s.cost > cash;
+  var c = 'bcard dkr-tcard' + (s.have ? ' own' : '') + ((!s.can && !s.have) || poor ? ' dis' : '') + (pre.indexOf(0) >= 0 ? ' sel' : '');
+  var rows = labels.map(function(l, n){
+    return '<div class="dkr-ttr' + (n === cur ? ' dkr-now' : '') + '"><span>' + l + '</span><b>' + yen(toll * [1, 2, 4][n]) + '</b></div>';
+  }).join('');
+  return '<div class="dkr-tbody">'
+    + '<div class="' + c + '" data-k="0" data-c="' + s.cost + '" data-dkr-full="' + s.full + '">'
+    +   '<div class="dkr-cap">' + (pink ? 'ピンクの観光地' : '水色の観光地') + '</div>'
+    +   '<div class="dkr-art"><canvas data-dkr-art="tour-' + t.tour + '" data-dkr-col="' + (PCOL[pi] || '#E14A5A') + '" width="16" height="12"></canvas></div>'
+    +   '<div class="pr">' + (s.have ? '所有中' : yen(s.full)) + '</div><i class="dkr-chk" aria-hidden="true"></i>'
+    + '</div>'
+    + '<div class="dkr-ttab"><div class="dkr-tth">通行料</div>' + rows
+    +   '<p>' + (pink ? '止まられるたびに上がります' : '同じ人が持つ水色の数で上がります') + '・買収されません</p></div>'
+    + '</div>';
 }
 function buildHTML(i, pi, opt){
-  var t = G.tiles[i], p = G.players[pi], S = dkrSteps(i, pi);
-  var pre = (opt && opt.presel) ? dkrPresel(i, pi) : [];
-  var col = dkrColOf(t), pc = PCOL[pi] || '#E14A5A';
-  var cls = 'deed dkr-build' + (S.mode === 'lm' ? ' dkr-lm' : '') + (S.mode === 'tour' ? ' dkr-tp dkr-' + t.tour : '');
-  var sub = S.mode === 'lm' ? 'ランドマーク建設' : (S.mode === 'tour' ? (t.tour === 'pink' ? 'ピンクの観光地' : '空色の観光地') : '');
-  var h = '<div class="modal"><div class="' + cls + '" data-dkr-i="' + i + '" data-dkr-pi="' + pi + '">'
+  opt = opt || {};
+  var t = G.tiles[i], p = G.players[pi];
+  var disc = (typeof opt.disc === 'number') ? opt.disc : dkrDisc(pi, false);
+  var S = dkrSteps(i, pi, disc), pre = opt.presel ? dkrPresel(S, p.cash) : [];
+  var land = S.steps[0], landNeed = (S.mode === 'city' && land.can) ? land.cost : 0;
+  var col = dkrColOf(t), pc = PCOL[t.owner >= 0 ? t.owner : pi] || '#E14A5A';
+  var ally = t.owner >= 0 && t.owner !== pi;
+  var sub = S.mode === 'lm' ? 'ランドマーク' : S.mode === 'tour' ? '観光地' : (ally ? '味方の都市' : '');
+  var cls = 'deed dkr-build dkr-m-' + S.mode + (S.mode === 'lm' ? ' dkr-lm' : '') + (t.tour ? ' dkr-tp dkr-' + t.tour : '');
+  var h = '<div class="modal"><div class="' + cls + '" data-dkr-i="' + i + '" data-dkr-pi="' + pi + '" data-dkr-mode="' + S.mode + '">'
+    + (S.mode === 'lm' ? '<div class="dkr-bubble">ランドマークにアップグレードしてください<small>(通行料値上げ/買収防御効果)</small></div>' : '')
     + '<div class="dhd"><span class="dkr-medal" style="--dkr-g:' + col + '"><i></i></span>'
     + '<div class="dkr-ttl"><b>' + esc(t.name) + '</b>' + (sub ? '<em>' + sub + '</em>' : '') + '</div>'
     + '<button class="dkr-x" data-act="no" aria-label="閉じる">✕</button></div>'
-    + '<div class="dbd"><div class="buildgrid dkr-n' + S.steps.length + '">';
-  S.steps.forEach(function(s){
-    var c = 'bcard' + (s.have ? ' own' : '') + (!s.can && !s.have ? ' dis' : '') + (pre.indexOf(s.k) >= 0 ? ' sel' : '');
-    var art = t.tour ? 'tour-' + t.tour : 'b' + s.k;
-    h += '<div class="' + c + '" data-k="' + s.k + '" data-c="' + s.cost + '" data-dkr-full="' + s.full + '">'
-      + '<div class="dkr-cap">' + (t.tour ? '観光地' : DKR_STEP_NM[s.k]) + '</div>'
-      + '<div class="dkr-art"><canvas data-dkr-art="' + art + '" data-dkr-col="' + pc + '" width="16" height="12"></canvas></div>'
-      + '<div class="pr">' + (s.have ? '所有' : yenShort(s.full)) + '</div>'
-      + '<i class="dkr-chk" aria-hidden="true"></i>'
-      + (s.lock ? '<div class="dkr-lock">' + dkrLockText(p, s.k) + '</div>' : '')
-      + '</div>';
-  });
-  var note;
-  if(S.mode === 'tour') note = '観光地は建物を建てられず、買収もされません。空色は持っている数、ピンクは訪問数で通行料が上がります。';
-  else if(S.mode === 'lm') note = '3段そろった街だけに建てられます。ランドマークは買収されません。';
+    + '<div class="dbd">';
+  if(S.mode === 'tour') h += dkrTourBody(t, pi, S, pre, p.cash);
   else {
-    var mx = maxLvOf(p);
-    note = mx >= 3 ? '選んだ段までまとめて建てます。カードを押すと選び直せます。'
-                   : 'いまは「' + BUILD[mx].nm + '」まで。スタートを通るたびに1段ずつ増えます。';
+    h += '<div class="buildgrid dkr-n' + S.steps.length + '">';
+    S.steps.forEach(function(s){ h += dkrStepCard(s, pre, pc, landNeed, p.cash); });
+    h += '</div>';
   }
-  if(p.halfBuild > 0) note += '　建設割引券が効いています（半額）。';
-  h += '</div><div class="sums">'
-    + '<div class="dkr-row"><span>建設費用</span><i aria-hidden="true"></i><b id="dkrFull">0</b></div>'
-    + '<div class="dkr-row dkr-disc"><span>建設費用割引</span><i aria-hidden="true"></i><b id="dkrDisc">0</b></div>'
+  var row = function(label, id, cls2){
+    return '<div class="dkr-row' + (cls2 ? ' ' + cls2 : '') + '"><span>' + label + '</span><i aria-hidden="true"></i><b id="' + id + '">0</b></div>';
+  };
+  h += '<div class="sums">'
+    + row('建設費用', 'dkrFull')
+    + row('建設費用割引', 'dkrDisc', 'dkr-disc')
     + '<button class="dkr-buy" id="bOk" data-act="ok"><span class="dkr-bl">購入</span>'
     +   '<span class="dkr-bill" aria-hidden="true"></span><em id="bSum">0</em></button>'
-    + '<div class="dkr-row dkr-toll"><span>通行料</span><i aria-hidden="true"></i><b id="dkrToll">0</b></div>'
-    + '</div><p class="dkr-note">' + note + '</p>'
-    + '</div></div></div>';
+    + (S.mode !== 'tour' ? row('通行料', 'dkrToll', 'dkr-toll') : '')
+    + row('購入後の残りマーブル', 'dkrLeft', 'dkr-left')
+    + '</div></div></div></div>';
   return h;
 }
 /* 選んだ段で建てたあとの通行料（タイルを一瞬だけ書き換えて tollOf に聞き、必ず戻す） */
 function dkrTollAfter(i, pi, sel){
-  var t = G.tiles[i], o = t.owner, l = t.lv, m = t.landmark;
+  var t = G.tiles[i], o = t.owner, l = t.lv, b = t.bm, m = t.landmark;
   try{
     if(sel.length){
-      t.owner = pi;
-      sel.forEach(function(k){ if(k >= 1 && k <= 3) t.lv = Math.max(t.lv, k); if(k === 4) t.landmark = true; });
+      if(t.owner < 0) t.owner = pi;
+      var bm = t.bm | 0;
+      sel.forEach(function(k){ if(k >= 1 && k <= 3) bm |= 1 << (k - 1); });
+      t.bm = bm; t.lv = dkrTop(bm);
+      if(sel.indexOf(4) >= 0 && bm === 7) t.landmark = true;
     }
     return tollOf(t, G);
-  } finally { t.owner = o; t.lv = l; t.landmark = m; }
+  } finally { t.owner = o; t.lv = l; t.bm = b; t.landmark = m; }
 }
 /* 表示の同期（buyUI からも、7-online.js の pickBuild のクリックからも呼ばれる） */
 function dkrBuildSync(root){
@@ -324,18 +502,20 @@ function dkrBuildSync(root){
     full += +c.getAttribute('data-dkr-full') || 0;
     cost += +c.getAttribute('data-c') || 0;
   });
-  var put = function(id, v){ var e = panel.querySelector('#' + id); if(e){ e.textContent = v; e.style.color = ''; } };
+  var put = function(id, v){ var e = panel.querySelector('#' + id); if(e && e.textContent !== v) e.textContent = v; };
   put('dkrFull', yen(full));
   put('dkrDisc', full - cost > 0 ? '-' + yen(full - cost) : '0');
   put('bSum', yen(cost));
   put('dkrToll', yen(sel.length ? dkrTollAfter(i, pi, sel) : tollOf(t, G)));
+  put('dkrLeft', yen(p.cash - cost));
+  var needLand = panel.getAttribute('data-dkr-mode') === 'city' && t.owner < 0 && sel.indexOf(0) < 0;
   var ok = panel.querySelector('#bOk');
-  if(ok) ok.disabled = !sel.length || cost > p.cash;
+  if(ok) ok.disabled = !sel.length || cost > p.cash || needLand;
   panel.classList.toggle('dkr-poor', cost > p.cash);
 }
 /* 押せないカードを押した時の小さな揺れ（位置は変えない） */
 function dkrNudge(el){ try{ if(typeof fxShake === 'function') fxShake(el, 200); }catch(e){} }
-/* 自前のモーダルを閉じる（WP0 の modal と同じ 170ms の退場。閉じる間に別の中身が入ったらそれは閉じない） */
+/* 自前のモーダルを閉じる（modal と同じ 170ms の退場。閉じる間に別の中身が入ったらそれは閉じない） */
 function dkrCloseModal(first){
   var wrap = document.getElementById('modalWrap'), body = document.getElementById('modalBody');
   if(!wrap || !body) return;
@@ -356,11 +536,10 @@ function dkrOpenModal(html){
   wrap.classList.add('on');
   return body.firstElementChild;
 }
-/* 人間が選ぶ：選んだ段の配列（小さい順）か []（閉じた） */
-function dkrPickBuild(pi, i){
+/* 人間が選ぶ：選んだ段の配列（小さい順）か []（閉じた）。土地権利書は必須なので外せない */
+function dkrPickBuild(pi, i, disc){
   return new Promise(function(res){
-    var t = G.tiles[i], own = t.owner === pi;
-    var first = dkrOpenModal(buildHTML(i, pi, { presel:true }));
+    var first = dkrOpenModal(buildHTML(i, pi, { presel:true, disc:disc }));
     var panel = first.querySelector('.dkr-build');
     var cards = Array.prototype.slice.call(panel.querySelectorAll('.bcard'));
     var cardOf = function(k){ for(var n = 0; n < cards.length; n++) if(+cards[n].getAttribute('data-k') === k) return cards[n]; return null; };
@@ -371,17 +550,9 @@ function dkrPickBuild(pi, i){
       cd.onclick = function(){
         if(done) return;
         try{ SFX.click(); }catch(e){}
-        if(!pickable(cd)){ dkrNudge(cd); return; }
-        if(cd.classList.contains('sel')){
-          /* 外す：土地を外したら全部、ほかはその段から上を外す */
-          cards.forEach(function(c){ var kk = +c.getAttribute('data-k'); if(k === 0 || kk >= k) c.classList.remove('sel'); });
-        } else {
-          if(k > 0 && k < 4){
-            if(!own){ var c0 = cardOf(0); if(pickable(c0)) c0.classList.add('sel'); }
-            for(var j = (own ? t.lv + 1 : 1); j < k; j++){ var cj = cardOf(j); if(pickable(cj)) cj.classList.add('sel'); }
-          }
-          cd.classList.add('sel');
-        }
+        if(!pickable(cd) || (k === 0 && cd.classList.contains('sel'))){ dkrNudge(cd); return; }
+        cd.classList.toggle('sel');
+        if(k > 0 && k < 4 && cd.classList.contains('sel')){ var c0 = cardOf(0); if(pickable(c0)) c0.classList.add('sel'); }
         dkrBuildSync(panel);
       };
     });
@@ -399,93 +570,173 @@ function dkrPickBuild(pi, i){
     });
   });
 }
-/* 選んだ段を実際に建てる（お金を払う → 建物 → 権利証 → 勝敗） */
-async function dkrApplyBuild(pi, i, sel){
-  var t = G.tiles[i], p = G.players[pi], own = t.owner === pi;
-  if(!sel || !sel.length || p.out || G.over) return;
-  if(t.owner >= 0 && !own) return;
-  var disc = dkrDisc(p), spend = 0;
-  sel.forEach(function(k){ spend += dkrCost(t, k, disc); });
-  if(spend > p.cash) return;
+/* 選んだ段を実際に建てる（払う → ビットを立てる → 伸びる演出 → 勝敗）。払った額を返す */
+async function dkrApplyBuild(pi, i, sel, disc){
+  var t = G.tiles[i], p = G.players[pi];
+  if(!t || !p || !sel || !sel.length || p.out || G.over) return 0;
+  var side = dkrOwnSide(t, pi);
+  if(t.owner >= 0 && !side) return 0;
+  var S = dkrSteps(i, pi, disc), ok = {};
+  S.steps.forEach(function(s){ if(s.can) ok[s.k] = s.cost; });
+  sel = sel.filter(function(k, n){ return ok[k] !== undefined && sel.indexOf(k) === n; });
+  if(!sel.length || (S.mode !== 'lm' && t.owner < 0 && sel.indexOf(0) < 0)) return 0;
+  var spend = 0;
+  sel.forEach(function(k){ spend += ok[k]; });
+  if(spend > p.cash) return 0;
   if(p.halfBuild > 0) p.halfBuild--;
   give(pi, -spend);
-  if(sel.indexOf(0) >= 0 || own) t.owner = pi;
+  if(t.owner < 0) t.owner = pi;
+  var lm = false;
   if(!t.tour){
-    [1, 2, 3].forEach(function(k){ if(sel.indexOf(k) >= 0) t.lv = Math.max(t.lv, k); });
-    if(sel.indexOf(4) >= 0 && t.lv >= 3) t.landmark = true;
+    var bm = t.bm | 0;
+    sel.forEach(function(k){ if(k >= 1 && k <= 3) bm |= 1 << (k - 1); if(k === 4 && (t.bm | 0) === 7) lm = true; });
+    dkrSetBm(t, bm);
+    if(lm) t.landmark = true;
   }
   boardChanged();
-  await growAnim(i);
-  await deedCard(i, spend);
+  var ga = growAnim(i);
+  if(lm){ try{ raiseBanner('ランドマーク', i, { tone:'blue' }); }catch(e){ console.error('[WP11]', e); } }
+  if(t.tour === 'sky') dkrSkyStageFx(t.owner, i);
+  await ga;
   checkWin();
+  return spend;
 }
 async function buyUI(pi, i){
   var t = G.tiles[i], p = G.players[pi];
-  if(!t || !p || t.type !== 'city') return;
-  var own = t.owner === pi;
-  if(!own && t.owner >= 0) return;
-  if(own && t.tour) return;                        /* 自分の観光地では何も開かない */
-  if(own && t.landmark){ toast('R', '🗼', 'ランドマーク完成済み', t.name + ' はこれ以上建てられません', 1800); return; }
-  var S = dkrSteps(i, pi);
-  if(!S.steps.some(function(s){ return s.can; })){
-    toast('R', '🔒', 'いまは建てられません', 'スタートを通るたびに建てられる段が1つ増えます', 1700);
+  if(!t || !p || t.type !== 'city' || p.out || G.over) return;
+  var side = dkrOwnSide(t, pi);
+  if(t.owner >= 0 && !side) return;
+  dkrBmSync(t);
+  if(side && t.tour) return;                           /* 自分（味方）の観光地では何も開かない */
+  if(side && t.landmark){ dkNotify(pi, '🗼', 'これ以上、建設できません', t.name + ' はランドマークです', { ms:1500 }); return; }
+  if(!dkrSteps(i, pi).steps.some(function(s){ return s.can; })){
+    dkNotify(pi, '🔒', 'これ以上、建設できません', lvLockNote(p), { ms:1500 });
     return;
   }
-  var sel = await dvAsk(pi, 'build', function(){ return dkrPickBuild(pi, i); }, '買うか考えています');
+  var sk = dkrSkill(pi, 'build'), disc = dkrDisc(pi, !!sk);
+  var auto = p.kind === 'cpu' || dkIsAuto(pi);
+  if(auto) dkBusyTag(pi, '都市購入中');
+  var sel;
+  try{
+    sel = await dvAsk(pi, 'build', function(){ return auto ? dkrPlanBuild(pi, i, disc) : dkrPickBuild(pi, i, disc); }, '買うか考えています');
+  } finally { if(auto) dkBusyTag(pi, null); }
   if(!Array.isArray(sel) || !sel.length) return;
-  await dkrApplyBuild(pi, i, sel);
+  await dkrApplyBuild(pi, i, sel, disc);
+}
+/* 権利証カードは出さない（本家に無い。budgets の決まり）。7-online.js が呼ぶので名前だけ残す */
+function deedCard(i, paid){ return Promise.resolve(); }
+
+/* ══════════ CPU・自動プレイの建設 ══════════ */
+function dkrLvlOf(p){ return p.kind === 'cpu' ? (cfg.ai | 0) : 1; }
+/* 同じ色で味方が持っている数（相手の数は qi で数える） */
+function dkrNear(g, qi){ return CITY_SLOTS[g] ? CITY_SLOTS[g].filter(function(j){ var o = G.tiles[j].owner; return o >= 0 && dkAlly(qi, o); }).length : 0; }
+function dkrPlanBuild(pi, i, disc){
+  var t = G.tiles[i], p = G.players[pi], lvl = dkrLvlOf(p), sc = dkScale();
+  if(!t || !p || t.type !== 'city') return [];
+  var side = dkrOwnSide(t, pi);
+  if(t.owner >= 0 && !side) return [];
+  var reserve = ([300000, 180000, 90000][lvl] || 180000) * sc;
+  var S = dkrSteps(i, pi, disc);
+  if(S.mode === 'tour'){
+    if(side) return [];
+    var price = S.steps[0].cost, tours = dkrTours(G);
+    var mineT = tours.filter(function(j){ return dkrMineT(j, pi); }).length;
+    var block = G.players.some(function(q, qi){ return !dkAlly(pi, qi) && !q.out &&
+      tours.filter(function(j){ return dkrMineT(j, qi); }).length >= tours.length - 1; });
+    var urgent = mineT >= 1 || block;
+    return (price <= p.cash && p.cash - price >= (urgent ? 0 : reserve)) ? [0] : [];
+  }
+  if(S.mode === 'lm'){
+    var cl = S.steps[0].cost;
+    return (lvl >= 1 && p.cash - cl > reserve) ? [4] : [];
+  }
+  var sel = [], spend = 0;
+  if(!side){
+    var pr = S.steps[0].cost;
+    var urgentC = dkrNear(t.g, pi) >= 1 || G.players.some(function(q, qi){ return !dkAlly(pi, qi) && !q.out && dkrNear(t.g, qi) >= 2; });
+    if(pr > p.cash || p.cash - pr < (urgentC ? 0 : reserve)) return [];
+    sel.push(0); spend += pr;
+  }
+  var near = dkrNear(t.g, pi);
+  var blockC = G.players.some(function(q, qi){ return !dkAlly(pi, qi) && !q.out && dkrNear(t.g, qi) >= 2; });
+  var aggr = (near >= 1 || blockC) ? 1 : 0;
+  for(var k = 1; k <= 3; k++){
+    var s = S.steps[k];
+    if(!s || s.have) continue;
+    if(!s.can) break;
+    var floor = Math.max(0, reserve - aggr * 1500000 * sc);
+    if(p.cash - spend - s.cost < floor) break;
+    if(lvl === 0 && k > 1) break;
+    if(lvl === 1 && k > 2 && !aggr) break;
+    sel.push(k); spend += s.cost;
+  }
+  return sel;
+}
+async function aiBuy(pi, i){
+  var t = G.tiles[i], p = G.players[pi];
+  if(!t || !p || t.type !== 'city' || p.out || G.over) return;
+  var side = dkrOwnSide(t, pi);
+  if(t.owner >= 0 && !side) return;
+  dkrBmSync(t);
+  if(side && (t.tour || t.landmark)) return;
+  if(!dkrSteps(i, pi).steps.some(function(s){ return s.can; })) return;
+  var sk = dkrSkill(pi, 'build'), disc = dkrDisc(pi, !!sk);
+  var sel = dkrPlanBuild(pi, i, disc);
+  if(!sel.length) return;
+  dkBusyTag(pi, '都市購入中');
+  try{ await wait(380); } finally { dkBusyTag(pi, null); }
+  if(G.over || p.out) return;
+  /* 揺らす（J45：部屋のルールでオンの時だけ） */
+  var me = G.players.findIndex(function(q){ return q.kind !== 'cpu' && !q.out; });
+  if(cfg.shake && me >= 0 && me !== pi && G.players[me].jam > 0 && sel.some(function(k){ return k > 0; })){
+    var jammed = await shakePhase(me);
+    if(jammed){
+      var top = Math.max.apply(null, sel);
+      sel = sel.filter(function(k){ return k === 0 || k !== top; });
+      dkNotify(me, '✋', 'じゃま成功！', '建設をひとつ止めました', { ms:1800 });
+      if(!sel.length) return;
+    }
+  }
+  var paid = await dkrApplyBuild(pi, i, sel, disc);
+  if(paid > 0){
+    dkNotify(pi, t.tour ? '🎡' : '🏗', (sel.indexOf(0) >= 0 ? '購入：' : '建設：') + t.name, yen(paid) + ' を投資しました', { ms:1800 });
+    news(p.name + ' が ' + t.name + ' に ' + yen(paid) + ' を投資！');
+  }
 }
 
-/* ══════════ 権利証（押さなくても約0.9秒で自動的に消える） ══════════ */
-async function deedCard(i, paid){
-  var t = G && G.tiles && G.tiles[i], st = document.getElementById('stage');
-  if(!t || !st) return;
-  var own = t.owner, tours = dkrTours(G);
-  var lvNm = t.tour ? '観光地' : t.landmark ? 'ランドマーク' : (t.lv > 0 ? BUILD[t.lv].nm : '土地');
-  var same = t.tour
-    ? tours.filter(function(j){ return G.tiles[j].owner === own; }).length + ' / ' + tours.length
-    : CITY_SLOTS[t.g].filter(function(j){ return G.tiles[j].owner === own; }).length + ' / ' + CITY_SLOTS[t.g].length;
-  var el = document.createElement('div');
-  el.className = 'dkr-deedfx';
-  el.setAttribute('aria-hidden', 'true');
-  el.innerHTML = '<div class="deedcard dkr-auto" style="--dkr-g:' + dkrColOf(t) + ';--dkr-o:' + (PCOL[own] || '#C9302C') + '">'
-    + '<div class="body"><div class="cap">TITLE DEED ・ 権利証</div>'
-    + '<h4>' + esc(t.name) + '</h4>'
-    + '<div class="dkr-dart"><canvas data-dkr-art="' + dkrArtKeyOf(t) + '" data-dkr-col="' + (PCOL[own] || '#E14A5A') + '" width="16" height="12"></canvas></div>'
-    + '<div class="rows">'
-    +   '<div><span>建物</span><b>' + lvNm + '</b></div>'
-    +   '<div><span>支払った額</span><b>' + yen(paid || 0) + '</b></div>'
-    +   '<div><span>新しい通行料</span><b>' + yen(tollOf(t, G)) + '</b></div>'
-    +   '<div><span>' + (t.tour ? '観光地の所有' : '同じ色の所有') + '</span><b>' + same + '</b></div>'
-    + '</div></div><i class="seal dkr-wax"><b></b></i></div>';
-  st.appendChild(el);
-  dkrPaintAll(el);
-  try{ SFX.cardIn(); }catch(e){}
-  await wait(900);
-  el.classList.add('dkr-out');
-  setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, Math.max(20, 300 * SPEED));
-}
-
-/* ══════════ 買収（観光地・ランドマークは不可。半額クーポンが効く。買収のあと建てられる） ══════════ */
-function dkrBuyoutCost(t, p){
-  return Math.round(cityValue(t) * 2 * statMul(p, 'buyout', 0.3) * ((p.halfBuyout > 0) ? 0.5 : 1));
+/* ══════════ 買収（観光地・ランドマークは不可。味方の都市は買収しない。買収のあと建てられる） ══════════ */
+function dkrBuyoutCost(t, pi, skill){
+  var p = G.players[pi];
+  return Math.round(cityValue(t) * 2 * statMul(p, 'buyout', 0.3) * (1 - dkrAb(pi, 'buyout'))
+    * (skill ? 0.5 : 1) * ((p.halfBuyout > 0) ? 0.5 : 1));
 }
 async function maybeBuyout(pi, i){
   var t = G.tiles[i], p = G.players[pi];
-  if(!t || !p || t.type !== 'city' || t.tour || t.landmark) return;
-  if(t.owner < 0 || t.owner === pi || p.out || G.over) return;
+  if(!t || !p || t.type !== 'city' || p.out || G.over) return;
+  if(t.owner < 0 || t.owner === pi) return;
+  /* 停電は止まると終わる（本家「止まると終了」） */
+  if(t.frozen > 0 && t.dkrDark){ t.frozen = 0; t.dkrDark = 0; boardChanged(); }
+  /* チーム戦：味方の都市は買収しない。代わりに止まった人が払って建てられる（G01） */
+  if(dkAlly(pi, t.owner)){
+    if(p.kind === 'cpu') await aiBuy(pi, i); else await buyUI(pi, i);
+    return;
+  }
+  if(t.tour || t.landmark) return;
   var owner = t.owner, half = p.halfBuyout > 0;
-  var cost = dkrBuyoutCost(t, p);
+  if(p.cash < dkrBuyoutCost(t, pi, true)) return;       /* 半額でも買えない時は能力を回さない */
+  var sk = dkrSkill(pi, 'buyout'), cost = dkrBuyoutCost(t, pi, !!sk);
   if(p.cash < cost) return;
+  var auto = p.kind === 'cpu' || dkIsAuto(pi);
   var yes = await dvAsk(pi, 'buyout', async function(){
-    if(p.kind === 'cpu') return !!aiBuyout(pi, i, cost);
-    return (await modal(parchHTML(t, cost, G.players[owner].name, { half:half, full:Math.round(cost * (half ? 2 : 1)), pi:pi }))) === 'ok';
+    if(auto) return !!aiBuyout(pi, i, cost);
+    var full = Math.round(cityValue(t) * 2 * statMul(p, 'buyout', 0.3) * (1 - dkrAb(pi, 'buyout')));
+    return (await modal(parchHTML(t, cost, G.players[owner].name, { half:half, skill:!!sk, full:full, pi:pi }))) === 'ok';
   }, '買収するか考えています');
   if(!yes) return;
   if(G.over || p.out || t.owner !== owner || p.cash < cost) return;
   if(half) p.halfBuyout--;
   give(pi, -cost); give(owner, cost);
-  moneyFly(pi, owner, true);
+  try{ moneyFly(pi, owner, true, cost); }catch(e){}
   t.owner = pi;
   boardChanged();
   try{ SFX.buy(); }catch(e){}
@@ -493,11 +744,11 @@ async function maybeBuyout(pi, i){
   addFx('pillar', c.x, c.y, 900, PCOL[pi]);
   addFx('spark', c.x, c.y - 30, 900, '#FFD24D');
   addFx('shockring', c.x, c.y + 4, 620, '#FFE7A8', null, false, { r:170 });
-  jingle('buyout');
+  try{ jingle('buyout'); }catch(e){}
   news(p.name + ' が ' + t.name + ' を買収！ 持ち主が変わりました');
   await dkrSealFx(i, pi, owner, cost);
   if(checkWin()) return;
-  /* 買収したあとは建物も建てられる（本家「인수한 후에는 건물 건설도 가능」） */
+  /* 買収したあとは建物も建てられる（本家「買収後は通常の建設ルールで建てられる」） */
   if(p.kind === 'cpu') await aiBuy(pi, i); else await buyUI(pi, i);
 }
 /* 買収の確認（羊皮紙の証書）。7-online.js は3引数で呼ぶ */
@@ -505,19 +756,20 @@ function parchHTML(t, cost, ownerName, opt){
   opt = opt || {};
   var pi = (typeof opt.pi === 'number') ? opt.pi : (G ? G.turn : 0);
   var art = t ? dkrArtKeyOf(t) : 'b0';
-  var price = opt.half
-    ? '<s>' + yen(opt.full || cost * 2) + '</s><b>' + yen(cost) + '</b><em class="dkr-half">買収半額クーポン</em>'
+  var off = opt.half || opt.skill;
+  var price = off
+    ? '<s>' + yen(opt.full || cost * 2) + '</s><b>' + yen(cost) + '</b><em class="dkr-half">' + (opt.skill ? 'スペシャル能力' : '買収半額') + '</em>'
     : '<b>' + yen(cost) + '</b>';
   return '<div class="modal"><div class="parch dkr-pc">'
     + '<i class="dkr-ribbon" aria-hidden="true"></i>'
     + '<h3>買 収 証 書</h3>'
     + '<div class="dkr-pcart"><canvas data-dkr-art="' + art + '" data-dkr-col="' + (PCOL[t && t.owner >= 0 ? t.owner : pi] || '#3E8FE0') + '" width="16" height="12"></canvas></div>'
     + '<div class="amt">' + esc(t ? t.name : '') + '</div>'
-    + '<p>この街を <b>' + esc(ownerName) + '</b> より譲り受けるものとする。<br>対価は建設費用の2倍とする。</p>'
-    + '<div class="dkr-price"><span>買収額</span>' + price + '</div>'
+    + '<p>この都市を <b>' + esc(ownerName) + '</b> から買収します。<br>買収費用は建設費用の2倍です。</p>'
+    + '<div class="dkr-price"><span>買収費用</span>' + price + '</div>'
     + '<div class="sign">Dice Kingdom 商工会</div>'
     + '<div class="dkr-pcbtn">'
-    +   '<button class="dkr-btn dkr-gray" data-act="no">やめる</button>'
+    +   '<button class="dkr-btn dkr-gray" data-act="no">キャンセル</button>'
     +   '<button class="dkr-btn dkr-red" data-act="ok">買収する</button>'
     + '</div>'
     + '<i class="dkr-wax dkr-pcseal" aria-hidden="true"><b></b></i>'
@@ -546,185 +798,150 @@ async function dkrSealFx(i, pi, fromPi, cost){
   el.classList.add('dkr-out');
   setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, Math.max(20, 300 * SPEED));
 }
-
-/* ══════════ CPU の購入・建設（観光地は土地だけ。揃う時は蓄えを崩してでも買う） ══════════ */
-async function aiBuy(pi, i){
-  var t = G.tiles[i], p = G.players[pi], lvl = cfg.ai;
-  if(!t || !p || t.type !== 'city' || p.out) return;
-  var own = t.owner === pi;
-  if(!own && t.owner >= 0) return;
-  var disc = dkrDisc(p);
-  var reserve = [300000, 180000, 90000][lvl] || 180000;
-  if(t.tour){
-    if(own) return;
-    var price = Math.round(t.base * disc), tours = dkrTours(G);
-    var mineT = tours.filter(function(j){ return G.tiles[j].owner === pi; }).length;
-    var sky2 = t.tour === 'sky' && tours.some(function(j){ return j !== i && G.tiles[j].tour === 'sky' && G.tiles[j].owner === pi; });
-    var block = G.players.some(function(q, qi){ return qi !== pi && !q.out &&
-      tours.filter(function(j){ return G.tiles[j].owner === qi; }).length >= tours.length - 1; });
-    var urgent = (mineT >= tours.length - 1) || sky2 || block;
-    if(p.cash - price < (urgent ? 0 : reserve)) return;
-    if(price > p.cash) return;
-    if(p.halfBuild > 0) p.halfBuild--;
-    give(pi, -price);
-    t.owner = pi;
-    boardChanged();
-    toast('L', '🎡', '観光地を購入：' + t.name, yen(price) + ' で手に入れました', 2000);
-    news(p.name + ' が観光地 ' + t.name + ' を購入！');
-    await growAnim(i);
-    checkWin();
-    return;
-  }
-  var spend = 0, lvTarget = t.lv, land = false, lm = false;
-  var nearOf = function(qi){ return CITY_SLOTS[t.g].filter(function(j){ return G.tiles[j].owner === qi; }).length; };
-  if(!own){
-    var pr = Math.round(t.base * disc);
-    var urgentC = nearOf(pi) >= 1 || G.players.some(function(q, qi){ return qi !== pi && !q.out && nearOf(qi) >= 2; });
-    if(p.cash - pr < (urgentC ? 0 : reserve)) return;   /* 独占阻止・そろえる時は全財産を使ってでも買う */
-    land = true; spend += pr;
-  }
-  var near = nearOf(pi);
-  var blockC = G.players.some(function(q, qi){ return qi !== pi && !q.out && nearOf(qi) >= 2; });
-  var aggr = (near >= 1 || blockC) ? 1 : 0;
-  var mx = maxLvOf(p);
-  for(var k = (own ? t.lv + 1 : 1); k <= mx; k++){
-    var c = Math.round(BUILD[k].cost(t.base) * disc);
-    var floor = Math.max(0, reserve - aggr * 1500000);
-    if(p.cash - spend - c < floor) break;
-    if(lvl === 0 && k > 1) break;
-    if(lvl === 1 && k > 2 && !aggr) break;
-    spend += c; lvTarget = k;
-  }
-  /* ランドマークは「3段そろった街へ、もう一度到着した時」だけ（人間の UI と同じ規則） */
-  if(lvl === 2 && own && t.lv >= 3 && !t.landmark && near >= 1){
-    var cl = Math.round(BUILD[4].cost(t.base) * disc);
-    if(p.cash - spend - cl > reserve){ spend += cl; lm = true; }
-  }
-  if(spend === 0) return;
-  var me = G.players.findIndex(function(q){ return q.kind !== 'cpu' && !q.out; });
-  if(me >= 0 && me !== pi && G.players[me].jam > 0 && (lvTarget > t.lv || lm)){
-    var jammed = await shakePhase(me);
-    if(jammed){
-      lvTarget = Math.max(t.lv, lvTarget - 1);
-      spend = Math.round(spend * 0.5); lm = false;
-      if(lvTarget <= t.lv && !land){ toast('L', '✋', 'じゃま成功！', '建設を止めました', 2200); return; }
-    }
-  }
-  if(spend > p.cash) return;
-  if(p.halfBuild > 0) p.halfBuild--;
-  give(pi, -spend);
-  if(land || own) t.owner = pi;
-  t.lv = Math.max(t.lv, lvTarget);
-  if(lm && t.lv >= 3) t.landmark = true;
-  boardChanged();
-  toast('L', '🏗', (land ? '購入' : '建設') + '：' + t.name, yen(spend) + ' を投資しました', 2000);
-  news(p.name + ' が ' + t.name + ' に ' + yen(spend) + ' を投資！');
-  await growAnim(i);
-  checkWin();
+/* CPU（と自動プレイ）の買収判断。味方・観光地・ランドマークは買わない。時間切れの自動（autoWeak）は買収しない */
+function aiBuyout(pi, i, cost){
+  var t = G.tiles[i], p = G.players[pi];
+  if(!t || !p || t.owner < 0 || dkAlly(pi, t.owner) || t.tour || t.landmark) return false;
+  if(p.autoWeak) return false;
+  var lvl = dkrLvlOf(p);
+  if(lvl === 0 || p.cash < cost) return false;
+  if(dkrNear(t.g, t.owner) >= 2) return true;        /* 相手があと1つで独占：奪って崩す */
+  var reserve = ([300000, 180000, 90000][lvl] || 180000) * dkScale();
+  if(p.cash - cost < reserve) return false;
+  if(dkrNear(t.g, pi) >= 1) return true;              /* 同じ色を持っているならそろえに行く */
+  return Math.random() < 0.35;
 }
 
-/* ══════════ フォーチュンカード（攻撃・防御・移動・お金。黄金カードは金の枠） ══════════ */
+/* ══════════ フォーチュンカード（J04・J27・G08・G20）：黄金7・シルバー8・罰6＝21種（運命のルーレットは日本マップ専用なので無し） ══════════
+   名前と説明の @1＝孤立の角（無人島）・@2＝祭りの角・@3＝旅行の角・@H＝祭りの開催の名前・@F＝祭りの名前・@D＝募金の額 */
 var DKR_CARDS = [
-  { id:'fsell',      grp:'atk',   gold:true,  nm:'強制売却',       ds:'相手の街を1つ選び、市場へ売らせる（ランドマーク・観光地は選べない）' },
-  { id:'swap',       grp:'atk',   gold:true,  nm:'都市チェンジ',   ds:'自分の街1つと、相手の街1つを入れ替える' },
-  { id:'dark',       grp:'atk',   gold:false, nm:'停電',           ds:'相手の街を1つ選び、2ターンのあいだ通行料を0にする' },
-  { id:'angel',      grp:'def',   gold:true,  nm:'天使',           ds:'次に払う通行料が1回だけ無料になる' },
-  { id:'halfToll',   grp:'def',   gold:false, nm:'通行料半額',     ds:'次に払う通行料が1回だけ半分になる' },
-  { id:'halfBuyout', grp:'def',   gold:false, nm:'買収半額',       ds:'次の買収が1回だけ半額になる' },
-  { id:'escape',     grp:'def',   gold:false, nm:'脱出チケット',   ds:'閉じ込められても、すぐに出られる' },
-  { id:'travel',     grp:'move',  gold:true,  nm:'旅行招待券',     ds:'次の手番に、好きなマスへ無料で旅行できる' },
-  { id:'start',      grp:'move',  gold:false, nm:'スタートへ',     ds:'スタートへ移動して給料を受け取る' },
-  { id:'island',     grp:'move',  gold:false, nm:'無人島へ',       ds:'閉じ込めのマスへ送られる（3ターン）', bad:true },
-  { id:'fest',       grp:'move',  gold:false, nm:'フェスティバルへ', ds:'フェスティバルのマスへ移動する' },
-  { id:'tax',        grp:'move',  gold:false, nm:'国税庁へ',       ds:'国税庁へ移動して税金を納める', bad:true },
-  { id:'donate',     grp:'money', gold:false, nm:'寄付',           ds:'ほかの全員に 30万 ずつ寄付する', bad:true },
-  { id:'gouge',      grp:'money', gold:false, nm:'ぼったくり',     ds:'次に受け取る通行料が1回だけ2倍になる' },
-  { id:'bonus',      grp:'money', gold:false, nm:'臨時収入',       ds:'思わぬ収入 200万 を受け取る' }
+  { id:'angel',    tier:'gold',   hold:true, nm:'天使',         ds:'通行料を1回無料にするか、相手の攻撃を1回防ぐ。持っておける' },
+  { id:'coupon',   tier:'gold',   hold:true, nm:'割引クーポン', ds:'払う通行料を1回だけ半額にする。持っておける' },
+  { id:'invite',   tier:'gold',   nm:'@3招待状', ds:'@3へ移動し、次のターンに好きなマスへ無料で旅行できる' },
+  { id:'swap',     tier:'gold',   atk:true, nm:'都市交換', ds:'自分の都市1つと相手の都市1つを入れ替える（ランドマーク・観光地は選べない）' },
+  { id:'fsell',    tier:'gold',   atk:true, nm:'強制売却', ds:'相手の都市を1つ選び、半額で売却させる（ランドマーク・観光地は選べない）' },
+  { id:'plague',   tier:'gold',   atk:true, nm:'伝染病', ds:'相手の都市を選ぶと、その色の相手の都市の通行料が3ラウンド半額になる' },
+  { id:'meteor',   tier:'gold',   atk:true, nm:'隕石落下', ds:'色を1つ選ぶと、その色の相手の都市の一番高い建物が1段こわれる（ランドマークは無事）' },
+  { id:'shield',   tier:'silver', hold:true, nm:'シールド', ds:'相手の攻撃を1回防ぐ。持っておける' },
+  { id:'escape',   tier:'silver', hold:true, nm:'@1脱出', ds:'@1からすぐに脱出できる。持っておける' },
+  { id:'bonusgo',  tier:'silver', nm:'ボーナスゲーム移動', ds:'ボーナスゲームへ移動して挑戦する（スタートを通ると給料）' },
+  { id:'start',    tier:'silver', nm:'スタートに移動', ds:'スタートへ移動して、給料とスタート建設ボーナスを受け取る' },
+  { id:'festhost', tier:'silver', nm:'@H', ds:'移動せずに、自分の都市1つで@Fを開催する' },
+  { id:'quake',    tier:'silver', atk:true, nm:'地震', ds:'建物のある都市1つの建物が1段こわれる。自分の都市のこともある（ランドマークは無事）' },
+  { id:'dark',     tier:'silver', atk:true, nm:'停電', ds:'相手の都市1つの通行料が5ラウンド0になる（誰かが止まると終わる）' },
+  { id:'sand',     tier:'silver', atk:true, nm:'砂嵐', ds:'相手の都市1つの通行料が5ラウンドのあいだ半額になる' },
+  { id:'festsee',  tier:'bad',    nm:'@2観覧', ds:'@Fの開催都市へ移動する' },
+  { id:'taxgo',    tier:'bad',    nm:'強制徴収', ds:'国税庁へ移動して税金を納める' },
+  { id:'pay2',     tier:'bad',    nm:'2倍支払い', ds:'次に払う通行料が2倍になる' },
+  { id:'donate',   tier:'bad',    nm:'募金', ds:'全員が最下位のプレイヤーに@Dずつ払う' },
+  { id:'citygive', tier:'bad',    nm:'都市寄付', ds:'自分の都市1つを、選んだ相手に寄付する' },
+  { id:'island',   tier:'bad',    nm:'@1サバイバル', ds:'@1へ移動する（3ターンのあいだ移動できない）' }
 ];
-var DKR_GRP = { atk:'攻撃', def:'防御', move:'移動', money:'お金' };
+var DKR_TIER = { gold:'黄金', silver:'シルバー', bad:'罰' };
+var DKR_HOLDV = { angel:4, shield:3, coupon:2, escape:1 };   /* 1枚しか持てない時に残す順（C08） */
+var DKR_S = { deck:null };
 
-function dkrCardById(id){ for(var n = 0; n < DKR_CARDS.length; n++) if(DKR_CARDS[n].id === id) return DKR_CARDS[n]; return null; }
-function dkrCardName(c){
-  var cn = (G && G.map && G.map.corners) || ['', '無人島', 'フェスティバル', ''];
-  if(c.id === 'island') return cn[1] + 'へ';
-  if(c.id === 'fest') return cn[2] + 'へ';
-  return c.nm;
+function dkrFestNm(){ var m = G && G.map; return (m && m.id === 'ice') ? '水晶の祝福' : ((m && m.corners && m.corners[2]) || 'フェスティバル'); }
+function dkrFill(s){
+  var cn = (G && G.map && G.map.corners) || ['', '無人島', 'ワールドフェスティバル', '世界旅行'];
+  var ice = G && G.map && G.map.id === 'ice';
+  return String(s).replace(/@1/g, cn[1]).replace(/@2/g, cn[2]).replace(/@3/g, cn[3])
+    .replace(/@H/g, ice ? '水晶の祝福' : cn[2] + '開催').replace(/@F/g, dkrFestNm())
+    .replace(/@D/g, yen(dkrRate('donate', 0.05)));
 }
-function dkrCardDesc(c){
-  var cn = (G && G.map && G.map.corners) || ['', '無人島', 'フェスティバル', ''];
-  if(c.id === 'island') return cn[1] + 'へ送られ、3ターン動けない';
-  if(c.id === 'fest') return cn[2] + 'のマスへ移動する';
-  return c.ds;
+function dkrCardName(c){ return dkrFill(c.nm); }
+function dkrCardDesc(c){ return dkrFill(c.ds); }
+function dkrCardById(id){
+  var n;
+  for(n = 0; n < DKR_CARDS.length; n++) if(DKR_CARDS[n].id === id) return DKR_CARDS[n];
+  var d = DKR_S.deck || [];
+  for(n = 0; n < d.length; n++) if(d[n].id === id) return d[n];
+  return null;
 }
-/* 黄金フォーチュン（能力値）1pあたり 0.35% で黄金カードが出やすくなる */
-function dkrDrawCard(p){
-  var ev = (G && G.ev) || {};
-  var goldP = Math.min(0.6, 0.12 + statOf(p, 'fortune') * 0.0035 + (ev.luck || 0) * 0.3);
-  var lucky = Math.random() < (statRate(p, 'fortune') * 0.3 + (ev.luck || 0));
-  var pool;
-  if(Math.random() < goldP) pool = DKR_CARDS.filter(function(c){ return c.gold; });
-  else {
-    pool = DKR_CARDS.filter(function(c){ return !c.gold; });
-    if(lucky) pool = pool.filter(function(c){ return !c.bad; });
+/* 山＝21種＋マップのカード（C09 dkMapCards：{id, tier|gold|bad, nm, ds, run(pi)→Promise, art}） */
+function dkrDeck(){
+  var d = DKR_CARDS.slice(), ex = null;
+  try{ ex = dkMapCards((G && G.map && G.map.id) || cfg.mapId); }catch(e){ console.error('[WP11]', e); }
+  (Array.isArray(ex) ? ex : []).forEach(function(c){
+    if(!c || !c.id || d.some(function(x){ return x.id === c.id; })) return;
+    d.push({ id:String(c.id), tier:(c.tier === 'gold' || c.gold) ? 'gold' : (c.tier === 'bad' || c.bad) ? 'bad' : 'silver',
+      nm:String(c.nm || c.name || 'フォーチュンカード'), ds:String(c.ds || c.desc || ''), atk:!!c.atk, map:true,
+      run:(typeof c.run === 'function') ? c.run : null, art:c.art || null });
+  });
+  DKR_S.deck = d;
+  return d;
+}
+/* 引く：21種から均等。黄金フォーチュン（能力値・サイコロの能力・週イベント）が効くと黄金に変わる */
+function dkrDrawCard(pi){
+  var p = G.players[pi], ev = G.ev || {}, deck = dkrDeck();
+  var c = deck[(Math.random() * deck.length) | 0], golden = false;
+  var luck = Math.min(0.6, statRate(p, 'fortune') * 0.3 + dkrAb(pi, 'fortune') + (ev.luck || 0) * 0.3);
+  if(c.tier !== 'gold' && Math.random() < luck){
+    var gp = deck.filter(function(x){ return x.tier === 'gold'; });
+    if(gp.length){ c = gp[(Math.random() * gp.length) | 0]; golden = true; }
   }
-  return pool[(Math.random() * pool.length) | 0];
+  return { card:c, golden:golden };
 }
-function dkrCardInner(c){
-  return '<div class="dkr-fwrap' + (c.gold ? ' dkr-gold' : '') + ' dkr-g-' + c.grp + '">'
-    + (c.gold ? '<i class="dkr-frays" aria-hidden="true"></i>' : '')
+function dkrCardInner(c, golden){
+  return '<div class="dkr-fwrap dkr-t-' + c.tier + '">'
+    + (c.tier === 'gold' ? '<i class="dkr-frays" aria-hidden="true"></i>' : '')
     + '<div class="dkr-fcard">'
     +   '<div class="dkr-fback"><div class="dkr-fbk"><b>FORTUNE</b><i>CARD</i></div></div>'
     +   '<div class="dkr-ffront">'
-    +     '<div class="dkr-fhd"><span class="dkr-fkind">' + DKR_GRP[c.grp] + '</span><b>' + esc(dkrCardName(c)) + '</b></div>'
-    +     '<div class="dkr-fart"><canvas data-dkr-art="card-' + c.id + '" width="16" height="12"></canvas></div>'
+    +     '<div class="dkr-frib"><b>' + esc(dkrCardName(c)) + '</b></div>'
+    +     '<span class="dkr-ftier">' + DKR_TIER[c.tier] + '</span>'
+    +     '<div class="dkr-fart"><i class="dkr-fst s1"></i><i class="dkr-fst s2"></i><i class="dkr-fst s3"></i>'
+    +       '<canvas data-dkr-art="card-' + esc(c.art || c.id) + '" width="16" height="12"></canvas></div>'
     +     '<p class="dkr-fds">' + esc(dkrCardDesc(c)) + '</p>'
-    +     (c.gold ? '<em class="dkr-fgold">GOLDEN</em>' : '')
     +   '</div>'
-    + '</div></div>';
+    + '</div>'
+    + (golden ? '<div class="dkr-fgold"><i>カード<br>効果</i><b>黄金フォーチュン 獲得！</b></div>' : '')
+    + '</div>';
 }
-function dkrCardHTML(c){
-  return '<div class="modal"><div class="dkr-fort">' + dkrCardInner(c)
-    + '<button class="dkr-btn dkr-goldbtn dkr-fok" data-act="ok">確認</button></div></div>';
+function dkrCardHTML(c, golden){
+  return '<div class="modal"><div class="dkr-fort">' + dkrCardInner(c, golden)
+    + '<button class="dkr-btn dkr-orange dkr-fok" data-act="ok">閉じる</button></div></div>';
 }
-/* CPU が引いた時：押さなくてよい小さなカードを約1秒だけ見せる */
-async function dkrCpuCard(pi, c){
+/* CPU・自動プレイの人が引いた時：押さなくてよいカードを約1秒だけ見せる（#modalWrap は使わない） */
+async function dkrCpuCard(pi, c, golden){
   var st = document.getElementById('stage');
   if(!st) return;
   var el = document.createElement('div');
   el.className = 'dkr-cpucard';
   el.setAttribute('aria-hidden', 'true');
-  el.innerHTML = '<div class="dkr-cpuwho" style="--dkr-o:' + (PCOL[pi] || '#3E8FE0') + '">' + esc(G.players[pi].name) + '</div>' + dkrCardInner(c);
+  el.innerHTML = '<div class="dkr-cpuwho" style="--dkr-o:' + (PCOL[pi] || '#3E8FE0') + '">' + esc(G.players[pi].name) + '</div>' + dkrCardInner(c, golden);
   st.appendChild(el);
   dkrPaintAll(el);
-  await wait(1100);
+  await wait(1000);
   el.classList.add('dkr-out');
   setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, Math.max(20, 300 * SPEED));
 }
 async function chanceCard(pi){
   var p = G.players[pi];
-  if(!p || p.out) return;
-  var c = dkrDrawCard(p);
+  if(!p || p.out || G.over) return;
+  var d = dkrDrawCard(pi), c = (d && d.card) ? d.card : d, golden = !!(d && d.golden);
+  if(!c) return;
   try{ SFX.cardIn(); }catch(e){}
-  if(p.kind !== 'cpu'){
-    await dvAsk(pi, 'fortune', function(){ return modal(dkrCardHTML(c)); }, 'フォーチュンカードを見ています');
-  } else {
-    await dkrCpuCard(pi, c);
-  }
+  if(p.kind === 'cpu' || dkIsAuto(pi)) await dkrCpuCard(pi, c, golden);
+  else await dvAsk(pi, 'fortune', function(){ return modal(dkrCardHTML(c, golden)); }, 'フォーチュンカードを見ています');
   news('🎴 ' + p.name + ' がフォーチュンカード「' + dkrCardName(c) + '」を引いた');
   await dkrCardEffect(pi, c);
   try{ updHUD(); }catch(e){}
 }
-/* 相手の街（破産していない人の街） */
+
+/* ── カードの効果で使う部品 ── */
+/* 相手の都市（味方・破産した人の都市は入れない） */
 function dkrOthersCities(pi, opt){
   opt = opt || {};
   var out = [];
   for(var i = 0; i < 32; i++){
     var t = G.tiles[i];
-    if(!t || t.type !== 'city' || t.owner < 0 || t.owner === pi) continue;
+    if(!t || t.type !== 'city' || t.owner < 0 || dkAlly(pi, t.owner)) continue;
     if(G.players[t.owner] && G.players[t.owner].out) continue;
     if(opt.noLm && t.landmark) continue;
     if(opt.noTour && t.tour) continue;
     if(opt.noFrozen && t.frozen > 0) continue;
+    if(opt.built && !((t.bm | 0) > 0)) continue;
     out.push(i);
   }
   return out;
@@ -739,30 +956,209 @@ function dkrBest(list, score){
   list.forEach(function(i){ var s = score(i); if(s > bs){ bs = s; b = i; } });
   return b;
 }
-/* 相手の独占を崩す価値（その色で2つ以上持っている相手の街は高い） */
+/* 相手の独占を崩す価値（その色で2つ以上持っている相手の都市は高い） */
 function dkrThreat(i){
   var t = G.tiles[i];
-  if(t.tour) return 0;
-  var n = CITY_SLOTS[t.g].filter(function(j){ return G.tiles[j].owner === t.owner; }).length;
-  return n >= 2 ? 3000000 : 0;
+  if(!t || t.tour || t.owner < 0) return 0;
+  return dkrNear(t.g, t.owner) >= 2 ? 3000000 * dkScale() : 0;
 }
 function dkrTileFx(i, col){
   var c = tileCenter(i);
   addFx('ring', c.x, c.y, 700, col || '#FFD24D');
   addFx('spark', c.x, c.y - 26, 900, col || '#FFF3C0');
 }
+/* マスを選ぶ：人間は pickTile、CPU と自動プレイは score の一番高いマス */
+async function dkrChoose(pi, cand, msg, score){
+  if(!cand.length) return -1;
+  var p = G.players[pi];
+  if(p.kind === 'cpu' || dkIsAuto(pi)) return dkrBest(cand, score);
+  var d = await pickTile(pi, msg, function(z){ return cand.indexOf(z) >= 0; });
+  return (d >= 0 && cand.indexOf(d) >= 0) ? d : -1;
+}
+function dkrMiss(pi, c, why){ dkNotify(pi, '🎴', dkrCardName(c), why, { ms:1700 }); }
+/* 移動（C31）。前の版の jumpTo（周回を数えない）の時は、スタートをまたいだ分をここで足す。idx 0 の給料は resolveInner */
+async function dkrJump(pi, idx, sal){
+  var p = G.players[pi];
+  if(!p || p.out || G.over || !(idx >= 0 && idx < 32)) return;
+  var from = p.pos, laps0 = p.laps | 0, cross = idx !== from && idx <= from;
+  await jumpTo(pi, idx, { salary:!!sal });
+  if(cross && (p.laps | 0) === laps0 && !p.out){
+    p.laps = laps0 + 1;
+    if(sal && idx !== 0) salary(pi);
+  }
+}
+function dkrFindType(type){ for(var i = 0; i < 32; i++) if(G.tiles[i] && G.tiles[i].type === type) return i; return -1; }
+/* 建物が1段こわれる（growAnim の逆＝沈む＋土煙）。apply で段を下げる */
+async function dkrSinkAnim(i, apply){
+  var t = G.tiles[i], g0 = G, c = tileCenter(i);
+  addFx('smoke', c.x, c.y + 4, 1100);
+  addFx('shockring', c.x, c.y + 4, 620, '#D8B48A', null, false, { r:150 });
+  try{ SFX.bad(); }catch(e){}
+  try{ camShake(7); }catch(e){}
+  var D = Math.max(1, 380 * SPEED), t0 = null;
+  await new Promise(function(res){
+    requestAnimationFrame(function step(now){
+      if(G !== g0){ res(); return; }
+      if(t0 === null) t0 = now;
+      var k = Math.max(0, Math.min(1, (now - t0) / D));
+      t.grow = 1 - 0.82 * k * k;
+      if(k < 1) requestAnimationFrame(step); else res();
+    });
+  });
+  if(G !== g0) return;
+  apply();
+  t.grow = 1;
+  boardChanged();
+}
+/* 一番高い建物を1段こわす（ランドマークには効かない）。こわれたら true */
+async function dkrDowngrade(i){
+  var t = G.tiles[i];
+  dkrBmSync(t);
+  if(!t || t.landmark || t.tour) return false;
+  var bm = t.bm | 0, top = dkrTop(bm);
+  if(!top) return false;
+  await dkrSinkAnim(i, function(){ dkrSetBm(t, bm & ~(1 << (top - 1))); });
+  return true;
+}
+/* 盾が割れる演出（小さな重ね。transform と opacity だけ） */
+async function dkrShieldFx(pi, cardId){
+  var st = document.getElementById('stage');
+  if(!st) return;
+  var el = document.createElement('div');
+  el.className = 'dkr-shieldfx' + (cardId === 'angel' ? ' dkr-angel' : '');
+  el.setAttribute('aria-hidden', 'true');
+  el.innerHTML = '<div class="dkr-shw" style="--dkr-o:' + (PCOL[pi] || '#3E8FE0') + '"><i class="dkr-sh1"></i><i class="dkr-sh2"></i>'
+    + '<b>' + esc(G.players[pi].name) + ' が防いだ！</b></div>';
+  st.appendChild(el);
+  try{ SFX.shock(); }catch(e){}
+  await wait(380);
+  el.classList.add('dkr-crack');
+  try{ fxBurst(el.querySelector('.dkr-shw') || { x:800, y:450 }, { kind:'star', n:12, power:0.9 }); }catch(e){}
+  await wait(520);
+  el.classList.add('dkr-out');
+  setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, Math.max(20, 280 * SPEED));
+}
+function dkrGuardHTML(tgtPi, atkPi, c){
+  var q = G.players[tgtPi], card = dkrCardById(q.fcard) || { id:q.fcard, tier:'gold', nm:String(q.fcard) };
+  var nm = dkrCardName(card);
+  return '<div class="modal"><div class="dkr-ask dkr-guard">'
+    + '<div class="dkr-askhd"><b>' + esc(nm) + 'カード</b></div>'
+    + '<div class="dkr-askart"><canvas data-dkr-art="card-' + esc(card.id) + '" width="16" height="12"></canvas></div>'
+    + '<p><b>' + esc(G.players[atkPi].name) + '</b> の「' + esc(dkrCardName(c)) + '」を受けました</p>'
+    + '<p class="dkr-askq">' + esc(nm) + 'カードを使用しますか？</p>'
+    + '<div class="dkr-pcbtn"><button class="dkr-btn dkr-blue" data-act="cancel">キャンセル</button>'
+    + '<button class="dkr-btn dkr-orange" data-act="use">使用</button></div></div></div>';
+}
+/* 攻撃を受ける人がシールドか天使を持っていれば「防ぎますか」（'guard'）。防いだら true */
+async function dkrGuard(atkPi, tgtPi, c){
+  if(!(tgtPi >= 0) || tgtPi === atkPi) return false;
+  var q = G.players[tgtPi];
+  if(!q || q.out || (q.fcard !== 'shield' && q.fcard !== 'angel')) return false;
+  var use = await dvAsk(tgtPi, 'guard', function(){
+    if(q.kind === 'cpu' || dkIsAuto(tgtPi)) return true;
+    return modal(dkrGuardHTML(tgtPi, atkPi, c)).then(function(a){ return a === 'use'; });
+  }, '防ぐか選んでいます');
+  if(!use || (q.fcard !== 'shield' && q.fcard !== 'angel')) return false;
+  var used = q.fcard;
+  q.fcard = null;
+  await dkrShieldFx(tgtPi, used);
+  dkNotify(tgtPi, '🛡', dkrCardName(dkrCardById(used)) + 'で防ぎました', dkrCardName(c) + ' は効きませんでした', { ms:1900 });
+  try{ updHUD(); }catch(e){}
+  return true;
+}
+function dkrSwapHTML(pi, oldId, c){
+  var o = dkrCardById(oldId) || { id:oldId, tier:'gold', nm:String(oldId), ds:'' };
+  var mini = function(card, label){
+    return '<div class="dkr-swc dkr-t-' + card.tier + '"><em>' + label + '</em>'
+      + '<div class="dkr-swart"><canvas data-dkr-art="card-' + esc(card.id) + '" width="16" height="12"></canvas></div>'
+      + '<b>' + esc(dkrCardName(card)) + '</b><span>' + esc(dkrCardDesc(card)) + '</span></div>';
+  };
+  return '<div class="modal"><div class="dkr-ask dkr-swap">'
+    + '<div class="dkr-askhd"><b>フォーチュンカードは1枚まで</b></div>'
+    + '<p>持っておけるカードは1枚だけです。どちらを残しますか？</p>'
+    + '<div class="dkr-swrow">' + mini(o, '持っているカード') + mini(c, '新しいカード') + '</div>'
+    + '<div class="dkr-pcbtn"><button class="dkr-btn dkr-blue" data-act="old">持っている方を残す</button>'
+    + '<button class="dkr-btn dkr-orange" data-act="new">新しい方にする</button></div></div></div>';
+}
+/* 持っておけるカード（C08：p.fcard に1枚。満杯なら 'swap' で入れ替えるか聞く） */
+async function dkrHold(pi, c){
+  var p = G.players[pi], nm = dkrCardName(c);
+  if(!p.fcard){
+    p.fcard = c.id;
+    dkNotify(pi, '🎴', nm, 'カードを持っておきます（1枚まで）', { ms:1600 });
+    try{ updHUD(); }catch(e){}
+    return;
+  }
+  if(p.fcard === c.id){ dkNotify(pi, '🎴', nm, '同じカードを持っているので捨てました', { ms:1500 }); return; }
+  var oldId = p.fcard, auto = p.kind === 'cpu' || dkIsAuto(pi);
+  var v = await dvAsk(pi, 'swap', function(){
+    if(auto) return (DKR_HOLDV[c.id] || 0) > (DKR_HOLDV[oldId] || 0) ? 'new' : 'old';
+    return modal(dkrSwapHTML(pi, oldId, c));
+  }, 'カードを入れ替えるか選んでいます');
+  if(v === 'new' && p.fcard === oldId){
+    p.fcard = c.id;
+    dkNotify(pi, '🎴', nm, 'カードを入れ替えました', { ms:1500 });
+  } else dkNotify(pi, '🎴', dkrCardName(dkrCardById(oldId) || c), '持っているカードを残しました', { ms:1500 });
+  try{ updHUD(); }catch(e){}
+}
+/* 祭りの開催（本家「開催都市は常に1つ」。WP13 の G.festN・festTile に合わせる） */
+async function dkrFestHost(pi, c){
+  var cand = [];
+  for(var i = 0; i < 32; i++){ var t = G.tiles[i]; if(t && t.type === 'city' && t.owner === pi && !t.tour && (t.olym | 0) < 5) cand.push(i); }
+  if(!cand.length){ dkrMiss(pi, c, '開催できる自分の都市がありません'); return; }
+  var d = await dkrChoose(pi, cand, '開催する都市を選択してください', function(z){ return tollOf(G.tiles[z], G); });
+  if(d < 0){ dkrMiss(pi, c, '選ばなかったので使いませんでした'); return; }
+  G.tiles.forEach(function(t2, j){ if(j !== d && t2 && t2.type === 'city' && t2.olym > 1) t2.olym = 1; });
+  var tz = G.tiles[d];
+  if(typeof G.festN === 'number'){ G.festN++; tz.olym = Math.min(5, 1 + G.festN); }
+  else tz.olym = Math.min(5, Math.max(2, (tz.olym | 0) + 1));
+  G.festTile = d;
+  boardChanged();
+  var cc = tileCenter(d);
+  addFx('pillar', cc.x, cc.y, 1000, '#FFD24D');
+  try{ SFX.landmark(); }catch(e){}
+  try{ raiseBanner('通行料 ×' + tz.olym + '！', d); }catch(e){}
+  dkNotify(pi, '🎪', dkrFestNm(), tz.name + ' の通行料が ×' + tz.olym + ' になりました', { ms:2000 });
+  news(G.players[pi].name + ' が ' + tz.name + ' で' + dkrFestNm() + 'を開催！ 通行料 ×' + tz.olym);
+}
+/* 都市寄付の相手：チーム戦なら味方、ほかは総資産が一番少ない相手 */
+function dkrGiveTarget(pi){
+  var best = -1, bs = 1e18;
+  G.players.forEach(function(q, j){
+    if(j === pi || q.out) return;
+    var s = assetOf(G, j) - (dkAlly(pi, j) ? 1e15 : 0);
+    if(s < bs){ bs = s; best = j; }
+  });
+  return best;
+}
+function dkrGiveHTML(pi, i, list){
+  return '<div class="modal"><div class="dkr-ask dkr-give">'
+    + '<div class="dkr-askhd"><b>都市寄付</b></div>'
+    + '<p><b>' + esc(G.tiles[i].name) + '</b> を寄付する相手を選択してください</p>'
+    + '<div class="dkr-gvrow">' + list.map(function(j){
+        var q = G.players[j];
+        return '<button class="dkr-gv" data-act="' + j + '" style="--dkr-o:' + (PCOL[j] || '#3E8FE0') + '">'
+          + '<b>' + esc(q.name) + '</b><span>総資産 ' + yen(assetOf(G, j)) + '</span></button>';
+      }).join('') + '</div></div></div>';
+}
+/* 砂嵐・伝染病・停電の長さ（ラウンド。停電は手番ごとに減る frozen なので人数を掛ける） */
+function dkrAliveN(){ return Math.max(1, G.players.filter(function(q){ return !q.out; }).length); }
+
 async function dkrCardEffect(pi, c){
-  var p = G.players[pi], cpu = p.kind === 'cpu', d, t, cand, mine, theirs;
+  var p = G.players[pi], cpu = p.kind === 'cpu' || dkIsAuto(pi), d, t, cand, ow;
+  if(c.hold){ await dkrHold(pi, c); return; }
+  if(c.atk && p.autoWeak){ dkrMiss(pi, c, '自動プレイ中なので使いませんでした'); return; }
+  if(c.run){ try{ await c.run(pi); }catch(e){ console.error('[WP11]', e); } return; }
   switch(c.id){
   case 'fsell':
     cand = dkrOthersCities(pi, { noLm:true, noTour:true });
-    if(!cand.length){ toast('L', '🎴', '強制売却', '売らせられる街がありません', 1800); return; }
-    d = cpu ? dkrBest(cand, function(i){ return dkrThreat(i) + cityValue(G.tiles[i]); })
-            : await pickTile(pi, '売らせる街を選んでください', function(z){ return cand.indexOf(z) >= 0; });
-    if(!(d >= 0) || cand.indexOf(d) < 0){ toast('L', '🎴', '強制売却', '選ばなかったので使いませんでした', 1800); return; }
-    t = G.tiles[d];
-    var ow = t.owner, val = sellValue(t);
-    t.owner = -1; t.lv = 0; t.landmark = false;
+    if(!cand.length){ dkrMiss(pi, c, '売却させられる都市がありません'); return; }
+    d = await dkrChoose(pi, cand, '売却するエリアを選択してください', function(i){ return dkrThreat(i) + cityValue(G.tiles[i]); });
+    if(d < 0){ dkrMiss(pi, c, '選ばなかったので使いませんでした'); return; }
+    t = G.tiles[d]; ow = t.owner;
+    if(await dkrGuard(pi, ow, c)) return;
+    var val = sellValue(t);
+    t.owner = -1; dkrSetBm(t, 0); t.landmark = false;
     boardChanged();
     if(ow >= 0 && !G.players[ow].out) give(ow, val);
     var sc = tileCenter(d);
@@ -770,117 +1166,197 @@ async function dkrCardEffect(pi, c){
     addFx('shockring', sc.x, sc.y + 4, 620, '#FFB27A', null, false, { r:160 });
     try{ SFX.bad(); }catch(e){}
     camShake(9);
-    toast('L', '🔨', '強制売却', t.name + ' が市場に戻りました', 2100);
+    dkNotify(pi, '🔨', '強制売却', t.name + ' を半額で売却させました', { ms:1900 });
     news('🔨 ' + p.name + ' の強制売却！ ' + t.name + ' が市場に戻った');
     return;
   case 'swap':
-    mine = dkrOwned(pi).filter(function(i){ return !G.tiles[i].landmark && !G.tiles[i].tour; });
-    theirs = dkrOthersCities(pi, { noLm:true, noTour:true });
-    if(!mine.length || !theirs.length){ toast('L', '🎴', '都市チェンジ', '入れ替えられる街がありません', 1800); return; }
-    var a, b;
-    if(cpu){
-      a = dkrBest(mine, function(i){ return -cityValue(G.tiles[i]) - (CITY_SLOTS[G.tiles[i].g].filter(function(j){ return G.tiles[j].owner === pi; }).length >= 2 ? 5e6 : 0); });
-      b = dkrBest(theirs, function(i){ var tt = G.tiles[i];
-        return cityValue(tt) + dkrThreat(i) + CITY_SLOTS[tt.g].filter(function(j){ return G.tiles[j].owner === pi; }).length * 2000000; });
-    } else {
-      a = await pickTile(pi, '渡す自分の街を選んでください', function(z){ return mine.indexOf(z) >= 0; });
-      if(!(a >= 0) || mine.indexOf(a) < 0){ toast('L', '🎴', '都市チェンジ', '選ばなかったので使いませんでした', 1800); return; }
-      b = await pickTile(pi, 'もらう相手の街を選んでください', function(z){ return theirs.indexOf(z) >= 0; });
-      if(!(b >= 0) || theirs.indexOf(b) < 0){ toast('L', '🎴', '都市チェンジ', '選ばなかったので使いませんでした', 1800); return; }
-    }
+    var mine = dkrOwned(pi).filter(function(i){ return !G.tiles[i].landmark && !G.tiles[i].tour; });
+    var theirs = dkrOthersCities(pi, { noLm:true, noTour:true });
+    if(!mine.length || !theirs.length){ dkrMiss(pi, c, '入れ替えられる都市がありません'); return; }
+    var a = await dkrChoose(pi, mine, '渡す自分の都市を選択してください', function(i){
+      return -cityValue(G.tiles[i]) - (dkrNear(G.tiles[i].g, pi) >= 2 ? 5e6 : 0); });
+    if(a < 0){ dkrMiss(pi, c, '選ばなかったので使いませんでした'); return; }
+    var b = await dkrChoose(pi, theirs, 'もらう相手の都市を選択してください', function(i){
+      return cityValue(G.tiles[i]) + dkrThreat(i) + dkrNear(G.tiles[i].g, pi) * 2000000 * dkScale(); });
+    if(b < 0){ dkrMiss(pi, c, '選ばなかったので使いませんでした'); return; }
     var ob = G.tiles[b].owner;
+    if(await dkrGuard(pi, ob, c)) return;
     G.tiles[a].owner = ob; G.tiles[b].owner = pi;
     boardChanged();
     dkrTileFx(a, PCOL[ob]); dkrTileFx(b, PCOL[pi]);
     try{ SFX.buy(); }catch(e){}
-    toast('L', '🔄', '都市チェンジ', G.tiles[a].name + ' と ' + G.tiles[b].name + ' を入れ替えました', 2200);
-    news('🔄 ' + p.name + ' が ' + G.tiles[b].name + ' を手に入れた（都市チェンジ）');
+    dkNotify(pi, '🔄', '都市交換', G.tiles[a].name + ' と ' + G.tiles[b].name + ' を入れ替えました', { ms:2000 });
+    news('🔄 ' + p.name + ' が ' + G.tiles[b].name + ' を手に入れた（都市交換）');
+    return;
+  case 'plague':
+    cand = dkrOthersCities(pi, { noLm:true, noTour:true });
+    if(!cand.length){ dkrMiss(pi, c, '対象の都市がありません'); return; }
+    d = await dkrChoose(pi, cand, '伝染病を広める都市を選択してください', function(i){ return tollOf(G.tiles[i], G) * (1 + dkrNear(G.tiles[i].g, G.tiles[i].owner)); });
+    if(d < 0){ dkrMiss(pi, c, '選ばなかったので使いませんでした'); return; }
+    ow = G.tiles[d].owner;
+    if(await dkrGuard(pi, ow, c)) return;
+    var hit = CITY_SLOTS[G.tiles[d].g].filter(function(j){ var tj = G.tiles[j]; return tj.owner === ow && !tj.landmark; });
+    hit.forEach(function(j){ G.tiles[j].plague = 3; dkrTileFx(j, '#B6E36A'); });
+    boardChanged();
+    try{ SFX.bad(); }catch(e){}
+    dkNotify(pi, '🦠', '伝染病', hit.length + ' 都市の通行料が3ラウンド半額になります', { ms:2000 });
+    news('🦠 ' + p.name + ' の伝染病！ ' + G.players[ow].name + ' の都市の通行料が下がった');
+    return;
+  case 'meteor':
+    var tg = dkrOthersCities(pi, { noLm:true, noTour:true, built:true });
+    if(!tg.length){ dkrMiss(pi, c, 'こわせる建物がありません'); return; }
+    var grpScore = function(i){ var g = G.tiles[i].g, s = 0; tg.forEach(function(j){ if(G.tiles[j].g === g) s += dkrPrice(G.tiles[j], dkrTop(G.tiles[j].bm | 0)); }); return s; };
+    d = await dkrChoose(pi, tg, '隕石を落とす色の都市を選択してください', grpScore);
+    if(d < 0){ dkrMiss(pi, c, '選ばなかったので使いませんでした'); return; }
+    var grp = G.tiles[d].g, hitT = tg.filter(function(j){ return G.tiles[j].g === grp; }), owners = [], n2 = 0;
+    hitT.forEach(function(j){ if(owners.indexOf(G.tiles[j].owner) < 0) owners.push(G.tiles[j].owner); });
+    for(var oi = 0; oi < owners.length; oi++){
+      if(await dkrGuard(pi, owners[oi], c)) continue;
+      for(var hj = 0; hj < hitT.length; hj++){ if(G.tiles[hitT[hj]].owner === owners[oi] && await dkrDowngrade(hitT[hj])) n2++; }
+    }
+    if(n2){
+      dkNotify(pi, '☄', '隕石落下', n2 + ' 都市の建物が1段こわれました', { ms:2000 });
+      news('☄ ' + p.name + ' の隕石落下！ 建物がこわれた');
+    }
+    return;
+  case 'quake':
+    cand = [];
+    for(var qi = 0; qi < 32; qi++){ var tq = G.tiles[qi]; if(tq && tq.type === 'city' && tq.owner >= 0 && !tq.tour && !tq.landmark && (tq.bm | 0) > 0 && !G.players[tq.owner].out) cand.push(qi); }
+    if(!cand.length){ dkrMiss(pi, c, 'こわれる建物がありませんでした'); return; }
+    d = cand[(Math.random() * cand.length) | 0];
+    ow = G.tiles[d].owner;
+    try{ camShake(12); }catch(e){}
+    if(ow !== pi && await dkrGuard(pi, ow, c)) return;
+    if(await dkrDowngrade(d)){
+      dkNotify(pi, '🌋', '地震', G.tiles[d].name + ' の建物が1段こわれました', { ms:2000 });
+      news('🌋 地震！ ' + G.tiles[d].name + ' の建物がこわれた');
+    }
     return;
   case 'dark':
-    cand = dkrOthersCities(pi, { noFrozen:true });
-    if(!cand.length){ toast('L', '🎴', '停電', '止められる街がありません', 1800); return; }
-    d = cpu ? dkrBest(cand, function(i){ return tollOf(G.tiles[i], G); })
-            : await pickTile(pi, '停電させる街を選んでください', function(z){ return cand.indexOf(z) >= 0; });
-    if(!(d >= 0) || cand.indexOf(d) < 0){ toast('L', '🎴', '停電', '選ばなかったので使いませんでした', 1800); return; }
-    G.tiles[d].frozen = 2;
+    cand = dkrOthersCities(pi, { noLm:true, noTour:true, noFrozen:true });
+    if(!cand.length){ dkrMiss(pi, c, '停電させられる都市がありません'); return; }
+    d = await dkrChoose(pi, cand, '停電させる都市を選択してください', function(i){ return tollOf(G.tiles[i], G); });
+    if(d < 0){ dkrMiss(pi, c, '選ばなかったので使いませんでした'); return; }
+    if(await dkrGuard(pi, G.tiles[d].owner, c)) return;
+    G.tiles[d].frozen = 5 * dkrAliveN(); G.tiles[d].dkrDark = 1;
     boardChanged();
     dkrTileFx(d, '#8FE8FF');
     try{ SFX.bad(); }catch(e){}
-    toast('L', '⚡', '停電', G.tiles[d].name + ' の通行料が2ターン0になります', 2200);
+    dkNotify(pi, '⚡', '停電', G.tiles[d].name + ' の通行料が5ラウンド0になります', { ms:2000 });
     return;
-  case 'angel':
-    p.freeToll = (p.freeToll | 0) + 1;
-    toast('L', '🪽', '天使カード', '次に払う通行料が無料になります', 2000);
+  case 'sand':
+    cand = dkrOthersCities(pi, { noLm:true, noTour:true });
+    if(!cand.length){ dkrMiss(pi, c, '対象の都市がありません'); return; }
+    d = await dkrChoose(pi, cand, '砂嵐を起こす都市を選択してください', function(i){ return tollOf(G.tiles[i], G); });
+    if(d < 0){ dkrMiss(pi, c, '選ばなかったので使いませんでした'); return; }
+    if(await dkrGuard(pi, G.tiles[d].owner, c)) return;
+    G.tiles[d].sand = 5;
+    boardChanged();
+    dkrTileFx(d, '#E8C27A');
+    try{ SFX.bad(); }catch(e){}
+    dkNotify(pi, '🌪', '砂嵐', G.tiles[d].name + ' の通行料が5ラウンド半額になります', { ms:2000 });
     return;
-  case 'halfToll':
-    p.halfToll = (p.halfToll | 0) + 1;
-    toast('L', '🎟', '通行料半額', '次に払う通行料が半分になります', 2000);
+  case 'invite':
+    await dkrJump(pi, 24, true);
+    if(p.out || G.over) return;
+    await resolve(pi);
+    p.travelFree = true;
     return;
-  case 'halfBuyout':
-    p.halfBuyout = (p.halfBuyout | 0) + 1;
-    toast('L', '🎟', '買収半額', '次の買収が半額になります', 2000);
-    return;
-  case 'escape':
-    p.escapeTix = (p.escapeTix | 0) + 1;
-    toast('L', '🎫', '脱出チケット', '閉じ込められても、すぐに出られます', 2000);
-    return;
-  case 'travel':
-    p.travel = true; p.travelFree = true;
-    toast('L', '✈', '旅行招待券', '次の手番に好きなマスへ無料で旅行できます', 2200);
+  case 'bonusgo':
+    d = dkrFindType('bonus');
+    if(d < 0){ dkrMiss(pi, c, 'ボーナスゲームのマスがありません'); return; }
+    await dkrJump(pi, d, true);
+    if(!p.out && !G.over) await resolve(pi);
     return;
   case 'start':
-    await jumpTo(pi, 0);
-    p.laps++;
-    salary(pi);
+    await dkrJump(pi, 0, true);
+    if(!p.out && !G.over) await resolve(pi);
     return;
-  case 'island':
-    await jumpTo(pi, 8);
-    p.jail = 3; p.dblRun = 0;
-    try{ SFX.bad(); }catch(e){}
-    camShake(10);
-    toast('L', '🏝', dkrCardName(c), '3ターンのあいだ動けません', 2000);
+  case 'festhost':
+    await dkrFestHost(pi, c);
     return;
-  case 'fest':
-    await jumpTo(pi, 16);
-    await resolve(pi);
+  case 'festsee':
+    d = (typeof G.festTile === 'number' && G.tiles[G.festTile] && G.tiles[G.festTile].olym > 1) ? G.festTile : -1;
+    if(d < 0){ var mo = 1; G.tiles.forEach(function(t3, j){ if(t3 && t3.type === 'city' && t3.olym > mo){ mo = t3.olym; d = j; } }); }
+    if(d < 0) d = 16;
+    await dkrJump(pi, d, true);
+    if(!p.out && !G.over) await resolve(pi);
     return;
-  case 'tax':
-    await jumpTo(pi, 19);
-    await resolve(pi);
+  case 'taxgo':
+    d = dkrFindType('tax');
+    if(d >= 0){ await dkrJump(pi, d, true); if(!p.out && !G.over) await resolve(pi); return; }
+    var sum = 0;
+    G.tiles.forEach(function(t4){ if(t4.type === 'city' && t4.owner === pi) sum += cityValue(t4); });
+    var amt = Math.round(sum * 0.10 * statMul(p, 'special', 0.4));
+    if(amt > 0){
+      if(!(await dkPayFrom(pi, amt, -1))){ await bankrupt(pi, -1); return; }
+      give(pi, -amt);
+      dkNotify(pi, '🧾', '強制徴収', '所有地の価値の10%　' + yen(amt) + ' を納めました', { ms:1900 });
+    } else dkrMiss(pi, c, '都市を持っていないので納める税はありません');
+    return;
+  case 'pay2':
+    p.pay2 = 1;
+    dkNotify(pi, '💸', '2倍支払い', '次に払う通行料が2倍になります', { ms:1800 });
     return;
   case 'donate':
-    var others = [];
-    G.players.forEach(function(q, j){ if(j !== pi && !q.out) others.push(j); });
-    if(!others.length) return;
-    var each = 300000, total = each * others.length;
-    if(!(await dkPayFrom(pi, total, -1))){ await bankrupt(pi, -1); return; }
-    give(pi, -total);
-    others.forEach(function(j){ give(j, each); });
-    toast('L', '💝', '寄付', 'ほかの全員に ' + yen(each) + ' ずつ寄付しました', 2100);
+    var alive = [];
+    G.players.forEach(function(q, j){ if(!q.out) alive.push(j); });
+    if(alive.length < 2) return;
+    var last = alive.reduce(function(x, y){ return assetOf(G, y) < assetOf(G, x) ? y : x; });
+    var each = dkrRate('donate', 0.05), got = 0;
+    for(var k = 0; k < alive.length; k++){
+      var j2 = alive[k];
+      if(j2 === last || G.players[j2].out || G.players[last].out || G.over) continue;
+      if(G.players[j2].cash < each && !(await dkPayFrom(j2, each, last))){ await bankrupt(j2, last); continue; }
+      if(G.over) break;
+      give(j2, -each); give(last, each); got += each;
+    }
+    dkNotify(pi, '💝', '募金', G.players[last].name + ' に ' + yen(got) + ' 集まりました', { ms:2000 });
+    news('💝 募金！ ' + G.players[last].name + ' に全員から ' + yen(each) + ' ずつ');
     return;
-  case 'gouge':
-    p.gouge = (p.gouge | 0) + 1;
-    toast('L', '💰', 'ぼったくり', '次に受け取る通行料が2倍になります', 2000);
+  case 'citygive':
+    var own2 = dkrOwned(pi).filter(function(i){ return !G.tiles[i].landmark && !G.tiles[i].tour; });
+    if(!own2.length) own2 = dkrOwned(pi).filter(function(i){ return !G.tiles[i].landmark; });
+    var to = [];
+    G.players.forEach(function(q, j){ if(j !== pi && !q.out) to.push(j); });
+    if(!own2.length || !to.length){ dkrMiss(pi, c, '寄付できる都市がありません'); return; }
+    if(cpu) dkBusyTag(pi, '都市寄付選択中');
+    var tgt = -1;
+    try{
+      d = await dkrChoose(pi, own2, '寄付する都市を選択してください', function(i){ return -cityValue(G.tiles[i]); });
+      if(d < 0) d = dkrBest(own2, function(i){ return -cityValue(G.tiles[i]); });
+      tgt = await dvAsk(pi, 'citygive', function(){
+        return cpu ? dkrGiveTarget(pi) : modal(dkrGiveHTML(pi, d, to)).then(function(a){ return +a; });
+      }, '寄付する相手を選んでいます');
+    } finally { if(cpu) dkBusyTag(pi, null); }
+    tgt = +tgt;
+    if(!(tgt >= 0) || tgt === pi || !G.players[tgt] || G.players[tgt].out) tgt = dkrGiveTarget(pi);
+    if(tgt < 0) return;
+    G.tiles[d].owner = tgt;
+    boardChanged();
+    dkrTileFx(d, PCOL[tgt]);
+    try{ SFX.pay(); }catch(e){}
+    dkNotify(pi, '🎁', '都市寄付', G.tiles[d].name + ' を ' + G.players[tgt].name + ' に寄付しました', { ms:2000 });
+    news('🎁 ' + p.name + ' が ' + G.tiles[d].name + ' を ' + G.players[tgt].name + ' に寄付');
     return;
-  case 'bonus':
-    give(pi, 2000000);
-    var bc = p.render || tileCenter(p.pos);
-    addFx('coinburst', bc.x, bc.y - 20, 1000);
+  case 'island':
+    await dkrJump(pi, 8, false);
+    if(!p.out && !G.over) await resolve(pi);
     return;
   }
 }
 
-/* ══════════ 支払い（CPU は自動で売る。人間は売る街を選ぶ画面） ══════════ */
+/* ══════════ 支払い・売却（J52・G11）：CPU と自動プレイは自動で売る。人間は売るエリアを選ぶ画面 ══════════ */
 async function dkPayFrom(pi, amt, toPi){
   var p = G && G.players && G.players[pi];
   if(!p) return false;
   amt = Math.max(0, Math.round(+amt || 0));
   if(p.cash >= amt) return true;
-  if(p.kind === 'cpu') return raiseCash(pi, amt);
+  if(p.kind === 'cpu' || dkIsAuto(pi)) return raiseCash(pi, amt);
   var guard = 0;
   while(p.cash < amt && guard++ < 40){
     if(!dkrOwned(pi).length) return false;
-    var v = await dvAsk(pi, 'sell', function(){ return dkrSellPick(pi, amt, toPi); }, '売る街を選んでいます');
+    var v = await dvAsk(pi, 'sell', function(){ return dkrSellPick(pi, amt, toPi); }, '売るエリアを選んでいます');
     if(!v || v.bankrupt) return false;
     var list = (Array.isArray(v.sell) ? v.sell : []).filter(function(i){
       var t = G.tiles[i]; return t && t.type === 'city' && t.owner === pi; });
@@ -889,10 +1365,49 @@ async function dkPayFrom(pi, amt, toPi){
   }
   return p.cash >= amt;
 }
-/* 街を建物ごと市場へ売る（売値は建設費用の6割＝既存の sellValue） */
+/* 足りない分を売って作る（CPU）。全部売っても届かない時は1つも売らずに false（街は債権者へ＝本家どおり） */
+function raiseCash(pi, need){
+  var p = G.players[pi];
+  if(p.cash >= need) return true;
+  var pot = p.cash;
+  dkrOwned(pi).forEach(function(i){ pot += sellValue(G.tiles[i]); });
+  if(pot < need) return false;
+  dkrSellPlan(pi, need - p.cash).forEach(function(i){ dkrSellTile(pi, i); });
+  return p.cash >= need;
+}
+/* 不足を満たす最小の組（売値の合計が一番小さい組。同じなら都市の数が少ない組。独占に関係しない・通行料の安い順が先） */
+function dkrSellPlan(pi, need){
+  if(!(need > 0)) return [];
+  var list = dkrOwned(pi).map(function(i){
+    var t = G.tiles[i];
+    return { i:i, v:sellValue(t), mono:(!t.tour && hasTriple(G, pi, t.g)) ? 1 : 0, toll:tollOf(t, G) };
+  });
+  list.sort(function(a, b){ return (a.mono - b.mono) || (a.toll - b.toll) || (a.v - b.v); });
+  var total = list.reduce(function(s, o){ return s + o.v; }, 0), n = list.length, k;
+  if(total < need) return list.map(function(o){ return o.i; });
+  if(n <= 16){
+    var best = 0, bs = Infinity, bc = Infinity, bp = Infinity;
+    for(var m = 1; m < (1 << n); m++){
+      var s = 0, c = 0, pen = 0;
+      for(k = 0; k < n; k++) if(m & (1 << k)){ s += list[k].v; c++; pen += list[k].mono; }
+      if(s < need) continue;
+      if(s < bs || (s === bs && (c < bc || (c === bc && pen < bp)))){ bs = s; bc = c; bp = pen; best = m; }
+    }
+    return list.filter(function(o, k2){ return best & (1 << k2); }).map(function(o){ return o.i; });
+  }
+  var pick = [], s2 = 0;
+  list.forEach(function(o){ if(s2 < need){ pick.push(o); s2 += o.v; } });
+  pick.slice().sort(function(a, b){ return b.v - a.v; }).forEach(function(o){
+    if(s2 - o.v >= need){ pick.splice(pick.indexOf(o), 1); s2 -= o.v; }
+  });
+  var one = list.filter(function(o){ return o.v >= need; }).sort(function(a, b){ return a.v - b.v; })[0];
+  if(one && one.v < s2) return [one.i];
+  return pick.map(function(o){ return o.i; });
+}
+/* 都市を建物ごと市場へ売る（売値＝価値の半額） */
 function dkrSellTile(pi, i){
   var t = G.tiles[i], val = sellValue(t);
-  t.owner = -1; t.lv = 0; t.landmark = false;
+  t.owner = -1; dkrSetBm(t, 0); t.landmark = false; t.sand = 0; t.plague = 0;
   boardChanged();
   give(pi, val);
   var c = tileCenter(i);
@@ -903,18 +1418,22 @@ function dkrSellTile(pi, i){
 function dkrLvName(t){
   if(t.tour) return '観光地';
   if(t.landmark) return 'ランドマーク';
-  return t.lv > 0 ? BUILD[t.lv].nm : '土地';
+  var bm = t.bm | 0;
+  return bm ? DKR_STEP_NM[dkrTop(bm)] + (dkrBits(bm) > 1 ? ' ほか' : '') : '土地権利書';
 }
 function dkrSellHTML(pi, amt, toPi, rows, pre, enough){
   var p = G.players[pi], need = amt - p.cash;
   var to = (toPi >= 0 && G.players[toPi]) ? G.players[toPi].name + ' への支払い' : '支払い';
   var h = '<div class="modal"><div class="dkr-sell">'
-    + '<div class="dkr-shd"><b>お金が足りません</b><span>' + esc(to) + '</span></div>'
+    + '<div class="dkr-shd"><b>マーブルが足りません</b><span>' + esc(to) + '</span></div>'
     + '<div class="dkr-need">'
     +   '<div><span>支払う額</span><b>' + yen(amt) + '</b></div>'
-    +   '<div><span>所持金</span><b>' + yen(p.cash) + '</b></div>'
+    +   '<div><span>マーブル</span><b>' + yen(p.cash) + '</b></div>'
     +   '<div class="dkr-short"><span>不足額</span><b>' + yen(need) + '</b></div>'
-    + '</div><div class="dkr-slist">';
+    + '</div>'
+    + '<div class="dkr-shead"><span>売却するエリアを選択してください</span>'
+    +   (enough ? '<button class="dkr-auto" type="button">おまかせで選ぶ</button>' : '') + '</div>'
+    + '<div class="dkr-slist">';
   rows.forEach(function(o){
     var t = G.tiles[o.i];
     h += '<div class="dkr-srow' + (pre.indexOf(o.i) >= 0 ? ' on' : '') + (enough ? '' : ' dkr-noop') + '" data-dkr-i="' + o.i + '" data-dkr-v="' + o.v + '">'
@@ -923,12 +1442,12 @@ function dkrSellHTML(pi, amt, toPi, rows, pre, enough){
       + '<b class="dkr-sv">' + yen(o.v) + '</b><i class="dkr-sck" aria-hidden="true"></i></div>';
   });
   h += '</div><div class="dkr-sfoot">'
-    + '<div class="dkr-ssum"><span>売る合計</span><b id="dkrSellSum">0</b></div>'
+    + '<div class="dkr-ssum"><span>売却の合計</span><b id="dkrSellSum">0</b></div>'
     + '<button class="dkr-btn dkr-gray" data-act="bankrupt">破産する</button>'
-    + '<button class="dkr-btn dkr-red" data-act="sell" id="dkrSellOk">売る</button>'
+    + '<button class="dkr-btn dkr-red" data-act="sell" id="dkrSellOk">売却</button>'
     + '</div><p class="dkr-note">' + (enough
-      ? '売った街は建物ごと市場に戻り、建設費用の6割を受け取ります。押して選び直せます。'
-      : '全部売っても足りません。破産すると、持っている街は支払い先のものになります。')
+      ? '売却したエリアは建物ごと市場に戻り、価値の半額を受け取ります。'
+      : '全部売却しても足りません。破産すると、持っている都市は支払い先のものになります。')
     + '</p></div></div>';
   return h;
 }
@@ -938,12 +1457,7 @@ function dkrSellPick(pi, amt, toPi){
     var rows = dkrOwned(pi).map(function(i){ return { i:i, v:sellValue(G.tiles[i]) }; })
                            .sort(function(a, b){ return a.v - b.v; });
     var total = rows.reduce(function(s, o){ return s + o.v; }, 0), enough = total >= need;
-    var pre = [];
-    if(enough){
-      var one = rows.filter(function(o){ return o.v >= need; })[0];     /* 1つで足りるなら一番安いそれ */
-      if(one) pre = [one.i];
-      else { var s = 0; rows.forEach(function(o){ if(s < need){ pre.push(o.i); s += o.v; } }); }
-    }
+    var pre = enough ? dkrSellPlan(pi, need) : [];
     var first = dkrOpenModal(dkrSellHTML(pi, amt, toPi, rows, pre, enough));
     var panel = first.querySelector('.dkr-sell'), done = false;
     var sync = function(){
@@ -961,6 +1475,14 @@ function dkrSellPick(pi, amt, toPi){
         r.classList.toggle('on'); sync();
       };
     });
+    var au = panel.querySelector('.dkr-auto');
+    if(au) au.onclick = function(){
+      if(done) return;
+      try{ SFX.click(); }catch(e){}
+      var plan = dkrSellPlan(pi, need);
+      panel.querySelectorAll('.dkr-srow').forEach(function(r){ r.classList.toggle('on', plan.indexOf(+r.getAttribute('data-dkr-i')) >= 0); });
+      sync();
+    };
     sync();
     panel.querySelectorAll('[data-act]').forEach(function(b){
       b.onclick = function(){
@@ -978,19 +1500,29 @@ function dkrSellPick(pi, amt, toPi){
   });
 }
 
-/* ══════════ ボーナスゲーム「悪夢の洞窟脱出」（本家 v3k/t50） ══════════ */
+/* ══════════ ボーナスゲーム（J26・G07）：賭け金は開始額の15/10/5%、×2→×4→×8・STOP、3連勝で好きな特殊マスへ ══════════
+   舞台はマップの仕掛け（C09 dkMapBonus(id)→{title, a, b, draw(ctx, w, h, st, T)}。st＝{mode:'idle'|'run'|'win'|'lose', side:'L'|'R', k:0〜1}）。
+   無い間は当作の洞窟の舞台。当たる確率は3種で同じ */
 function dkrTurnKey(){
   return (G && typeof G.turnSerial === 'number') ? G.turnSerial : ('t' + (G ? G.turnsLeft : 0) + '_' + (G ? G.turn : 0));
+}
+function dkrStakes(){ return [dkrRate('stake2', 0.15), dkrRate('stake1', 0.10), dkrRate('stake0', 0.05)]; }
+function dkrBonusDef(){
+  var b = null;
+  try{ b = dkMapBonus((G && G.map && G.map.id) || cfg.mapId); }catch(e){ console.error('[WP11]', e); }
+  if(!b || typeof b !== 'object') b = null;
+  return { title:String((b && b.title) || '洞窟脱出'), a:String((b && b.a) || '左の通路'), b:String((b && b.b) || '右の通路'),
+           draw:(b && typeof b.draw === 'function') ? b.draw : null };
 }
 function miniHTML(stake, round, mult, hist, win, opt){
   opt = opt || {};
   var pi = (typeof opt.pi === 'number') ? opt.pi : (G ? G.turn : 0);
-  var p = G && G.players ? G.players[pi] : null;
+  var p = G && G.players ? G.players[pi] : null, B = opt.def || dkrBonusDef();
   var cash = p ? p.cash : Infinity, lock = round > 1 || !!opt.cpu;
   var cells = (hist || []).slice(0, 6).map(function(h){
-    return '<div class="mgh ' + (h === 'L' ? 'dkr-l' : 'dkr-r') + '">' + (h === 'L' ? '左' : '右') + '</div>'; }).join('')
+    return '<div class="mgh ' + (h === 'L' ? 'dkr-l' : 'dkr-r') + '">' + esc(h === 'L' ? B.a : B.b) + '</div>'; }).join('')
     || '<div class="mgh dkr-none">なし</div>';
-  var stakes = [1500000, 1000000, 500000].map(function(v){
+  var stakes = dkrStakes().map(function(v){
     var off = v > cash && v !== stake;
     return '<div class="mgstake' + (v === stake ? ' on' : '') + (off ? ' dkr-off' : '') + '" data-v="' + v + '">' + yen(v) + '</div>';
   }).join('');
@@ -999,8 +1531,8 @@ function miniHTML(stake, round, mult, hist, win, opt){
     return '<span class="' + (won ? 'won' : now ? 'now' : '') + '"><b>' + (won ? 'WIN' : ['1st', '2nd', '3rd'][r - 1]) + '</b><i>GAME</i></span>';
   }).join('');
   var dis = opt.cpu ? ' disabled' : '';
-  return '<div class="modal"><div class="mg dkr-mg">'
-    + '<div class="mghd"><b>悪夢の洞窟脱出</b></div>'
+  return (opt.view ? '<div class="mg dkr-mg dkr-mgview">' : '<div class="modal"><div class="mg dkr-mg">')
+    + '<div class="mghd"><b>ボーナスゲーム</b><em>' + esc(B.title) + '</em></div>'
     + '<div class="mgbody">'
     +   '<div class="mgleft">'
     +     '<div class="mgwho"><div class="mgname">' + esc(p ? p.name : '') + '</div>'
@@ -1010,7 +1542,7 @@ function miniHTML(stake, round, mult, hist, win, opt){
     +   '<div class="mgstage" id="mgStage">'
     +     '<div class="mground">' + badges + '</div>'
     +     '<div class="mgart" id="mgArt"><canvas data-dkr-art="mini" width="16" height="12"></canvas></div>'
-    +     '<div class="mgmsg" id="mgMsg">' + (opt.cpu ? esc(p ? p.name : '') + ' が挑戦中' : 'どちらの通路に逃げる？') + '</div>'
+    +     '<div class="mgmsg" id="mgMsg">' + (opt.cpu ? esc(p ? p.name : '') + ' が挑戦中' : '「' + esc(B.a) + '」と「' + esc(B.b) + '」どちらにする？') + '</div>'
     +   '</div>'
     +   '<div class="mgright">'
     +     '<div class="mgcap">ゲーム費用</div><div class="mgstakes' + (lock ? ' dkr-lockd' : '') + '" id="mgStakes">' + stakes + '</div>'
@@ -1019,25 +1551,26 @@ function miniHTML(stake, round, mult, hist, win, opt){
     +   '</div>'
     + '</div>'
     + '<div class="mgfoot">'
-    +   '<button class="mgarrow dkr-al" data-act="L"' + dis + ' aria-label="左の通路"><i></i></button>'
+    +   '<button class="mgarrow dkr-al" data-act="L"' + dis + '><i></i><span>' + esc(B.a) + '</span></button>'
     +   '<button class="mgstop" data-act="stop"' + dis + '>STOP<i>報酬をもらう</i></button>'
-    +   '<button class="mgarrow dkr-ar" data-act="R"' + dis + ' aria-label="右の通路"><i></i></button>'
-    + '</div></div></div>';
+    +   '<button class="mgarrow dkr-ar" data-act="R"' + dis + '><span>' + esc(B.b) + '</span><i></i></button>'
+    + '</div></div>' + (opt.view ? '' : '</div>');
 }
 async function miniGame(pi){
   var p = G.players[pi];
-  if(!p || p.out) return;
-  var key = dkrTurnKey();
-  if(p.cash < 500000){ await band('悪夢の洞窟脱出', '所持金が50万に満たないので挑戦できません', 1300); return; }
-  if(p.bonusTurn === key){ await band('悪夢の洞窟脱出', '同じターンに2回は挑戦できません', 1300); return; }
+  if(!p || p.out || G.over) return;
+  var key = dkrTurnKey(), stakes = dkrStakes();
+  if(p.cash < stakes[2]){ await band('ボーナスゲーム', 'マーブルが ' + yen(stakes[2]) + ' に満たないので挑戦できません', 1100); return; }
+  if(p.bonusTurn === key){ await band('ボーナスゲーム', '同じターンに2回は挑戦できません', 1100); return; }
   p.bonusTurn = key;
-  await band('悪夢の洞窟脱出', '左右どちらかの通路を選んで逃げきろう！', 1500);
-  var cpu = p.kind === 'cpu';
-  var stake = p.cash >= 1000000 ? 1000000 : 500000;
-  var round = 1, mult = 2 * ((G.ev && G.ev.miniX) || 1), banked = 0;
+  var B = dkrBonusDef(), auto = p.kind === 'cpu' || dkIsAuto(pi);
+  DKR_S.mb = B;
+  await band('ボーナスゲーム', B.title + '　2つのうち1つを当てよう！', 1100);
+  var stake = p.cash >= stakes[1] ? stakes[1] : stakes[2];
+  var round = 1, mult = 2 * ((G.ev && G.ev.miniX) || 1), banked = 0, wins = 0;
   var hist = p.dkrMini = (Array.isArray(p.dkrMini) ? p.dkrMini : []);
-  var rate = 0.5 + statRate(p, 'mini') * 0.22;
-  var first = null;
+  var rate = Math.min(0.9, 0.5 + statRate(p, 'mini') * 0.22 + dkrAb(pi, 'mini'));
+  var first = null, host = null, st = document.getElementById('stage');
   var q = function(sel){ return first ? first.querySelector(sel) : null; };
   var setStake = function(v){
     stake = v;
@@ -1045,11 +1578,19 @@ async function miniGame(pi){
     first.querySelectorAll('.mgstake').forEach(function(s){ s.classList.toggle('on', +s.getAttribute('data-v') === v); });
     var w = q('#mgWin'); if(w) w.textContent = yen(stake * mult);
   };
+  /* CPU と自動プレイの人は #modalWrap を使わず、押さなくてよい重ねで見せる */
   var render = function(){
-    first = dkrOpenModal(miniHTML(stake, round, mult, hist, stake * mult, { pi:pi, cpu:cpu }));
+    var html = miniHTML(stake, round, mult, hist, stake * mult, { pi:pi, cpu:auto, view:auto, def:B });
+    if(auto){
+      if(!host && st){ host = document.createElement('div'); host.className = 'dkr-mghost'; host.setAttribute('aria-hidden', 'true'); st.appendChild(host); }
+      if(!host) return;
+      host.innerHTML = html; first = host.firstElementChild; dkrPaintAll(host);
+      return;
+    }
+    first = dkrOpenModal(html);
     first.querySelectorAll('.mgstake').forEach(function(s){
       s.onclick = function(){
-        if(round > 1 || cpu || s.classList.contains('dkr-off')) return;
+        if(round > 1 || s.classList.contains('dkr-off')) return;
         var v = +s.getAttribute('data-v');
         if(v > p.cash) return;
         try{ SFX.click(); }catch(e){}
@@ -1057,42 +1598,48 @@ async function miniGame(pi){
       };
     });
   };
+  var close = function(){
+    if(host){ var h2 = host; h2.classList.add('dkr-out'); setTimeout(function(){ if(h2.parentNode) h2.parentNode.removeChild(h2); }, Math.max(20, 280 * SPEED)); host = null; }
+    else if(first) dkrCloseModal(first);
+  };
   render();
   while(round <= 3){
     var v = await dvAsk(pi, 'mini', async function(){
-      if(cpu){ await wait(900); return { c:(Math.random() < 0.5 ? 'L' : 'R'), s:stake }; }
+      if(auto){ await wait(700); return { c:(Math.random() < 0.5 ? 'L' : 'R'), s:stake }; }
       var c = await new Promise(function(res){
         first.querySelectorAll('[data-act]').forEach(function(b){
           b.onclick = function(){ if(b.disabled) return; try{ SFX.click(); }catch(e){} res(b.getAttribute('data-act')); };
         });
       });
       return { c:c, s:stake };
-    }, '通路を選んでいます');
-    if(round === 1 && v && v.s && v.s !== stake && v.s <= p.cash) setStake(v.s);
+    }, '選んでいます');
+    if(G.over || p.out){ close(); return; }
+    if(round === 1 && v && v.s && v.s !== stake && v.s <= p.cash && stakes.indexOf(v.s) >= 0) setStake(v.s);
     if(!v || v.c === 'stop') break;
     var win = Math.random() < rate;
-    first.querySelectorAll('[data-act]').forEach(function(b){ b.disabled = true; });
+    if(first) first.querySelectorAll('[data-act]').forEach(function(b){ b.disabled = true; });
     var art = q('#mgArt canvas'), msg = q('#mgMsg');
-    dkrMiniAnim(art, 'run', v.c);
-    if(msg){ msg.textContent = (v.c === 'L' ? '左' : '右') + 'の通路へ走った……'; msg.className = 'mgmsg'; }
+    dkrMiniAnim(art, 'run', v.c, B);
+    if(msg){ msg.textContent = '「' + (v.c === 'L' ? B.a : B.b) + '」を選んだ……'; msg.className = 'mgmsg'; }
     await wait(650);
     hist.unshift(win ? v.c : (v.c === 'L' ? 'R' : 'L'));
     if(hist.length > 6) hist.length = 6;
     if(!win){
-      dkrMiniAnim(art, 'lose', v.c);
-      if(msg){ msg.textContent = 'つかまった！ 賭け金を失いました'; msg.className = 'mgmsg dkr-bad'; }
+      dkrMiniAnim(art, 'lose', v.c, B);
+      if(msg){ msg.textContent = 'はずれ！ 賭けたマーブルを失いました'; msg.className = 'mgmsg dkr-bad'; }
       try{ SFX.bad(); }catch(e){}
       camShake(9);
-      await wait(1200);
-      dkrCloseModal(first);
+      await wait(1100);
+      close();
       if(!(await dkPayFrom(pi, stake, -1))){ await bankrupt(pi, -1); return; }
       give(pi, -stake);
-      toast('L', '💀', '脱出失敗', yen(stake) + ' を失いました', 2200);
+      dkNotify(pi, '💀', 'ボーナスゲーム', yen(stake) + ' を失いました', { ms:1900 });
       return;
     }
-    dkrMiniAnim(art, 'win', v.c);
-    if(msg){ msg.textContent = '逃げきった！ 倍率アップ'; msg.className = 'mgmsg dkr-good'; }
-    var bd = first.querySelectorAll('.mground span')[round - 1];
+    wins++;
+    dkrMiniAnim(art, 'win', v.c, B);
+    if(msg){ msg.textContent = 'あたり！ 倍率アップ'; msg.className = 'mgmsg dkr-good'; }
+    var bd = first ? first.querySelectorAll('.mground span')[round - 1] : null;
     if(bd){ bd.className = 'won'; bd.innerHTML = '<b>WIN</b><i>GAME</i>'; }
     try{ SFX.coin(); }catch(e){}
     banked = stake * mult;
@@ -1100,21 +1647,58 @@ async function miniGame(pi){
     round++; mult *= 2;
     if(round > 3) break;
     render();
-    if(cpu){
-      var greedy = cfg.ai === 2 ? 0.6 : cfg.ai === 1 ? 0.45 : 0.3;
+    if(auto){
+      var greedy = p.kind === 'cpu' ? (cfg.ai === 2 ? 0.6 : cfg.ai === 1 ? 0.45 : 0.3) : 0.4;
       if(Math.random() > greedy) break;
     }
   }
-  if(first) dkrCloseModal(first);
+  close();
   var prize = banked || 0;
   if(prize > 0){
-    news('🕯️ ' + p.name + ' がボーナスゲームで ' + yen(prize) + ' を獲得！');
+    news('🎲 ' + p.name + ' がボーナスゲームで ' + yen(prize) + ' を獲得！');
     give(pi, prize);
     addFx('pillar', tileCenter(p.pos).x, tileCenter(p.pos).y, 1000, '#FFD24D');
-    await cutIn('BONUS GAME', '脱出成功！', yen(prize) + ' を獲得');
+    await cutIn('BONUS GAME', wins >= 3 ? '3連勝！' : 'ボーナスゲーム成功！', yen(prize) + ' を獲得');
+    if(wins >= 3) await dkrBonus3(pi);
   } else {
-    toast('L', '🕯️', '脱出中止', '何も得られませんでした', 1800);
+    dkNotify(pi, '🎲', 'ボーナスゲーム', '挑戦をやめました', { ms:1500 });
   }
+}
+/* 3連勝ボーナス：好きな特殊マスへ移動（給料なし）→ そのマスの効果 */
+function dkrBonus3HTML(pi){
+  return '<div class="modal"><div class="dkr-ask dkr-b3">'
+    + '<div class="dkr-askhd"><b>3連勝ボーナス！</b></div>'
+    + '<div class="dkr-b3art" aria-hidden="true"><i>WIN</i><i>WIN</i><i>WIN</i></div>'
+    + '<p>好きな特殊マスへ移動できます</p><p class="dkr-askq">（スタートを通っても給料はありません）</p>'
+    + '<div class="dkr-pcbtn"><button class="dkr-btn dkr-blue" data-act="no">移動しない</button>'
+    + '<button class="dkr-btn dkr-orange" data-act="go">マスを選ぶ</button></div></div></div>';
+}
+function dkrBonus3Pick(pi, cand){
+  var p = G.players[pi], own = dkrOwned(pi).length;
+  var pref = [];
+  if(!p.autoWeak) pref.push(dkrFindType('travel'));
+  if(own) pref.push(dkrFindType('start'), dkrFindType('olympic'));
+  pref.push(dkrFindType('card'));
+  for(var n = 0; n < pref.length; n++) if(pref[n] >= 0 && cand.indexOf(pref[n]) >= 0) return pref[n];
+  return -1;
+}
+async function dkrBonus3(pi){
+  var p = G.players[pi];
+  if(!p || p.out || G.over) return;
+  var cand = [];
+  for(var i = 0; i < 32; i++){ var t = G.tiles[i]; if(t && t.type !== 'city' && t.type !== 'jail' && i !== p.pos) cand.push(i); }
+  if(!cand.length) return;
+  var auto = p.kind === 'cpu' || dkIsAuto(pi);
+  var d = await dvAsk(pi, 'bonus3', async function(){
+    if(auto) return dkrBonus3Pick(pi, cand);
+    if((await modal(dkrBonus3HTML(pi))) !== 'go') return -1;
+    var z = await pickTile(pi, '移動する特殊マスを選択してください', function(k){ return cand.indexOf(k) >= 0; });
+    return (z >= 0 && cand.indexOf(z) >= 0) ? z : -1;
+  }, '移動するマスを選んでいます');
+  d = +d;
+  if(!(d >= 0) || cand.indexOf(d) < 0 || p.out || G.over) return;
+  await dkrJump(pi, d, false);
+  if(!p.out && !G.over) await resolve(pi);
 }
 
 /* ══════════ 絵（すべて canvas に自作。ポップアップの canvas は差し込まれた時に塗る） ══════════ */
@@ -1156,7 +1740,7 @@ function dkrPaintPort(ctx, w, h, pi){
   ctx.fillStyle = v; ctx.fillRect(0, 0, w, h);
 }
 function dkrPaintArt(ctx, w, h, key, col, cv){
-  if(key === 'mini'){ dkrMiniDraw(ctx, w, h, (cv && cv._dkrMini) || null, 0); return; }
+  if(key === 'mini'){ dkrMiniPaint(ctx, w, h, (cv && cv._dkrMini) || null, 0); return; }
   if(key.indexOf('card-') === 0){ dkrCardArt(ctx, w, h, key.slice(5)); return; }
   dkrBuildArt(ctx, w, h, key, col);
 }
@@ -1193,7 +1777,7 @@ function dkrBuildArt(ctx, w, h, key, col){
   else if(key === 'b2'){ fn = dvTowerB; hgt = 80; wid = 40; }
   else if(key === 'b3'){ fn = dvHotel; hgt = 92; wid = 64; }
   else if(key === 'b4'){ fn = dvLandmark; hgt = 124; wid = 60; }
-  else if(tour){ fn = pink ? function(c2, cl, t2){ dkrPinkMon(c2, cl, t2, 2); } : dkrSkyMon; hgt = pink ? 72 : 90; wid = 60; }
+  else if(tour){ fn = pink ? function(c2, cl, t2){ dkrPinkMon(c2, cl, t2, 2); } : function(c2, cl, t2){ dkrSkyMon(c2, cl, t2, 2); }; hgt = pink ? 72 : 90; wid = 60; }
   ctx.save();
   ctx.beginPath(); ctx.rect(0, 0, w, h); ctx.clip();
   ctx.translate(cx, gy + hh * 0.15);
@@ -1232,9 +1816,9 @@ function dkrFlagArt(ctx, col){
   ctx.beginPath(); ctx.arc(20, -49, 5, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 }
-/* 観光地の記念碑：空色＝白い灯台と空色のドーム（光が回る） */
-function dkrSkyMon(ctx, col, T){
-  var line = '#1B3A55';
+/* 観光地の記念碑：水色＝白い灯台と水色のドーム。同じ持ち主の水色の数（G17）で3段：1＝灯台だけ・2＝旗・3＝回る光 */
+function dkrSkyMon(ctx, col, T, stage){
+  var line = '#1B3A55', stg = stage || 1;
   ctx.save();
   _dvShadow(ctx, 24, 8, 0.55);
   _dvBox(ctx, 0, 0, 36, 7, 9, _dvHG(ctx, -18, 18, '#FFFFFF', '#A7CBE0'), '#6F95B0', '#F2FAFF', line);
@@ -1264,18 +1848,28 @@ function dkrSkyMon(ctx, col, T){
   ctx.beginPath(); ctx.moveTo(0, -75); ctx.lineTo(0, -90); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(0, -90); ctx.lineTo(13, -86); ctx.lineTo(0, -82); ctx.closePath();
   ctx.fillStyle = col; ctx.fill(); ctx.strokeStyle = _dvTone(col, -0.5); ctx.stroke();
-  var a = (T * 0.0011) % (Math.PI * 2);
-  ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  for(var n = 0; n < 2; n++){
-    var an = a + n * Math.PI;
-    var bx = Math.cos(an) * 48, by = Math.sin(an) * 12;
-    var g = ctx.createLinearGradient(0, -60, bx, -60 + by);
-    g.addColorStop(0, 'rgba(210,245,255,.38)'); g.addColorStop(1, 'rgba(210,245,255,0)');
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.moveTo(0, -61); ctx.lineTo(bx, -60 + by - 5); ctx.lineTo(bx, -60 + by + 5); ctx.closePath(); ctx.fill();
+  if(stg >= 2){
+    [-15, 15].forEach(function(x){
+      ctx.strokeStyle = '#6B4408'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(x, -3); ctx.lineTo(x, -30); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, -30); ctx.lineTo(x + (x < 0 ? -11 : 11), -26); ctx.lineTo(x, -22); ctx.closePath();
+      ctx.fillStyle = x < 0 ? '#7FD3F7' : col; ctx.fill();
+    });
   }
-  ctx.restore();
+  if(stg >= 3){
+    var a = (T * 0.0011) % (Math.PI * 2);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for(var n = 0; n < 2; n++){
+      var an = a + n * Math.PI;
+      var bx = Math.cos(an) * 48, by = Math.sin(an) * 12;
+      var g = ctx.createLinearGradient(0, -60, bx, -60 + by);
+      g.addColorStop(0, 'rgba(210,245,255,.38)'); g.addColorStop(1, 'rgba(210,245,255,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.moveTo(0, -61); ctx.lineTo(bx, -60 + by - 5); ctx.lineTo(bx, -60 + by + 5); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
   _dvRim(ctx, -11, -54, -8, 0.5);
   ctx.restore();
 }
@@ -1499,23 +2093,47 @@ function dkrMonumentAt(ctx, G2, i, T){
   var t = G2.tiles[i], A = dkrAnchor(i);
   var col = PCOL[t.owner] || '#E14A5A';
   var grow = (t.grow === undefined ? 1 : t.grow);
-  var v = Math.min(3, Math.max(0, t.visits | 0));
-  var s = grow * (t.tour === 'pink' ? (0.92 + 0.12 * v) : 1.0);
+  var v = Math.min(3, Math.max(0, t.visits | 0)), stg = t.tour === 'pink' ? 0 : Math.max(1, Math.min(3, dkrSkyCount(G2, t.owner)));
+  var s = grow * (t.tour === 'pink' ? (0.92 + 0.12 * Math.min(2, v)) : [0.84, 1.0, 1.16][stg - 1]);
+  var pulse = 0.5 + 0.5 * Math.sin(T * 0.003 + i);
+  var gs = dkrMonGlow(t.tour), sp = dkrMonSprite(t.tour, t.tour === 'pink' ? v : stg, col);
   ctx.save();
   ctx.translate(A.o.x, A.o.y);
   ctx.scale(s, s);
-  var pulse = 0.5 + 0.5 * Math.sin(T * 0.003 + i);
-  ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  ctx.scale(1, 0.4);
-  var gl = ctx.createRadialGradient(0, 0, 2, 0, 0, 40);
-  var c0 = t.tour === 'pink' ? '255,160,200' : '150,225,255';
-  gl.addColorStop(0, 'rgba(' + c0 + ',' + (0.30 + 0.20 * pulse).toFixed(3) + ')');
-  gl.addColorStop(1, 'rgba(' + c0 + ',0)');
-  ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(0, 0, 40, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 0.6 + 0.4 * pulse;
+  ctx.drawImage(gs, -40, -16, 80, 32);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+  ctx.drawImage(sp, -DKR_MONBOX.ox, -DKR_MONBOX.oy, DKR_MONBOX.w, DKR_MONBOX.h);
   ctx.restore();
-  if(t.tour === 'pink') dkrPinkMon(ctx, col, T, v); else dkrSkyMon(ctx, col, T);
-  ctx.restore();
+}
+/* 記念碑の作り置き（毎フレームのグラデーション作りをやめる。種類・段・持ち主の色ごとに1枚） */
+var DKR_MONBOX = { w:128, h:132, ox:64, oy:112, k:1.5 };
+var DKR_MON = {};
+function dkrMonSprite(kind, stage, col){
+  var key = kind + ':' + stage + ':' + col, c = DKR_MON[key];
+  if(c) return c;
+  var B = DKR_MONBOX;
+  c = document.createElement('canvas');
+  c.width = Math.round(B.w * B.k); c.height = Math.round(B.h * B.k);
+  var x = c.getContext('2d');
+  x.setTransform(B.k, 0, 0, B.k, B.ox * B.k, B.oy * B.k);
+  if(kind === 'pink') dkrPinkMon(x, col, 0, stage); else dkrSkyMon(x, col, 1200, stage);
+  DKR_MON[key] = c;
+  return c;
+}
+function dkrMonGlow(kind){
+  var key = 'glow:' + kind, c = DKR_MON[key];
+  if(c) return c;
+  c = document.createElement('canvas'); c.width = 80; c.height = 32;
+  var x = c.getContext('2d'), c0 = kind === 'pink' ? '255,160,200' : '150,225,255';
+  x.setTransform(1, 0, 0, 0.4, 40, 16);
+  var gl = x.createRadialGradient(0, 0, 2, 0, 0, 40);
+  gl.addColorStop(0, 'rgba(' + c0 + ',.5)'); gl.addColorStop(1, 'rgba(' + c0 + ',0)');
+  x.fillStyle = gl; x.beginPath(); x.arc(0, 0, 40, 0, Math.PI * 2); x.fill();
+  DKR_MON[key] = c;
+  return c;
 }
 
 /* ══════════ フォーチュンカードの絵（200×130 の枠で描いて、canvas に合わせて拡大） ══════════ */
@@ -1593,6 +2211,7 @@ function dkrCardArt(ctx, w, h, id){
   ctx.scale(s, s);
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   var ink = '#3A2410', k, a;
+  id = { invite:'travel', coupon:'halfToll', festhost:'fest', festsee:'fest', taxgo:'tax', pay2:'gouge' }[id] || id;
   if(id === 'fsell'){
     dkrHouse(ctx, 84, 112, 1.9, '#E4432E');
     ctx.save(); ctx.translate(84, 84); ctx.rotate(-0.22);
@@ -1773,6 +2392,93 @@ function dkrCardArt(ctx, w, h, id){
     dkrText(ctx, '×2', 100, 86, 34, '#FFE14A', '#4A2408', 7);
     dkrCoin(ctx, 44, 112, 11); dkrCoin(ctx, 160, 110, 12);
     dkrSpark(ctx, 150, 36, 9); dkrSpark(ctx, 46, 50, 7);
+  } else if(id === 'shield'){
+    var sg = ctx.createRadialGradient(100, 66, 6, 100, 66, 74);
+    sg.addColorStop(0, 'rgba(210,236,255,.95)'); sg.addColorStop(1, 'rgba(210,236,255,0)');
+    ctx.fillStyle = sg; dkrCirc(ctx, 100, 66, 74); ctx.fill();
+    var shp = function(s){
+      ctx.beginPath(); ctx.moveTo(100, 66 - 54 * s);
+      ctx.bezierCurveTo(100 + 30 * s, 66 - 44 * s, 100 + 50 * s, 66 - 46 * s, 100 + 58 * s, 66 - 48 * s);
+      ctx.bezierCurveTo(100 + 58 * s, 66 + 6 * s, 100 + 38 * s, 66 + 38 * s, 100, 66 + 56 * s);
+      ctx.bezierCurveTo(100 - 38 * s, 66 + 38 * s, 100 - 58 * s, 66 + 6 * s, 100 - 58 * s, 66 - 48 * s);
+      ctx.bezierCurveTo(100 - 50 * s, 66 - 46 * s, 100 - 30 * s, 66 - 44 * s, 100, 66 - 54 * s); ctx.closePath();
+    };
+    shp(1); dkrFS(ctx, dkrLin(ctx, 42, 12, 158, 122, ['#FFFFFF', '#9FD0F5', '#2E7FD0', '#123E80']), 4, '#0B2C5E');
+    shp(0.78); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.stroke();
+    ctx.save(); ctx.translate(100, 62); ctx.beginPath();
+    for(k = 0; k < 10; k++){ var rs = (k % 2) ? 10 : 24, as = k * Math.PI / 5 - Math.PI / 2; ctx[k ? 'lineTo' : 'moveTo'](Math.cos(as) * rs, Math.sin(as) * rs); }
+    ctx.closePath(); dkrFS(ctx, dkrLin(ctx, 0, -24, 0, 24, ['#FFF6C8', '#F5CE4A', '#C8901F']), 2.5, '#6B4408'); ctx.restore();
+    dkrSpark(ctx, 160, 26, 9); dkrSpark(ctx, 38, 34, 7);
+  } else if(id === 'bonusgo'){
+    var die = function(x, y, s, r, dots){
+      ctx.save(); ctx.translate(x, y); ctx.rotate(r);
+      _dvRR(ctx, -s, -s, s * 2, s * 2, s * 0.35);
+      dkrFS(ctx, dkrLin(ctx, -s, -s, s, s, ['#FFFFFF', '#E6ECF4', '#B8C4D4']), 2.5, '#3A4050');
+      ctx.fillStyle = '#E4432E';
+      dots.forEach(function(d2){ dkrCirc(ctx, d2[0] * s, d2[1] * s, s * 0.17); ctx.fill(); });
+      ctx.restore();
+    };
+    die(74, 72, 26, -0.25, [[-0.5, -0.5], [0, 0], [0.5, 0.5]]);
+    die(128, 64, 24, 0.3, [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]]);
+    dkrCoin(ctx, 40, 108, 12); dkrCoin(ctx, 160, 106, 13); dkrCoin(ctx, 100, 114, 11);
+    dkrText(ctx, 'BONUS', 100, 22, 20, '#FFE14A', '#6B3A04', 5);
+    dkrSpark(ctx, 172, 40, 8);
+  } else if(id === 'quake'){
+    ctx.fillStyle = dkrLin(ctx, 0, 84, 0, 128, ['#C89A68', '#7A5230']); ctx.fillRect(12, 86, 176, 38);
+    ctx.strokeStyle = '#3A2410'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(60, 86); ctx.lineTo(74, 100); ctx.lineTo(66, 110); ctx.lineTo(84, 124);
+    ctx.moveTo(132, 86); ctx.lineTo(120, 102); ctx.lineTo(136, 114); ctx.stroke();
+    ctx.save(); ctx.translate(100, 90); ctx.rotate(0.18); dkrHouse(ctx, 0, 0, 1.6, '#E4432E'); ctx.restore();
+    ctx.strokeStyle = 'rgba(90,50,20,.7)'; ctx.lineWidth = 3;
+    [[40, 40], [158, 44]].forEach(function(q){ ctx.beginPath(); ctx.moveTo(q[0] - 10, q[1]); ctx.lineTo(q[0] - 4, q[1] - 8); ctx.lineTo(q[0] + 2, q[1]); ctx.lineTo(q[0] + 8, q[1] - 8); ctx.stroke(); });
+    ctx.fillStyle = '#9A7048';
+    [[30, 78], [170, 80], [52, 66], [148, 68]].forEach(function(q){ dkrCirc(ctx, q[0], q[1], 4); ctx.fill(); });
+  } else if(id === 'sand'){
+    for(k = 0; k < 6; k++){
+      var ty = 20 + k * 17, tw = 66 - k * 11;
+      ctx.beginPath(); ctx.ellipse(100 + Math.sin(k * 1.3) * 8, ty, tw, 6 + (5 - k) * 0.6, 0, 0, Math.PI * 2);
+      ctx.lineWidth = 6; ctx.strokeStyle = ['#F2D08A', '#E8B868', '#DCA052', '#D08C40', '#C27A30', '#B06A24'][k]; ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(176,112,40,.55)';
+    [[30, 60, 3], [170, 50, 4], [150, 96, 3], [44, 100, 4], [64, 30, 2], [140, 24, 3]].forEach(function(q){ dkrCirc(ctx, q[0], q[1], q[2]); ctx.fill(); });
+    dkrHouse(ctx, 162, 124, 0.9, '#3E8FE0');
+  } else if(id === 'plague'){
+    var vir = function(x, y, r, c1, c2){
+      ctx.save(); ctx.translate(x, y);
+      for(var s2 = 0; s2 < 8; s2++){
+        var a3 = s2 * Math.PI / 4;
+        ctx.beginPath(); ctx.moveTo(Math.cos(a3) * r, Math.sin(a3) * r); ctx.lineTo(Math.cos(a3) * (r + 8), Math.sin(a3) * (r + 8));
+        ctx.lineWidth = 3; ctx.strokeStyle = c2; ctx.stroke();
+        dkrCirc(ctx, Math.cos(a3) * (r + 9), Math.sin(a3) * (r + 9), 3.2); ctx.fillStyle = c2; ctx.fill();
+      }
+      dkrCirc(ctx, 0, 0, r); dkrFS(ctx, dkrLin(ctx, -r, -r, r, r, [c1, c2]), 2, '#1E4A10');
+      ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.beginPath(); ctx.ellipse(-r * 0.35, -r * 0.35, r * 0.3, r * 0.18, -0.6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#1E3A10'; dkrCirc(ctx, -r * 0.3, -r * 0.05, r * 0.12); ctx.fill(); dkrCirc(ctx, r * 0.3, -r * 0.05, r * 0.12); ctx.fill();
+      ctx.restore();
+    };
+    dkrHouse(ctx, 100, 124, 1.5, '#8F6BC8');
+    vir(54, 50, 20, '#C8F07A', '#5FAE2A'); vir(148, 40, 16, '#E6F7A0', '#7AB83A'); vir(152, 94, 12, '#C8F07A', '#5FAE2A');
+  } else if(id === 'meteor'){
+    ctx.save(); ctx.translate(122, 58); ctx.rotate(-0.62);
+    var mt = ctx.createLinearGradient(0, 0, 110, 0);
+    mt.addColorStop(0, 'rgba(255,200,80,.95)'); mt.addColorStop(1, 'rgba(255,120,40,0)');
+    ctx.fillStyle = mt; ctx.beginPath(); ctx.moveTo(0, -16); ctx.lineTo(110, -5); ctx.lineTo(110, 5); ctx.lineTo(0, 16); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    dkrCirc(ctx, 118, 62, 18); dkrFS(ctx, dkrLin(ctx, 104, 48, 134, 78, ['#B08A6A', '#6A4A30', '#3A2616']), 2.5, '#1E120A');
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; dkrCirc(ctx, 112, 58, 4); ctx.fill(); dkrCirc(ctx, 124, 68, 3); ctx.fill();
+    ctx.save(); ctx.translate(70, 122); ctx.rotate(-0.12); dkrHouse(ctx, 0, 0, 1.4, '#3E8FE0'); ctx.restore();
+    dkrSpark(ctx, 98, 88, 10, '#FFE7A0'); dkrSpark(ctx, 86, 76, 6, '#FFF6C8');
+  } else if(id === 'citygive'){
+    dkrHouse(ctx, 64, 114, 1.6, '#E4432E');
+    ctx.save(); ctx.translate(64, 58);
+    ctx.beginPath(); ctx.ellipse(-10, 0, 11, 7, -0.5, 0, Math.PI * 2); ctx.ellipse(10, 0, 11, 7, 0.5, 0, Math.PI * 2);
+    dkrFS(ctx, '#FFD24D', 2, '#8A5A08'); dkrCirc(ctx, 0, 0, 5); dkrFS(ctx, '#F5A43A', 2, '#8A5A08');
+    ctx.restore();
+    ctx.lineWidth = 11; ctx.strokeStyle = ink; ctx.beginPath(); ctx.moveTo(104, 80); ctx.quadraticCurveTo(128, 54, 150, 70); ctx.stroke();
+    ctx.lineWidth = 7; ctx.strokeStyle = '#5FBF3A'; ctx.stroke();
+    ctx.save(); ctx.translate(154, 74); ctx.rotate(0.7); dkrPoly(ctx, [0, -12, 16, 0, 0, 12]); dkrFS(ctx, '#5FBF3A', 2.5, ink); ctx.restore();
+    dkrHeart(ctx, 164, 108, 0.9);
+    dkrSpark(ctx, 150, 30, 8);
   } else {
     dkrCoinStack(ctx, 66, 112, 5, 17);
     dkrCoinStack(ctx, 100, 116, 8, 18);
@@ -1903,7 +2609,7 @@ function dkrMiniAnim(cv, mode, side){
   var w = cv.clientWidth, h = cv.clientHeight;
   if(!(w > 0 && h > 0)) return;
   var k0 = cv.width / w || 1, ctx = cv.getContext('2d');
-  var paint = function(k, T){ ctx.setTransform(k0, 0, 0, k0, 0, 0); ctx.clearRect(0, 0, w, h); cv._dkrMini.k = k; dkrMiniDraw(ctx, w, h, cv._dkrMini, T); };
+  var paint = function(k, T){ ctx.setTransform(k0, 0, 0, k0, 0, 0); ctx.clearRect(0, 0, w, h); cv._dkrMini.k = k; dkrMiniPaint(ctx, w, h, cv._dkrMini, T); };
   if((window.DKFX && DKFX.reduced) || dur < 30){ paint(1, 0); return; }
   var t0 = null, n = 0;
   var step = function(ts){
@@ -1916,40 +2622,161 @@ function dkrMiniAnim(cv, mode, side){
   requestAnimationFrame(step);
 }
 
-/* ══════════ 起動：MAPS の書き換え・描画のラッパ・ポップアップの絵 ══════════ */
+/* ══════════ ボーナスゲームの舞台（マップの仕掛けの絵があればそれ、無ければ洞窟） ══════════ */
+function dkrMiniPaint(ctx, w, h, st, T){
+  var B = DKR_S.mb;
+  if(B && B.draw){
+    try{ B.draw(ctx, w, h, st || { mode:'idle', side:'L', k:0 }, T || 0); return; }catch(e){ console.error('[WP11]', e); }
+  }
+  dkrMiniDraw(ctx, w, h, st, T);
+}
+
+/* ══════════ 盤の上の小物（伝染病・砂嵐・停電の印、水色の段が上がる瞬間） ══════════ */
+function dkrMarks(ctx, i, t){
+  if(!t || t.type !== 'city' || !(t.sand > 0 || t.plague > 0 || (t.dkrDark && t.frozen > 0))) return;
+  var c = centroid(tileQuad(i));
+  if(t.plague > 0) iconOn(ctx, { x:c.x - 14, y:c.y }, '🦠', 22);
+  if(t.sand > 0) iconOn(ctx, { x:c.x + 14, y:c.y }, '🌪', 22);
+  if(t.dkrDark && t.frozen > 0) iconOn(ctx, { x:c.x, y:c.y - 18 }, '⚡', 22);
+}
+/* 記念碑が一瞬ふくらむ（growAnim と同じ短い演出。grow は毎フレーム読むので盤の作り直しは要らない） */
+function dkrPop(t){
+  var g0 = G, t0 = null, D = Math.max(1, 420 * SPEED);
+  requestAnimationFrame(function step(now){
+    if(G !== g0){ t.grow = 1; return; }
+    if(t0 === null) t0 = now;
+    var k = Math.max(0, Math.min(1, (now - t0) / D));
+    t.grow = k < 0.6 ? 0.7 + 0.5 * k / 0.6 : 1.2 - 0.2 * (k - 0.6) / 0.4;
+    if(k < 1) requestAnimationFrame(step); else t.grow = 1;
+  });
+}
+/* 水色の観光地の持ち数が2・3に上がった瞬間（G17） */
+function dkrSkyStageFx(owner, i){
+  if(!G || !(owner >= 0)) return;
+  var n = dkrSkyCount(G, owner);
+  if(n < 2) return;
+  DKR_SKY_I.forEach(function(j){
+    var t = G.tiles[j];
+    if(!t || t.owner !== owner) return;
+    var c = tileCenter(j);
+    addFx('ring', c.x, c.y, 700, '#8FE0FF');
+    addFx('spark', c.x, c.y - 30, 800, '#E8FAFF');
+    if(j !== i) dkrPop(t);
+  });
+  dkNotify(owner, '🗼', '水色の観光地が' + (n >= 3 ? '三' : '二') + 'カ所', '通行料 ×' + (n >= 3 ? 4 : 2) + '・記念碑が大きくなりました', { ms:1800 });
+}
+/* 都市の建物の作り置き（持ち主・段が変わった時だけ描き直す。C18 で性能の班が部品の作り置きに置き換えるまでのつなぎ） */
+var DKR_BLD = {};
+var DKR_BLDBOX = { w:240, h:210, ox:120, oy:170, k:1.25 };
+function dkrBldSprite(i, t, A, s){
+  var key = (t.bm | 0) + ':' + (t.lv | 0) + ':' + t.owner + ':' + s, S = DKR_BLD[i];
+  if(S && S.key === key) return S;
+  var B = DKR_BLDBOX, c = (S && S.c) || document.createElement('canvas');
+  c.width = Math.round(B.w * B.k); c.height = Math.round(B.h * B.k);
+  var x = c.getContext('2d');
+  if(!x) return null;
+  x.setTransform(B.k, 0, 0, B.k, (B.ox - A.o.x) * B.k, (B.oy - A.o.y) * B.k);
+  x.translate(A.o.x, A.o.y); x.scale(s, s); x.translate(-A.o.x, -A.o.y);
+  try{ DKR_o.drawBuilding(x, G, i, 0); }catch(e){ console.error('[WP11]', e); return null; }
+  S = DKR_BLD[i] = { key:key, c:c, w:B.w, h:B.h, ox:B.ox, oy:B.oy };
+  return S;
+}
+/* BUILD[k].cost(base)・toll(base) の中身（引数は前の版と同じ。2つ目にタイルを渡してもよい） */
+function dkrPriceByBase(k, base, t){
+  var tile = (t && typeof t === 'object') ? t : null;
+  if(tile && tile.tour) return k === 0 ? tile.base : 0;
+  var r = (tile && dkrRowOf(tile)) || dkrRowByBase(base);
+  return r ? Math.round(r.c[k] * base / r.c[0]) : (k === 0 ? base : 0);
+}
+function dkrTollByBase(k, base, t){
+  var tile = (t && typeof t === 'object') ? t : null;
+  var r = (tile && dkrRowOf(tile)) || dkrRowByBase(base);
+  return r ? Math.round(r.t[k] * base / r.c[0]) : 0;
+}
+
+/* ══════════ 起動：盤の並び・値段・名前の書き換え（C28）・描画のラッパ・ポップアップの絵 ══════════ */
 (function(){
   try{
-    /* オリンピックは商標の心配があるので、世界一周の祭りの角は「ワールドフェスティバル」 */
+    /* 並び（J10）：const の束縛はそのままで中身だけ入れ替える（最初の newGame より前） */
+    CITY_SLOTS.length = 0;
+    DKR_SLOTS.forEach(function(s){ CITY_SLOTS.push(s.slice()); });
+    Object.keys(SPECIAL).forEach(function(k){ delete SPECIAL[k]; });
+    Object.keys(DKR_SPECIAL).forEach(function(k){ SPECIAL[k] = DKR_SPECIAL[k]; });
+    GCOL.length = 0;
+    DKR_GCOL.forEach(function(c){ GCOL.push(c); });
+    GBASE.length = 0;
+    DKR_SLOTS.forEach(function(s){ GBASE.push(Math.round(DKR_PRICE[s[0]].c[0] * 50000)); });
+    /* マップの名前（J05）：世界一周の角＝無人島・ワールドフェスティバル、氷の洞窟の角＝水晶の遺跡・洞窟探検 */
     MAPS.forEach(function(m){
-      if(m.id === 'world' && m.corners) m.corners[2] = 'ワールドフェスティバル';
-      m.tours = DKR_TOUR_SLOTS.map(function(s){ return { i:s.i, kind:s.kind, name:dkrTourName(m, s.i, s.kind) }; });
+      var d = DKR_MAPDATA[m.id];
+      if(d){
+        if(d.corners) d.corners.forEach(function(nm, k){ if(nm) m.corners[k] = nm; });
+        if(d.cities) m.cities = d.cities.map(function(g){ return g.slice(); });
+      } else if(m.cities && m.cities.length !== DKR_SLOTS.length){
+        var flat = [].concat.apply([], m.cities);
+        m.cities = DKR_SLOTS.map(function(s, g){ return s.map(function(x, j){ return flat[(g * 3 + j) % Math.max(1, flat.length)] || ('都市' + x); }); });
+      }
+      m.tours = DKR_TOURS.map(function(s){ return { i:s.i, kind:s.kind, name:dkrTourName(m, s.i, s.kind) }; });
     });
-    /* drawTile：厚み（2段の側面）→ 元のマス（観光地は自前）→ 面取り・建物の群れ */
+    /* 建物（J03・J08）：本家の名前と位置の値段表 */
+    BUILD.forEach(function(b, k){
+      b.nm = DKR_STEP_NM[k] || b.nm;
+      b.cost = function(base, t){ return dkrPriceByBase(k, base, t); };
+      b.toll = function(base, t){ return dkrTollByBase(k, base, t); };
+    });
+    /* drawTile：厚み（2段の側面）→ 元のマス（観光地は自前・カードのマスは札「CARD」）→ 面取り・建物の群れ・印 */
     DKR_o.drawTile = drawTile;
     drawTile = function(ctx, G2, i, T){
       var t = G2 && G2.tiles && G2.tiles[i];
       if(!t) return DKR_o.drawTile.apply(this, arguments);
-      try{ dkrPlinth(ctx, i, t); }catch(e){ console.error('[WP5]', e); }
-      var r;
+      try{ dkrPlinth(ctx, i, t); }catch(e){ console.error('[WP11]', e); }
+      var r, nm0 = t.name;
       if(t.tour) r = dkrDrawTour(ctx, G2, i, T);
-      else r = DKR_o.drawTile.apply(this, arguments);
-      try{ dkrBevel(ctx, i, t); dkrCubes(ctx, i, t); }catch(e){ console.error('[WP5]', e); }
+      else {
+        if(t.type === 'card') t.name = 'CARD';
+        try{ r = DKR_o.drawTile.apply(this, arguments); } finally { t.name = nm0; }
+      }
+      try{ dkrBevel(ctx, i, t); dkrCubes(ctx, i, t); dkrMarks(ctx, i, t); }catch(e){ console.error('[WP11]', e); }
       return r;
     };
-    /* drawBuilding：建物を 1.38倍（ランドマークは 1.22倍）、観光地は記念碑 */
+    /* drawBuilding：建物を 1.38倍（ランドマークは 1.22倍）、観光地は記念碑（ピンクは訪問数・水色は持ち数で大きく） */
     DKR_o.drawBuilding = drawBuilding;
     drawBuilding = function(ctx, G2, i, T){
       var t = G2 && G2.tiles && G2.tiles[i];
       if(t && t.tour){
         if(t.tour === 'pink' && t._dkrV !== (t.visits | 0)){ t._dkrV = t.visits | 0; try{ boardChanged(); }catch(e){} }
-        if(t.owner >= 0){ try{ dkrMonumentAt(ctx, G2, i, T); }catch(e){} }
+        if(t.owner >= 0){ try{ dkrMonumentAt(ctx, G2, i, T); }catch(e){ console.error('[WP11]', e); } }
         return;
       }
       if(!t || t.type !== 'city' || t.owner < 0) return DKR_o.drawBuilding.apply(this, arguments);
       var A = dkrAnchor(i), s = t.landmark ? 1.22 : DKR_BSCALE;
+      /* 伸びる途中・ランドマーク（光の柱が動く）以外は、都市ごとの作り置きを貼る（毎フレームの建物の描き直しをやめる） */
+      if(G2 === G && !t.landmark && (t.grow === undefined || t.grow === 1)){
+        var sp = dkrBldSprite(i, t, A, s);
+        if(sp){ ctx.drawImage(sp.c, A.o.x - sp.ox, A.o.y - sp.oy, sp.w, sp.h); return; }
+      }
       ctx.save();
       ctx.translate(A.o.x, A.o.y); ctx.scale(s, s); ctx.translate(-A.o.x, -A.o.y);
       try{ return DKR_o.drawBuilding.apply(this, arguments); } finally { ctx.restore(); }
+    };
+    /* nextTurn：ラウンドが進んだら砂嵐・伝染病の残りを1減らす（停電は手番ごとに減る frozen） */
+    DKR_o.nextTurn = nextTurn;
+    nextTurn = function(){
+      var before = G ? G.turnsLeft : 0;
+      var r = DKR_o.nextTurn.apply(this, arguments);
+      try{
+        if(G && G.tiles && G.turnsLeft !== before){
+          var ch = false;
+          G.tiles.forEach(function(t){
+            if(!t) return;
+            if(t.sand > 0){ t.sand--; ch = true; }
+            if(t.plague > 0){ t.plague--; ch = true; }
+            if(t.dkrDark && !(t.frozen > 0)){ t.dkrDark = 0; ch = true; }
+          });
+          if(ch) boardChanged();
+        }
+      }catch(e){ console.error('[WP11]', e); }
+      return r;
     };
     /* ポップアップの canvas は差し込まれた瞬間に塗る（7-online.js が作る建設パネルでも絵が出る） */
     var body = document.getElementById('modalBody');
@@ -1964,5 +2791,5 @@ function dkrMiniAnim(cv, mode, side){
         if(c) dkrBuildSync(c.closest('.dkr-build'));
       });
     }
-  }catch(e){ console.error('[WP5]', e); }
+  }catch(e){ console.error('[WP11]', e); }
 })();
