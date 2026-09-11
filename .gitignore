@@ -1,3 +1,5 @@
 node_modules/
 *.log
 zz-*.html
+# 班ごとの作業用 worktree（.claude/worktrees など）は GitHub に上げない
+.claude/

@@ -648,6 +648,75 @@ function dvQueueDice(seat, force, impact, target){ return Promise.resolve(); }
 function dkGaugePair(total, die, force){ return rollPair(force, false, die); }
 function dkPayFrom(pi, amt, toPi){ return Promise.resolve(payFrom(pi, amt)); }
 function dkShowReach(list){ if(G) G.reachTiles = list; }
+/* ── v10 の契約の仮の部品（波0）。本物は後ろのファイル（9a・9k＝WP12、9g＝WP13、9h＝WP14、9l＝WP10）で宣言し直す。
+   ここは Math.random を呼ばない（自動対戦の種を乱さない）。dkkStacksChanged・dvSendEmote・dvSendLike は置かない（typeof で確かめる約束） ── */
+/* C01 割合 → 円（本物と同じ表。倍率は呼ぶ側） */
+function dkRate(key){
+  var R = { salary:.15, bail:.10, travel:.025, host:.025, stake0:.05, stake1:.10, stake2:.15, donate:.05, tourLand:.05, tourToll:.04 };
+  return Math.round(cfg.cash * (R[key] || 0));
+}
+/* C02 クラス係数（1000万で 1） */
+function dkScale(){ return cfg.cash / 10000000; }
+/* C03 チーム戦（席0,2＝0／1,3＝1。自分自身も味方。個人戦の dkTeamOf は席番号） */
+function dkAlly(a, b){
+  if(a === b) return true;
+  if(!cfg.team || !G || !G.players) return false;
+  var A = G.players[a], B = G.players[b];
+  return !!(A && B && A.team !== undefined && A.team === B.team);
+}
+function dkTeamOf(pi){
+  var p = G && G.players ? G.players[pi] : null;
+  if(p && p.team !== undefined) return p.team;
+  return cfg.team ? (pi % 2) : pi;
+}
+/* C07 対戦の初期化（仮は cfg.team の時の p.team だけ） */
+function dkInitPlayers(g, carryBySeat){
+  if(!g || !g.players) return;
+  g.players.forEach(function(p, i){ if(cfg.team) p.team = i % 2; });
+}
+/* C04 能力の発動（仮は発動しない） */
+function dkSkillRoll(pi, when, info){ return { fired:false, kind:null, p:0, label:'' }; }
+/* C05 サイコロの能力・能力値の内訳・名前 */
+function dkDieAb(pi){ return { mini:0, fortune:0, build:0, gauge:0, buyout:0, gold:0, rp:0, oddeven:0 }; }
+function dkStatSplit(pi){
+  var p = G && G.players ? G.players[pi] : null, st = (p && p.stats) || {};
+  return STAT_LABELS.map(function(kl){ return { key:kl[0], base:(typeof st[kl[0]] === 'number' ? st[kl[0]] : 50), plus:0 }; });
+}
+function dkStatLabels(cardId){ return STAT_LABELS.map(function(kl){ return [kl[0], kl[1]]; }); }
+/* C06 ペンダントの枠の数 */
+function dkPendSlots(cardId){ return 4; }
+/* C21 キューブ・品物（仮は何もしない） */
+function dkGiveCube(kind){ return { id:null, kind:kind }; }
+function dkOpenCube(id){ return { card:null, pend:null, die:null, gold:0 }; }
+function dkGrantItem(it){ return false; }
+/* C23 本日のマップ・C24 名札の枠 */
+function dkTodayMap(){ return cfg.mapId || MAPS[0].id; }
+function dkFrameOf(pi){ return ''; }
+/* C09 マップの仕掛け（仮は仕掛けなし） */
+function dkMapTiles(t, map){ return t; }
+function dkMapResolve(pi, t, depth){ return Promise.resolve(0); }
+function dkMapToll(tile, g){ return 1; }
+function dkMapInfo(id){
+  var m = null; for(var i = 0; i < MAPS.length; i++){ if(MAPS[i].id === id){ m = MAPS[i]; break; } }
+  return { name:(m && m.name) || '', line:'', help:'' };
+}
+function dkMapBonus(id){ return null; }
+function dkMapCards(id){ return []; }
+/* C10〜C12・C15 対戦中の通知・札・カラー独占・エモート（仮の通知は toast へ） */
+function dkNotify(pi, icon, title, sub, opt){ toast('R', icon || '', title || '', sub || '', opt && opt.ms); }
+function dkBusyTag(pi, text){}
+function dkColorMono(pi, g){}
+function dkEmoteShow(seat, list){}
+function dkLikeShow(seat, n){}
+/* C14 自動プレイ */
+function dkSetAuto(pi, on, why){
+  var p = G && G.players ? G.players[pi] : null; if(!p) return;
+  p.auto = !!on;
+  p.autoWeak = !!(on && (why === 'timeout' || p.autoWeak));
+}
+function dkIsAuto(pi){ var p = G && G.players ? G.players[pi] : null; return !!(p && p.auto); }
+/* C18 作り置きの部品を作り直す（仮は作り置きが無いので何もしない） */
+function dkkInvalidate(kind){}
 // ==== DK CONTRACT STUBS END ====
 
 /* ══════════ 包む関数 ══════════ */

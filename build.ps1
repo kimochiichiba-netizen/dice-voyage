@@ -9,6 +9,14 @@
 #  ・連結後の本文で <script> と </script> がそれぞれ1個かを確かめる。
 #  ・JS の中身を一時ファイルに書き出して node --check を通す。
 #    失敗したら html を書き出さずに exit 1（const/let の二重宣言で全画面が真っ白になる事故を止める）。
+#
+# v10 の決まり（波0）
+#  ・$parts に 1u-maps.html・1v-perf.html・9k-maps.js・9l-perf.js を足した（無ければ skip）。build.ps1 を触るのは波0と WP18 だけ。
+#  ・連結後の JS（<script> 1個）と CSS（<style>）からコメントと行頭の字下げを落とす（圧縮）。
+#    文字列・テンプレート・正規表現・url(...) の中は触らない字句解析を下の node スクリプトで行う（%TEMP% に書き出して動かす）。
+#    2回目にかけても変わらないこと・文字列の並びが同じことを自分で確かめ、圧縮後の JS も node --check に通す。
+#  ・圧縮しないビルドは -NoMin（例: powershell -NoProfile -ExecutionPolicy Bypass -File build.ps1 -NoMin）。
+param([switch]$NoMin)
 $ErrorActionPreference = 'Stop'
 $d = Split-Path -Parent $MyInvocation.MyCommand.Path
 $enc = New-Object System.Text.UTF8Encoding($false)
@@ -24,11 +32,13 @@ $parts = @("1-style.html","1b-ui.html","1c-meta.html","1d-polish.html","1e-dk.ht
            "1h-board.html","1i-title.html","1j-fast.html",
            "1k-fx.html","1l-pend.html","1m-cards.html","1n-flow.html","1o-match.html","1p-tiles.html",
            "1q-turn.html","1r-board.html","1s-shop.html","1t-home.html",
+           "1u-maps.html","1v-perf.html",
            "2-body.html",
            "3-core.js","3b-art.js","3e-style.js",
            "6-audio.js","6b-bgm.js","6c-bgm2.js","6d-jingle.js","4-game.js","7-online.js","5-meta.js","8-dk.js",
            "9-fx.js","9a-core.js","9b-pend.js","9c-cards.js","9d-flow.js","9e-match.js","9f-tiles.js",
            "9g-turn.js","9h-board.js","9i-shop.js","9j-home.js",
+           "9k-maps.js","9l-perf.js",
            "9z-end.html")
 
 $sb = New-Object System.Text.StringBuilder
@@ -86,6 +96,258 @@ if($node){
   Write-Output ("node --check: OK（" + [math]::Round($js.Length/1024) + " KB の JS）")
 } else {
   Write-Warning "node が見つからないので構文チェックを飛ばしました"
+}
+
+# ── 圧縮（v10 波0）：連結後の JS/CSS からコメントと行頭の字下げを落とす ──
+#   下の node スクリプトを %TEMP% に書き出して動かす（新しいプロジェクトファイルは作らない）。
+#   失敗・自己点検の不一致・圧縮後の node --check の失敗は、html を書き出さずに exit 1。-NoMin なら圧縮しない。
+if(-not $NoMin){
+  if(-not $node){ Write-Host "ERROR: 圧縮には node が要ります（圧縮しないなら -NoMin）" -ForegroundColor Red; exit 1 }
+  $minSrc = @'
+'use strict';
+/* dv-min (build.ps1 step): strip comments and indentation from the single <script> block and the <style> blocks.
+   Strings, template literals, regex literals and unquoted url(...) are copied verbatim.
+   Self-check: the literal list must be identical and a second pass must change nothing.
+   usage: node dv-min.cjs <in.html> <out.html> <out-js.cjs> <stats.json>   (ASCII only: embedded in build.ps1) */
+const fs = require('fs');
+
+const KW_EXPR = new Set(['return', 'typeof', 'instanceof', 'in', 'of', 'new', 'delete', 'void', 'throw', 'case', 'do', 'else', 'yield', 'await']);
+const KW_PAREN = new Set(['if', 'while', 'for', 'with']);
+const isIdStart = c => (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c === '_' || c === '$' || c > '\x7f';
+const isIdPart = c => isIdStart(c) || (c >= '0' && c <= '9');
+const isNl = c => c === '\n' || c === '\r' || c === '\u2028' || c === '\u2029';
+const isSp = c => c === ' ' || c === '\t' || c === '\v' || c === '\f' || c === '\u00a0' || c === '\ufeff';
+
+function minJS(s){
+  const out = [], lits = [], stack = [];
+  const n = s.length;
+  let i = 0, atLS = true, sp = false, prev = '', lastPunct = '', lastWord = '';
+  const where = k => { const a = s.lastIndexOf('\n', k); return 'line ' + (s.slice(0, k).split('\n').length) + ': ' + s.slice(a + 1, a + 90).replace(/\s+/g, ' '); };
+  const emit = t => { if (sp && !atLS) out.push(' '); sp = false; out.push(t); atLS = false; };
+  const nl = () => { sp = false; if (!atLS){ out.push('\n'); atLS = true; } };
+  const tmpl = j => {                       // j = first char of a template chunk; returns end and whether it stopped at ${
+    let k = j;
+    while (k < n){
+      const c = s[k];
+      if (c === '\\'){ k += 2; continue; }
+      if (c === '`') return { end: k + 1, open: false };
+      if (c === '$' && s[k + 1] === '{') return { end: k + 2, open: true };
+      k++;
+    }
+    throw new Error('unterminated template: ' + where(j));
+  };
+  const lit = (t, x) => { emit(t); lits.push(t); prev = 'x'; lastPunct = ''; lastWord = ''; };
+  while (i < n){
+    const c = s[i];
+    if (c === '\r'){ nl(); i++; if (s[i] === '\n') i++; continue; }
+    if (isNl(c)){ nl(); i++; continue; }
+    if (isSp(c)){ sp = true; i++; continue; }
+    if (c === '/' && s[i + 1] === '/'){
+      let k = i + 2; while (k < n && !isNl(s[k])) k++;
+      i = k; sp = true; continue;
+    }
+    if (c === '/' && s[i + 1] === '*'){
+      const k = s.indexOf('*/', i + 2);
+      if (k < 0) throw new Error('unterminated comment: ' + where(i));
+      if (/[\n\r\u2028\u2029]/.test(s.slice(i + 2, k))) nl(); else sp = true;
+      i = k + 2; continue;
+    }
+    if (c === '"' || c === "'"){
+      let k = i + 1;
+      while (k < n && s[k] !== c){
+        if (s[k] === '\\'){ k += 2; continue; }
+        if (s[k] === '\n' || s[k] === '\r') throw new Error('unterminated string: ' + where(i));
+        k++;
+      }
+      if (k >= n) throw new Error('unterminated string: ' + where(i));
+      lit(s.slice(i, k + 1)); i = k + 1; continue;
+    }
+    if (c === '`'){
+      const r = tmpl(i + 1);
+      const t = s.slice(i, r.end);
+      emit(t); lits.push(t); i = r.end; lastWord = '';
+      if (r.open){ stack.push('T'); prev = 'r'; lastPunct = '{'; } else { prev = 'x'; lastPunct = ''; }
+      continue;
+    }
+    if (c === '/'){
+      if (prev !== 'x'){
+        let k = i + 1, cls = false, ok = false;
+        while (k < n){
+          const d = s[k];
+          if (d === '\\'){ k += 2; continue; }
+          if (isNl(d)) break;
+          if (cls){ if (d === ']') cls = false; }
+          else if (d === '[') cls = true;
+          else if (d === '/'){ ok = true; break; }
+          k++;
+        }
+        if (ok){
+          k++; while (k < n && isIdPart(s[k])) k++;
+          lit(s.slice(i, k)); i = k; continue;
+        }
+      }
+      emit('/'); i++; prev = 'r'; lastPunct = '/'; lastWord = ''; continue;
+    }
+    if (isIdStart(c)){
+      let k = i + 1; while (k < n && isIdPart(s[k])) k++;
+      const w = s.slice(i, k), member = lastPunct === '.';
+      emit(w); i = k;
+      prev = (!member && KW_EXPR.has(w)) ? 'r' : 'x';
+      lastWord = member ? '' : w; lastPunct = '';
+      continue;
+    }
+    if ((c >= '0' && c <= '9') || (c === '.' && s[i + 1] >= '0' && s[i + 1] <= '9')){
+      let k = i + 1; while (k < n && (isIdPart(s[k]) || s[k] === '.')) k++;
+      emit(s.slice(i, k)); i = k; prev = 'x'; lastPunct = ''; lastWord = ''; continue;
+    }
+    if (c === '{'){ emit('{'); stack.push('{'); i++; prev = 'r'; lastPunct = '{'; lastWord = ''; continue; }
+    if (c === '}'){
+      const top = stack.pop();
+      if (top === 'T'){
+        const r = tmpl(i + 1);
+        const t = s.slice(i, r.end);
+        emit(t); lits.push(t); i = r.end; lastWord = '';
+        if (r.open){ stack.push('T'); prev = 'r'; lastPunct = '{'; } else { prev = 'x'; lastPunct = ''; }
+        continue;
+      }
+      if (top !== '{') throw new Error('unbalanced } : ' + where(i));
+      emit('}'); i++; prev = 'r'; lastPunct = '}'; lastWord = ''; continue;
+    }
+    if (c === '('){ emit('('); stack.push(KW_PAREN.has(lastWord) ? 'K' : '('); i++; prev = 'r'; lastPunct = '('; lastWord = ''; continue; }
+    if (c === ')'){
+      const top = stack.pop();
+      if (top !== '(' && top !== 'K') throw new Error('unbalanced ) : ' + where(i));
+      emit(')'); i++; prev = top === 'K' ? 'r' : 'x'; lastPunct = ')'; lastWord = ''; continue;
+    }
+    if (c === ']'){ emit(']'); i++; prev = 'x'; lastPunct = ']'; lastWord = ''; continue; }
+    if ((c === '+' || c === '-') && s[i + 1] === c){ emit(c + c); i += 2; prev = 'x'; lastPunct = c; lastWord = ''; continue; }
+    emit(c); i++; prev = 'r'; lastPunct = c; lastWord = '';
+  }
+  if (stack.length) throw new Error('unclosed ' + stack.join('') + ' at end');
+  return { out: out.join(''), lits };
+}
+
+function minCSS(s){
+  const out = [], lits = [];
+  const n = s.length;
+  let i = 0, sp = false, last = '';
+  const hard = c => c === '{' || c === '}' || c === ';' || c === ',';
+  const emit = t => {
+    if (sp && last !== '' && !hard(last) && !hard(t[0])) out.push(' ');
+    sp = false; out.push(t); last = t[t.length - 1];
+  };
+  const ws = c => c === ' ' || c === '\t' || c === '\n' || c === '\r' || c === '\f';
+  while (i < n){
+    const c = s[i];
+    if (c === '/' && s[i + 1] === '*'){
+      const k = s.indexOf('*/', i + 2);
+      if (k < 0) throw new Error('css: unterminated comment');
+      const before = i > 0 ? s[i - 1] : ' ', after = k + 2 < n ? s[k + 2] : ' ';
+      if (ws(before) || ws(after) || hard(before) || hard(after) || sp) sp = true;
+      else emit('/**/');                     // x/**/y: keep the tokens apart
+      i = k + 2; continue;
+    }
+    if (ws(c)){ sp = true; i++; continue; }
+    if (c === '"' || c === "'"){
+      let k = i + 1;
+      while (k < n && s[k] !== c){
+        if (s[k] === '\\'){ k += 2; continue; }
+        if (s[k] === '\n') throw new Error('css: unterminated string');
+        k++;
+      }
+      const t = s.slice(i, k + 1); emit(t); lits.push(t); i = k + 1; continue;
+    }
+    if (c === '\\'){ emit(s.slice(i, i + 2)); i += 2; continue; }
+    if ((c === 'u' || c === 'U') && /^url\(/i.test(s.slice(i, i + 4)) && !(i > 0 && /[\w-]/.test(s[i - 1]))){
+      let k = i + 4; while (k < n && ws(s[k])) k++;
+      if (s[k] !== '"' && s[k] !== "'"){
+        const e = s.indexOf(')', k);
+        if (e < 0) throw new Error('css: unterminated url(');
+        const t = s.slice(i, e + 1); emit(t); lits.push(t); i = e + 1; continue;
+      }
+    }
+    emit(c); i++;
+  }
+  return { out: out.join(''), lits };
+}
+
+function twice(fn, src, name){
+  const a = fn(src), b = fn(a.out);
+  if (a.lits.length !== b.lits.length || a.lits.some((x, k) => x !== b.lits[k])) throw new Error(name + ': literal list changed on the 2nd pass');
+  if (a.out !== b.out) throw new Error(name + ': 2nd pass is not identical');
+  return a.out;
+}
+
+const [inF, outF, jsF, stF] = process.argv.slice(2);
+const body = fs.readFileSync(inF, 'utf8');
+const mo = /<script\b[^>]*>/i.exec(body);
+if (!mo) throw new Error('no <script>');
+const js0 = mo.index + mo[0].length;
+const mc = /<\/script\s*>/i.exec(body.slice(js0));
+if (!mc) throw new Error('no </script>');
+const js1 = js0 + mc.index;
+const B = x => Buffer.byteLength(x, 'utf8');
+const st = { js_before: 0, js_after: 0, css_before: 0, css_after: 0, style_blocks: 0 };
+const cssPart = part => part.replace(/(<style\b[^>]*>)([\s\S]*?)(<\/style\s*>)/gi, (m, a, css, z) => {
+  const o = twice(minCSS, css, 'css#' + (++st.style_blocks));
+  st.css_before += B(css); st.css_after += B(o);
+  return a + o + z;
+});
+const jsIn = body.slice(js0, js1);
+const jsOut = twice(minJS, jsIn, 'js');
+st.js_before = B(jsIn); st.js_after = B(jsOut);
+const outBody = cssPart(body.slice(0, js0)) + jsOut + cssPart(body.slice(js1));
+st.total_before = st.js_before + st.css_before;
+st.total_after = st.js_after + st.css_after;
+st.cut_pct = Math.round((1 - st.total_after / st.total_before) * 1000) / 10;
+fs.writeFileSync(outF, outBody, 'utf8');
+fs.writeFileSync(jsF, jsOut, 'utf8');
+fs.writeFileSync(stF, JSON.stringify(st), 'utf8');
+process.stdout.write('min: JS ' + Math.round(st.js_before / 1024) + '->' + Math.round(st.js_after / 1024) + ' KB, CSS '
+  + Math.round(st.css_before / 1024) + '->' + Math.round(st.css_after / 1024) + ' KB (' + st.style_blocks + ' blocks), JS+CSS -' + st.cut_pct + '%\n');
+'@
+  $mtag = Join-Path $env:TEMP ("dv-min-" + $PID)
+  $mjs = $mtag + ".cjs"; $min_in = $mtag + "-in.html"; $min_out = $mtag + "-out.html"; $min_js = $mtag + "-js.cjs"; $min_st = $mtag + "-st.json"
+  [System.IO.File]::WriteAllText($mjs, $minSrc, $enc)
+  [System.IO.File]::WriteAllText($min_in, $body, $enc)
+  $body2 = $null; $mst = $null; $mout = @(); $cout = @(); $mcode = -1; $ccode = -1
+  $eap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+  try{
+    $mout = & $node.Source $mjs $min_in $min_out $min_js $min_st 2>&1 | ForEach-Object { "$_" } |
+            Where-Object { $_ -notmatch '^System\.Management\.Automation\.RemoteException$' }
+    $mcode = $LASTEXITCODE
+    if($mcode -eq 0){
+      $cout = & $node.Source --check $min_js 2>&1 | ForEach-Object { "$_" } |
+              Where-Object { $_ -notmatch '^System\.Management\.Automation\.RemoteException$' }
+      $ccode = $LASTEXITCODE
+      if($ccode -eq 0){
+        $body2 = [System.IO.File]::ReadAllText($min_out, [System.Text.Encoding]::UTF8)
+        $mst = [System.IO.File]::ReadAllText($min_st, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+      }
+    }
+  } finally {
+    $ErrorActionPreference = $eap
+    foreach($f in @($mjs, $min_in, $min_out, $min_js, $min_st)){ try{ [System.IO.File]::Delete($f) }catch{} }
+  }
+  if($mcode -ne 0){
+    Write-Host "ERROR: 圧縮に失敗しました（html は書き出していません。-NoMin なら圧縮なしでビルドできます）" -ForegroundColor Red
+    $mout | ForEach-Object { Write-Host ("  " + $_) }
+    exit 1
+  }
+  if($ccode -ne 0){
+    Write-Host "ERROR: 圧縮後の JS が node --check に通りません（html は書き出していません。-NoMin なら圧縮なし）" -ForegroundColor Red
+    $cout | ForEach-Object { Write-Host ("  " + $_) }
+    exit 1
+  }
+  $n2o = ([regex]::Matches($body2, '(?i)<script\b[^>]*>')).Count
+  $n2c = ([regex]::Matches($body2, '(?i)</script\s*>')).Count
+  if($n2o -ne 1 -or $n2c -ne 1){ Write-Host "ERROR: 圧縮後の <script> / </script> の数が合いません" -ForegroundColor Red; exit 1 }
+  $body = $body2
+  Write-Output ("圧縮: JS " + [math]::Round($mst.js_before/1024) + " -> " + [math]::Round($mst.js_after/1024) + " KB、CSS " +
+                [math]::Round($mst.css_before/1024) + " -> " + [math]::Round($mst.css_after/1024) + " KB（JS+CSS -" + $mst.cut_pct +
+                "%、圧縮後の node --check: OK）")
+} else {
+  Write-Output "圧縮: しない（-NoMin）"
 }
 
 # ── BGM：assets/bgm/ にファイルがあれば自動で組み込む ──
