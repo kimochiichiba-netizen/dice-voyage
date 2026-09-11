@@ -41,6 +41,16 @@ var DKC_CTABS = [
 var DKC_DTABS = [
   { id:'dice', nm:'サイコロ' }, { id:'up', nm:'強化' }, { id:'kiwami', nm:'極' }, { id:'book', nm:'図鑑' }
 ];
+/* サイコロの粒と着地音（G05）：黄金＝金貨・LED＝光の点・トランプ＝♠♥♦♣・亡者＝紫の鬼火・ふつう＝木くず */
+var DKC_DPART = { d0:{ k:'wood', nm:'木くず' }, d1:{ k:'coin', nm:'金貨' }, d2:{ k:'led', nm:'光の点' },
+                  d3:{ k:'suit', nm:'トランプの札' }, d4:{ k:'wisp', nm:'紫の鬼火' } };
+/* サイコロの能力（J42）の Lv1値・MAX値。本物は WP12a の DKCORE_DIEAB（C05）。無い間だけこの表で見せる */
+var DKC_DAB = { d0:{}, d1:{ fortune:[5, 20], gauge:[6, 25] }, d2:{ build:[5, 20], gauge:[5, 20], gold:[5, 20] },
+                d3:{ mini:[8, 30], oddeven:[1, 1] }, d4:{ buyout:[6, 25], rp:[6, 25] } };
+var DKC_ABNM = { mini:['ミニゲーム勝利', 'p'], fortune:['黄金フォーチュン', 'p'], build:['建設費用割引', 'p'], gauge:['ゲージインパクト', 'p'],
+                 buyout:['買収費用割引', 'p'], gold:['ゴールドボーナス', '%'], rp:['RPボーナス', '%'], oddeven:['偶数奇数', '回'] };
+var DKC_DP = [];                                   // 盤の上のサイコロの粒（転がる間 8個まで・着地 16個）
+var DKC_DFX = { anim:null, last:0, emit:0, land:false, burstN:0, sndN:0, maxRoll:0, spr:null, nz:null };
 /* 画面の状態（セーブには入れない） */
 var DKC_S = {
   tab:'own', sel:null, upSel:null, mats:{}, mixA:null, mixB:null, bookSel:null,
@@ -255,12 +265,15 @@ function dkcMixElig(id){
   if(!c || !o) return { ok:false, why:'未所持' };
   if(c.rar === 'SS') return { ok:false, why:'S+ は最高の等級' };
   if(o.lv < dkcCap(c)) return { ok:false, why:'Lv.' + dkcCap(c) + ' で合成できます' };
-  if(SV.equip === id) return { ok:false, why:'装備中は素材にできません' };
+  if(SV.equip === id) return { ok:false, why:'装着中は素材にできません' };
   return { ok:true, why:'' };
 }
 function dkcNextRar(r){ return r === 'A' ? 'S' : r === 'S' ? 'SS' : null; }
-/* 狙いの確率：1〜9回目は回数×10%、10回目で確定 */
-function dkcAimP(){ var n = ((SV.pity && SV.pity.card) | 0) + 1; return Math.min(1, n / 10); }
+/* 狙いの確率：k 回目は max(k×10%, 1/S+の種類数)、10回目で確定（ペンダントの S→S+ と同じ考え） */
+function dkcAimP(){
+  var n = ((SV.pity && SV.pity.card) | 0) + 1, pool = CARDPOOL.filter(function(c){ return c.rar === 'SS'; }).length || 1;
+  return n >= 10 ? 1 : Math.max(n * 0.1, 1 / pool);
+}
 function dkcMixPlan(){
   var a = DKC_S.mixA, b = DKC_S.mixB, p = { ok:false, reason:'', rar:null, next:null, cost:0 };
   var ea = a ? dkcMixElig(a) : null, eb = b ? dkcMixElig(b) : null;
@@ -320,9 +333,9 @@ function dkcSetClaim(key){ if(!SV.book || typeof SV.book !== 'object') SV.book =
 function dkcAlbumHave(al){ return al.cards.filter(function(id){ return !!dkcOwn(id); }).length; }
 /* 入手先（等級ごと・アルバムの報酬も） */
 function dkcWhere(c){
-  var s = c.rar === 'A' ? 'キューブ（どのレーンでも）・対戦のごほうび'
-        : c.rar === 'S' ? 'キューブ（どのレーンでも）・A と A の合成'
-        : 'スペシャル／プレミアムのキューブ・S と S の合成';
+  var s = c.rar === 'A' ? 'カードパック（ガチャ）・キューブ・対戦のごほうび'
+        : c.rar === 'S' ? 'カードパック（ガチャ）・キューブ・A と A の合成'
+        : 'スペシャル／プレミアムカードパック・S と S の合成';
   var al = DKC_ALBUMS.filter(function(a){ return a.cards.indexOf(c.id) >= 0; })[0];
   return s + (al ? '（アルバム「' + al.nm + '」の1枚）' : '');
 }
@@ -341,16 +354,15 @@ function dkcDieCost(lv){
   return Math.round(DKC_DCOST[lv - 1] * (dkcClaimed('db5') ? 0.8 : 1));
 }
 function dkcDieRest(lv){ var s = 0; for(var l = lv; l < 10; l++) s += dkcDieCost(l); return s; }
-/* 画面のバー（ゲームと同じ dkDieStats から作る） */
-function dkcDieRows(id, lv, kw){
-  var s = dkDieStats(id, lv, kw);
-  var r1 = function(v){ return Math.round(v * 10) / 10; };
-  return [
-    { l:'出目の大きさ',     v:s.big * 55,   max:63.25, t:'+' + r1(s.big * 55) + '%',  c:'rd', ic:'sword' },
-    { l:'ゲージの当たり',   v:s.gauge,      max:14,    t:'+' + r1(s.gauge),           c:'bl', ic:'shield' },
-    { l:'ゾロ目の出やすさ', v:s.dbl * 100,  max:9,     t:'+' + r1(s.dbl * 100) + '%', c:'gd', ic:'dice' }
-  ];
+/* サイコロの能力（J42）：Lv1値・MAX値と、いまの Lv の値 */
+function dkcDieRows(id, lv){
+  return dkcAbList(id).map(function(r){
+    var nm = DKC_ABNM[r[0]];
+    return { k:r[0], l:nm[0], u:nm[1], a:r[1], b:r[2], cur:dkcAbAt(r[1], r[2], lv),
+             c:(r[0] === 'gold' || r[0] === 'fortune') ? 'gd' : (r[0] === 'rp' || r[0] === 'oddeven') ? 'rd' : 'bl' };
+  });
 }
+function dkcAbTx(v, u){ return (u === '回' ? '+' : '') + v + u; }
 /* canvas でサイコロを描いて data URL にする（ゲームと同じ dvDie。等級ごとに色を変える） */
 function dkcDieImg(id, px, face){
   var key = id + ':' + px + ':' + (face || 5);
@@ -482,7 +494,7 @@ function dkcItem(c, opt){
   var bg = (st !== 'unseen' && face) ? ' style="background-image:url(' + face + '),var(--dkc-rg)"' : '';
   var h = '<div class="dkc-item dkc-r' + (st === 'unseen' ? 'X' : c.rar) + ' dkc-s' + st + (opt.on ? ' on' : '') + (opt.dim ? ' dkc-dim' : '') + '"'
     + (opt.attr ? ' ' + opt.attr : '') + ' data-fx-press>';
-  if(opt.eq !== false && SV.equip === c.id && o) h += '<span class="dkc-eq">装備中</span>';
+  if(opt.eq !== false && SV.equip === c.id && o) h += '<span class="dkc-eq">装着中</span>';
   if(opt.pick) h += '<span class="dkc-pk">' + opt.pick + '</span>';
   h += '<div class="dkc-face"' + bg + '>' + (st === 'unseen' ? '<i class="dkc-sealq"></i>' : '')
     +  (o && (o.dup | 0) > 0 && opt.dup !== false ? '<span class="dkc-dup">×' + o.dup + '</span>' : '')
@@ -501,13 +513,50 @@ function dkcBottom(list, mode, fn){
     + list.map(fn).join('')
     + '</div><i class="dkc-fade dkc-fl"></i><i class="dkc-fade dkc-fr"></i></div></div>';
 }
-function dkcStatBars(st){
-  return '<div class="dkc-stats">' + STAT_LABELS.map(function(kv){
-    var v = st[kv[0]] || 0;
+/* 能力値7本：名前は dkStatLabels（A は1本目が「孤立地域脱出成功」）、基本値＋装着中のサイコロの青い +N（J58・C05） */
+function dkcStatBars(c, lv){
+  var st = cardStats(c.id, lv, []) || {}, plus = dkcDiePlus(), labs = null;
+  try{ labs = dkStatLabels(c.id); }catch(e){ labs = null; }
+  if(!Array.isArray(labs) || !labs.length) labs = STAT_LABELS;
+  return '<div class="dkc-stats">' + labs.map(function(kv){
+    var v = Math.round(st[kv[0]] || 0), pl = plus[kv[0]] | 0, w = Math.min(100, v);
     return '<div class="st dkc-st"><span class="l">' + esc(kv[1]) + '</span>'
-      + '<span class="dkbar' + (v >= 80 ? ' gd' : v >= 60 ? '' : ' bl') + '"><i style="width:' + Math.min(100, v) + '%"></i></span>'
-      + '<b>' + v + '</b></div>';
+      + '<span class="dkbar' + (v >= 80 ? ' gd' : v >= 60 ? '' : ' bl') + '"><i style="width:' + w + '%"></i>'
+      + (pl ? '<u class="dkc-plb" style="left:' + w + '%;width:' + Math.max(0, Math.min(100 - w, pl)) + '%"></u>' : '') + '</span>'
+      + '<b>' + v + (pl ? '<em class="dkc-plus">+' + pl + '</em>' : '') + '</b></div>';
   }).join('') + '</div>';
+}
+/* DKCORE_DIEAB[id] がどの形でも [[key, Lv1値, MAX値]] にそろえる（無ければ DKC_DAB） */
+function dkcAbList(id){
+  var T = null, out = [];
+  try{ if(typeof DKCORE_DIEAB === 'object' && DKCORE_DIEAB) T = DKCORE_DIEAB[id]; }catch(e){ T = null; }
+  if(!T || typeof T !== 'object') T = DKC_DAB[id] || {};
+  var push = function(k, a, b){
+    if(!DKC_ABNM[k]) return;
+    a = +a || 0; b = (b === undefined || b === null) ? a : (+b || 0);
+    if(a || b) out.push([k, a, b]);
+  };
+  if(Array.isArray(T)) T.forEach(function(r){
+    if(Array.isArray(r)) push(r[0], r[1], r[2]);
+    else if(r) push(r.k || r.key, r.lv1 !== undefined ? r.lv1 : r.a, r.max !== undefined ? r.max : (r.lv10 !== undefined ? r.lv10 : r.b));
+  });
+  else Object.keys(T).forEach(function(k){
+    var v = T[k];
+    if(Array.isArray(v)) push(k, v[0], v[v.length - 1]);
+    else if(v && typeof v === 'object') push(k, v.lv1 !== undefined ? v.lv1 : v.min, v.max !== undefined ? v.max : v.lv10);
+    else push(k, v, v);
+  });
+  return out;
+}
+/* その Lv の値（Lv1 と Lv10 を直線で結ぶ） */
+function dkcAbAt(a, b, lv){ lv = Math.max(1, Math.min(10, (lv | 0) || 1)); return Math.round(a + (b - a) * (lv - 1) / 9); }
+/* 装着中のサイコロが能力値に足す分 {key:+N} */
+function dkcDiePlus(){
+  var id = SV.die, o = {};
+  if(!dkcDieOwn(id)) return o;
+  var lv = dkcDieLv(id);
+  dkcAbList(id).forEach(function(r){ o[r[0]] = dkcAbAt(r[1], r[2], lv); });
+  return o;
 }
 
 /* ── 所持 ── */
@@ -515,8 +564,7 @@ function dkcTabOwn(){
   var list = dkcOwnedList();
   if(!DKC_S.sel || !dkcOwn(DKC_S.sel)) DKC_S.sel = dkcOwn(SV.equip) ? SV.equip : list[0].id;
   var c = dkcCard(DKC_S.sel), o = dkcOwn(c.id), cap = dkcCap(c), eq = SV.equip === c.id;
-  var st = cardStats(c.id, o.lv, eq ? SV.slots : []) || {};
-  var need = dkcNeed(o.lv), max = o.lv >= cap;
+  var need = dkcNeed(o.lv), max = o.lv >= cap, dp = dkcDiePlus(), dd = dkcDie(SV.die);
   var html = '<div class="dkmain dkc-main">'
     + '<div class="dkstage dkc-stage" data-fx="hero"><div class="fx-rays"></div><i class="dkc-floor"></i>'
     +   dkcBigCard(c, o.lv, { id:'dkcBig' }) + '</div>'
@@ -529,10 +577,11 @@ function dkcTabOwn(){
     +   '<div class="ef dkc-ef"><span class="ic">' + dkcSvg('mix') + '</span><div><b>' + esc(c.sk.nm) + '</b>'
     +     '<p>' + esc(c.sk.ds) + '（1試合 ' + c.sk.uses + '回）</p></div></div>'
     +   '<div class="line dkc-line">「' + esc(c.line) + '」</div>'
-    +   dkcStatBars(st)
+    +   dkcStatBars(c, o.lv)
+    +   (Object.keys(dp).length && dd ? '<p class="dkc-plnote">青い <em>+N</em> は装着中の' + esc(dd.nm) + '（Lv.' + dkcDieLv(dd.id) + '）の上乗せ</p>' : '')
     +   '<div class="btns">'
     +     '<button class="dkbtn gd dkc-bt" id="dkcToUp"' + (max ? ' disabled' : '') + '>' + (max ? '上限 Lv' : '強化する') + '</button>'
-    +     '<button class="dkbtn gr dkc-bt" id="dkcEquip"' + (eq ? ' disabled' : '') + '>' + (eq ? '装備中' : '装備する') + '</button>'
+    +     '<button class="dkbtn gr dkc-bt" id="dkcEquip"' + (eq ? ' disabled' : '') + '>' + (eq ? '装着中' : '装着') + '</button>'
     +   '</div>'
     + '</div></div>'
     + dkcBottom(list, 'own', function(x){ return dkcItem(x, { on:x.id === c.id, attr:'data-dkc-pick="' + x.id + '"' }); });
@@ -548,7 +597,7 @@ function dkcTabOwn(){
       if(eqb) eqb.onclick = function(){
         if(SV.equip === c.id) return;
         SV.equip = c.id; saveNow(); dkcSfx('click');
-        try{ toast('R', '🎴', esc(c.nm), '装備しました', 1500); }catch(e){}
+        try{ toast('R', '🎴', esc(c.nm), '装着しました', 1500); }catch(e){}
         showCards();
         var big = document.getElementById('dkcBig'); if(big){ fxBurst(big, { kind:'star', n:14 }); }
       };
@@ -597,7 +646,7 @@ function dkcUpDefault(list){
       + '</div>';
   });
   if(!mats.length) rows = '<div class="dkc-none"><p>素材になる「重なり」がありません。<br>同じカードを2枚目から引くと、それが素材になります。</p>'
-    + '<button class="dkbtn gr dkc-bt" id="dkcGoGacha">キューブへ</button></div>';
+    + '<button class="dkbtn gr dkc-bt" id="dkcGoGacha">ガチャへ</button></div>';
   if(maxed) rows = '<div class="dkc-none"><p>' + esc(plan.reason) + '</p>' + (c.rar !== 'SS' ? '<button class="dkbtn gr dkc-bt" id="dkcGoMix">合成へ</button>' : '') + '</div>';
   var planH = '';
   if(maxed) planH = '<div class="dkc-planrow dkc-full"><span>このカードは上限 Lv です</span></div>';
@@ -654,7 +703,7 @@ function dkcUpDefault(list){
         };
       });
       var gg = el.querySelector('#dkcGoGacha');
-      if(gg) gg.onclick = function(){ dkcSfx('click'); showGacha(); };
+      if(gg) gg.onclick = function(){ dkcSfx('click'); showGacha('card'); };
       var gm = el.querySelector('#dkcGoMix');
       if(gm) gm.onclick = function(){ dkcSfx('click'); DKC_S.tab = 'mix'; showCards(); };
       var go = el.querySelector('#dkcUpGo');
@@ -699,12 +748,13 @@ function dkcTabMix(){
     +   '<div class="dkc-warn">合成した2枚はなくなります（重なりがあれば Lv.1 の1枚が残ります）。できるカードは Lv.1 からです。</div>'
     + '</div>'
     + '<div class="dkdark dkdet dkc-det dkc-mixdet" data-fx="riseR">'
-    +   '<div class="dkc-mhd"><b>合成</b><small>上限 Lv の同じ等級2枚 → 1段上を1枚</small></div>'
+    +   '<div class="dkc-mhd"><b>合成</b><small>上限 Lv の同じ等級2枚 → 1段上を1枚</small><button class="dkp-oddsb" id="dkcOdds">提供割合</button></div>'
     +   '<div class="dkc-mixtbl"><div><span>A ＋ A</span><b>→ S</b><em>' + dkcCoin() + dkcFmt(DKC_MIXCOST.A) + '</em><small>A は Lv.20 で合成できます</small></div>'
     +     '<div><span>S ＋ S</span><b>→ S+</b><em>' + dkcCoin() + dkcFmt(DKC_MIXCOST.S) + '</em><small>S は Lv.25 で合成できます</small></div></div>'
     +   aimH
     +   '<div class="dkc-planrow"><span>合成できるカード</span><b>' + elig + ' 枚</b></div>'
     +   '<div class="dkc-planrow"><span>費用</span><b>' + (plan.ok || plan.cost ? dkcCoin() + dkcFmt(plan.cost) : '—') + '</b></div>'
+    +   dkcLeftLine(next, aim)
     +   '<div class="btns"><button class="dkbtn gd dkc-bt fx-primary" id="dkcMixGo"' + (plan.ok ? '' : ' disabled') + '>合成する</button></div>'
     +   (plan.ok ? '' : '<div class="dkc-why">' + esc(plan.reason) + '</div>')
     + '</div></div>'
@@ -742,10 +792,75 @@ function dkcTabMix(){
       });
       var am = el.querySelector('#dkcAim');
       if(am) am.onclick = function(){ dkcAimModal(); };
+      var od = el.querySelector('#dkcOdds');
+      if(od) od.onclick = function(){ if(DKC_S.busy) return; dkcSfx('click'); dkcOdds(); };
       var go = el.querySelector('#dkcMixGo');
       if(go) go.onclick = function(){ dkcRunMix(); };
     }
   };
+}
+
+/* 合成ボタンの上の「あと n 回で確定」（G13。S → S+ か、狙いを決めている時） */
+function dkcLeftLine(next, aim){
+  if(next !== 'SS' && !aim) return '';
+  var left = 10 - ((SV.pity && SV.pity.card) | 0);
+  return '<div class="dkc-left">' + (aim ? 'S+ の狙い：あと <b>' + Math.max(1, left) + '</b> 回で確定（今回 <b>' + Math.round(dkcAimP() * 100) + '%</b>）'
+                                       : '狙いを決めると、10回目で確定') + '</div>';
+}
+/* 合成の提供割合（A→S・S→S+ と、狙いの確率の表） */
+function dkcOdds(){
+  var S1 = CARDPOOL.filter(function(c){ return c.rar === 'S'; }), SS = CARDPOOL.filter(function(c){ return c.rar === 'SS'; });
+  var it = function(L, r){ return L.map(function(c){ return { kind:'card', id:c.id, nm:c.nm, rar:r, p:1 / L.length }; }); };
+  var cur = (SV.aim && SV.aim.card) ? ((SV.pity && SV.pity.card) | 0) + 1 : 0;
+  var o = { title:'カード合成　提供割合', blocks:[
+    { hd:'A ＋ A → S', items:it(S1, 'S') },
+    { hd:'S ＋ S → S+（狙いなし）', items:it(SS, 'SS') },
+    { hd:'S ＋ S → S+ の狙い', table:{ head:['回数', '狙いが出る確率'], rows:dkpAimRows(SS.length, cur) },
+      notes:['k 回目に狙いが出る確率 ＝ k × 10% と 1 ÷ ' + SS.length + '（S+ の種類数）の大きい方', '10回目は必ず狙いが出ます。狙いが出たら数え直します',
+             '再合成（ダイヤでやり直し）は回数に数えません'] } ] };
+  modal(dkpOddsHTML(o));
+}
+/* 再合成（J57）：同じ抽選表でもう1枚。天井（SV.pity.card）には数えない */
+function dkcRemixRoll(res){
+  var pool = CARDPOOL.filter(function(c){ return c.rar === res.rar; });
+  if(res.aim && res.rar === 'SS'){
+    if(res.p >= 1 || Math.random() < res.p) return dkcCard(res.aim);
+    var others = pool.filter(function(c){ return c.id !== res.aim; });
+    return others[(Math.random() * others.length) | 0] || pool[0];
+  }
+  return pool[(Math.random() * pool.length) | 0] || dkcCard(res.got);
+}
+async function dkcRemix(res, cost){
+  if(SV.gem < cost){ dkcWarn('ダイヤが足りません', '再合成には ダイヤ ' + cost + ' が要ります'); return null; }
+  var c1 = dkcCard(res.got), c2 = dkcRemixRoll(res);
+  if(!c1 || !c2) return null;
+  SV.gem -= cost;
+  saveNow();
+  try{ dkWallet(); }catch(e){}
+  dkcSfx('gachaRoll');
+  var act = await modal('<div class="modal dkc-modal"><div class="dkc-mbox dkc-wide">'
+    + '<div class="fx-ribbon gold"><b>どちらのカードを取りますか？</b></div>'
+    + '<div class="dkc-pick2">' + [c1, c2].map(function(c, i){
+        return '<div class="dkc-pk2"><span class="dkc-pk2t">' + (i ? '再合成' : '1回目') + '</span>' + dkcBigCard(c, 1, { cls:'dkc-sm' })
+          + '<button class="dkbtn ' + (i ? 'gd' : 'gr') + ' dkc-bt" data-act="k' + (i + 1) + '">これにする</button></div>';
+      }).join('') + '</div>'
+    + '<p class="dkc-mp">選ばなかったカードはなくなります。再合成は天井の回数に数えません。</p></div></div>');
+  var pick = (act === 'k2') ? c2 : c1;
+  if(pick.id !== c1.id){
+    var o = dkcOwn(c1.id);
+    if(o){
+      if(res.fresh){ delete SV.cards[c1.id]; if(SV.locks) delete SV.locks[c1.id]; }
+      else o.dup = Math.max(0, (o.dup | 0) - 1);
+    }
+    dkcGiveCard(c2.id);
+    if(!dkcOwn(SV.equip)) SV.equip = c2.id;
+  }
+  saveNow();
+  dkMarkSeen(c2.id);
+  dkEmit('card:remix', { first:c1.id, second:c2.id, pick:pick.id, cost:cost, pity:(SV.pity.card | 0) });
+  if(dkcScreenOn('cards')){ DKC_S.sel = pick.id; DKC_S.tab = 'own'; showCards(); }
+  try{ toast('R', '🎴', esc(pick.nm), dkcRarNm(pick.rar) + ' を Lv.1 で手に入れました', 2000); }catch(e){}
+  return pick.id;
 }
 
 /* ── 図鑑 ── */
@@ -852,10 +967,11 @@ function showCards(tab){
   var ab = DKC_ALBUMS.filter(function(a){ return !dkcClaimed(a.id) && dkcAlbumHave(a) >= 4; }).length;
   if(bk) badges.book = '!'; if(ab) badges.album = '!';
   var el = dkMake('cards', 'shop',
-      dkHead('cards', { title:'カード' })
+      dkHead('cards', { title:'キャラクターカード' })
     + dkcTabs(DKC_CTABS, T, ['cards', 'up', 'mix', 'book', 'album'], badges)
     + '<div class="dkbody dkc-body dkc-t' + T + (T === 'book' || T === 'album' ? '' : ' dkcol') + (swap ? ' dkc-swap' : '') + '">' + part.html + '</div>');
   el.classList.add('dkc-scr');
+  try{ dkpLogo(el, 'カード', 'キャラクター'); }catch(e){}
   dkWire(el, function(id){ if(DKC_S.busy) return; DKC_S.tab = id; showCards(); });
   dkcFxMarks(el);
   try{ part.wire(el); }catch(e){ console.error('[WP2]', e); }
@@ -993,13 +1109,17 @@ async function dkcMixModal(res){
     aimTx = res.hit ? '<div class="dkc-hit">狙い的中！</div>'
       : '<div class="dkc-miss2">狙いはまだ … あと ' + Math.max(1, 10 - ((SV.pity && SV.pity.card) | 0)) + ' 回で確定</div>';
   }
+  var cost = res.rar === 'SS' ? 40 : 20, can = SV.gem >= cost;
   var act = await modal('<div class="modal dkc-modal"><div class="dkc-mbox">'
     + '<div class="fx-ribbon ' + (res.rar === 'SS' ? 'gold' : 'blue') + '"><b>合成成功！</b></div>'
     + '<div class="dkc-mcard">' + dkcBigCard(c, 1, { cls:'dkc-sm' }) + '</div>'
     + '<p class="dkc-mp">' + dkcRarNm(c.rar) + '「' + esc(c.nm) + '」を Lv.1 で手に入れました' + (res.fresh ? '（NEW）' : '（重なり＋1）') + '</p>'
     + aimTx
     + '<div class="btnrow dkc-mbtns"><button class="dkbtn gr dkc-bt" data-act="view">カードを見る</button>'
-    + '<button class="dkbtn gd dkc-bt" data-act="ok">とじる</button></div></div></div>');
+    + '<button class="dkbtn dkc-bt dkc-remix" data-act="remix"' + (can ? '' : ' disabled') + '>再合成 ' + dkcGemI() + cost + '</button>'
+    + '<button class="dkbtn gd dkc-bt" data-act="ok">とじる</button></div>'
+    + '<p class="dkc-rmnote">再合成：ダイヤ ' + cost + ' でもう1回引き、2枚から1枚を選べます（1回だけ・天井に数えない）</p></div></div>');
+  if(act === 'remix'){ await dkcRemix(res, cost); return; }
   if(act === 'view' && dkcScreenOn('cards')){ DKC_S.sel = c.id; DKC_S.tab = 'own'; showCards(); }
 }
 async function dkcAimModal(){
@@ -1105,7 +1225,7 @@ function dkcClaimAlbum(id, btn){
 function dkcDItem(d, on){
   var own = dkcDieOwn(d.id), lv = dkcDieLv(d.id);
   return '<div class="dkc-item dkc-ditem' + (on ? ' on' : '') + (own ? '' : ' dkc-dim') + '" data-dkc-die="' + d.id + '" data-fx-press>'
-    + (SV.die === d.id && own ? '<span class="dkc-eq">装備中</span>' : '')
+    + (SV.die === d.id && own ? '<span class="dkc-eq">装着中</span>' : '')
     + '<div class="dkc-dface"><img alt="" src="' + dkcDieImg(d.id, 128) + '">' + (own ? '' : '<i class="dkc-lk">' + dkcSvg('lock') + '</i>') + '</div>'
     + '<span class="dkc-ilv' + (own ? '' : ' dkc-miss') + '">' + (own ? (lv >= 10 ? '<em>MAX</em>' : '') + 'Lv.' + lv : '未所持') + '</span>'
     + '<span class="dkc-inm">' + esc(d.nm) + '</span></div>';
@@ -1123,17 +1243,18 @@ function dkcPedestal(d, lv, kw){
   return '<div class="dkc-ped dkc-pl' + (lv >= 10 ? '10' : lv >= 5 ? '5' : '1') + (kw ? ' dkc-kw' + kw : '') + '" id="dkcPed">'
     + '<i class="dkc-pedring"></i><i class="dkc-pedtop"></i><i class="dkc-pedglow"></i>'
     + '<div class="dkc-hop">'
-    +   (lv >= 5 ? '<img class="dkc-ghost dkc-g2" alt="" src="' + img + '"><img class="dkc-ghost dkc-g1" alt="" src="' + img + '">' : '')
     +   '<img class="dkc-pdie" alt="" src="' + img + '">'
     + '</div>'
     + (kw ? '<span class="dkc-kwtag">' + (kw === 'atk' ? '攻の極' : '守の極') + '</span>' : '')
     + '</div>';
 }
-function dkcDieBars(id, lv, kw){
-  return '<div class="dkc-dbars">' + dkcDieRows(id, lv, kw).map(function(r){
-    return '<div class="st dkc-st"><span class="l"><i class="dkc-sic">' + dkcSvg(r.ic) + '</i>' + r.l + '</span>'
-      + '<span class="dkbar ' + r.c + '"><i style="width:' + Math.max(3, Math.min(100, Math.round(r.v / r.max * 100))) + '%"></i></span>'
-      + '<b>' + r.t + '</b></div>';
+function dkcDieBars(id, lv){
+  var rows = dkcDieRows(id, lv);
+  if(!rows.length) return '<div class="dkc-dbars dkc-dnone">能力値の上乗せはありません（木のサイコロ）</div>';
+  return '<div class="dkc-dbars"><div class="dkc-abhd"><span>サイコロの能力</span><em>Lv1値 / MAX値</em></div>' + rows.map(function(r){
+    return '<div class="st dkc-st"><span class="l">' + esc(r.l) + '</span>'
+      + '<span class="dkbar ' + r.c + '"><i style="width:' + Math.max(4, Math.min(100, Math.round(r.cur / Math.max(1, r.b) * 100))) + '%"></i></span>'
+      + '<b>' + (r.u === '回' ? '+' : '') + r.a + ' / ' + dkcAbTx(r.b, r.u) + '</b></div>';
   }).join('') + '</div>';
 }
 function dkcDieHd(d, own, lv){
@@ -1155,7 +1276,7 @@ function dkcTabDice(){
     : dkcPedestal(d, lv, kw);
   var btns = own
     ? '<button class="dkbtn gd dkc-bt" id="dkcDToUp"' + (lv >= 10 ? ' disabled' : '') + '>' + (lv >= 10 ? 'Lv.10（最大）' : '強化する') + '</button>'
-      + '<button class="dkbtn gr dkc-bt" id="dkcDEquip"' + (eq ? ' disabled' : '') + '>' + (eq ? '装備中' : '装備する') + '</button>'
+      + '<button class="dkbtn gr dkc-bt" id="dkcDEquip"' + (eq ? ' disabled' : '') + '>' + (eq ? '装着中' : '装着') + '</button>'
     : '<button class="dkbtn gd dkc-bt" id="dkcDToUp" disabled>強化する</button>'
       + '<button class="dkbtn gr dkc-bt" id="dkcDShop">ショップへ</button>';
   var html = '<div class="dkmain dkc-main">'
@@ -1167,8 +1288,8 @@ function dkcTabDice(){
     +   '<div class="dkc-dnote">' + (own ? (lv >= 10 ? (kw ? '極：' + (kw === 'atk' ? '攻（出目の大きさ +15%）' : '守（ゲージの当たり +2）') : 'Lv.10！「極」タブで特性を付けられます')
                                                : 'Lv.10 で最大の力。いまは Lv.' + lv + ' ぶんの力です')
                                      : '未所持（ショップで購入）。買うと Lv.1 の力から始まります') + '</div>'
-    +   dkcDieBars(d.id, lv, kw)
-    +   dkcGrowRow(own, lv)
+    +   dkcDieBars(d.id, lv)
+    +   dkcGrowRow(own, lv, d.id)
     +   '<div class="btns">' + btns + '</div>'
     +   (own ? '' : '<div class="dkc-why">まだ持っていないので強化できません。ショップで購入できます。</div>')
     + '</div></div>'
@@ -1181,17 +1302,18 @@ function dkcTabDice(){
     if(eqb) eqb.onclick = function(){
       if(!dkcDieOwn(d.id) || SV.die === d.id) return;
       SV.die = d.id; saveNow(); dkcSfx('click');
-      try{ toast('R', '🎲', esc(d.nm), '装備しました', 1500); }catch(e){}
+      try{ dkkInvalidate('die'); }catch(e){}
+      try{ toast('R', '🎲', esc(d.nm), '装着しました', 1500); }catch(e){}
       showDice();
     };
     var sh = el.querySelector('#dkcDShop');
     if(sh) sh.onclick = function(){ dkcSfx('click'); dkcGoShop(); };
   } };
 }
-function dkcGrowRow(own, lv){
-  var pips = '';
+function dkcGrowRow(own, lv, id){
+  var pips = '', pn = (DKC_DPART[id] || DKC_DPART.d0).nm;
   for(var i = 1; i <= 10; i++) pips += '<i class="dkc-pip' + (own && i <= lv ? ' on' : '') + (i === 5 || i === 10 ? ' dkc-mk' : '') + '"></i>';
-  var nx = !own ? '買うと Lv.1 から育てられます' : lv < 5 ? '次の節目：Lv.5 で振った時に光の軌跡' : lv < 10 ? '次の節目：Lv.10 で着地の床が光り、極が付けられます' : '最大まで育ちました';
+  var nx = !own ? '買うと Lv.1 から育てられます' : lv < 5 ? '次の節目：Lv.5 で転がる間に' + pn : lv < 10 ? '次の節目：Lv.10 で着地に' + pn + '16個・専用の音・極' : '最大まで育ちました';
   return '<div class="dkc-grow"><div class="dkc-growhd"><b>育ち具合</b><span>' + nx + '</span></div>'
     + '<div class="dkc-pips dkc-pips2">' + pips + '</div>'
     + (own && lv < 10 ? '<div class="dkc-growft">Lv.10 まで ' + dkcCoin() + dkcFmt(dkcDieRest(lv)) + '（失敗なし）</div>' : '') + '</div>';
@@ -1209,21 +1331,23 @@ function dkcTabDUp(){
   var d = dkcSelDie(), own = dkcDieOwn(d.id), lv = own ? dkcDieLv(d.id) : 1;
   var kw = (own && lv >= 10 && SV.kiwami) ? SV.kiwami[d.id] : null;
   var cost = dkcDieCost(lv), rest = dkcDieRest(lv), nx = Math.min(10, lv + 1);
-  var A = dkcDieRows(d.id, lv, kw), B = dkcDieRows(d.id, nx, kw), C = dkcDieRows(d.id, 10, null);
+  var A = dkcDieRows(d.id, lv), pn = (DKC_DPART[d.id] || DKC_DPART.d0).nm;
   var why = !own ? '未所持（ショップで購入）なので強化できません' : lv >= 10 ? 'Lv.10（最大）です' : SV.gold < cost ? 'ゴールドが ' + dkcFmt(cost - SV.gold) + ' 足りません' : '';
   var pips = '';
   for(var i = 1; i <= 10; i++) pips += '<i class="dkc-pip' + (i <= lv ? ' on' : '') + (i === 5 || i === 10 ? ' dkc-mk' : '') + '"></i>';
-  var tbl = '<div class="dkc-dtbl"><div class="dkc-dth"><span></span><b>いま</b><b>Lv.' + nx + '</b><b>Lv.10</b></div>'
-    + A.map(function(r, k){
-      return '<div class="dkc-dtr"><span><i class="dkc-sic">' + dkcSvg(r.ic) + '</i>' + r.l + '</span><b>' + r.t + '</b>'
-        + '<b class="dkc-nx">' + (lv >= 10 ? '—' : B[k].t) + '</b><b class="dkc-mx">' + C[k].t + '</b></div>';
-    }).join('') + '</div>';
+  var tbl = A.length ? '<div class="dkc-dtbl"><div class="dkc-dth"><span>能力</span><b>いま</b><b>Lv.' + nx + '</b><b>MAX</b></div>'
+    + A.map(function(r){
+      return '<div class="dkc-dtr"><span>' + esc(r.l) + '</span><b>' + dkcAbTx(r.cur, r.u) + '</b>'
+        + '<b class="dkc-nx">' + (lv >= 10 ? '—' : dkcAbTx(dkcAbAt(r.a, r.b, nx), r.u)) + '</b><b class="dkc-mx">' + dkcAbTx(r.b, r.u) + '</b></div>';
+    }).join('') + '</div>'
+    : '<div class="dkc-dtbl dkc-dnone">能力値の上乗せはありません。Lv が上がると、振った時の演出が変わります</div>';
   var html = '<div class="dkmain dkc-main">'
     + '<div class="dkstage dkc-stage dkc-dped" data-fx="hero"><div class="fx-rays"></div>'
     +   dkcPedestal(d, lv, kw)
     +   '<div class="dkc-pips">' + pips + '</div>'
-    +   '<div class="dkc-mile"><span class="' + (lv >= 5 ? 'on' : '') + '"><b>Lv.5</b>振ると光の軌跡</span>'
-    +     '<span class="' + (lv >= 10 ? 'on' : '') + '"><b>Lv.10</b>着地で床が光る・極</span></div>'
+    +   '<div class="dkc-mile"><span class="' + (lv >= 5 ? 'on' : '') + '"><b>Lv.5</b>転がる間に' + pn + '</span>'
+    +     '<span class="' + (lv >= 10 ? 'on' : '') + '"><b>Lv.10</b>着地で' + pn + '16個・専用の音</span>'
+    +     '<button class="dkbtn gr dkc-bt2 dkc-fxbtn" id="dkcFxPrev">演出を見る</button></div>'
     + '</div>'
     + '<div class="dkdark dkdet dkc-det dkc-ddet" data-fx="riseR">'
     +   dkcDieHd(d, own, lv)
@@ -1231,7 +1355,7 @@ function dkcTabDUp(){
     +   '<div class="dkc-planrow"><span>次の Lv</span><b>' + (own && lv < 10 ? dkcCoin() + dkcFmt(cost) : '—') + '</b>'
     +     '<small>' + (dkcClaimed('db5') ? '図鑑のごほうびで −20%' : '失敗しません') + '</small></div>'
     +   '<div class="dkc-planrow"><span>Lv.10 まで</span><b>' + (own ? dkcCoin() + dkcFmt(rest) : '—') + '</b></div>'
-    +   '<div class="dkc-kwnote"><b>強化</b>ゴールドだけで上がり、失敗しません。Lv.5 で振った時に光の軌跡、Lv.10 で着地の床の光と「極」が解放されます。</div>'
+    +   '<div class="dkc-kwnote"><b>強化</b>ゴールドだけで上がり、失敗しません。Lv.5 で転がる間に' + pn + '、Lv.10 で着地に' + pn + '16個と専用の音、「極」が解放されます。</div>'
     +   '<div class="btns"><button class="dkbtn gd dkc-bt fx-primary" id="dkcDUp"' + (why ? ' disabled' : '') + '>強化する</button>'
     +     (own ? '' : '<button class="dkbtn gr dkc-bt" id="dkcDShop">ショップへ</button>') + '</div>'
     +   (why ? '<div class="dkc-why">' + esc(why) + '</div>' : '')
@@ -1241,6 +1365,8 @@ function dkcTabDUp(){
     dkcWireDice(el);
     var b = el.querySelector('#dkcDUp');
     if(b) b.onclick = function(){ dkcRunDieUp(d.id); };
+    var fp = el.querySelector('#dkcFxPrev');
+    if(fp) fp.onclick = function(){ if(DKC_S.busy) return; dkcFxPreview(d.id); };
     var sh = el.querySelector('#dkcDShop');
     if(sh) sh.onclick = function(){ dkcSfx('click'); dkcGoShop(); };
   } };
@@ -1292,15 +1418,19 @@ function dkcTabDBook(){
   }).join('');
   var cards = DICE.map(function(d){
     var own = dkcDieOwn(d.id), lv = own ? dkcDieLv(d.id) : 0;
-    var a = dkcDieRows(d.id, 1, null), b = dkcDieRows(d.id, 10, null);
+    var ab = dkcAbList(d.id), pt = DKC_DPART[d.id] || DKC_DPART.d0;
     return '<div class="dkc-dcard' + (own ? '' : ' dkc-dlock') + '" data-fx="deal">'
       + '<div class="dkc-dchd">' + dkcRar(d.rar === 'S+' ? 'SS' : d.rar, 'sm') + '<b>' + esc(d.nm) + '</b></div>'
       + '<div class="dkc-dcimg"><img alt="" src="' + dkcDieImg(d.id, 160) + '">' + (own ? '' : '<i class="dkc-lk">' + dkcSvg('lock') + '</i>') + '</div>'
       + '<div class="dkc-dcst">' + (own ? 'Lv.' + lv + (lv >= 10 ? '（最大）' : '') : '未所持') + '</div>'
       + '<p class="dkc-dcds">' + esc(d.ds) + '</p>'
-      + '<div class="dkc-dcmp"><div class="dkc-dch"><span></span><b>Lv.1</b><b>Lv.10</b></div>'
-      + a.map(function(r, k){ return '<div class="dkc-dcr"><span><i class="dkc-sic">' + dkcSvg(r.ic) + '</i></span><b>' + r.t + '</b><b class="dkc-mx">' + b[k].t + '</b></div>'; }).join('')
+      + '<div class="dkc-dcmp"><div class="dkc-dch"><span>能力</span><b>Lv.1 → Lv.10</b></div>'
+      + (ab.length ? ab.map(function(r){ var nm = DKC_ABNM[r[0]];
+          return '<div class="dkc-dcr"><span>' + esc(nm[0]) + '</span><b>' + (nm[1] === '回' ? '+' : '') + r[1] + ' → <em class="dkc-mx">' + dkcAbTx(r[2], nm[1]) + '</em></b></div>'; }).join('')
+        : '<div class="dkc-dcr"><span>能力の上乗せなし</span></div>')
       + '</div>'
+      + '<div class="dkc-dfx"><i class="dkc-dfxi">' + [0, 1, 2].map(function(i){ return '<img alt="" src="' + dkcDSprUrl(pt.k, i) + '">'; }).join('') + '</i>'
+      +   '<span><b>Lv.5</b>転がる間に' + esc(pt.nm) + '</span><span><b>Lv.10</b>着地で16個＋音</span></div>'
       + (own ? '<button class="dkbtn gd dkc-bt2" data-dkc-dgo="' + d.id + '">' + (lv >= 10 ? '極へ' : '強化へ') + '</button>'
              : '<button class="dkbtn gr dkc-bt2" data-dkc-dshop="' + d.id + '">ショップで購入</button>')
       + '</div>';
@@ -1366,9 +1496,10 @@ function dkcRunDieUp(id){
       dkcSfx('build');
       if(ped) fxBurst(ped, { kind:'star', n:24, power:1.2 });
       fxPopText(ped || { x:560, y:420 }, 'Lv.' + r.to + '!', { tone:'gold', size:(r.to >= 10 ? 96 : 72) });
-      if(r.to === 5) setTimeout(function(){ fxPopText({ x:560, y:620 }, '光の軌跡が出るように！', { tone:'emer', size:36 }); }, 380);
+      try{ dkkInvalidate('die'); }catch(e){}
+      if(r.to === 5) setTimeout(function(){ fxPopText({ x:560, y:620 }, '転がる間に' + (DKC_DPART[id] || DKC_DPART.d0).nm + 'が出るように！', { tone:'emer', size:36 }); }, 380);
       if(r.to >= 10){
-        fxFlash(); dkcSfx('gachaRare');
+        fxFlash(); dkcSfx('gachaRare'); dkcDieSnd(id);
         if(ped) fxBurst(ped, { kind:'conf', n:44, power:1.4 });
         setTimeout(function(){ fxPopText({ x:560, y:620 }, '極 解放！', { tone:'ruby', size:48 }); }, 420);
       }
@@ -1422,7 +1553,8 @@ function dkcDiceFx(ctx){
   if(lv < 5) return;
   var th = diceAnim.th, t = diceAnim.t || 0, dd = dkcDie(d.id), col = (dd && dd.col) || '#FFD24D';
   if(d.id === 'd0') col = '#FFE7A0';
-  var X = DICE_X, Y = DICE_Y;
+  var X = DICE_X, Y = DICE_Y, part = DKC_DPART[d.id] || DKC_DPART.d0;
+  if(DKC_DFX.anim !== diceAnim){ DKC_DFX.anim = diceAnim; DKC_DFX.emit = 0; DKC_DFX.land = false; DKC_DFX.maxRoll = 0; }
   /* 光の軌跡（放り投げてから着地まで）：少し前の位置をつないだ光の帯 */
   if(t > 180 && t < th.dur){
     var pts = [], wk = lv >= 10 ? 1.25 : 1;
@@ -1450,18 +1582,42 @@ function dkcDiceFx(ctx){
       }
     }
     ctx.restore();
+    /* 転がる間の粒（G05・Lv5〜・同時に8個まで） */
+    var cur = th.at(t);
+    if(cur && cur.d && cur.d.length && t - DKC_DFX.emit >= 70){
+      var roll = 0;
+      for(var r = 0; r < DKC_DP.length; r++) if(DKC_DP[r].roll) roll++;
+      if(roll < 8){
+        DKC_DFX.emit = t;
+        var w0 = cur.d[(DKFX.rnd() * cur.d.length) | 0];
+        dkcSpawn(part, X + w0.x, Y + w0.y - (w0.z || 0), false, roll, 8);
+        if(roll + 1 > DKC_DFX.maxRoll) DKC_DFX.maxRoll = roll + 1;
+      }
+    }
   }
-  /* Lv10：着地（目が決まる閃光の瞬間）で床が光り、画面が軽く揺れる */
+  /* Lv10：着地（目が決まる閃光の瞬間）で床が光り、画面が軽く揺れ、粒16個と専用の着地音（1回だけ） */
   if(lv >= 10){
     var now = th.at(Math.max(0, Math.min(t, th.dur)));
-    if(!diceAnim._dkcT0 && now && now.flash > 0.3){ diceAnim._dkcT0 = t; try{ camShake(6); }catch(e){} }
+    if(!diceAnim._dkcT0 && now && now.flash > 0.3){
+      diceAnim._dkcT0 = t;
+      try{ camShake(6); }catch(e){}
+      if(!DKC_DFX.land && now.d && now.d.length){
+        DKC_DFX.land = true;
+        var per = Math.ceil(16 / now.d.length), n = 0;
+        for(var j = 0; j < now.d.length && n < 16; j++){
+          for(var q2 = 0; q2 < per && n < 16; q2++, n++) dkcSpawn(part, X + now.d[j].x, Y + now.d[j].y, true, n, 16);
+        }
+        DKC_DFX.burstN = n; DKC_DFX.sndN++;
+        dkcDieSnd(d.id);
+      }
+    }
     if(diceAnim._dkcT0){
       var e = (t - diceAnim._dkcT0) / 620;
       if(e >= 0 && e < 1 && now && now.d){
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
-        for(var j = 0; j < now.d.length; j++){
-          var w = now.d[j], cx = X + w.x, cy = Y + w.y + 6;
+        for(var j2 = 0; j2 < now.d.length; j2++){
+          var w = now.d[j2], cx = X + w.x, cy = Y + w.y + 6;
           ctx.save(); ctx.translate(cx, cy); ctx.scale(1, 0.42);
           var R = 36 + e * 130;
           var g2 = ctx.createRadialGradient(0, 0, 4, 0, 0, R);
@@ -1478,6 +1634,148 @@ function dkcDiceFx(ctx){
     }
   }
 }
+/* 粒を1つ足す（見た目の乱数は DKFX.rnd。合わせて 24 個まで） */
+function dkcSpawn(part, x, y, burst, i, n){
+  var a, sp;
+  if(burst){ a = (Math.PI * 2 * i) / n + (DKFX.rnd() - 0.5) * 0.5; sp = 0.12 + DKFX.rnd() * 0.12; }
+  else { a = -Math.PI / 2 + (DKFX.rnd() - 0.5) * 1.6; sp = 0.03 + DKFX.rnd() * 0.05; }
+  DKC_DP.push({ x:x, y:y, vx:Math.cos(a) * sp, vy:Math.sin(a) * sp * (burst ? 0.6 : 1) - (burst ? 0.08 : 0.02), g:burst ? 0.0004 : 0.00005,
+    rot:DKFX.rnd() * 6.28, vr:(DKFX.rnd() - 0.5) * 0.01, age:0, life:burst ? 700 + DKFX.rnd() * 250 : 480 + DKFX.rnd() * 200,
+    sz:burst ? 22 + DKFX.rnd() * 10 : 14 + DKFX.rnd() * 8, img:dkcDSpr(part.k, i), add:(part.k === 'led' || part.k === 'wisp'), roll:!burst });
+  if(DKC_DP.length > 24) DKC_DP.shift();
+}
+/* 粒を動かして描く（drawDice のあと＝サイコロの上。粒が無い時は何もしない） */
+function dkcDiceParts(ctx){
+  if(!DKC_DP.length){ DKC_DFX.last = 0; return; }
+  var now = performance.now(), dt = DKC_DFX.last ? Math.min(50, now - DKC_DFX.last) : 16;
+  DKC_DFX.last = now;
+  var k = dt / ((typeof SPEED === 'number' && SPEED > 0) ? SPEED : 1);
+  ctx.save();
+  for(var i = DKC_DP.length - 1; i >= 0; i--){
+    var q = DKC_DP[i];
+    q.age += k;
+    if(q.age >= q.life){ DKC_DP.splice(i, 1); continue; }
+    q.x += q.vx * k; q.y += q.vy * k; q.vy += q.g * k; q.rot += q.vr * k;
+    var e = q.age / q.life;
+    ctx.globalAlpha = Math.max(0, e < 0.15 ? e / 0.15 : 1 - (e - 0.15) / 0.85);
+    ctx.globalCompositeOperation = q.add ? 'lighter' : 'source-over';
+    ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.rot);
+    ctx.drawImage(q.img, -q.sz / 2, -q.sz / 2, q.sz, q.sz);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+/* 粒の絵（32px の作り置き。種類ごとに1枚、トランプは4枚） */
+function dkcDSpr(k, i){
+  var S = DKC_DFX.spr || (DKC_DFX.spr = {}), key = k === 'suit' ? 'suit' + ((i | 0) % 4) : k;
+  if(S[key]) return S[key];
+  var c = document.createElement('canvas'); c.width = 32; c.height = 32;
+  var g = c.getContext('2d'), gr;
+  if(k === 'coin'){
+    gr = g.createRadialGradient(13, 11, 2, 16, 16, 15);
+    gr.addColorStop(0, '#FFF9D8'); gr.addColorStop(0.4, '#FFD95A'); gr.addColorStop(0.8, '#D69A14'); gr.addColorStop(1, '#8A5E06');
+    g.fillStyle = gr; g.beginPath(); g.arc(16, 16, 14, 0, 6.2832); g.fill();
+    g.lineWidth = 2; g.strokeStyle = '#7A5206'; g.stroke();
+    g.lineWidth = 1.2; g.strokeStyle = 'rgba(255,240,180,.85)'; g.beginPath(); g.arc(16, 16, 9.5, 0, 6.2832); g.stroke();
+  } else if(k === 'led'){
+    gr = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+    gr.addColorStop(0, '#FFFFFF'); gr.addColorStop(0.25, '#BFF4FF'); gr.addColorStop(0.6, 'rgba(35,194,240,.55)'); gr.addColorStop(1, 'rgba(35,194,240,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 32, 32);
+  } else if(k === 'wisp'){
+    gr = g.createRadialGradient(16, 19, 1, 16, 16, 15);
+    gr.addColorStop(0, '#FFFFFF'); gr.addColorStop(0.3, '#E9D6FF'); gr.addColorStop(0.65, 'rgba(138,88,240,.75)'); gr.addColorStop(1, 'rgba(138,88,240,0)');
+    g.fillStyle = gr; g.beginPath(); g.moveTo(16, 1); g.bezierCurveTo(24, 10, 29, 16, 26, 23); g.bezierCurveTo(23, 30, 9, 30, 6, 23);
+    g.bezierCurveTo(3, 16, 9, 10, 16, 1); g.fill();
+  } else if(k === 'suit'){
+    var j = (i | 0) % 4;
+    g.fillStyle = '#FFFFFF'; g.strokeStyle = '#3A2405'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(8, 3); g.lineTo(24, 3); g.quadraticCurveTo(28, 3, 28, 7); g.lineTo(28, 25); g.quadraticCurveTo(28, 29, 24, 29);
+    g.lineTo(8, 29); g.quadraticCurveTo(4, 29, 4, 25); g.lineTo(4, 7); g.quadraticCurveTo(4, 3, 8, 3); g.fill(); g.stroke();
+    g.fillStyle = (j === 1 || j === 2) ? '#E8436A' : '#2A1604';
+    g.font = 'bold 19px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(['♠', '♥', '♦', '♣'][j], 16, 17);
+  } else {
+    g.fillStyle = '#C98B4F'; g.strokeStyle = '#5A3A18'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(4, 14); g.lineTo(22, 6); g.lineTo(28, 16); g.lineTo(10, 25); g.closePath(); g.fill(); g.stroke();
+    g.strokeStyle = 'rgba(90,58,24,.7)'; g.lineWidth = 1.4; g.beginPath(); g.moveTo(9, 15); g.lineTo(22, 10); g.stroke();
+  }
+  S[key] = c;
+  return c;
+}
+/* サイコロごとの専用の着地音（G05・Lv10。今の効果音の音程とフィルタを変えた合成） */
+function dkcDieSnd(id){
+  try{
+    if(typeof soundOn !== 'undefined' && !soundOn) return;
+    var a = (typeof AC !== 'undefined') ? AC : null;
+    if(!a || !a.createOscillator || a.state === 'closed') return;
+    var t = a.currentTime + 0.01, out = a.createGain();
+    out.gain.value = (typeof sfxVol === 'number') ? sfxVol : 0.7;
+    out.connect(a.destination);
+    var tone = function(type, f, f2, dur, v, at){
+      var o = a.createOscillator(), gn = a.createGain(), t0 = t + (at || 0);
+      o.type = type; o.frequency.setValueAtTime(f, t0);
+      if(f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + dur);
+      gn.gain.setValueAtTime(0.0001, t0); gn.gain.exponentialRampToValueAtTime(v, t0 + 0.006); gn.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(gn); gn.connect(out); o.start(t0); o.stop(t0 + dur + 0.02);
+    };
+    var nz = function(f, q, dur, v, at){
+      var b = DKC_DFX.nz;
+      if(!b || b.sampleRate !== a.sampleRate){
+        b = a.createBuffer(1, Math.floor(a.sampleRate * 0.6), a.sampleRate);
+        var ch = b.getChannelData(0);
+        for(var i = 0; i < ch.length; i++) ch[i] = DKFX.rnd() * 2 - 1;
+        DKC_DFX.nz = b;
+      }
+      var s = a.createBufferSource(), fl = a.createBiquadFilter(), gn = a.createGain(), t0 = t + (at || 0);
+      s.buffer = b; fl.type = 'bandpass'; fl.frequency.value = f; fl.Q.value = q;
+      gn.gain.setValueAtTime(0.0001, t0); gn.gain.exponentialRampToValueAtTime(v, t0 + 0.004); gn.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      s.connect(fl); fl.connect(gn); gn.connect(out); s.start(t0); s.stop(t0 + dur + 0.02);
+    };
+    if(id === 'd1'){ tone('sine', 1320, 0, 0.5, 0.16); tone('sine', 3643, 0, 0.3, 0.05); tone('sine', 1760, 0, 0.45, 0.12, 0.07); tone('sine', 4858, 0, 0.25, 0.04, 0.07); }
+    else if(id === 'd2'){ tone('square', 880, 1760, 0.09, 0.05); tone('sine', 2640, 0, 0.22, 0.08, 0.08); tone('triangle', 1320, 0, 0.2, 0.06, 0.12); }
+    else if(id === 'd3'){ nz(3200, 1.2, 0.07, 0.12); tone('triangle', 660, 990, 0.14, 0.1, 0.05); nz(2400, 1.5, 0.06, 0.08, 0.12); }
+    else if(id === 'd4'){ tone('sine', 330, 110, 0.6, 0.12); tone('triangle', 165, 82, 0.7, 0.08); nz(600, 0.8, 0.5, 0.05); }
+    else { tone('triangle', 220, 120, 0.2, 0.14); nz(1400, 1.2, 0.04, 0.1); tone('sine', 440, 300, 0.12, 0.05, 0.05); }
+    setTimeout(function(){ try{ out.disconnect(); }catch(e){} }, 1500);
+  }catch(e){}
+}
+/* 粒の絵を画面（図鑑・見本）でも使う（盤と同じ作り置きを data URL に。1枚ずつ覚える） */
+function dkcDSprUrl(k, i){ var c = dkcDSpr(k, i); return c._u || (c._u = c.toDataURL()); }
+/* サイコロ画面の見本（台座のサイコロが跳ね、Lv5 の粒8個・Lv10 の着地16個と音。一度きりの動きなので常時アニメは増えない） */
+function dkcFxPreview(id){
+  var ped = document.getElementById('dkcPed'); if(!ped) return;
+  var part = DKC_DPART[id] || DKC_DPART.d0, lv = dkcDieOwn(id) ? dkcDieLv(id) : 10;
+  var hop = ped.querySelector('.dkc-hop');
+  if(hop && hop.animate && !DKFX.reduced){
+    try{ hop.animate([{ transform:'translateY(0)' }, { transform:'translateY(-120px) rotate(-160deg)', offset:0.4 }, { transform:'translateY(0) rotate(-300deg) scale(1.08,.9)', offset:0.58 },
+      { transform:'translateY(-24px) rotate(-340deg)', offset:0.72 }, { transform:'translateY(0) rotate(-360deg)' }], { duration:900, easing:'cubic-bezier(.3,.9,.5,1)' }); }catch(e){}
+  }
+  dkcSfx('diceShake', 0.8);
+  if(lv < 5){ try{ toast('R', '🎲', 'Lv.5 から演出が変わります', 'Lv.5 で転がる間に' + part.nm + '、Lv.10 で着地に16個と専用の音', 2200); }catch(e){} return; }
+  var P = fxPt(ped.querySelector('.dkc-pdie') || ped), lay = DKFX.layer();
+  var mk = function(i, n, burst){
+    var s = document.createElement('i');
+    s.className = 'dkc-fxp';
+    s.innerHTML = '<img alt="" src="' + dkcDSprUrl(part.k, i) + '">';
+    s.style.left = P.x.toFixed(1) + 'px'; s.style.top = (P.y + (burst ? 60 : -20)).toFixed(1) + 'px';
+    lay.appendChild(s);
+    var a = burst ? Math.PI * 2 * i / n : -Math.PI / 2 + (i - n / 2) * 0.35, r = burst ? 150 + (i % 3) * 34 : 90 + (i % 2) * 30;
+    var mx = Math.cos(a) * r, my = Math.sin(a) * r * (burst ? 0.55 : 1);
+    try{
+      var an = s.animate([{ transform:'translate(-50%,-50%) scale(.4)', opacity:0 },
+        { transform:'translate(calc(-50% + ' + (mx * 0.5).toFixed(0) + 'px),calc(-50% + ' + (my * 0.5 - 20).toFixed(0) + 'px)) scale(1) rotate(90deg)', opacity:1, offset:0.35 },
+        { transform:'translate(calc(-50% + ' + mx.toFixed(0) + 'px),calc(-50% + ' + (my + 30).toFixed(0) + 'px)) scale(.7) rotate(200deg)', opacity:0 }],
+        { duration:burst ? 900 : 720, delay:burst ? 520 : i * 70, easing:'cubic-bezier(.2,.8,.4,1)', fill:'both' });
+      an.onfinish = function(){ if(s.parentNode) s.parentNode.removeChild(s); };
+    }catch(e){}
+    setTimeout(function(){ if(s.parentNode) s.parentNode.removeChild(s); }, 2400);
+  };
+  for(var i = 0; i < 8; i++) mk(i, 8, false);
+  if(lv >= 10){
+    for(var j = 0; j < 16; j++) mk(j, 16, true);
+    setTimeout(function(){ dkcDieSnd(id); fxFlash(); }, 520);
+  }
+}
 /* 対戦の終わりに、全員のカードを「見た」にする */
 function dkcSeenMatch(){
   if(!G || !G.players) return;
@@ -1492,7 +1790,9 @@ function dkcSeenMatch(){
       var DKC_dd0 = drawDice;
       drawDice = function(ctx, T){
         try{ dkcDiceFx(ctx, T); }catch(e){}
-        return DKC_dd0.apply(this, arguments);
+        var r = DKC_dd0.apply(this, arguments);
+        try{ dkcDiceParts(ctx); }catch(e){}
+        return r;
       };
       drawDice._dkcWrap = true;
     }
