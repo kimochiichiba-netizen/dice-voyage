@@ -707,7 +707,7 @@ function dkInitPlayers(g, carryBySeat){
     var c = human ? DKCORE_carryNorm(cb[i]) : {};
     if(!human && cfg.ai === 2) c.oe = true;
     if(cfg.team) p.team = i % 2;
-    p.carry = c;
+    p.carry = human ? c : null;   /* 持ち込みは人間の席だけ（CPU は null。読む側は p.carry && … で守っている） */
     p.items = [];
     p.skillP = 0; p.auto = false; p.autoWeak = false; p.pay2 = 0;
     p.fcard = (human && c.magic) ? c.magic : null;
