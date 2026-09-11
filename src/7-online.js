@@ -226,11 +226,17 @@ function dvOnlineBoot(){
     OL.prof = myProfile(nameNow());
     tryHost(0);
   }
+  /* 部屋がつくれなかった時。黙ってタイトルへ戻すと「押しても何も起きない」に見えるので理由を出す。
+     （待ち合わせ場所＝PeerJS の公開ブローカーが落ちている時にここへ来る） */
+  function hostFailed(){
+    leave(false); screenTo('title');
+    note('部屋がつくれませんでした', '待ち合わせ場所につながりません。少し待ってからもう一度どうぞ');
+  }
   function tryHost(tries){
-    if(tries > 6){ leave(false); screenTo('title'); return; }
+    if(tries > 6){ hostFailed(); return; }
     var code = mkCode();
     var p;
-    try{ p = new Peer(IDPREFIX + code, {debug:0}); }catch(e){ leave(false); screenTo('title'); return; }
+    try{ p = new Peer(IDPREFIX + code, {debug:0}); }catch(e){ hostFailed(); return; }
     var settled = false;
     p.on('open', function(id){
       if(settled) return; settled = true;
@@ -255,20 +261,35 @@ function dvOnlineBoot(){
   function startGuest(code){
     OL.prof = myProfile(nameNow());
     var p = null, settled = false;
-    function fail(){
+    /* つながらない理由は1つではない。ぜんぶ「合言葉が違う」と言うと直しようがないので、
+       起きたことをそのまま出す。
+         peer-unavailable        … その部屋が無い（打ち間違い／相手がまだ部屋をつくっていない）
+         reach                   … 部屋は見つかったが回線がつながらない（NAT越えに失敗）
+         browser-incompatible    … このブラウザが WebRTC に対応していない
+         その他（network 等）    … 待ち合わせ場所（ブローカー）につながらない */
+    function fail(why){
       if(settled) return;
       var m = document.getElementById('olMsg');
-      if(m) m.textContent = 'つながりませんでした。合言葉を確かめてもう一度どうぞ。';
+      if(m){
+        if(why === 'peer-unavailable')
+          m.textContent = 'その合言葉の部屋が見つかりません。4文字を確かめてください（相手がまだ「部屋をつくる」を押していないのかもしれません）。';
+        else if(why === 'reach')
+          m.textContent = '部屋は見つかりましたが、回線がつながりませんでした。ケータイの回線や会社・学校のネットだとつながらないことがあります。Wi-Fi でお試しください。';
+        else if(why === 'browser-incompatible')
+          m.textContent = 'このブラウザはオンライン対戦に対応していません。Chrome か Safari の新しい版でお試しください。';
+        else
+          m.textContent = '待ち合わせ場所につながりません。少し待ってからもう一度どうぞ。';
+      }
       try{ if(p) p.destroy(); }catch(e){}
     }
-    try{ p = new Peer({debug:0}); }catch(e){ fail(); return; }
+    try{ p = new Peer({debug:0}); }catch(e){ fail('browser-incompatible'); return; }
     p.on('open', function(id){
       OL.peer = p; OL.me = id; OL.host = false; OL.code = code;
       OL.hostId = IDPREFIX + code;
       var c = p.connect(OL.hostId, {reliable:true});
       OL.hostConn = c; OL.conns[OL.hostId] = c;
       wire(c);                                   // data は open 前でも取りこぼさない
-      var t = setTimeout(fail, 12000);
+      var t = setTimeout(function(){ fail('reach'); }, 12000);
       c.on('open', function(){
         settled = true; clearTimeout(t);
         OL.on = true;
@@ -276,9 +297,9 @@ function dvOnlineBoot(){
         sendTo(c, {t:'hello', prof:OL.prof});
         showRoom();
       });
-      c.on('error', function(){ clearTimeout(t); fail(); });
+      c.on('error', function(){ clearTimeout(t); fail('reach'); });
     });
-    p.on('error', function(){ fail(); });
+    p.on('error', function(e){ fail(e && e.type); });
   }
 
   function leave(silent){

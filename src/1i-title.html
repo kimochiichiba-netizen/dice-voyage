@@ -1,0 +1,61 @@
+<style>
+/* ══════════════════════════════════════════════════════════════
+   タイトル画面 — 社長の絵をそのまま使う
+   ──────────────────────────────────────────────────────────────
+   ロゴもキャッチコピーもボタンの枠も、絵の中に描かれている。
+   だからこちらでは何も描かず、絵のボタンの位置に「透明な当たり判定」を重ねるだけ。
+   CSSで描くのをやめたぶん、動きも軽くなる。
+   座標は 1600×900 の固定ステージに合わせた実寸。
+   ══════════════════════════════════════════════════════════════ */
+#title{
+  background-color:#0A1020!important;
+  background-image:var(--dk-title,none)!important;
+  background-size:cover!important;
+  background-position:center!important;
+  background-repeat:no-repeat!important}
+/* 元の星のまたたきは、絵の上では邪魔なので止める（毎フレームの描き直しも減る） */
+#title::before,#title::after{content:none!important;animation:none!important}
+/* 元のロゴ・説明・クレジットは絵に含まれているので消す */
+#title .logo,#title .sub,#title .lead,#title .credit{display:none!important}
+
+#title .wrap{position:absolute!important;inset:0;margin:0!important;padding:0!important}
+#title .go{position:absolute!important;left:0;top:0;width:100%;height:100%;margin:0!important}
+
+/* 絵のボタン枠に重ねる。文字は絵にあるので透明にして、読み上げ用に残す */
+#title .go .btn{
+  position:absolute;height:82px;top:729px;
+  padding:0!important;margin:0!important;border-radius:14px;
+  background:transparent!important;border:2px solid transparent!important;
+  box-shadow:none!important;color:transparent!important;
+  -webkit-text-stroke:0!important;text-shadow:none!important;
+  font-size:20px;line-height:82px;cursor:pointer;
+  transition:background .14s,border-color .14s,transform .1s}
+#title .go .btn::after{content:none!important}
+#title .go .btn:hover{
+  background:rgba(255,246,214,.16)!important;
+  border-color:rgba(255,236,180,.65)!important}
+#title .go .btn:active{transform:translateY(3px)}
+#title .go .btn:focus-visible{
+  outline:3px solid #8FD2FF;outline-offset:2px}
+
+#title .go #toSetup {left:407px;width:359px}
+#title .go #toOnline{left:809px;width:382px}
+
+/* 絵が読めなかったときだけ、元の文字を出して遊べるようにする */
+#title.dk-noimg{background-image:none!important}
+#title.dk-noimg .logo,#title.dk-noimg .sub,
+#title.dk-noimg .lead,#title.dk-noimg .credit{display:block!important}
+#title.dk-noimg .wrap{position:relative!important;margin:auto!important;padding:0 40px!important}
+#title.dk-noimg .go{position:static!important;width:auto;height:auto;margin-top:26px!important}
+#title.dk-noimg .go .btn{
+  position:static;height:auto;
+  padding:15px 54px!important;margin:0 7px!important;
+  background:linear-gradient(180deg,#FFF3C8,#F5D36B 45%,#E0AE3A 70%,#A9761A)!important;
+  border:3px solid #7A5206!important;color:#5A3A04!important;
+  font-size:27px;line-height:1;border-radius:12px}
+
+/* 狭い画面では軽いほうの絵を読む（データ量が半分以下） */
+@media (max-width:1100px){
+  #title{background-image:var(--dk-title-sm,var(--dk-title,none))!important}
+}
+</style>

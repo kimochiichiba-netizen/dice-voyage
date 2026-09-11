@@ -1,0 +1,70 @@
+<style>
+/* ══════════════════════════════════════════════════════════════
+   動きを軽くする層（いちばん最後に読ませて上書きする）
+   ──────────────────────────────────────────────────────────────
+   ブラウザの絵の描き方には3段階あって、後になるほど軽い。
+     ① レイアウト（位置の計算）… いちばん重い
+     ② ペイント（塗り直し）    … 重い
+     ③ コンポジット（合成）    … 軽い。GPU が受け持つ
+   影（box-shadow）を動かすと毎コマ②が走る。
+   透明度（opacity）と移動（transform）だけなら③で済む。
+   そこで「光がふわっと脈打つ」表現を、影のアニメから
+   「固定の影を持つ薄い板の透明度を動かす」やり方に置き換える。
+   見た目はほぼ同じで、処理はずっと軽い。
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 左タブの選択中の光 ───────────────────────────── */
+.dktab.on{
+  animation:dkTabIn .42s cubic-bezier(.2,1.5,.4,1) both!important;
+  box-shadow:0 4px 0 rgba(0,0,0,.5),inset 0 3px 0 rgba(255,255,255,.4),
+             0 0 0 2px rgba(255,225,140,.4)!important}
+.dktab.on::after{
+  content:"";position:absolute;inset:-2px;border-radius:18px;pointer-events:none;z-index:-1;
+  box-shadow:0 0 30px 8px rgba(110,200,255,.72);
+  animation:dkPulse 2.4s ease-in-out infinite 1s}
+@keyframes dkPulse{0%,100%{opacity:.42}50%{opacity:1}}
+
+/* ── 出席簿の「今日」の光 ─────────────────────────── */
+.dkday.now{
+  animation:dkQIn .42s cubic-bezier(.2,1.2,.4,1) both!important;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.85),0 0 0 3px rgba(255,214,90,.5)!important}
+.dkday.now::before{
+  content:"";position:absolute;inset:-3px;border-radius:16px;pointer-events:none;z-index:-1;
+  box-shadow:0 0 34px 10px rgba(255,205,90,.7);
+  animation:dkPulse 2.2s ease-in-out infinite .6s}
+
+/* ── 持ち物の選択中の光 ───────────────────────────── */
+.dkitem.on{
+  box-shadow:0 4px 0 rgba(0,0,0,.45),0 0 0 2px rgba(255,225,140,.45)!important}
+.dkitem.on::after{
+  content:"";position:absolute;inset:-2px;border-radius:15px;pointer-events:none;z-index:-1;
+  box-shadow:0 0 22px 5px rgba(255,200,80,.6)}
+
+/* ── 動き続ける絵は、GPU に任せると宣言する ─────────
+   これを書くと、ブラウザがその要素だけ別の板に分けて持ち、
+   まわりを塗り直さずに動かせるようになる。 */
+.dkhero,.dkqside .chest,.dkclerk,#gacha .dkcube .stage .orb{
+  will-change:transform;
+  backface-visibility:hidden}
+/* 動く絵に落とす影は、毎コマ作り直すと重い。動かないほうへ移す */
+.dkqside .chest{filter:none!important}
+.dkqside{position:relative}
+.dkqside::after{
+  content:"";position:absolute;left:12%;right:12%;top:32%;height:34%;pointer-events:none;
+  border-radius:50%;background:radial-gradient(50% 50% at 50% 50%,rgba(255,190,60,.34),transparent 72%)}
+
+/* ── きらめきは数を抑えても見た目が変わらない ─────── */
+.dkspark{will-change:transform,opacity}
+.dkspark:nth-child(n+7){display:none}
+
+/* ── ボタンの光沢は、画面に出ているボタンだけ ─────── */
+.screen:not(.on) .dkbtn::after,
+.screen:not(.on) .dkbar i::after,
+.screen:not(.on) .dkspark,
+.screen:not(.on) .dkhero{animation:none!important}
+
+/* ── 端末が「動きは控えめに」設定なら、全部止める ──── */
+@media (prefers-reduced-motion:reduce){
+  .dktab.on::after,.dkday.now::before,.dkitem.on::after{animation:none!important}
+}
+</style>

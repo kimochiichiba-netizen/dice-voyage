@@ -885,4 +885,26 @@ if(typeof roomPhase === "function"){
   };
 }
 
+
+/* ══════════════════════════════════════════════════════════════
+   タイトル画面に、社長の絵を差し込む
+   ──────────────────────────────────────────────────────────────
+   絵が読めなかったときは dk-noimg を付けて、元の文字だけの画面に戻す。
+   「絵が出ないから遊べない」を作らないための保険。
+   ══════════════════════════════════════════════════════════════ */
+function dkTitleArt(){
+  var t = document.getElementById("title"); if(!t) return;
+  var big = dkU("title"), sm = dkU("title-sm");
+  if(!big){ t.classList.add("dk-noimg"); return; }
+  t.style.setProperty("--dk-title", "url(" + big + ")");
+  if(sm) t.style.setProperty("--dk-title-sm", "url(" + sm + ")");
+  /* 実際に読めたかを確かめる。読めなければ文字の画面へ戻す */
+  var probe = new Image();
+  probe.onerror = function(){ t.classList.add("dk-noimg"); };
+  probe.src = big;
+}
+if(document.readyState === "loading"){
+  document.addEventListener("DOMContentLoaded", dkTitleArt);
+} else { dkTitleArt(); }
+
 </script>

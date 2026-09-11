@@ -28,8 +28,17 @@ function fitStage(){
   else { s = Math.min(vw/SW, vh/SH) * FIT_MARGIN; }
   stage.style.transform = 'translate(-50%,-50%)'+rot+' scale('+s+')';
   const c = $('#world');
-  const dpr = Math.min(2, window.devicePixelRatio||1);
-  if(c.width !== Math.round(SW*dpr)){ c.width = Math.round(SW*dpr); c.height = Math.round(SH*dpr); }
+  /* 盤の細かさは「画面に実際に出ている大きさ」で決める。
+     1600×900 を常に2倍で塗ると、PCでは必要の4倍を塗ることになる（実測）。
+     s は上で求めた拡大率、devicePixelRatio は画面の細かさ。掛けたものが必要な倍率。 */
+  const need = s * (window.devicePixelRatio || 1);
+  const dpr  = Math.max(1, Math.min(2, need));
+  const cw   = Math.round(SW * dpr);
+  if(c.width !== cw){
+    c.width = cw; c.height = Math.round(SH * dpr);
+    /* 細かさが変わったら、作りおきの盤も作り直させる */
+    try{ if(typeof refreshArt === 'function') refreshArt(); }catch(e){}
+  }
 }
 addEventListener('resize', fitStage);
 addEventListener('orientationchange', ()=>{ setTimeout(fitStage,120); setTimeout(fitStage,420); });
@@ -663,9 +672,16 @@ async function doRoll(pi, force, impact, fixedTotal){
     a = Math.max(1, Math.min(6, Math.floor(fixedTotal/2)));
     b = fixedTotal - a;
     if(b>6){ b=6; a=fixedTotal-6; }
+    // 偶数を選ぶと a===b になって「ゾロ目」扱いになり、
+    // もう一回振れてしまう／3回続くと監獄へ送られる、という余計なオマケが付いていた。
+    // 2 と 12 はゾロ目以外に作れないので、それ以外は必ず違う目に割り直す
+    if(a===b && fixedTotal>2 && fixedTotal<12){ a--; b++; }
   } else {
-    [a,b] = rollPair(force, p.forceDouble>0, dieOf(pi));
-    if(p.forceDouble>0) p.forceDouble--;
+    // ゾロ目の合計は必ず偶数なので「奇数」ボタンとは両立しない。
+    // 両方使われたら押したボタンを優先し、ゾロ目確定は消費せず次に残す
+    const wantDbl = p.forceDouble>0 && force!=='odd';
+    [a,b] = rollPair(force, wantDbl, dieOf(pi));
+    if(wantDbl) p.forceDouble--;
     if(impact){
       const c = rollPair(force, false);
       if(scoreLanding(pi, c[0]+c[1]) > scoreLanding(pi, a+b)){ a=c[0]; b=c[1]; }
@@ -1613,7 +1629,9 @@ async function pendFire(pi, trg, arg){
     const side = Math.floor(p.pos/8);
     for(let j=0;j<G.players.length;j++){
       const q = G.players[j];
-      if(j===pi || q.out) continue;
+      // 監獄の駒は動かせない。ここを外していたので、監獄にいる人が
+      // 監獄のマスから引きずり出され、動けないまま別のマスに立ち続けていた
+      if(j===pi || q.out || q.jail>0) continue;
       if(Math.floor(q.pos/8) === side){
         await band('稲妻放電器！', G.players[j].name+' を引き寄せました', 1300);
         await jumpTo(j, p.pos);

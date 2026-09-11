@@ -111,6 +111,62 @@ function _dvHuman(cardId, fallback){
   return ((fallback|0) % 11 + 11) % 11;
 }
 /* 肖像：240x340 の箱に描く（左上原点） */
+
+/* ── 絵が無いときの控え（軽い手描き） ──────────────────
+   手描きキャラの部品を読み込まない構成でも、真っ白にならないようにする。
+   カードの色で塗って、名前の頭文字を置くだけ。処理は一瞬で終わる。 */
+function _dvCardOf(cardId){
+  try{ return (typeof cardById === 'function') ? cardById(cardId) : null; }catch(e){ return null; }
+}
+function _dvPlain(ctx, w, h, col, ch){
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, _dkMix(col, '#ffffff', 0.42));
+  g.addColorStop(0.55, col);
+  g.addColorStop(1, _dkMix(col, '#000000', 0.45));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  ctx.save();
+  ctx.globalAlpha = 0.16; ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.ellipse(w * 0.5, h * 0.34, w * 0.34, h * 0.26, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  if(ch){
+    ctx.save();
+    ctx.font = '900 ' + Math.round(h * 0.42) + 'px system-ui,sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = Math.max(3, h * 0.035); ctx.strokeStyle = 'rgba(20,12,4,.72)';
+    ctx.strokeText(ch, w * 0.5, h * 0.52);
+    ctx.fillStyle = 'rgba(255,246,222,.94)';
+    ctx.fillText(ch, w * 0.5, h * 0.52);
+    ctx.restore();
+  }
+}
+function _dkMix(a, b, t){
+  const p = (x) => [parseInt(x.slice(1,3),16), parseInt(x.slice(3,5),16), parseInt(x.slice(5,7),16)];
+  try{
+    const A = p(a), B = p(b);
+    const h = (n) => ('0' + Math.round(n).toString(16)).slice(-2);
+    return '#' + h(A[0]+(B[0]-A[0])*t) + h(A[1]+(B[1]-A[1])*t) + h(A[2]+(B[2]-A[2])*t);
+  }catch(e){ return a; }
+}
+/* 盤の駒の控え：色つきのカプセル */
+function _dvPawn(ctx, col){
+  ctx.save();
+  ctx.translate(0, -34);
+  ctx.fillStyle = 'rgba(0,0,0,.28)';
+  ctx.beginPath(); ctx.ellipse(0, 36, 15, 6, 0, 0, Math.PI * 2); ctx.fill();
+  const g = ctx.createLinearGradient(0, -34, 0, 34);
+  g.addColorStop(0, _dkMix(col, '#ffffff', 0.5));
+  g.addColorStop(0.5, col);
+  g.addColorStop(1, _dkMix(col, '#000000', 0.4));
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(-13, 30); ctx.quadraticCurveTo(-15, -10, 0, -34);
+  ctx.quadraticCurveTo(15, -10, 13, 30); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(24,14,4,.6)'; ctx.lineWidth = 2.4; ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.34)';
+  ctx.beginPath(); ctx.ellipse(-4, -14, 4.5, 8, -0.3, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
 function dvPort(id, ctx, T, cardId){
   _dvSets();
   const i = ((id|0)%8+8)%8;
@@ -125,7 +181,11 @@ function dvPort(id, ctx, T, cardId){
     if(a){ try{ a(ctx, i, T||0); return; }catch(e){} }
   }
   const set = (ART_STYLE==='gem' && _PORT_GEM) ? _PORT_GEM : (_PORT_ANIME || _PORT_GEM);
-  if(!set) return;
+  if(!set){
+    const c = _dvCardOf(cardId);
+    _dvPlain(ctx, 240, 340, (c && c.col) || '#7A6BB8', c && c.nm ? c.nm.slice(0,1) : '');
+    return;
+  }
   try{ set[i](ctx, T||0); }catch(e){}
 }
 /* 盤の駒：接地点原点・上へ約70px */
@@ -145,7 +205,7 @@ function dvChar(ctx, id, col, T, facing, cardId){
     if(h){ try{ h(ctx, _dvHuman(cardId, i), col, T||0, facing||1); return; }catch(e){} }
   }
   const set = (ART_STYLE==='gem' && _TOK_GEM) ? _TOK_GEM : (_TOK_ANIME || _TOK_GEM);
-  if(!set) return;
+  if(!set){ _dvPawn(ctx, col || '#7A6BB8'); return; }
   try{ set[i](ctx, col, T||0, facing||1); }catch(e){}
 }
 /* 絵柄が変わったら、キャッシュしている盤と肖像を描き直させる */

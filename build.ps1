@@ -2,8 +2,8 @@
 # src/ を結合して game.html（Artifact用）と index.html（単体で開ける版）を作る
 $d = Split-Path -Parent $MyInvocation.MyCommand.Path
 $enc = New-Object System.Text.UTF8Encoding($false)
-$parts = @("1-style.html","1b-ui.html","1c-meta.html","1d-polish.html","1e-dk.html","1f-dk2.html","1g-room.html","1h-board.html","2-body.html",
-           "3-core.js","3b-art.js","3c-chars.js","3d-gems.js","3e-style.js","3f-anime.js","3g-opm.js",
+$parts = @("1-style.html","1b-ui.html","1c-meta.html","1d-polish.html","1e-dk.html","1f-dk2.html","1g-room.html","1h-board.html","1i-title.html","1j-fast.html","2-body.html",
+           "3-core.js","3b-art.js","3e-style.js",
            "6-audio.js","6b-bgm.js","6c-bgm2.js","6d-jingle.js","4-game.js","7-online.js","5-meta.js","8-dk.js")
 $sb = New-Object System.Text.StringBuilder
 foreach($p in $parts){
