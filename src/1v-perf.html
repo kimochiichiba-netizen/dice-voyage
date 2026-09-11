@@ -1,0 +1,21 @@
+<style>
+/* ══ 性能と仕上げ（1v-perf.html / WP10）。画面の CSS の後ろに置く ══ */
+.dktab .tx{font-size:20px}  /* WP1#4 */
+/* 透明パッド（::after）を文字のあふれに数えない（WP8#1・WP2#3）。パッドの分は外まで押せる */
+@supports (overflow-clip-margin:1px){
+  @media (pointer:coarse),(max-height:560px),(max-aspect-ratio:1/1) and (max-width:560px){
+    .dkplus{overflow:clip;overflow-clip-margin:23px}
+    .dkclose{overflow:clip;overflow-clip-margin:11px}
+  }
+}
+/* タイトルの透明な当たり判定（文字は見えない）もスマホ横では 26px（WP9#4） */
+@media (max-height:560px){ #title .go #toSetup,#title .go #toOnline{font-size:26px} }
+/* ステージの外の影を軽く（H14） */
+#stage{box-shadow:0 0 0 2px rgba(255,255,255,.05),0 18px 40px rgba(0,0,0,.72)}
+html.fx-mob #stage{box-shadow:none}
+/* 1秒ごとに変わる残り時間の描き直しを自分の箱の中だけに（H10） */
+#pClock{contain:paint}
+/* iPhone：演出「標準」でも盤の上で動き続ける物は止める（上に重なる部品まで画面いっぱいの層になり、盤で予算を超えるため） */
+html.fx-mob #diceui #push,html.fx-mob #diceui .dkt-halo,html.fx-mob .dkt-art,
+html.fx-mob #chip .dkb-rays,html.fx-mob #chip .dkb-rays2{animation:none!important}
+</style>
