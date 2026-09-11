@@ -1,28 +1,109 @@
 
 /* ══════════════════════════════════════════════════════════════
-   ダイスキングダム — 盤の見た目と演出（9h-board.js / WP7）
+   ダイスキングダム — 盤の見た目・HUD・対戦中の通知・移動と演出のテンポ・エモート
+   （9h-board.js / v9 WP7 → v10 WP14）
    ──────────────────────────────────────────────────────────────
-   ・宣言し直す：updHUD fillHUD showChip hideChip turnBig pill payToll moneyFly raiseBanner
-     finish celebrate pendFire drawStacks drawDestPin salary marquee dkShowReach
-   ・代入ラッパ：moveSteps newGame（§5）と drawLake drawDice（社長指示の中央演出）。
-     drawDice は WP2 も包むので、必ず前の関数を呼んでから足すだけにする。
-   ・トップレベルは function 宣言と DKB_ 付きの var と初期化 IIFE だけ。DOM は IIFE の中で触る。
-   ・演出の乱数は Math.random を使わない（対戦の乱数・自動対戦の種を乱さない）。
+   ・宣言し直す：所有表 v10 の 9h の分（give toast band moveSteps cutIn news alarmBand dkNotify ほか・yen yenShort）。
+   ・代入ラッパ：newGame・drawLake・drawDice（前の関数を必ず呼ぶ）・celOverlay。moveSteps は宣言に置き換えた。
+   ・トップレベルは function 宣言と DKB_ 付きの var と初期化 IIFE だけ。演出に Math.random は使わない。
+   ・アニメの再始動は getAnimations（dkbReplay）。寸法を読む演出は次のコマへ。DOM は使い回し、変わった所だけ書く。
    ══════════════════════════════════════════════════════════════ */
 
 var DKB_SEATS = ['Bot', 'BL', 'Top', 'TR'];
-/* 自分（右下）以外の席の並び。2人戦は左上との対角 */
-var DKB_ORDER = { 1: [], 2: ['Top'], 3: ['Top', 'BL'], 4: ['BL', 'Top', 'TR'] };
+/* 自分（右下）以外の席の並び。2人＝左上（対角）、3人＝左上・右上、4人＝左下・左上・右上（J35） */
+var DKB_ORDER = { 1: [], 2: ['Top'], 3: ['Top', 'TR'], 4: ['BL', 'Top', 'TR'] };
 /* 札束の山の置き場（盤の外・その席の HUD のそば。ワールド座標） */
 var DKB_STACK_XY = { Top: { x: 330, y: 252 }, TR: { x: 1286, y: 252 }, BL: { x: 330, y: 662 }, Bot: { x: 1286, y: 662 } };
+/* 札束の山の作り置き（小さな offscreen）。論理の大きさと原点・倍率 */
+var DKB_STK = { w: 260, h: 180, ox: 98, oy: 112, s: 1.5 };
+/* エモート（絵文字8＋文字4。挑発の絵は入れない＝日本版と同じ判断） */
+var DKB_EMO = ['😆', '😍', '😭', '😱', '🤑', '👏', '👍', '🙏', 'ナイス！', 'やられた〜', 'おさきに！', 'ありがとう'];
+/* フォーチュンカード（p.fcard）の表示名 */
+var DKB_FCARD = {
+  angel: { ic: '🪽', nm: '天使カード', ds: '通行料を1回だけ無料にします（使うか選べます）' },
+  coupon: { ic: '🎟', nm: '割引クーポン', ds: '通行料を1回だけ半額にします（使うか選べます）' },
+  shield: { ic: '🛡', nm: 'シールドカード', ds: '相手の攻撃カードを1回だけ防ぎます' },
+  escape: { ic: '🎫', nm: '脱出カード', ds: '閉じ込められた時、すぐに出られます' }
+};
+/* 建物の段の名前（日本版） */
+var DKB_LVNM = ['土地', 'マンション', 'ビル', 'ホテル'];
+/* 移動のテンポ（本家の等速録画・kr G04。×SPEED は hop が掛ける） */
+/* cap＝ホップの合計の上限、all＝ホップ＋着地の間の上限。hop は rAF で1コマ（約10ms）ずつ遅れて終わるので、1.5秒に余白を残す */
+var DKB_MOVE = { short: 170, mid: 150, long: 130, pass: 320, cap: 1300, all: 1300 };
 var DKB_S = {
   built: false, hud: {}, band: {}, pbox: {}, seatOf: {}, piOf: {}, lastBR: -1, stackSig: '',
   potShown: null, toll: null, lake: { lv: 0, t: 0 }, errs: {}, mq: 0, chipTok: 0, plateR: null,
-  imp: null, dmsg: null, bub: null, reach: null, like: null, deferT: -1, gid: 0
+  imp: null, bub: null, reach: null, deferT: -1, gid: 0,
+  pnls: [], pfree: [], bandTok: 0, busy: null, busyPi: -1, emo: {}, emoSel: [], emoAt: 0, emoEcho: null,
+  tinfo: null, tdown: null, sal: null, mono: null, fc: null, stk: {}, alarmTok: 0, cutTok: 0
 };
+
+/* ══════════ 金額の整形（日本版：「988万7500」「29万0536」「1000万」、1億から「20億1000万」） ══════════ */
+function yen(n){
+  n = Math.round(+n || 0);
+  var neg = n < 0; n = Math.abs(n);
+  var oku = Math.floor(n / 100000000), man = Math.floor((n % 100000000) / 10000), r = n % 10000, s;
+  if(oku === 0) s = (man === 0) ? String(n) : (r === 0 ? man + '万' : man + '万' + String(r).padStart(4, '0'));
+  else s = oku + '億' + (man ? man + '万' : '') + (r ? String(r).padStart(4, '0') : '');
+  return (neg ? '-' : '') + s;
+}
+/* マスに出す短い金額（3〜5文字。「456万」「1.2億」「12億」） */
+function yenShort(n){
+  n = Math.round(+n || 0);
+  var neg = n < 0 ? '-' : ''; n = Math.abs(n);
+  var m = Math.round(n / 10000);
+  if(n >= 100000000 || m >= 10000){
+    var o = n / 100000000;
+    return neg + (o >= 10 ? String(Math.round(o)) : o.toFixed(1).replace(/\.0$/, '')) + '億';
+  }
+  if(n >= 10000) return neg + m + '万';
+  return neg + String(n);
+}
 
 /* ══════════ 小道具 ══════════ */
 function dkbFast(){ return typeof SPEED === 'number' && SPEED < 0.05; }
+/* CSS アニメを最初から再生し直す（強制レイアウトを起こさない。スタイルの再計算だけ） */
+function dkbReplay(el, sub){
+  if(!el || !el.getAnimations) return;
+  try{
+    var list = el.getAnimations(sub ? { subtree: true } : undefined);
+    for(var i = 0; i < list.length; i++){
+      var a = list[i];
+      a.currentTime = 0;
+      if(a.playState !== 'running') a.play();
+    }
+  }catch(e){}
+}
+/* 右下の席の人（自分。ともだちモードは手番の人間） */
+function dkbMe(){
+  if(DKB_S.piOf && DKB_S.piOf.Bot !== undefined) return DKB_S.piOf.Bot;
+  if(G && G.players){ for(var i = 0; i < G.players.length; i++) if(G.players[i].kind !== 'cpu') return i; }
+  return 0;
+}
+/* 対戦中で盤が見えているか（toast の振り分けに使う。メタ画面・結果の間は元のトースト） */
+function dkbInMatch(){
+  if(!G || !G.players || G.over) return false;
+  if(typeof DKFX === 'object' && DKFX && DKFX.worldOff) return false;
+  return !document.querySelector('.screen.on');
+}
+function dkbIsAuto(pi){ try{ return typeof dkIsAuto === 'function' ? !!dkIsAuto(pi) : !!(G.players[pi] && G.players[pi].auto); }catch(e){ return false; } }
+function dkbAlly(a, b){ try{ return a !== b && typeof dkAlly === 'function' && !!dkAlly(a, b); }catch(e){ return false; } }
+function dkbScale(){ try{ var k = (typeof dkScale === 'function') ? +dkScale() : 1; return (k > 0 && isFinite(k)) ? k : 1; }catch(e){ return 1; } }
+/* 能力の発動（C04）。無い時・壊れた時は発動なし */
+function dkbSkill(pi, when, info){
+  try{
+    if(typeof dkSkillRoll !== 'function') return null;
+    var r = dkSkillRoll(pi, when, info);
+    return (r && typeof r === 'object') ? r : null;
+  }catch(e){ dkbErr('skill', e); return null; }
+}
+/* 能力の通知（「<キャラ名>のスペシャル能力」／外れは人間だけ「スキル未発動 2%成長します」） */
+function dkbSkillNote(pi, r){
+  if(!r || !G || !G.players[pi]) return;
+  var p = G.players[pi], c = cardById(p.card) || {}, nm = c.nm || p.name;
+  if(r.fired) dkNotify(pi, '✨', nm + 'のスペシャル能力', r.label || (nm + '専用能力発動！'), { rar: (RAR[c.rar] ? RAR[c.rar].nm : ''), ms: 2000 });
+  else if(r.p > 0 && p.kind !== 'cpu') dkNotify(pi, '✨', 'スキル未発動', '2%成長します', { miss: true, ms: 1600 });
+}
 function dkbEl(tag, cls, html){
   var d = document.createElement(tag);
   if(cls) d.className = cls;
@@ -131,10 +212,13 @@ function dkbOnNewGame(){
   var s = 0; G.players.forEach(function(p){ s += (p.cash || 0); });
   G.pot = s;
   G.reachTiles = [];
-  G.dkbLikes = 0;
+  G.dkbLk = {};           // 席ごとの👍の数
+  G.dkbLikeSent = 0;      // 自分が送った👍（1試合10回まで）
+  G.dkbCpuEmo = 0;        // CPU のエモート（1試合5回まで）
+  G.dkbEmoEv = '';
   DKB_S.gid++;
   DKB_S.potShown = null; DKB_S.toll = null; DKB_S.lastBR = -1; DKB_S.stackSig = '';
-  DKB_S.lake = { lv: 0, t: 0 };
+  DKB_S.lake = { lv: 0, t: 0 }; DKB_S.emoAt = 0; DKB_S.emoEcho = null; DKB_S.emoSel = [];
   try{
     dkbHideTransient();
     DKB_SEATS.forEach(function(seat){
@@ -144,7 +228,7 @@ function dkbOnNewGame(){
     });
     var ck = document.getElementById('pClock');
     if(ck){ ck.classList.remove('warn'); ck.textContent = cfg.timeLimit ? dkbFmtClock(G.clock) : '--:--'; }
-    if(DKB_S.like) DKB_S.like.querySelector('b').textContent = '0';
+    dkbEmoBarSync();
   }catch(e){ dkbErr('newgame', e); }
 }
 function dkbEnsureG(){
@@ -152,15 +236,21 @@ function dkbEnsureG(){
   if(!G.dkbInit) dkbOnNewGame();
   if(typeof G.pot !== 'number' || !isFinite(G.pot)){ var s = 0; G.players.forEach(function(p){ s += (p.cash || 0); }); G.pot = s; }
   if(!Array.isArray(G.reachTiles)) G.reachTiles = [];
+  if(!G.dkbLk || typeof G.dkbLk !== 'object') G.dkbLk = {};
 }
 function dkbHideTransient(){
   var ids = ['chip', 'dbl'];
   ids.forEach(function(id){ var e = document.getElementById(id); if(e) e.classList.remove('dkb-on', 'dkb-out'); });
-  [DKB_S.imp, DKB_S.dmsg, DKB_S.bub, DKB_S.reach].forEach(function(e){ if(e) e.classList.remove('on', 'dkb-on', 'dkb-out'); });
+  [DKB_S.imp, DKB_S.bub, DKB_S.reach, DKB_S.busy, DKB_S.tinfo, DKB_S.sal, DKB_S.mono].forEach(function(e){
+    if(e) e.classList.remove('on', 'dkb-on', 'dkb-out');
+  });
+  DKB_S.busyPi = -1;
   DKB_SEATS.forEach(function(seat){
     var b = DKB_S.band[seat]; if(b){ clearTimeout(b._t); b.classList.remove('on', 'dkb-fade'); }
-    var pb = DKB_S.pbox[seat]; if(pb) pb.innerHTML = '';
+    var eb = DKB_S.emo[seat]; if(eb){ eb.q = []; clearTimeout(eb.t); while(eb.el.firstChild) eb.el.removeChild(eb.el.firstChild); }
   });
+  while(DKB_S.pnls.length) dkbPanelDrop(DKB_S.pnls[0]);
+  var bd = document.getElementById('band'); if(bd){ DKB_S.bandTok++; bd.classList.remove('on'); }
   var r = document.getElementById('raise'); if(r) r.classList.remove('on');
   var stg = document.getElementById('stage'); if(stg) stg.classList.remove('dkb-cel');
 }
@@ -174,16 +264,20 @@ function dkbHudHTML(seat){
     + '</div>'
     + (seat === 'Bot' ? '' : '<span class="dkb-ab">能力</span>')
     + '<i class="dkb-turn">手番</i>'
+    + '<button type="button" class="dkb-auto" aria-label="自動プレイ">自動</button>'
     + '</div>'
     + '<div class="dkb-col">'
-    +   '<div class="dkb-name"><span class="dkb-nm">—</span></div>'
+    +   '<div class="dkb-name"><span class="dkb-nm">—</span>'
+    +     '<button type="button" class="dkb-lk" aria-label="いいね"><i>👍</i><b>0</b></button></div>'
     +   '<div class="dkb-row dkb-ra"><span class="dkb-k">総資産</span><b class="dkb-asset">0</b></div>'
-    +   '<div class="dkb-row dkb-rc"><span class="dkb-k">所持金</span><b class="dkb-cash">0</b></div>'
-    +   '<div class="dkb-gauge"><span class="dkb-gbar"><i></i></span><span class="dkb-gtx">能力 0%</span></div>'
+    +   '<div class="dkb-row dkb-rc"><span class="dkb-k">マーブル</span><b class="dkb-cash">0</b></div>'
     +   '<div class="dkb-jam">邪魔できる回数：<b>3</b></div>'
+    +   '<span class="dkb-tm"></span>'
     + '</div>'
     + '<div class="dkb-rank"><b>1</b><small>位</small></div>';
 }
+/* HUD の席の人（data-pi） */
+function dkbHudPi(h){ return (h && h.hasAttribute('data-pi')) ? +h.getAttribute('data-pi') : -1; }
 function dkbBuild(){
   if(DKB_S.built) return;
   var st = document.getElementById('stage'); if(!st) return;
@@ -197,23 +291,38 @@ function dkbBuild(){
     h.id = 'dkbHud' + seat; h.setAttribute('data-seat', seat); h.style.display = 'none';
     st.appendChild(h); DKB_S.hud[seat] = h;
     var por = h.querySelector('.dkb-por');
-    var open = function(){ if(h.hasAttribute('data-pi')){ try{ SFX.click(); }catch(e){} dkbInfo(+h.getAttribute('data-pi')); } };
+    var open = function(){ var pi = dkbHudPi(h); if(pi >= 0){ try{ SFX.click(); }catch(e){} dkbInfo(pi); } };
     por.addEventListener('click', open);
     por.addEventListener('keydown', function(ev){ if(ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); open(); } });
+    /* 👍：相手の札を押すと、その人にいいね（1試合10回まで）。自分の札は数を見せるだけ */
+    h.querySelector('.dkb-lk').addEventListener('click', function(){ var pi = dkbHudPi(h); if(pi >= 0) dkbSendLike(pi); });
+    /* 自動：自分の札の［自動］を押すと手動に戻る */
+    h.querySelector('.dkb-auto').addEventListener('click', function(){
+      var pi = dkbHudPi(h); if(pi < 0 || pi !== dkbMe() || !G || G.players[pi].kind === 'cpu') return;
+      try{ SFX.click(); }catch(e){}
+      dkbSetAuto(pi, false);
+    });
     var b = dkbEl('div', 'pill dkb-band dkb-b' + seat, '<i class="dkb-bar">▲</i><b class="dkb-bnum">0</b>');
     b.setAttribute('aria-hidden', 'true'); st.appendChild(b); DKB_S.band[seat] = b;
     var pb = dkbEl('div', 'dkb-pbox dkb-p' + seat); st.appendChild(pb); DKB_S.pbox[seat] = pb;
+    var em = dkbEl('div', 'dkb-emo dkb-e' + seat); em.setAttribute('aria-live', 'polite'); st.appendChild(em);
+    DKB_S.emo[seat] = { el: em, q: [], t: 0 };
   });
-  /* 能力ボタンは自分の席の肖像の下へ移す（id・onclick はそのまま） */
+  /* #skillBtn（DOM の約束）は自分の席の肖像の下の「能力」札にする。押すと能力の説明（盤は変えない。J33・J47） */
   var sk = document.getElementById('skillBtn');
-  if(sk){ sk.classList.remove('skillbtn'); sk.classList.add('dkb-skill'); DKB_S.hud.Bot.querySelector('.dkb-pwrap').appendChild(sk); }
+  if(sk){
+    sk.classList.remove('skillbtn', 'ready'); sk.classList.add('dkb-skill'); sk.textContent = '能力'; sk.disabled = false;
+    DKB_S.hud.Bot.querySelector('.dkb-pwrap').appendChild(sk);
+    /* 人が押した時だけ説明を開く（自動対戦の .click() ではモーダルを出さない） */
+    sk.addEventListener('click', function(ev){ if(ev && ev.isTrusted && G && !G.over){ try{ SFX.click(); }catch(e){} dkbInfo(dkbMe()); } });
+  }
 
   /* プレート：上に「時間 mm:ss 制限ターン N」、下に場の総額 */
   var pl = document.getElementById('plate');
   if(pl){
     pl.innerHTML = '<div class="hd"><span class="dkb-pk">時間</span><span class="timer" id="pClock">'
       + (cfg.timeLimit ? dkbFmtClock(cfg.timeLimit) : '--:--') + '</span>'
-      + '<span class="dkb-pk">制限ターン</span><em id="pTurn">' + (cfg.turns || 12) + '</em>'
+      + '<span class="dkb-pk">制限ターン</span><em id="pTurn">' + (cfg.turns || 30) + '</em>'
       + '<span class="infl" id="pInfl"></span></div>'
       + '<div class="bd" id="pGoal">' + yen((cfg.cash || 0) * (cfg.n || 4)) + '</div>';
   }
@@ -222,34 +331,67 @@ function dkbBuild(){
   if(chip) chip.innerHTML = '<i class="dkb-rays"></i><i class="dkb-rays2"></i><i class="dkb-disc"></i><b class="dkb-num">7</b>';
   var dbl = document.getElementById('dbl'); if(dbl) dbl.textContent = '×ダブル';
   DKB_S.imp = dkbEl('div', 'dkb-imp', '<i>カード<br>効果</i><b>ゲージインパクト</b>'); st.appendChild(DKB_S.imp);
-  DKB_S.dmsg = dkbEl('div', 'dkb-dmsg', '<b>ダブルボーナス！</b><span>もう一回！サイコロを振ります</span>'); st.appendChild(DKB_S.dmsg);
   DKB_S.bub = dkbEl('div', 'dkb-bub'); st.appendChild(DKB_S.bub);
   DKB_S.reach = dkbEl('div', 'dkb-reach', '<div class="dkb-rbang">!</div><div class="dkb-rband"><span></span><b></b><em>FORTUNE!</em></div>');
   st.appendChild(DKB_S.reach);
   var rz = document.getElementById('raise'); if(rz) rz.innerHTML = '<b>通行料値上げ！</b>';
+  /* 他の人が選ぶ間の札（暗い角丸・白字・3つの点。J34）・マスの情報・給料の丸札・カラー独占 */
+  DKB_S.busy = dkbEl('div', 'dkb-busy', '<div class="dkb-bin2"><span class="dkb-bt"></span><i class="dkb-dots"><b></b><b></b><b></b></i></div>');
+  DKB_S.busy.setAttribute('aria-live', 'polite'); st.appendChild(DKB_S.busy);
+  DKB_S.tinfo = dkbEl('div', 'dkb-tinfo'); st.appendChild(DKB_S.tinfo);
+  DKB_S.sal = dkbEl('div', 'dkb-sal', '<b><small>給料</small><span>0</span></b>'); st.appendChild(DKB_S.sal);
+  DKB_S.mono = dkbEl('div', 'dkb-mono', '<b>カラー独占</b>'); st.appendChild(DKB_S.mono);
 
-  /* 左端の「？ ゲットアイテム」と右端の👍 */
+  /* 左端の「？ ゲットアイテム」と、持っているフォーチュンカード */
   var gi = dkbEl('button', 'dkb-getitem', '<b>？</b><span>ゲットアイテム</span>');
   gi.type = 'button'; gi.addEventListener('click', function(){ try{ SFX.click(); }catch(e){} dkbItemsPanel(); });
   st.appendChild(gi);
-  DKB_S.like = dkbEl('button', 'dkb-like', '<i>👍</i><b>0</b>');
-  DKB_S.like.type = 'button'; DKB_S.like.setAttribute('aria-label', 'いいねを送る');
-  DKB_S.like.addEventListener('click', function(){ try{ SFX.click(); }catch(e){} dkbEmote(DKB_S.piOf.Bot !== undefined ? DKB_S.piOf.Bot : 0, '👍'); });
-  st.appendChild(DKB_S.like);
+  DKB_S.fc = dkbEl('button', 'dkb-fcard', '<i></i><span></span>');
+  DKB_S.fc.type = 'button'; DKB_S.fc.setAttribute('aria-label', '持っているフォーチュンカード');
+  DKB_S.fc.addEventListener('click', function(){ try{ SFX.click(); }catch(e){} dkbItemsPanel(); });
+  st.appendChild(DKB_S.fc);
 
-  /* ⏸・絵文字を付け直す */
+  /* ⏸・エモートを付け直す（12種から4個まで選んで［送る］。G06） */
   var mn = document.getElementById('menu');
   if(mn){ mn.onclick = null; mn.addEventListener('click', function(){ try{ SFX.click(); }catch(e){} dkbMenu(); }); mn.setAttribute('aria-label', 'メニュー'); }
   var eb = document.getElementById('emotebtn');
-  if(eb){ eb.onclick = null; eb.addEventListener('click', function(){ var bar = document.getElementById('emotebar'); if(bar) bar.classList.toggle('on'); try{ SFX.click(); }catch(e){} }); }
-  Array.prototype.forEach.call(document.querySelectorAll('#emotebar button'), function(btn){
-    btn.onclick = null;
-    btn.addEventListener('click', function(){
-      dkbEmote(DKB_S.piOf.Bot !== undefined ? DKB_S.piOf.Bot : 0, btn.getAttribute('data-e') || btn.textContent);
-      var bar = document.getElementById('emotebar'); if(bar) bar.classList.remove('on');
+  if(eb){
+    eb.onclick = null; eb.setAttribute('aria-label', 'エモート');
+    eb.addEventListener('click', function(){
+      var bar = document.getElementById('emotebar'); if(!bar) return;
+      var on = !bar.classList.contains('on');
+      if(on){ DKB_S.emoSel = []; dkbEmoBarSync(); }
+      bar.classList.toggle('on', on);
       try{ SFX.click(); }catch(e){}
     });
-  });
+  }
+  var bar = document.getElementById('emotebar');
+  if(bar){
+    bar.innerHTML = '<div class="dkb-emgrid">' + DKB_EMO.map(function(e, k){
+      return '<button type="button" class="dkb-emb' + (e.length > 2 ? ' dkb-emt' : '') + '" data-e="' + k + '"><span>' + esc(e) + '</span><i></i></button>';
+    }).join('') + '</div><div class="dkb-emfoot"><span class="dkb-emcnt">0/4</span>'
+      + '<button type="button" class="dkb-emsend">送る</button></div>';
+    Array.prototype.forEach.call(bar.querySelectorAll('.dkb-emb'), function(btn){
+      btn.addEventListener('click', function(){
+        var e = DKB_EMO[+btn.getAttribute('data-e')], sel = DKB_S.emoSel, k = sel.indexOf(e);
+        if(k >= 0) sel.splice(k, 1);
+        else if(sel.length < 4) sel.push(e);
+        else { try{ SFX.warn(); }catch(er){} return; }
+        try{ SFX.click(); }catch(er){}
+        dkbEmoBarSync();
+      });
+    });
+    bar.querySelector('.dkb-emsend').addEventListener('click', function(){
+      var list = DKB_S.emoSel.slice(); if(!list.length) return;
+      if(dkbSendEmote(list)){ DKB_S.emoSel = []; bar.classList.remove('on'); }
+      dkbEmoBarSync();
+    });
+  }
+  /* 盤のマスを押すと情報（J59）。マスを選ぶ場面（pickTile）の間は何もしない */
+  if(world){
+    world.addEventListener('pointerdown', function(){ DKB_S.tdown = { t: performance.now(), pick: dkbPicking() }; });
+    world.addEventListener('click', function(ev){ try{ dkbTileClick(ev); }catch(e){ dkbErr('tinfo', e); } });
+  }
 }
 /* プレートの位置（ステージ座標）。浮き数字をよけるのに使う */
 function dkbPlateRect(){
@@ -260,7 +402,7 @@ function dkbPlateRect(){
   return DKB_S.plateR;
 }
 
-/* ══════════ HUD ══════════ */
+/* ══════════ HUD（変わった所だけ書く。手番の光はクラス。#legend は出さない。J22・J61・H10・H11） ══════════ */
 function updHUD(){
   if(!G) return;
   try{ dkbBuild(); }catch(e){ dkbErr('build', e); }
@@ -273,20 +415,20 @@ function updHUD(){
     var pi = DKB_S.piOf[seat];
     if(pi === undefined || !G.players[pi]){
       if(el.style.display !== 'none') el.style.display = 'none';
-      el.removeAttribute('data-pi');
+      if(el.hasAttribute('data-pi')) el.removeAttribute('data-pi');
       return;
     }
     if(el.style.display) el.style.display = '';
     if(el.getAttribute('data-pi') !== String(pi)) el.setAttribute('data-pi', String(pi));
     fillHUD(seat, pi, seat === 'Bot' ? 'bot' : 'top');
     var p = G.players[pi], out = !!p.out, r = rankOf(pi);
-    var rb = el.querySelector('.dkb-rank');
+    var rb = el._rb || (el._rb = el.querySelector('.dkb-rank'));
     var key = (out ? '破' : String(r)) + '|' + pi;
     if(rb && rb._t !== key){
       rb.innerHTML = '<b>' + (out ? '破' : r) + '</b><small>' + (out ? '産' : '位') + '</small>';
       /* 順位が変わった時だけ回す（席の入れ替えや試合開始では回さない） */
       if(rb._t !== undefined && String(rb._t).split('|')[1] === String(pi) && !dkbFast() && !DKFX.reduced){
-        rb.classList.remove('dkb-flip'); void rb.offsetWidth; rb.classList.add('dkb-flip');
+        if(rb.classList.contains('dkb-flip')) dkbReplay(rb); else rb.classList.add('dkb-flip');
       }
       rb._t = key;
     }
@@ -304,23 +446,54 @@ function updHUD(){
   if(pg && DKB_S.potShown !== G.pot){
     var from = (DKB_S.potShown === null) ? G.pot : DKB_S.potShown;
     DKB_S.potShown = G.pot;
-    if(from === G.pot || dkbFast()) pg.textContent = yen(G.pot);
-    else fxCount(pg, G.pot, { from: from, dur: 700 * SPEED, fmt: yen });
+    if(from === G.pot || dkbFast()){ pg._dkbCnt = null; dkbTxt(pg, yen(G.pot)); }
+    else dkbCount(pg, from, G.pot, 800 * SPEED);
   }
 
-  /* 札束の山：席・束の数・持ち物の数が変わったら盤を描き直す */
+  /* 札束の山：席・束の数・フォーチュンカードの数が変わった時だけ（C16：盤の作り直しは dkkStacksChanged が無い時だけ） */
   var sig = '';
-  G.players.forEach(function(p, i){ sig += dkbSeatOfPi(i) + (p.out ? 'x' : dkbBundles(p.cash)) + '.' + ((p.items || []).length) + ';'; });
-  if(sig !== DKB_S.stackSig){ DKB_S.stackSig = sig; dkbSyncStackPos(); boardChanged(); }
-  renderItems();
+  G.players.forEach(function(p, i){ sig += dkbSeatOfPi(i) + (p.out ? 'x' : dkbBundles(p.cash)) + '.' + dkbCardsOf(p) + ';'; });
+  if(sig !== DKB_S.stackSig){
+    DKB_S.stackSig = sig; dkbSyncStackPos();
+    if(typeof dkkStacksChanged === 'function') dkkStacksChanged(); else boardChanged();
+  }
+  dkbFcardSync();
+}
+function dkbTeam(pi){ try{ return typeof dkTeamOf === 'function' ? dkTeamOf(pi) : pi % 2; }catch(e){ return pi % 2; } }
+/* HUD の金額：同じ値なら書かない。変わったら 0.8秒（×SPEED）で回す */
+function dkbRoll(el, to){
+  if(!el) return;
+  var cur = el.dataset.v;
+  if(cur !== undefined && +cur === to) return;
+  var from = (cur === undefined) ? to : +cur;
+  el.dataset.v = to;
+  if(from === to || dkbFast()){ el._dkbCnt = null; dkbTxt(el, yen(to)); }
+  else dkbCount(el, from, to, 800 * SPEED);
+}
+/* 数字を回す：30コマ/秒で書き、寸法は読まない（J22「数字の回転は30fpsで十分」・H11） */
+function dkbCount(el, from, to, dur){
+  var tok = {}; el._dkbCnt = tok;
+  var t0 = performance.now();
+  var fin = function(){ if(el._dkbCnt === tok){ el._dkbCnt = null; dkbTxt(el, yen(to)); } };
+  var step = function(ts){
+    if(el._dkbCnt !== tok) return;
+    var now = performance.now(), k = (now - t0) / dur;
+    if(k >= 1){ fin(); return; }
+    /* 書くのは 1/30秒の区切りが変わったコマだけ。コマの時刻で決めるので、回っている数字は全部同じコマで書く（レイアウト1回） */
+    var slot = Math.floor((typeof ts === 'number' ? ts : now) / 33.3);
+    if(slot !== el._dkbSlot){ el._dkbSlot = slot; dkbTxt(el, yen(from + (to - from) * (1 - Math.pow(1 - Math.max(0, k), 4)))); }
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+  setTimeout(fin, dur + 250);
 }
 function fillHUD(sfx, pi, cls){
   var el = DKB_S.hud[sfx]; if(!el || !G || !G.players[pi]) return;
   var p = G.players[pi], c = cardById(p.card) || {};
   var q = el._q || (el._q = {
     nm: el.querySelector('.dkb-nm'), cash: el.querySelector('.dkb-cash'), asset: el.querySelector('.dkb-asset'),
-    gbar: el.querySelector('.dkb-gbar i'), gtx: el.querySelector('.dkb-gtx'), jam: el.querySelector('.dkb-jam b'),
-    rar: el.querySelector('.dkb-rar'), lv: el.querySelector('.dkb-lv'), cv: el.querySelector('canvas') });
+    jam: el.querySelector('.dkb-jam b'), rar: el.querySelector('.dkb-rar'), lv: el.querySelector('.dkb-lv'),
+    cv: el.querySelector('canvas'), tm: el.querySelector('.dkb-tm'), lk: el.querySelector('.dkb-lk b') });
   var asset = assetOf(G, pi);
   if(el._pi !== pi){
     el._pi = pi;
@@ -334,93 +507,179 @@ function fillHUD(sfx, pi, cls){
   var rr = RAR[c.rar] ? c.rar : 'A';
   dkbTxt(q.rar, RAR[rr] ? RAR[rr].nm : 'A');
   var rc = 'dkb-rar dkb-r' + rr; if(q.rar.className !== rc) q.rar.className = rc;
-  dkbTxt(q.lv, String(p.cardLv || 1));
+  dkbTxt(q.lv, String(p.cardLv || 1));                 // 丸数字＝カードの Lv（J47）
   var pic = q.cv;
   if(pic && (pic.dataset.ch !== String(p.ch) || pic.dataset.col !== PCOL[pi] || pic.dataset.card !== String(p.card || ''))){
     pic.dataset.ch = p.ch; pic.dataset.col = PCOL[pi]; pic.dataset.card = p.card || '';
     var ex = portraits.find(function(o){ return o.el === pic; });
     if(ex){ ex.chId = p.ch; ex.col = PCOL[pi]; ex.cardId = p.card; } else regPortrait(pic, p.ch, PCOL[pi], p.card);
   }
-  rollNum(q.cash, p.cash);
-  rollNum(q.asset, asset);
+  dkbRoll(q.cash, p.cash);
+  dkbRoll(q.asset, asset);
   el.classList.toggle('dkb-long', yen(Math.max(p.cash, asset)).length > 9);
-  var mana = Math.max(0, Math.min(100, Math.round(p.mana || 0)));
-  var tf = 'scaleX(' + (mana / 100).toFixed(3) + ')';
-  if(q.gbar && q.gbar.style.transform !== tf) q.gbar.style.transform = tf;
-  dkbTxt(q.gtx, '能力 ' + mana + '%');
-  dkbTxt(q.jam, String(p.jam === undefined || p.jam === null ? 0 : p.jam));
+  /* 「邪魔できる回数」は揺らす（当作ルール）の時だけ（J45）。魔力ゲージは出さない（J33） */
+  var shake = !!cfg.shake;
+  el.classList.toggle('dkb-shake', shake);
+  if(shake) dkbTxt(q.jam, String(p.jam === undefined || p.jam === null ? 0 : p.jam));
+  /* チーム戦の札（Red Team／Blue Team） */
+  var tm = cfg.team ? (dkbTeam(pi) === 1 ? 'Blue Team' : 'Red Team') : '';
+  dkbTxt(q.tm, tm);
+  el.classList.toggle('dkb-team', !!tm);
+  el.classList.toggle('dkb-tblue', !!tm && dkbTeam(pi) === 1);
+  /* 👍 の数。相手の札は押すといいね */
+  dkbTxt(q.lk, String((G.dkbLk && G.dkbLk[pi]) | 0));
+  el.classList.toggle('dkb-lkon', pi !== dkbMe());
+  /* 自動プレイ中の人間に［自動］（自分の札は押すと手動に戻る） */
+  el.classList.toggle('dkb-isauto', p.kind !== 'cpu' && dkbIsAuto(pi));
+  /* 名札の枠（C24） */
+  var fr = '';
+  try{ fr = String((typeof dkFrameOf === 'function' && dkFrameOf(pi)) || ''); }catch(e){ fr = ''; }
+  if((el.getAttribute('data-frame') || '') !== fr){ if(fr) el.setAttribute('data-frame', fr); else el.removeAttribute('data-frame'); }
   if(cls === 'bot'){
     var b = document.getElementById('skillBtn');
     if(b){
-      var ready = mana >= 100 && p.skillLeft > 0 && p.kind !== 'cpu' && G.phase === 'wait' && G.turn === pi && !G.over;
-      b.disabled = !ready;
-      b.classList.toggle('ready', ready);
-      dkbTxt(b, '能力 ×' + Math.max(0, p.skillLeft | 0));
+      if(b.disabled) b.disabled = false;
+      if(b.classList.contains('ready')) b.classList.remove('ready');
+      dkbTxt(b, '能力');
     }
   }
 }
 
 /* ══════════ お金の帯（その人の HUD の上。増えたら橙↑・減ったら青↓、数字はパラパラ回る） ══════════ */
 function pill(pi, amount){
-  if(!G || !G.players[pi] || !amount) return;
+  if(!G || !G.players[pi] || !amount) return false;
   try{ dkbBuild(); }catch(e){ dkbErr('build', e); }
-  var seat = dkbSeatOfPi(pi), el = DKB_S.band[seat]; if(!el) return;
+  var seat = dkbSeatOfPi(pi), el = DKB_S.band[seat]; if(!el) return false;
   var up = amount >= 0, cash = G.players[pi].cash;
   el.classList.toggle('dkb-up', up); el.classList.toggle('dkb-dn', !up);
-  dkbTxt(el.querySelector('.dkb-bar'), up ? '▲' : '▼');
-  var num = el.querySelector('.dkb-bnum');
+  var bar = el._bar || (el._bar = el.querySelector('.dkb-bar')), num = el._num || (el._num = el.querySelector('.dkb-bnum'));
+  dkbTxt(bar, up ? '▲' : '▼');
   var showing = el.classList.contains('on') && !el.classList.contains('dkb-fade');
   var from = (showing && num.dataset.v !== undefined) ? +num.dataset.v : cash - amount;
   num.dataset.v = cash;
   if(!showing){
-    el.classList.remove('dkb-fade', 'on');
-    if(!dkbFast()) void el.offsetWidth;
-    el.classList.add('on');
+    if(el.classList.contains('dkb-fade')) el.classList.remove('dkb-fade');   // 消える途中なら入場のアニメに戻る
+    if(el.classList.contains('on')) dkbReplay(el); else el.classList.add('on');
   }
-  if(dkbFast()) num.textContent = yen(cash);
-  else fxCount(num, cash, { from: from, dur: 700 * SPEED, fmt: yen, bump: false });
-  if(!dkbFast()) fxFloatTag(num, yen(Math.abs(amount)), up);
+  if(dkbFast()){ num._dkbCnt = null; dkbTxt(num, yen(cash)); }
+  else dkbCount(num, from, cash, 800 * SPEED);
+  if(!dkbFast()) dkbFtag(el, yen(Math.abs(amount)), up);       // 浮き数字は帯の中（HUD 側。WP7#4）
   clearTimeout(el._t);
   el._t = setTimeout(function(){
     el.classList.add('dkb-fade');
     el._t = setTimeout(function(){ el.classList.remove('on', 'dkb-fade'); }, 300 * SPEED + 20);
   }, 1500 * SPEED);
+  return true;
 }
 
-/* ══════════ 発動パネル（HUD の横から滑り込む。金の見出し＋左にアイコン＋効果1行） ══════════ */
+/* ══════════ 対戦中の通知（J36・C10）：HUD の角の通知パネル（同時に2枚まで）と暗い帯（#band・1本） ══════════ */
+function dkbPanelDrop(d){
+  if(!d) return;
+  var k = DKB_S.pnls.indexOf(d); if(k >= 0) DKB_S.pnls.splice(k, 1);
+  clearTimeout(d._t); clearTimeout(d._t2);
+  if(d.parentNode) d.parentNode.removeChild(d);
+  if(DKB_S.pfree.length < 3 && DKB_S.pfree.indexOf(d) < 0) DKB_S.pfree.push(d);
+}
+/* 持ち主の HUD の角から滑り込むパネル（金の見出し＋白字の説明＋アイコン）。DOM は使い回す */
 function dkbPanel(pi, icon, title, sub, opt){
   opt = opt || {};
   try{ dkbBuild(); }catch(e){ dkbErr('build', e); }
   var seat = G ? dkbSeatOfPi(pi) : 'Bot', box = DKB_S.pbox[seat]; if(!box) return null;
-  var d = dkbEl('div', 'dkb-pnl' + (opt.miss ? ' dkb-miss' : ''),
-    '<i class="dkb-pic">' + esc(icon || '✨') + (opt.rar ? '<small>' + esc(opt.rar) + '</small>' : '') + '</i>'
-    + '<div class="dkb-ptx"><b>' + esc(title || '') + '</b>' + (sub ? '<span>' + esc(sub) + '</span>' : '') + '</div>');
-  box.appendChild(d);
-  while(box.children.length > 2) box.removeChild(box.firstChild);
-  setTimeout(function(){
+  while(DKB_S.pnls.length >= 2) dkbPanelDrop(DKB_S.pnls[0]);
+  var d = DKB_S.pfree.pop() || dkbEl('div', 'dkb-pnl',
+    '<i class="dkb-pic"><span></span><small></small></i><div class="dkb-ptx"><b></b><span></span></div>');
+  d.className = 'dkb-pnl' + (opt.miss ? ' dkb-miss' : '');
+  var ic = String(icon == null ? '' : icon);
+  if(!ic || /^\s*</.test(ic)) ic = '✨';                     // 画面用の SVG などは絵文字に置き換える
+  d.querySelector('.dkb-pic > span').textContent = ic;
+  var sm = d.querySelector('.dkb-pic > small'); sm.textContent = opt.rar || ''; sm.hidden = !opt.rar;
+  d.querySelector('.dkb-ptx > b').textContent = title || '';
+  var sp = d.querySelector('.dkb-ptx > span'); sp.textContent = sub || ''; sp.hidden = !sub;
+  box.appendChild(d);                                          // 入れ直すと入場のアニメは最初から
+  DKB_S.pnls.push(d);
+  d._t = setTimeout(function(){
     d.classList.add('out');
-    setTimeout(function(){ if(d.parentNode) d.parentNode.removeChild(d); }, 220 * SPEED + 20);
+    d._t2 = setTimeout(function(){ dkbPanelDrop(d); }, 220 * SPEED + 20);
   }, (opt.ms || 2300) * SPEED);
   return d;
 }
-
-/* ══════════ 手番の見出し（500ms×SPEED） ══════════ */
-async function turnBig(pi){
-  var p = G && G.players[pi]; if(!p) return;
-  var el = document.getElementById('turnbig'), t = document.getElementById('turnbigT'), s = document.getElementById('turnbigS');
-  if(el){
-    t.textContent = p.name; t.style.color = '';
-    el.style.setProperty('--pc', PCOL[pi]);
-    el.style.setProperty('--pcd', shade(PCOL[pi], -0.55));
-    var c = cardById(p.card);
-    s.textContent = (c ? c.role + '　' : '') + 'のこり ' + G.turnsLeft + ' ターン';
-    el.classList.remove('on');
-    if(!dkbFast()) void el.offsetWidth;
-    el.classList.add('on');
-  }
-  await wait(500);
-  if(el) el.classList.remove('on');
+/* C10：対戦中の通知。opt.band＝暗い帯、それ以外＝pi の HUD の角。対戦の外では元のトースト */
+function dkNotify(pi, icon, title, sub, opt){
+  opt = (opt && typeof opt === 'object') ? opt : {};
+  if(!G || !G.players || G.over){ dkbToastDom('R', icon || '', title || '', sub || '', opt.ms); return null; }
+  if(opt.band){ dkbBand(title, sub, opt.ms || 1500); return null; }
+  if(typeof pi !== 'number' || !G.players[pi]) pi = (typeof G.turn === 'number' && G.players[G.turn]) ? G.turn : 0;
+  return dkbPanel(pi, icon, title, sub, opt);
 }
+/* 暗い半透明の角丸の帯（1本だけ。新しい帯が来たら書き換え、古い帯の時間切れでは消さない） */
+function dkbBand(title, sub, ms){
+  var el = document.getElementById('band'); if(!el) return Promise.resolve();
+  var tok = ++DKB_S.bandTok;
+  dkbTxt(document.getElementById('bandT'), String(title == null ? '' : title));
+  var s = document.getElementById('bandS');
+  if(s){ dkbTxt(s, String(sub == null ? '' : sub)); if(s.hidden !== !sub) s.hidden = !sub; }
+  if(el.classList.contains('on')) dkbReplay(el); else el.classList.add('on');
+  return wait(ms || 1500).then(function(){ if(DKB_S.bandTok === tok) el.classList.remove('on'); });
+}
+async function band(title, sub, ms){ await dkbBand(title, sub, ms); }
+/* toast：対戦中は dkNotify（手番の人の HUD の角）へ回す。メタ画面・結果の間は 4-game.js の toast と同じ */
+function toast(side, icon, title, sub, ms){
+  if(dkbInMatch()){ dkNotify(G.turn, icon, title, sub, { ms: ms }); return; }
+  dkbToastDom(side, icon, title, sub, ms);
+}
+function dkbToastDom(side, icon, title, sub, ms){
+  var box = document.querySelector(side === 'L' ? '#toastL' : '#toastR'); if(!box) return;
+  var d = document.createElement('div');
+  d.className = 'toast';
+  d.innerHTML = '<div class="ic">' + icon + '</div><div class="tx"><b>' + esc(title) + '</b>'
+    + (sub ? '<i>' + esc(sub) + '</i>' : '') + '</div>';
+  box.appendChild(d);
+  setTimeout(function(){ d.classList.add('out'); setTimeout(function(){ d.remove(); }, 260); }, (ms || 2200) * SPEED);
+}
+/* C11：他の人が選ぶ間の札（駒の上。同時に1個。text が null なら消す） */
+function dkBusyTag(pi, text){
+  try{ dkbBuild(); }catch(e){ dkbErr('build', e); }
+  var el = DKB_S.busy; if(!el) return;
+  if(!text || !G || G.over || typeof pi !== 'number' || !G.players[pi]){
+    if(pi === undefined || pi === null || pi === DKB_S.busyPi || !text){ el.classList.remove('on'); DKB_S.busyPi = -1; }
+    return;
+  }
+  DKB_S.busyPi = pi;
+  dkbTxt(el.querySelector('.dkb-bt'), String(text));
+  if(!el.classList.contains('on')) el.classList.add('on');
+  dkbFollow(el, function(){ return DKB_S.busyPi === pi ? dkbTokW(pi) : null; }, -96);
+}
+/* 能力・アイテム・ボーナスのカットイン（4-game.js の写し。再始動は getAnimations） */
+async function cutIn(t1, t2, t3){
+  var a = document.getElementById('scT1'), b = document.getElementById('scT2'), c = document.getElementById('scT3');
+  if(a) a.textContent = t1; if(b) b.textContent = t2; if(c) c.textContent = t3 || '';
+  var el = document.getElementById('skillcut');
+  if(!el){ await wait(1300); return; }
+  var tok = ++DKB_S.cutTok;
+  if(el.classList.contains('on')) dkbReplay(el, true); else el.classList.add('on');
+  await wait(1300);
+  if(DKB_S.cutTok === tok) el.classList.remove('on');
+}
+/* 上のテロップ（試合中の出来事。12件まで） */
+function news(txt){
+  NEWS.push(txt);
+  if(NEWS.length > 12) NEWS.shift();
+  var el = document.getElementById('tickerText'); if(!el) return;
+  el.textContent = txt;
+  dkbReplay(el);
+}
+/* 独占の警報（4-game.js の写し） */
+function alarmBand(a, b){
+  var el = document.getElementById('alarm'); if(!el) return;
+  var qa = el.querySelector('.a'), qb = el.querySelector('.b');
+  if(qa) qa.textContent = a; if(qb) qb.textContent = b;
+  var tok = ++DKB_S.alarmTok;
+  if(el.classList.contains('on')) dkbReplay(el, true); else el.classList.add('on');
+  setTimeout(function(){ if(DKB_S.alarmTok === tok) el.classList.remove('on'); }, 2600 * SPEED);
+}
+
+/* ══════════ 手番の大見出し：本家に無いので出さない（手番は HUD の光だけ。J46） ══════════ */
+async function turnBig(pi){ return; }
 
 /* ══════════ 出目 ══════════ */
 /* WP6 の doRoll は showChip(total, isDbl, {impact, target}) で呼ぶ。旧 doRoll（引数2つ）の時だけ、
@@ -432,6 +691,16 @@ function dkbGuessImpact(){
     return typeof gaugePhase === 'number' && typeof gaugeSweet === 'number' && Math.abs(gaugePhase - gaugeSweet) < gaugeHalf;
   }catch(e){ return false; }
 }
+/* 出目の札を出す（ふだんは白銀、ダブルは金＋「×ダブル」＋回る光。J48）。再始動は getAnimations */
+function dkbShowOn(el){
+  if(!el) return;
+  if(el.classList.contains('dkb-out')) el.classList.remove('dkb-out');   // 消える途中なら入場のアニメに戻る
+  if(el.classList.contains('dkb-on')) dkbReplay(el); else el.classList.add('dkb-on');
+}
+function dkbShowOff(el){
+  if(el && el.classList.contains('dkb-on')) el.classList.remove('dkb-on');
+  if(el && el.classList.contains('dkb-out')) el.classList.remove('dkb-out');
+}
 function showChip(n, isDouble, opt){
   try{ dkbBuild(); }catch(e){ dkbErr('build', e); }
   opt = (opt && typeof opt === 'object') ? opt : {};
@@ -439,54 +708,46 @@ function showChip(n, isDouble, opt){
   var tok = ++DKB_S.chipTok;
   var c = document.getElementById('chip'), d = document.getElementById('dbl'), im = DKB_S.imp;
   if(c){
-    var num = c.querySelector('.dkb-num'); if(num) num.textContent = n;
-    c.classList.toggle('dkb-gold', !!imp);
+    var num = c._num || (c._num = c.querySelector('.dkb-num')); if(num) dkbTxt(num, String(n));
+    c.classList.toggle('dkb-gold', !!isDouble);
     c.classList.toggle('dkb-two', String(n).length > 1);
-    c.classList.remove('dkb-on', 'dkb-out');
-    if(!dkbFast()) void c.offsetWidth;
-    c.classList.add('dkb-on');
+    dkbShowOn(c);
   }
   if(d){
-    d.textContent = '×ダブル';
-    d.classList.remove('dkb-on', 'dkb-out');
-    if(isDouble){ if(!dkbFast()) void d.offsetWidth; d.classList.add('dkb-on'); }
+    dkbTxt(d, '×ダブル');
+    if(isDouble) dkbShowOn(d); else dkbShowOff(d);
   }
-  if(im){
-    im.classList.remove('dkb-on', 'dkb-out');
-    if(imp){ if(!dkbFast()) void im.offsetWidth; im.classList.add('dkb-on'); }
-  }
+  if(im){ if(imp) dkbShowOn(im); else dkbShowOff(im); }
   if(isDouble) dkbDoubleMsg(tok);
+  /* 粒は次のコマの頭で出す（共有 canvas の準備がステージの寸法を読むので、DOM を書いた直後に呼ぶと強制レイアウトになる） */
   if(!dkbFast()){
-    try{
-      fxBurst({ x: 800, y: 376 }, { kind: 'star', n: imp ? 18 : 8, power: imp ? 1.15 : 0.7 });
-      if(imp) fxBurst({ x: 800, y: 376 }, { kind: 'coin', n: 10, power: 0.9 });
-    }catch(e){ dkbErr('chipfx', e); }
+    var big = !!(imp || isDouble), dbl2 = !!isDouble;
+    dkbNextFrame(function(){
+      fxBurst({ x: 800, y: 376 }, { kind: 'star', n: big ? 16 : 8, power: big ? 1.1 : 0.7 });
+      if(dbl2) fxBurst({ x: 800, y: 376 }, { kind: 'coin', n: 10, power: 0.9 });
+    });
   }
+}
+/* 寸法を読む演出（粒・浮き札・コイン）は次のコマの頭へ回す（同じコマの中でまとめて1回のレイアウトで済む） */
+function dkbNextFrame(fn){
+  requestAnimationFrame(function(){ try{ fn(); }catch(e){ dkbErr('frame-fx', e); } });
 }
 function hideChip(){
   var tok = DKB_S.chipTok;
   var list = [document.getElementById('chip'), document.getElementById('dbl'), DKB_S.imp];
-  list.forEach(function(e){ if(e && e.classList.contains('dkb-on')) e.classList.add('dkb-out'); });
+  list.forEach(function(e){ if(e && e.classList.contains('dkb-on') && !e.classList.contains('dkb-out')) e.classList.add('dkb-out'); });
   setTimeout(function(){
     if(DKB_S.chipTok !== tok) return;
-    list.forEach(function(e){ if(e) e.classList.remove('dkb-on', 'dkb-out'); });
+    list.forEach(dkbShowOff);
   }, 200 * SPEED + 20);
 }
+/* ダブルのあとの暗い帯（本家「ダブルボーナス！ もう一回！サイコロを振ります」）。3回目は 9g の帯に任せる */
 function dkbDoubleMsg(tok){
-  var el = DKB_S.dmsg; if(!el) return;
   var p = G && G.players[G.turn];
+  if(p && !(p.jail > 0) && p.dblRun >= 2) return;
   var a = 'ダブルボーナス！', b = 'もう一回！サイコロを振ります';
   if(p && p.jail > 0){ a = 'ダブル！'; b = 'ここから脱出できます'; }
-  else if(p && p.dblRun >= 2){ a = 'ダブル3回…'; b = ((G.map && G.map.corners && G.map.corners[1]) || '監獄') + 'へ送られます'; }
-  el.innerHTML = '<b>' + esc(a) + '</b><span>' + esc(b) + '</span>';
-  el.classList.remove('dkb-on', 'dkb-out');
-  if(!dkbFast()) void el.offsetWidth;
-  el.classList.add('dkb-on');
-  clearTimeout(el._t);
-  el._t = setTimeout(function(){
-    el.classList.add('dkb-out');
-    setTimeout(function(){ el.classList.remove('dkb-on', 'dkb-out'); }, 200 * SPEED + 20);
-  }, 1700 * SPEED);
+  dkbBand(a, b, 1500);
 }
 
 /* ══════════ 通行料値上げ！（そのマスの画面位置） ══════════ */
@@ -503,18 +764,34 @@ function dkbRaiseAt(at){
   }
   return null;
 }
-function raiseBanner(txt, at){
+/* opt.tone==='blue' はランドマーク（青い大きな字・約1秒。C13・J09） */
+function raiseBanner(txt, at, opt){
   try{ dkbBuild(); }catch(e){ dkbErr('build', e); }
   var el = document.getElementById('raise'); if(!el) return;
+  opt = (opt && typeof opt === 'object') ? opt : {};
+  var blue = opt.tone === 'blue';
   var w = dkbRaiseAt(at);
-  el.innerHTML = '<b>' + esc(txt || '通行料値上げ！') + '</b>';
-  el.classList.remove('on');
-  if(!dkbFast()) void el.offsetWidth;
-  el.classList.add('on');
+  el.innerHTML = '<b>' + esc(txt || '通行料値上げ！') + '</b>';   // 中の字を作り直すので入場のアニメは最初から
+  el.classList.toggle('dkb-blue', blue);
+  if(!el.classList.contains('on')) el.classList.add('on');
   if(w) dkbFollow(el, function(){ return w; }, -72);
   else { el._dkbTok = null; el.style.transform = 'translate(800px,200px)'; }
   clearTimeout(el._t);
-  el._t = setTimeout(function(){ el.classList.remove('on'); }, 1400 * SPEED);
+  el._t = setTimeout(function(){ el.classList.remove('on'); }, (blue ? 1000 : 1400) * SPEED);
+}
+/* C12：色の組をそろえた瞬間、駒の上に水色の「カラー独占」を約1秒（J50） */
+function dkColorMono(pi, g){
+  if(!G || !G.players || !G.players[pi] || G.over) return;
+  try{ dkbBuild(); }catch(e){ dkbErr('build', e); }
+  var el = DKB_S.mono; if(!el) return;
+  el.innerHTML = '<b>カラー独占</b>';
+  var col = (typeof GCOL !== 'undefined' && GCOL && typeof g === 'number' && GCOL[g]) ? GCOL[g] : '';
+  el.style.setProperty('--gc', col || '#7FE6FF');
+  if(!el.classList.contains('on')) el.classList.add('on');
+  dkbFollow(el, function(){ return dkbTokW(pi); }, -118);
+  if(!dkbFast()){ try{ SFX.landmark(); }catch(e){} }
+  clearTimeout(el._t);
+  el._t = setTimeout(function(){ el.classList.remove('on'); }, 1100 * SPEED);
 }
 
 /* ══════════ 通行料 ══════════ */
@@ -523,23 +800,23 @@ function raiseBanner(txt, at){
 function moneyFly(fromPi, toPi, heavy, amt){
   if(!G || !G.players[fromPi] || !G.players[toPi]) return Promise.resolve();
   var a = dkbStackXY(fromPi), c = { x: BCX, y: BCY + 6 }, b = dkbStackXY(toPi);
-  var dur = Math.max(260, 760 * SPEED);
+  var dur = Math.max(220, 620 * SPEED);
   addFx('bill', a.x, a.y, dur, PCOL[toPi], null, false, { from: a, to: c });
-  addFx('shockring', a.x, a.y + 6, Math.max(220, 620 * SPEED), '#FFD8A0', null, false, { r: heavy ? 230 : 170 });
+  addFx('shockring', a.x, a.y + 6, Math.max(220, 560 * SPEED), '#FFD8A0', null, false, { r: heavy ? 230 : 170 });
   DKB_S.toll = { t0: performance.now(), amt: (typeof amt === 'number' ? amt : 0), heavy: !!heavy,
-    dur: Math.max(900, 1700 * SPEED), n: heavy ? 7 : 5 };
+    dur: Math.max(800, 1400 * SPEED), n: heavy ? 7 : 5 };
   try{ SFX.coin(); }catch(e){}
   return new Promise(function(res){
     setTimeout(function(){
       addFx('bill', c.x, c.y, dur, PCOL[toPi], null, false, { from: c, to: b });
       try{ SFX.coin(); }catch(e){}
       setTimeout(function(){
-        addFx('coinburst', b.x, b.y - 8, Math.max(300, 950 * SPEED));
-        addFx('starburst', b.x, b.y - 20, Math.max(260, 700 * SPEED), '#FFE9A8', null, false, { r: 70 });
+        addFx('coinburst', b.x, b.y - 8, Math.max(300, 900 * SPEED));
+        addFx('starburst', b.x, b.y - 20, Math.max(260, 650 * SPEED), '#FFE9A8', null, false, { r: 70 });
         try{ SFX.coin(); }catch(e){}
         res();
-      }, 520 * SPEED);
-    }, 640 * SPEED);
+      }, 450 * SPEED);
+    }, 500 * SPEED);
   });
 }
 /* 払う駒の頭上の吹き出し（割引の時は青） */
@@ -550,65 +827,196 @@ function dkbBubble(pi, label, amt, blue){
   dkbFollow(el, function(){ return dkbTokW(pi); }, -52);
 }
 function dkbBubbleOff(){ if(DKB_S.bub) DKB_S.bub.classList.remove('on'); }
-/* 天使カードを使うか（人間だけモーダルで聞く。CPU は使う） */
-function dkbAskAngel(pi, amt){
+/* フォーチュンカード（天使＝無料・割引クーポン＝半額）を使うか。自動の人と CPU は画面を出さずに使う（C14・C27） */
+function dkbAskCard(pi, tag, amt){
   var p = G.players[pi];
-  return dvAsk(pi, 'angel', function(){
-    if(!p || p.kind === 'cpu') return true;
+  var nm = tag === 'coupon' ? '割引クーポン' : '天使カード';
+  var after = tag === 'coupon' ? yen(Math.round(amt / 2)) : '無料';
+  var auto = !p || p.kind === 'cpu' || dkbIsAuto(pi);
+  var local = auto ? function(){ return true; } : function(){
     return modal('<div class="modal"><div class="dkb-mpanel fx-panel dkb-angel">'
-      + '<h3>天使カード</h3>'
-      + '<p>通行料：<b class="dkb-am">' + esc(yen(amt)) + '</b> → <b class="dkb-free">無料</b></p>'
-      + '<p>天使カードを使用しますか？</p>'
+      + '<h3>' + esc(nm) + '</h3>'
+      + '<p>通行料：<b class="dkb-am">' + esc(yen(amt)) + '</b> → <b class="dkb-free">' + esc(after) + '</b></p>'
+      + '<p>' + esc(nm) + 'を使用しますか？</p>'
       + '<div class="dkb-mbtns"><button class="btn ghost" data-act="cancel">キャンセル</button>'
       + '<button class="btn gold" data-act="use">使用</button></div></div></div>')
       .then(function(a){ return a === 'use'; });
-  }, '天使カードを使うか選んでいます…').then(function(v){ return !!v; });
+  };
+  var r;
+  try{ r = dvAsk(pi, tag, local, nm + 'を使うか選んでいます…'); }catch(e){ dkbErr('ask', e); r = local(); }
+  return Promise.resolve(r).then(function(v){ return !!v; }, function(e){ dkbErr('ask', e); return false; });
 }
 async function payToll(pi, i){
-  var t = G.tiles[i], owner = t.owner, p = G.players[pi], ow = G.players[owner];
-  if(t.frozen > 0){ dkbPanel(pi, '🧊', '凍結中', t.name + ' の通行料は0です'); await wait(700); return; }
+  var t = G.tiles[i], owner = t ? t.owner : -1, p = G.players[pi], ow = G.players[owner];
+  if(!t || !p || !ow || owner === pi) return;
+  /* チーム戦：味方の都市は払わない（C03） */
+  if(dkbAlly(pi, owner)){ dkbBand('味方の土地', t.name + ' の通行料はかかりません', 1300); await wait(700); return; }
+  if(t.frozen > 0){ dkNotify(pi, '⚡', '停電中', t.name + ' の通行料は0です', { ms: 1600 }); await wait(700); return; }
   var amt = Math.round(tollOf(t, G) * statMul(p, 'toll', 0.35));
   var notes = [];
   if(t.bind){ amt = Math.round(amt * 2); t.bind = 0; notes.push('束縛 ×2'); }
-  if(ow && ow.gouge > 0){ ow.gouge--; amt = Math.round(amt * 2); notes.push('ぼったくり ×2'); }
-  /* 天使カード：人間には「通行料○○→無料／使用しますか」と聞く */
-  if(p.freeToll > 0){
-    var use = await dkbAskAngel(pi, amt);
+  if(ow.gouge > 0){ ow.gouge--; amt = Math.round(amt * 2); notes.push('ぼったくり ×2'); }
+  if(p.pay2 > 0){ p.pay2--; amt = Math.round(amt * 2); notes.push('×2'); }
+  /* 能力（C04）：持ち主の 'own'（地価高騰 +15%）→ 払う人の 'toll'（通行料免除） */
+  var so = dkbSkill(owner, 'own', { tile: i, pi: pi });
+  if(so && so.fired) amt = Math.round(amt * 1.15);
+  if(so) dkbSkillNote(owner, so);
+  var sp = dkbSkill(pi, 'toll', { tile: i, owner: owner });
+  if(sp) dkbSkillNote(pi, sp);
+  if(sp && sp.fired){ news(p.name + ' の能力で ' + t.name + ' の通行料が免除！'); await wait(700); return; }
+  /* フォーチュンカード：天使（無料）→ 割引クーポン（半額）。v9 の freeToll・halfToll も通す */
+  if(p.fcard === 'angel' || p.freeToll > 0){
+    var use = await dkbAskCard(pi, 'angel', amt);
     if(G.over) return;
     if(use){
-      p.freeToll--;
-      await cutIn('ITEM', '天使カード', '通行料 ' + yen(amt) + ' → 無料');
+      if(p.fcard === 'angel') p.fcard = null; else p.freeToll--;
+      dkNotify(pi, '🪽', '天使カード', '通行料：' + yen(amt) + ' → 無料', { ms: 2000 });
+      news(p.name + ' が天使カードで通行料を無料にした');
+      updHUD();
+      await wait(600);
       return;
     }
   }
   var disc = false;
-  if(p.halfToll > 0){ p.halfToll--; amt = Math.round(amt / 2); disc = true; }
-  news(p.name + ' → ' + (ow ? ow.name : '') + ' に通行料 ' + yen(amt) + (notes.length ? '（' + notes.join('・') + '）' : '') + '！');
-  /* 盤全体を見せてから吹き出し → 支払い → 札束 */
+  if(p.fcard === 'coupon'){
+    var useC = await dkbAskCard(pi, 'coupon', amt);
+    if(G.over) return;
+    if(useC){ p.fcard = null; amt = Math.round(amt / 2); disc = true; updHUD(); }
+  } else if(p.halfToll > 0){ p.halfToll--; amt = Math.round(amt / 2); disc = true; }
+  news(p.name + ' → ' + ow.name + ' に通行料 ' + yen(amt) + (notes.length ? '（' + notes.join('・') + '）' : '') + '！');
+  /* 盤全体を見せてから吹き出し → 支払い → 札束（本家の通行料の支払い全体 約1.6秒） */
   camTo(BCX, BCY, 1);
-  await wait(300);
+  await wait(150);
   dkbBubble(pi, disc ? '割引 通行料' : (notes.length ? '通行料 ' + notes.join('・') : '通行料'), amt, disc);
   try{ SFX.pay(); }catch(e){}
-  await wait(650);
+  await wait(350);
   var ok = await dkPayFrom(pi, amt, owner);
   if(!ok){ dkbBubbleOff(); await bankrupt(pi, owner); return; }
-  await moneyFly(pi, owner, amt > 3000000, amt);
+  await moneyFly(pi, owner, amt > 3000000 * dkbScale(), amt);
   dkbBubbleOff();
   give(pi, -amt); give(owner, amt);
   camShake(8);
-  await wait(500);
+  dkbCpuReact(pi, owner, amt);
+  await wait(150);
 }
 
-/* ══════════ 給料（場の総額に足す） ══════════ */
+/* ══════════ 給料（開始マーブルの15%×週の倍率、給料ボーナスは最初の1回×2、能力×1.2。J06・C19） ══════════ */
 function salary(pi){
-  var p = G.players[pi];
-  var amt = Math.round((600000 + p.laps * 200000) * ((G.ev && G.ev.salaryX) || 1));
-  var x2 = false;
-  if(p.salaryX2 > 0){ amt *= 2; p.salaryX2--; x2 = true; }
+  var p = G && G.players[pi]; if(!p || p.out) return 0;
+  var base = 0;
+  try{ base = (typeof dkRate === 'function') ? +dkRate('salary') : 0; }catch(e){ base = 0; }
+  if(!(base > 0)) base = Math.round((cfg.cash || 10000000) * 0.15);
+  var amt = Math.round(base * ((G.ev && G.ev.salaryX) || 1)), bonus = false;
+  if(!p.dkbSal1){ p.dkbSal1 = 1; if(p.carry && p.carry.sal){ amt *= 2; bonus = true; } }
+  if(p.salaryX2 > 0){ amt *= 2; p.salaryX2--; bonus = true; }
+  var sk = dkbSkill(pi, 'salary', { amt: amt });
+  if(sk && sk.fired) amt = Math.round(amt * 1.2);
+  if(sk) dkbSkillNote(pi, sk);
   dkbEnsureG();
   G.pot = (G.pot || 0) + amt;
   give(pi, amt);
-  dkbPanel(pi, x2 ? '💴' : '🚩', x2 ? '給料2倍券' : 'スタート通過', '給料 ' + yen(amt) + ' を受け取りました', { ms: 1900 });
+  if(bonus) dkNotify(pi, '💴', '給料ボーナス', '給料が2倍になりました', { ms: 1800 });
+  dkbSalTag(amt);
+  return amt;
+}
+/* スタートの近くの青い丸札「給料 150万」（トーストは出さない） */
+function dkbSalTag(amt){
+  if(dkbFast() || !G) return;
+  try{ dkbBuild(); }catch(e){ dkbErr('build', e); }
+  var el = DKB_S.sal; if(!el) return;
+  dkbTxt(el.querySelector('span'), yen(amt));
+  var b = el.querySelector('b');
+  if(el.classList.contains('on')) dkbReplay(b); else el.classList.add('on');
+  var w = tileCenter(0);
+  dkbFollow(el, function(){ return w; }, -64);
+  clearTimeout(el._t);
+  el._t = setTimeout(function(){ el.classList.remove('on'); }, 1300 * SPEED + 200);
+}
+
+/* ══════════ お金（浮き数字は HUD の帯の横。盤の上には重ねない。WP7#4） ══════════ */
+function give(pi, amount){
+  var p = G.players[pi];
+  p.cash += amount;
+  var shown = false;
+  try{ shown = pill(pi, amount); }catch(e){ dkbErr('pill', e); }
+  if(!shown && amount && !dkbFast()){
+    var c = p.render || tileCenter(p.pos);
+    addFloat(c.x, c.y - 84, (amount >= 0 ? '+' : '') + yen(amount), amount >= 0 ? null : '#CFE0F0', true);
+  }
+  try{ if(amount >= 0) SFX.coin(); else SFX.pay(); }catch(e){}
+  updHUD();
+}
+
+/* ══════════ 移動（1マス 2〜4マス170ms・10以上130ms・ほか150ms、スタート通過の1マス320ms、1回1.5秒まで。G04） ══════════ */
+/* カメラの寄せ先を卓の内側（x 28〜1572・y 16〜884）に収める（WP6#5） */
+function dkbCamTo(x, y, z){
+  var hw = SW / 2 / z, hh = SH / 2 / z;
+  camTo(Math.max(28 + hw, Math.min(1572 - hw, x)), Math.max(16 + hh, Math.min(884 - hh, y)), z);
+}
+/* 1マスごとの時間（負の値＝スタート通過の1マス） */
+function dkbStepDurs(pos0, n){
+  var base = n >= 10 ? DKB_MOVE.long : (n >= 2 && n <= 4) ? DKB_MOVE.short : DKB_MOVE.mid;
+  var out = [], tot = 0, fixed = 0, pos = pos0, k;
+  for(k = 0; k < n; k++){
+    pos = (pos + 1) % 32;
+    var pass = (pos === 0 && k < n - 1);
+    out.push(pass ? -DKB_MOVE.pass : base);
+    tot += pass ? DKB_MOVE.pass : base; if(pass) fixed += DKB_MOVE.pass;
+  }
+  if(tot > DKB_MOVE.cap && tot > fixed){
+    var f = Math.max(0.4, (DKB_MOVE.cap - fixed) / (tot - fixed));
+    tot = fixed;
+    for(k = 0; k < n; k++) if(out[k] > 0){ out[k] = Math.round(out[k] * f); tot += out[k]; }
+  }
+  return { d: out, tot: tot };
+}
+/* スタートを通る1マス：給料（salary はここ）と、スタートから HUD へ飛ぶコイン */
+function dkbPassStart(pi){
+  var amt = salary(pi);
+  if(dkbFast() || !(amt > 0)) return;
+  var c = tileCenter(0), s = dkbW2S(c.x, c.y);
+  /* 行き先はその席の肖像（ステージ座標で決まっている。HUD の寸法は読まない） */
+  var to = { Top: { x: 66, y: 64 }, TR: { x: 1534, y: 64 }, BL: { x: 66, y: 816 }, Bot: { x: 1534, y: 816 } }[dkbSeatOfPi(pi)] || { x: 800, y: 450 };
+  dkbNextFrame(function(){ fxCoins({ x: s.x, y: s.y }, to, { n: 10, dur: 620, spread: 40 }); });
+}
+/* 帯の上の小さな ▲80万／▼17万：帯の中に置く（最新の1つだけ・DOM は使い回し・寸法を読まない） */
+function dkbFtag(band, txt, up){
+  var pool = band._ft || (band._ft = []);
+  var old = band.querySelector('.dkb-ftag');
+  if(old){ clearTimeout(old._t); band.removeChild(old); pool.push(old); }
+  var t = pool.pop() || document.createElement('i');
+  t.className = 'dkb-ftag ' + (up ? 'up' : 'dn');
+  t.textContent = (up ? '▲' : '▼') + txt;
+  band.appendChild(t);
+  t._t = setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); if(pool.length < 3 && pool.indexOf(t) < 0) pool.push(t); }, 950);
+}
+async function moveSteps(pi, n){
+  var p = G && G.players[pi]; if(!p) return;
+  n = Math.max(0, Math.floor(+n || 0));
+  if(n > 0) destPin = (p.pos + n) % 32;
+  try{
+    var plan = dkbStepDurs(p.pos, n), g0 = G;
+    var spd = (typeof SPEED === 'number' && SPEED > 0) ? SPEED : 1, oSum = 0, oN = 0;
+    var c0 = tileCenter(p.pos); dkbCamTo(c0.x, c0.y, 1.45);
+    for(var k = 0; k < n; k++){
+      if(G !== g0) break;
+      var from = tileCenter(p.pos), np = (p.pos + 1) % 32;
+      p.pos = np;
+      var to = tileCenter(np);
+      dkbCamTo(to.x, to.y, 1.45);
+      if(np === 0) p.laps++;
+      var d = plan.d[k];
+      if(d < 0){ d = -d; dkbPassStart(pi); }
+      /* hop はコマの境目で始まり・終わるので1マスごとに少し遅れる。それまでの平均の遅れを引いて頼む（1マスの見た目の時間と合計を守る） */
+      var dd = Math.max(Math.round(d * 0.6), Math.round(d - Math.min(12, oN ? oSum / oN : 0)));   // 1回の詰まりで縮めすぎない
+      var th = performance.now();
+      await hop(p, from, to, dd);
+      oSum += Math.max(0, (performance.now() - th) / spd - dd); oN++;
+    }
+    // 催眠の香水：同じマスに相手がいたら
+    if(G === g0 && G.players.some(function(q, j){ return j !== pi && !q.out && q.pos === p.pos; })) await pendFire(pi, 'onSameTile');
+    await wait(Math.max(0, Math.min(180, DKB_MOVE.all - plan.tot)));
+  } finally { destPin = null; }
 }
 
 /* ══════════ 決着（文字は canvas 版だけ。DOM は閃光・噴煙だけ） ══════════ */
@@ -617,7 +1025,7 @@ function finish(pi, reason, col){
   var mono = String(reason).indexOf('独占') >= 0;
   if(mono) jingle('mono');
   var l3 = mono ? '独占ボーナス x' + (G.winX || 1) + '倍' : G.players[pi].name + ' の勝ち！';
-  showCelebrate(['おめでとうございます！', reason, l3], 2800);
+  showCelebrate(['おめでとうございます！', reason, l3], 2000);      // 決着カットイン 約2.0秒（J46）
   if(G.map && G.map.deco === 'ice') dkbIceShards();
   else addFx('confetti', SW / 2, 0, 3000, null, null, false, { scr: true, w: SW, h: SH, n: 110 });
   bgm('win');
@@ -640,27 +1048,31 @@ function dkbIceShards(){
     }, k * 170);
   });
 }
+/* 決着：カットイン 2.0秒（×SPEED）→ 0.15秒で WIN パネル（showResult）。本家は 約2.0秒→0.2秒（J46） */
 async function celebrate(pi, reason, col){
+  var g0 = G, t0 = performance.now();
   try{ SFX.win(); }catch(e){}
   var el = document.getElementById('celebrate'), stg = document.getElementById('stage');
   if(el) el.classList.add('on');
   if(stg) stg.classList.add('dkb-cel');
   var f = document.getElementById('flash');
-  if(f){ f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
+  if(f){ if(f.classList.contains('go')) dkbReplay(f); else f.classList.add('go'); }
   camShake(16);
   var ice = G.map && G.map.deco === 'ice';
-  for(var k = 0; k < 9; k++) addFx('steam', 210 + k * 150, 760, 2000);
-  for(var j = 0; j < 8; j++){
+  for(var k = 0; k < 9; k++) addFx('steam', 210 + k * 150, 760, 1800);
+  for(var j = 0; j < 6; j++){
     var x = 260 + dkbRnd() * 1080, y = 300 + dkbRnd() * 320;
-    addFx('steam', x, y + 150, 1700);
-    addFx('spark', x, y, 1000, ice ? '#BFF2FF' : (col || '#FFD24D'));
-    addFx('ring', x, y + 60, 800, ice ? '#E6FAFF' : '#FFF3C0');
+    addFx('steam', x, y + 150, 1500);
+    addFx('spark', x, y, 900, ice ? '#BFF2FF' : (col || '#FFD24D'));
+    addFx('ring', x, y + 60, 700, ice ? '#E6FAFF' : '#FFF3C0');
     await wait(150);
   }
-  await wait(2200);
+  var rest = 2000 * SPEED - (performance.now() - t0);
+  if(rest > 0) await new Promise(function(r){ setTimeout(r, rest); });
   if(el) el.classList.remove('on');
+  await wait(150);
   if(stg) stg.classList.remove('dkb-cel');
-  showResult();
+  if(G === g0 && !(g0 && g0.dkbQuit)) showResult();
 }
 
 /* ══════════ ペンダントの発動（効果は 4-game.js の写し。見せ方だけ持ち主の HUD の横へ） ══════════ */
@@ -716,7 +1128,12 @@ async function pendFire(pi, trg, arg){
   }
   if(it.id === 'p4'){                       // 大家の建物基礎：スタートへ
     var n = G.tiles.filter(function(t){ return t.type === 'city' && t.owner === pi && t.lv > 0; }).length;
-    if(n >= 3){ await jumpTo(pi, 0); p.laps++; salary(pi); }
+    if(n >= 3){
+      var lp = p.laps;
+      await jumpTo(pi, 0, { salary: false });
+      if(p.laps === lp) p.laps++;            // jumpTo がスタートをまたいだ数を足していない時だけ（C31）
+      salary(pi);
+    }
   }
   if(it.id === 'p5' && arg && arg.pick){    // 黄金フリーパス：即座に最適マスへ
     var d = aiPickTravel(pi);
@@ -750,21 +1167,31 @@ function dkShowReach(list){
   var prev = G.reachTiles || [];
   var fresh = ok.filter(function(o){ return !prev.some(function(q){ return key(q) === key(o); }); });
   G.reachTiles = ok;
-  if(fresh.length) dkbReachCut(fresh[0]);
+  if(fresh.length){
+    /* 自分（と味方）のリーチを先に見せる */
+    var me = dkbMe(), first = fresh[0];
+    for(var k = 0; k < fresh.length; k++) if(fresh[k].pi === me || dkbAlly(me, fresh[k].pi)){ first = fresh[k]; break; }
+    dkbReachCut(first);
+    for(var j = 0; j < fresh.length; j++){
+      var fp = G.players[fresh[j].pi];
+      if(fp && fp.kind === 'cpu'){ dkbCpuEmote(fresh[j].pi, 'reach'); break; }   // 同じ出来事では1人だけ
+    }
+  }
 }
 function dkbReachLabel(o){
   if(o.label) return String(o.label).replace(/リーチ$/, '');
   return o.kind === 'line' ? 'ライン独占' : o.kind === 'tour' ? '観光地独占' : 'トリプル独占';
 }
+/* 自分（ともだちモードは手番の人間・チーム戦は味方も）のリーチは緑の FORTUNE!、相手は赤の WARNING（J49・WP5#4） */
 function dkbReachCut(o){
   try{ dkbBuild(); }catch(e){ dkbErr('build', e); }
   var el = DKB_S.reach; if(!el) return;
-  var p = G.players[o.pi];
+  var p = G.players[o.pi], me = dkbMe(), mine = (o.pi === me) || dkbAlly(me, o.pi);
   el.querySelector('.dkb-rband span').textContent = (p ? p.name : '') + ' があと1マス！';
   el.querySelector('.dkb-rband b').textContent = dkbReachLabel(o);
-  el.classList.remove('on');
-  if(!dkbFast()) void el.offsetWidth;
-  el.classList.add('on');
+  el.querySelector('.dkb-rband em').textContent = mine ? 'FORTUNE!' : 'WARNING';
+  el.classList.toggle('dkb-warn', !mine);
+  if(el.classList.contains('on')) dkbReplay(el, true); else el.classList.add('on');
   try{ SFX.warn(); }catch(e){}
   clearTimeout(el._t);
   el._t = setTimeout(function(){ el.classList.remove('on'); }, 1800 * SPEED);
@@ -883,21 +1310,36 @@ function dkbGoldCard(ctx, ox, oy, k){
   ctx.closePath(); ctx.fill();
   ctx.restore();
 }
+/* 金のカードの数（持ち物＋フォーチュンカード。4枚まで） */
+function dkbCardsOf(p){ return Math.min(4, ((p && p.items) || []).length + ((p && p.fcard) ? 1 : 0)); }
+/* 1人ぶんの山を小さな offscreen に作り置き（束の数・カードの数・色が変わった時だけ描き直す。C16） */
+function dkbStackCv(i, p){
+  var n = dkbBundles(p.cash), k = dkbCardsOf(p), key = n + '|' + k + '|' + PCOL[i];
+  var c = DKB_S.stk[i];
+  if(c && c.key === key) return c;
+  var S = DKB_STK, cv = (c && c.cv) || document.createElement('canvas');
+  var W = Math.round(S.w * S.s), H = Math.round(S.h * S.s);
+  if(cv.width !== W) cv.width = W;
+  if(cv.height !== H) cv.height = H;
+  var g = cv.getContext('2d');
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H);
+  g.setTransform(S.s, 0, 0, S.s, S.ox * S.s, S.oy * S.s);
+  /* 落ち影 */
+  var sh = g.createRadialGradient(0, 14, 4, 0, 14, 92);
+  sh.addColorStop(0, 'rgba(0,0,0,.42)'); sh.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = sh; g.beginPath(); g.ellipse(0, 14, 92, 46, 0, 0, 6.283); g.fill();
+  if(n > 0) dkbPileDraw(g, n, '#EEE4C6', PCOL[i]);
+  for(var j = 0; j < k; j++) dkbGoldCard(g, 70 + j * 16, -4 + j * 9, j);
+  c = DKB_S.stk[i] = { key: key, cv: cv };
+  return c;
+}
 function drawStacks(ctx, G, T){
   if(!G || !G.players) return;
+  var S = DKB_STK;
   G.players.forEach(function(p, i){
     if(p.out) return;
-    var xy = dkbStackXY(i), n = dkbBundles(p.cash);
-    ctx.save();
-    ctx.translate(xy.x, xy.y);
-    /* 落ち影 */
-    var sh = ctx.createRadialGradient(0, 14, 4, 0, 14, 92);
-    sh.addColorStop(0, 'rgba(0,0,0,.42)'); sh.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = sh; ctx.beginPath(); ctx.ellipse(0, 14, 92, 46, 0, 0, 6.283); ctx.fill();
-    if(n > 0) dkbPileDraw(ctx, n, '#EEE4C6', PCOL[i]);
-    var k = Math.min(4, (p.items || []).length);
-    for(var j = 0; j < k; j++) dkbGoldCard(ctx, 70 + j * 16, -4 + j * 9, j);
-    ctx.restore();
+    var xy = dkbStackXY(i), c = dkbStackCv(i, p);
+    ctx.drawImage(c.cv, xy.x - S.ox, xy.y - S.oy, S.w, S.h);
   });
 }
 
@@ -960,8 +1402,10 @@ function dkbReachMarks(ctx, T){
     });
   });
 }
-/* 同じマスに2人以上いる時、名前札を縦に並べ直す（元の札の上に不透明な札をかぶせる） */
+/* 同じマスに2人以上いる時、名前札を縦に並べ直す（元の札の上に不透明な札をかぶせる）。
+   WP10 の drawToken が縦並びを描く時（drawToken.dkkTags===true）はかぶせ描きしない（C17） */
 function dkbNameStacks(ctx){
+  if(typeof drawToken === 'function' && drawToken.dkkTags === true) return;
   var by = {};
   G.players.forEach(function(p, i){ if(p.out || p.moving) return; (by[p.pos] = by[p.pos] || []).push(i); });
   Object.keys(by).forEach(function(k){
@@ -989,25 +1433,32 @@ function dkbNameStacks(ctx){
     ctx.restore();
   });
 }
-/* カメラが卓の外（背景の継ぎ目）を映さないよう、寄った時の行き先を内側に寄せる */
+/* カメラが卓の外（背景の継ぎ目）を映さないよう、寄った時の行き先を卓の内側（x 28〜1572・y 16〜884）に収める（WP6#5） */
 function dkbCamClamp(){
   if(!cam || !(cam.tz > 1.001)) return;
-  var hw = SW / 2 / cam.tz, hh = SH / 2 / cam.tz, m = 14;
-  cam.tx = Math.max(hw + m, Math.min(SW - hw - m, cam.tx));
-  cam.ty = Math.max(hh + m, Math.min(SH - hh - m, cam.ty));
+  var hw = SW / 2 / cam.tz, hh = SH / 2 / cam.tz;
+  cam.tx = Math.max(28 + hw, Math.min(1572 - hw, cam.tx));
+  cam.ty = Math.max(16 + hh, Math.min(884 - hh, cam.ty));
 }
-/* 浮き数字（give の addFloat）が中央プレートの裏や画面の上端に隠れないようにずらす */
+/* 浮き数字（addFloat）が中央プレートの裏・画面の上端に隠れないように、また同じ所に2つ重ならないようにずらす */
 function dkbFixFloats(){
   if(!fxList.length) return;
-  var pr = dkbPlateRect(), z = cam.tz || 1;
-  for(var i = fxList.length - 1; i >= 0 && i >= fxList.length - 12; i--){
-    var f = fxList[i];
+  var pr = dkbPlateRect(), z = cam.tz || 1, lo = Math.max(0, fxList.length - 16), i, k, f, o;
+  var w2s = function(q){ return { x: SW / 2 + (q.x - cam.tx) * z, y: SH / 2 + (q.y - cam.ty) * z }; };
+  for(i = lo; i < fxList.length; i++){
+    f = fxList[i];
     if(!f || f.kind !== 'num' || f.dkbFix) continue;
     f.dkbFix = 1;
-    var sx = SW / 2 + (f.x - cam.tx) * z, sy = SH / 2 + (f.y - cam.ty) * z, ny = sy;
-    if(pr && sx > pr.l - 230 && sx < pr.r + 230 && sy > pr.t - 90 && sy < pr.b + 60) ny = pr.b + 96;
+    var s = w2s(f), ny = s.y;
+    if(pr && s.x > pr.l - 230 && s.x < pr.r + 230 && s.y > pr.t - 90 && s.y < pr.b + 60) ny = pr.b + 96;
     if(ny < 130) ny = 130;
-    if(ny !== sy) f.y = cam.ty + (ny - SH / 2) / z;
+    for(k = lo; k < fxList.length; k++){
+      o = fxList[k];
+      if(!o || o === f || o.kind !== 'num' || !o.dkbFix || o.t > 900) continue;
+      var so = w2s(o);
+      if(Math.abs(so.x - s.x) < 170 && Math.abs(so.y - ny) < 52) ny = so.y + 56;
+    }
+    if(ny !== s.y) f.y = cam.ty + (ny - SH / 2) / z;
   }
 }
 
@@ -1410,7 +1861,7 @@ async function dkbMenu(){
 }
 function dkbQuit(){
   if(!G) return;
-  G.over = true; G.running = false;
+  G.over = true; G.running = false; G.dkbQuit = true;
   try{ gaugeOn = false; stepPreview = null; destPin = null; }catch(e){}
   ['push', 'odd', 'even', 'skillBtn', 'shakeBtn'].forEach(function(id){ var e = document.getElementById(id); if(e) e.onclick = null; });
   ['diceui', 'modalWrap', 'pickeye', 'shake', 'emotebar', 'celebrate'].forEach(function(id){ var e = document.getElementById(id); if(e) e.classList.remove('on'); });
@@ -1419,62 +1870,270 @@ function dkbQuit(){
   try{ bgm('lobby'); }catch(e){}
   showHome();
 }
-function dkbEmote(pi, e){
-  var box = document.getElementById('emoteflow'); if(!box || !e) return;
-  var seat = G ? dkbSeatOfPi(pi) : 'Bot';
-  box.className = 'dkb-ef' + seat;
-  var s = dkbEl('span', 'emo'); s.textContent = e;
-  box.appendChild(s);
-  while(box.children.length > 4) box.removeChild(box.firstChild);
-  setTimeout(function(){ if(s.parentNode) s.parentNode.removeChild(s); }, 4000);
-  if((e === '👍' || e === '👏') && G){
-    G.dkbLikes = (G.dkbLikes || 0) + 1;
-    if(DKB_S.like){ var b = DKB_S.like.querySelector('b'); b.textContent = String(G.dkbLikes); DKFX.poke(DKB_S.like); }
+/* ══════════ エモート（12種から4個まで選んで［送る］。送った人の HUD の脇に 0.25秒ずつ・5個まで。G06・C15） ══════════ */
+function dkbEmoBarSync(){
+  var bar = document.getElementById('emotebar'); if(!bar || !bar.querySelector('.dkb-emgrid')) return;
+  var sel = DKB_S.emoSel || [];
+  Array.prototype.forEach.call(bar.querySelectorAll('.dkb-emb'), function(btn){
+    var k = sel.indexOf(DKB_EMO[+btn.getAttribute('data-e')]);
+    btn.classList.toggle('on', k >= 0);
+    dkbTxt(btn.querySelector('i'), k >= 0 ? String(k + 1) : '');
+  });
+  dkbTxt(bar.querySelector('.dkb-emcnt'), sel.length + '/4');
+  var sb = bar.querySelector('.dkb-emsend'); if(sb && sb.classList.contains('dkb-dis') !== !sel.length) sb.classList.toggle('dkb-dis', !sel.length);
+}
+/* 自分のエモートを送る（3秒に1回）。自分の画面にすぐ出し、オンラインは WP13 の dvSendEmote で配る */
+function dkbSendEmote(list){
+  if(!G || G.over || !Array.isArray(list) || !list.length) return false;
+  var now = performance.now(), me = dkbMe();
+  if(now - DKB_S.emoAt < 3000){ dkNotify(me, '⏳', 'エモートは3秒に1回です', '', { ms: 1200 }); return false; }
+  DKB_S.emoAt = now;
+  list = list.slice(0, 4);
+  DKB_S.emoEcho = { key: me + ':' + list.join('|'), t: now };
+  dkEmoteShow(me, list, true);
+  try{ if(typeof window.dvSendEmote === 'function') window.dvSendEmote(me, list.slice()); }catch(e){ dkbErr('emote-send', e); }
+  return true;
+}
+/* C15：seat（席＝G.players の番号）の HUD の脇にエモートを並べる。知らない語は出さない */
+function dkEmoteShow(seat, list, local){
+  if(!G || !G.players || !G.players[seat]) return;
+  list = (Array.isArray(list) ? list : [list]).filter(function(e){ return DKB_EMO.indexOf(e) >= 0; }).slice(0, 4);
+  if(!list.length) return;
+  var ek = seat + ':' + list.join('|');
+  if(!local && DKB_S.emoEcho && DKB_S.emoEcho.key === ek && performance.now() - DKB_S.emoEcho.t < 2500) return;   // 自分の送信の折り返し
+  try{ dkbBuild(); }catch(e){ dkbErr('build', e); }
+  var box = DKB_S.emo[dkbSeatOfPi(seat)]; if(!box) return;
+  list.forEach(function(e){ box.q.push(e); });
+  if(!box.t) dkbEmoPump(box);
+}
+function dkbEmoPump(box){
+  var e = box.q.shift();
+  if(e === undefined){ box.t = 0; return; }
+  var el = box.el;
+  var s = (box.free && box.free.pop()) || document.createElement('span');
+  s.className = 'dkb-em' + (e.length > 2 ? ' dkb-emtx' : '');
+  s.textContent = e;
+  el.appendChild(s);
+  while(el.children.length > 5) dkbEmoDrop(box, el.firstChild);
+  clearTimeout(s._t);
+  s._t = setTimeout(function(){ dkbEmoDrop(box, s); }, 3000);
+  box.t = setTimeout(function(){ dkbEmoPump(box); }, 250);
+}
+function dkbEmoDrop(box, s){
+  if(!s) return;
+  clearTimeout(s._t);
+  if(s.parentNode) s.parentNode.removeChild(s);
+  if(!box.free) box.free = [];
+  if(box.free.length < 6 && box.free.indexOf(s) < 0) box.free.push(s);
+}
+/* CPU のエモート：出来事で送る（1試合5回まで・同じ出来事では1人だけ・乱数を使わない） */
+function dkbCpuEmote(pi, kind){
+  if(!G || G.over || dkbFast()) return;
+  var p = G.players[pi]; if(!p || p.kind !== 'cpu' || p.out) return;
+  if((G.dkbCpuEmo | 0) >= 5) return;
+  var ev = (G.turnSerial | 0) + ':' + kind;
+  if(G.dkbEmoEv === ev) return;
+  G.dkbEmoEv = ev; G.dkbCpuEmo = (G.dkbCpuEmo | 0) + 1;
+  var sets = { pay: [['😭'], ['やられた〜'], ['😱', '😭']], gain: [['🤑'], ['ありがとう'], ['😆', '👏']], reach: [['おさきに！'], ['😆']] };
+  var s = sets[kind] || sets.gain;
+  dkEmoteShow(pi, s[((G.turnSerial | 0) + pi) % s.length], true);
+}
+/* 大きな通行料：払った CPU は悲しみ、受け取った CPU は喜ぶ */
+function dkbCpuReact(payer, owner, amt){
+  if(!(amt >= 1000000 * dkbScale())) return;
+  var P = G.players[payer], O = G.players[owner];
+  if(P && P.kind === 'cpu') dkbCpuEmote(payer, 'pay');
+  else if(O && O.kind === 'cpu') dkbCpuEmote(owner, 'gain');
+}
+
+/* ══════════ 👍（相手の札を押すと、その人にいいね。1試合10回まで。C15・G21） ══════════ */
+function dkbSendLike(pi){
+  if(!G || G.over || !G.players[pi]) return;
+  var me = dkbMe(); if(pi === me) return;
+  if((G.dkbLikeSent | 0) >= 10){ dkNotify(me, '👍', 'いいねは1試合10回までです', '', { ms: 1400 }); return; }
+  G.dkbLikeSent = (G.dkbLikeSent | 0) + 1;
+  try{ SFX.click(); }catch(e){}
+  dkLikeShow(pi, ((G.dkbLk && G.dkbLk[pi]) | 0) + 1);
+  try{ if(typeof window.dvSendLike === 'function') window.dvSendLike(pi); }catch(e){ dkbErr('like-send', e); }
+}
+/* C15：seat の👍の数を n にする（通信の折り返しで同じ数が来ても増えない） */
+function dkLikeShow(seat, n){
+  if(!G || !G.players || !G.players[seat]) return;
+  dkbEnsureG();
+  n = Math.max(0, Math.floor(+n || 0));
+  var old = G.dkbLk[seat] | 0;
+  G.dkbLk[seat] = n;
+  var h = DKB_S.hud[dkbSeatOfPi(seat)];
+  if(h && dkbHudPi(h) === seat){
+    dkbTxt(h.querySelector('.dkb-lk b'), String(n));
+    if(n > old && !dkbFast() && typeof DKFX === 'object' && DKFX.poke) DKFX.poke(h.querySelector('.dkb-lk'));
   }
+}
+
+/* ══════════ 自動プレイ（J60・C14。強さは「ふつう」） ══════════ */
+function dkbSetAuto(pi, on){
+  if(!G || !G.players[pi]) return;
+  try{ if(typeof dkSetAuto === 'function') dkSetAuto(pi, !!on, 'user'); else G.players[pi].auto = !!on; }catch(e){ dkbErr('auto', e); }
+  dkNotify(pi, on ? '🤖' : '✋', on ? '自動プレイ' : '手動に戻しました',
+    on ? 'CPU の判断で代わりに進めます（HUD の［自動］で戻せます）' : '', { ms: 1800 });
+  updHUD();
+}
+
+/* ══════════ ゲットアイテム（持っているフォーチュンカード1枚。#itembar のかわりに左端に出す。C08） ══════════ */
+function dkbFcardSync(){
+  var el = DKB_S.fc; if(!el || !G) return;
+  var p = G.players[dkbMe()], f = p && !p.out && p.fcard ? DKB_FCARD[p.fcard] : null;
+  el.classList.toggle('on', !!f);
+  if(f){ dkbTxt(el.querySelector('i'), f.ic); dkbTxt(el.querySelector('span'), f.nm); }
 }
 function dkbItemsPanel(){
   if(!G) return;
-  var me = DKB_S.piOf.Bot !== undefined ? DKB_S.piOf.Bot : 0, p = G.players[me];
-  var rows = ((p && p.items) || []).map(function(id){ return itemById(id); }).filter(Boolean).map(function(it){
-    return '<div class="dkb-itr"><i>' + esc(it.ic) + '</i><div><b>' + esc(it.nm) + '</b><span>' + esc(it.desc) + '</span></div></div>';
-  }).join('');
+  var p = G.players[dkbMe()], rows = [];
+  var row = function(ic, nm, ds){ return '<div class="dkb-itr"><i>' + esc(ic) + '</i><div><b>' + esc(nm) + '</b><span>' + esc(ds) + '</span></div></div>'; };
+  if(p && p.fcard && DKB_FCARD[p.fcard]){ var f = DKB_FCARD[p.fcard]; rows.push(row(f.ic, f.nm, f.ds)); }
+  ((p && p.items) || []).forEach(function(id){ var it = itemById(id); if(it) rows.push(row(it.ic, it.nm, it.desc)); });
   modal('<div class="modal"><div class="dkb-mpanel fx-panel dkb-items">'
     + '<h3>ゲットアイテム</h3>'
-    + (rows || '<p class="dkb-empty">いま持っているアイテムはありません</p>')
-    + '<p class="dkb-note">待機部屋で買う・チャンスカードで拾うと増えます。サイコロを振る前に左のボタンから使えます。</p>'
-    + '<div class="dkb-mbtns"><button class="btn gold" data-act="close">とじる</button></div></div></div>');
+    + (rows.join('') || '<p class="dkb-empty">いま持っているフォーチュンカードはありません</p>')
+    + '<p class="dkb-note">フォーチュンカードは1枚まで持てます。通行料や攻撃・閉じ込めの時に使うか聞かれます。</p>'
+    + '<div class="dkb-mbtns"><button class="btn gold" data-act="close">閉じる</button></div></div></div>');
 }
+
+/* ══════════ プレイヤー情報（能力値は基本値＋青い +N、自分に［自動プレイ］、相手に［ゲーム友達 +追加］。J58・J60） ══════════ */
 function dkbInfo(pi){
   if(!G || !G.players[pi]) return;
-  var p = G.players[pi], c = cardById(p.card) || {}, st = p.stats || {};
+  var p = G.players[pi], c = cardById(p.card) || {};
   var rr = RAR[c.rar] ? c.rar : 'A';
-  var bars = STAT_LABELS.map(function(kl){
-    var v = Math.max(0, Math.min(120, Math.round(+st[kl[0]] || 0)));
-    return '<div class="dkb-bar7"><span>' + esc(kl[1]) + '</span><i><em style="transform:scaleX(' + (Math.min(100, v) / 100).toFixed(3)
-      + ')"></em></i><b>' + v + '</b></div>';
+  var names = {}, split = null;
+  STAT_LABELS.forEach(function(kl){ names[kl[0]] = kl[1]; });
+  try{ (dkStatLabels(p.card) || []).forEach(function(kl){ if(kl && kl[0]) names[kl[0]] = kl[1]; }); }catch(e){}
+  try{ split = dkStatSplit(pi); }catch(e){ split = null; }
+  if(!Array.isArray(split) || !split.length){
+    var st0 = p.stats || {};
+    split = STAT_LABELS.map(function(kl){ return { key: kl[0], base: +st0[kl[0]] || 0, plus: 0 }; });
+  }
+  var bars = split.map(function(s){
+    var base = Math.max(0, Math.min(120, Math.round(+s.base || 0))), plus = Math.max(0, Math.round(+s.plus || 0));
+    var wb = Math.min(100, base), wp = Math.min(100 - wb, plus);
+    return '<div class="dkb-bar7"><span>' + esc(names[s.key] || s.key) + '</span><i><em style="transform:scaleX(' + (wb / 100).toFixed(3) + ')"></em>'
+      + (wp > 0 ? '<u style="left:' + wb + '%;width:' + wp + '%"></u>' : '') + '</i>'
+      + '<b>' + base + (plus > 0 ? '<small>+' + plus + '</small>' : '') + '</b></div>';
   }).join('');
+  var ns = 4;
+  try{ ns = Math.max(0, Math.min(4, (typeof dkPendSlots === 'function' ? +dkPendSlots(p.card) : 4) || 0)); }catch(e){ ns = 4; }
   var pend = '';
   for(var k = 0; k < 4; k++){
     var it = p.pend && p.pend[k];
-    pend += it ? '<div class="dkb-pd"><i>' + esc(it.ic) + '</i><span>' + esc(it.nm) + '</span></div>'
-               : '<div class="dkb-pd dkb-none"><i>◇</i><span>なし</span></div>';
+    pend += (k >= ns) ? '<div class="dkb-pd dkb-none"><i>🔒</i><span>—</span></div>'
+      : it ? '<div class="dkb-pd"><i>' + esc(it.ic) + '</i><span>' + esc(it.nm) + '</span></div>'
+      : '<div class="dkb-pd dkb-none"><i>◇</i><span>未装着</span></div>';
   }
   var sk = p.skill || c.sk || { nm: '', ds: '' };
+  var ab = null; try{ ab = (typeof dkDieAb === 'function') ? dkDieAb(pi) : null; }catch(e){ ab = null; }
+  var pct = function(v){ v = +v || 0; return Math.round(v <= 1 ? v * 100 : v); };
+  var bonus = (ab && (ab.gold > 0 || ab.rp > 0))
+    ? '<p class="dkb-ibonus">ボーナス効果　<b>GOLD ' + pct(ab.gold) + '%</b>　<b>RP ' + pct(ab.rp) + '%</b></p>' : '';
+  var me = dkbMe(), mine = (pi === me && p.kind !== 'cpu');
+  var act = mine ? '<button class="btn dkb-bblue" data-act="auto">' + (dkbIsAuto(pi) ? '自動プレイをやめる' : '自動プレイ') + '</button>'
+                 : '<button class="btn dkb-bpink" data-act="friend">ゲーム友達 +追加</button>';
   var html = '<div class="modal"><div class="dkb-info fx-panel" style="--pc:' + PCOL[pi] + ';--pcd:' + shade(PCOL[pi], -0.55) + '">'
     + '<div class="dkb-ihd"><b>' + esc(p.name) + '</b><span>' + esc(c.nm || '') + '</span></div>'
     + '<div class="dkb-ibd"><div class="dkb-icard"><canvas width="240" height="340"></canvas>'
     + '<b class="dkb-rar dkb-r' + rr + '">' + esc(RAR[rr] ? RAR[rr].nm : 'A') + '</b><b class="dkb-lv">Lv' + (p.cardLv || 1) + '</b></div>'
     + '<div class="dkb-istat">' + bars + '<div class="dkb-ipend">' + pend + '</div>'
-    + '<div class="dkb-iskill"><b>' + esc(sk.nm || '') + '</b><span>' + esc(sk.ds || '') + '</span>'
-    + '<em>のこり ' + Math.max(0, p.skillLeft | 0) + ' 回</em></div></div></div>'
-    + '<div class="dkb-mbtns"><button class="btn gold" data-act="close">とじる</button></div></div></div>';
+    + '<div class="dkb-iskill"><b>' + esc(sk.nm || '能力') + '</b><span>' + esc(sk.ds || '') + '</span></div>' + bonus + '</div></div>'
+    + '<div class="dkb-mbtns">' + act + '<button class="btn gold" data-act="close">閉じる</button></div></div></div>';
   var pr = modal(html);
   var cv = document.querySelector('#modalBody .dkb-icard canvas');
   if(cv) regPortrait(cv, p.ch, PCOL[pi], p.card);
-  pr.then(function(){
+  pr.then(function(a){
     for(var j = portraits.length - 1; j >= 0; j--) if(portraits[j].el === cv) portraits.splice(j, 1);
+    if(a === 'auto') dkbSetAuto(pi, !dkbIsAuto(pi));
+    else if(a === 'friend') dkbAddFriend(pi);
   });
   return pr;
+}
+/* ゲーム友達に追加（CPU は追加できない。人は SV.friends に名前だけ残す＝9j の形 {name,at,n}） */
+function dkbAddFriend(pi){
+  var p = G && G.players[pi]; if(!p) return;
+  var me = dkbMe();
+  if(p.kind === 'cpu'){ dkNotify(me, '🤝', 'CPU はゲーム友達に追加できません', 'オンライン対戦の相手を追加できます', { ms: 1800 }); return; }
+  try{
+    if(typeof SV === 'object' && SV){
+      if(!Array.isArray(SV.friends)) SV.friends = [];
+      var nm = String(p.name || '').slice(0, 10);
+      if(nm && !SV.friends.some(function(f){ return f && f.name === nm; })){
+        SV.friends.unshift({ name: nm, at: Date.now(), n: 0 });
+        if(SV.friends.length > 100) SV.friends.length = 100;
+        if(typeof saveNow === 'function') saveNow();
+      }
+    }
+  }catch(e){ dkbErr('friend', e); }
+  dkNotify(me, '🤝', 'ゲーム友達に追加しました', p.name, { ms: 1800 });
+}
+
+/* ══════════ マスの情報（持ち主・建物・現在の通行料・買収費用・ここまでNマス。J59） ══════════ */
+function dkbPicking(){
+  try{ if(typeof DKT_G !== 'undefined' && DKT_G && DKT_G.pick) return true; }catch(e){}
+  return !!document.querySelector('#stage > .dkt-pick:not(.dkt-out)');
+}
+function dkbInQuad(q, x, y){
+  var s = 0;
+  for(var k = 0; k < 4; k++){
+    var a = q[k], b = q[(k + 1) % 4], cr = (b.x - a.x) * (y - a.y) - (b.y - a.y) * (x - a.x);
+    if(cr !== 0){ var sg = cr > 0 ? 1 : -1; if(s === 0) s = sg; else if(s !== sg) return false; }
+  }
+  return true;
+}
+function dkbTileAtEv(ev){
+  var c = document.getElementById('world'); if(!c) return -1;
+  var sx = (ev.offsetX / (c.clientWidth || SW)) * SW, sy = (ev.offsetY / (c.clientHeight || SH)) * SH;
+  var wx = (sx - SW / 2) / cam.z + cam.x, wy = (sy - SH / 2) / cam.z + cam.y;
+  for(var i = 0; i < 32; i++) if(dkbInQuad(tileQuad(i), wx, wy)) return i;
+  return -1;
+}
+function dkbTileClick(ev){
+  var td = DKB_S.tdown;
+  if(td && td.pick && performance.now() - td.t < 2000) return;       // 選ぶ場面で押した指の続き
+  if(!G || G.over || dkbPicking()) return;
+  var mw = document.getElementById('modalWrap'); if(mw && mw.classList.contains('on')) return;
+  var i = dkbTileAtEv(ev);
+  if(i < 0){ if(DKB_S.tinfo) DKB_S.tinfo.classList.remove('on'); return; }
+  dkbTileInfo(i);
+}
+function dkbTypeName(t){
+  var m = { start: 'スタート', jail: '無人島', olympic: '祭り', travel: '世界旅行', card: 'フォーチュンカード',
+    tax: '国税庁', bonus: 'ボーナスゲーム', minigame: 'ボーナスゲーム' };
+  return m[t.type] || '特殊マス';
+}
+function dkbTileInfo(i){
+  try{ dkbBuild(); }catch(e){ dkbErr('build', e); }
+  var el = DKB_S.tinfo, t = G && G.tiles[i]; if(!el || !t) return;
+  var me = dkbMe(), mp = G.players[me], d = mp ? (i - mp.pos + 32) % 32 : 0, rows = [];
+  if(t.type === 'city'){
+    var own = (t.owner >= 0) ? G.players[t.owner] : null;
+    var lvn = t.landmark ? 'ランドマーク' : t.tour ? '観光地' : (DKB_LVNM[t.lv | 0] || '土地');
+    rows.push(['持ち主', own ? own.name : 'なし']);
+    rows.push(['建物', own ? lvn : '—']);
+    var toll = '—';
+    try{ if(own) toll = yen(tollOf(t, G)); }catch(e){ toll = '—'; }
+    rows.push(['現在の通行料', toll]);
+    var bo = '—';
+    if(own && (t.tour || t.landmark)) bo = '買収できません';
+    else if(own && t.owner !== me){
+      try{ bo = yen(typeof dkrBuyoutCost === 'function' ? dkrBuyoutCost(t, mp) : cityValue(t) * 2); }catch(e){ bo = '—'; }
+    }
+    rows.push(['買収費用', bo]);
+  } else rows.push(['マス', dkbTypeName(t)]);
+  el.innerHTML = '<div class="dkb-tin"><b class="dkb-tnm">' + esc(t.name || '') + '</b>'
+    + '<span class="dkb-tdist">' + (d === 0 ? 'いまここにいます' : 'ここまで<em>' + d + '</em>マス') + '</span>'
+    + rows.map(function(r){ return '<p><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></p>'; }).join('') + '</div>';
+  if(!el.classList.contains('on')) el.classList.add('on');
+  var w = tileCenter(i);
+  dkbFollow(el, function(){ return w; }, -34);
+  clearTimeout(el._t);
+  el._t = setTimeout(function(){ el.classList.remove('on'); }, 3200);
+  try{ SFX.click(); }catch(e){}
 }
 
 /* ══════════ 起動：代入ラッパと DOM ══════════ */
@@ -1508,13 +2167,6 @@ var DKB_O = {};
       var r = DKB_O.newGame.apply(this, arguments);
       try{ dkbOnNewGame(); }catch(e){ dkbErr('newGame', e); }
       return r;
-    };
-    DKB_O.moveSteps = moveSteps;
-    moveSteps = function(pi, n){
-      try{ var p = G && G.players[pi]; if(p && n > 0) destPin = (p.pos + n) % 32; }catch(e){}
-      var r;
-      try{ r = DKB_O.moveSteps.apply(this, arguments); }catch(e){ destPin = null; throw e; }
-      return Promise.resolve(r).then(function(v){ destPin = null; return v; }, function(e){ destPin = null; throw e; });
     };
     DKB_O.drawLake = drawLake;
     drawLake = function(ctx, map, T){
