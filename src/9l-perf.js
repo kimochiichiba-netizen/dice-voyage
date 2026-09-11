@@ -4,7 +4,7 @@ var DKK_S, DKK_B, DKK_O;
 
 function dkkS(){
   if(!DKK_S) DKK_S = { bgMs: 600000, g: null, bmode: '', ord: null, cy: null, h: { a: 0, b: 0 }, sa: 0, sb: 0, hs: { a: 0, b: 0 },
-    stk: [], stkDirty: true, stkDefer: false, lst: [], pool: [], rc: [], spr: {}, bdg: {}, tp: {}, fok: null, fokT: 0,
+    stk: [], sbx: {}, stkDirty: true, stkDefer: false, lst: [], pool: [], rc: [], spr: {}, bdg: {}, tp: {}, fok: null, fokT: 0,
     part: {}, pbox: {}, die: {}, dieId: '', pf: { last: 0, t0: 0, n: 0, sum: 0, bad: 0, done: false }, visT: 0, warm: {}, artGen: 0, n: { bg: 0, bd: 0 } };
   return DKK_S;
 }
@@ -172,21 +172,24 @@ function dkkStacks(S, now){
   S.stkDirty = false;
 }
 function dkkStackPaint(b, i, k, now){
-  var P = G.players, j, only = [], c, g, x;
+  var P = G.players, S = DKK_S, j, only = [], c, g, x, p = P[i], fg, key;
   b.on = false;
-  if(i >= P.length || P[i].out) return;
+  if(i >= P.length || p.out) return;
   var xy = dkkStackXY(i), x0 = Math.floor(xy.x - 170), y0 = Math.floor(xy.y - 230), W = Math.ceil(430 * k), H = Math.ceil(360 * k);
-  c = dkkCanvas(W, H); g = c.getContext('2d', { willReadFrequently: true });
-  g.setTransform(k, 0, 0, k, -x0 * k, -y0 * k);
-  for(j = 0; j < P.length; j++) only.push(j === i ? P[j] : { out: true, cash: 0, items: [] });
-  try{ drawStacks(g, { players: only, map: G.map, tiles: G.tiles, turn: G.turn }, now); }catch(e){ console.error('[WP10] stacks', e); }
-  x = dkkAlphaBox(g, W, H, 2);
-  if(x){
-    b.c = b.c || document.createElement('canvas'); b.c.width = x.w; b.c.height = x.h;
-    b.c.getContext('2d').drawImage(c, x.x, x.y, x.w, x.h, 0, 0, x.w, x.h);
-    b.x = x0 + x.x / k; b.y = y0 + x.y / k; b.w = x.w / k; b.h = x.h / k; b.on = true;
+  for(j = 0; j < P.length; j++) only.push(j === i ? p : { out: true, cash: 0, items: [] });
+  fg = { players: only, map: G.map, tiles: G.tiles, turn: G.turn };
+  key = (typeof dkbBundles === 'function' ? dkbBundles(p.cash) : 0) + '|' + Math.min(4, (p.items || []).length) + '|' + k;
+  if(!(key in S.sbx)){                              // 形ごとに1回だけ測る
+    c = dkkCanvas(W, H); g = c.getContext('2d', { willReadFrequently: true });
+    g.setTransform(k, 0, 0, k, -x0 * k, -y0 * k);
+    try{ drawStacks(g, fg, now); }catch(e){}
+    S.sbx[key] = dkkAlphaBox(g, W, H, 3); c.width = c.height = 1;
   }
-  c.width = c.height = 1;
+  if(!(x = S.sbx[key])) return;
+  b.c = b.c || document.createElement('canvas'); b.c.width = x.w; b.c.height = x.h;
+  g = b.c.getContext('2d'); g.setTransform(k, 0, 0, k, -x0 * k - x.x, -y0 * k - x.y);
+  try{ drawStacks(g, fg, now); }catch(e){ console.error('[WP10] stacks', e); }
+  b.x = x0 + x.x / k; b.y = y0 + x.y / k; b.w = x.w / k; b.h = x.h / k; b.on = true;
 }
 /* 色のある範囲（p＝余白） */
 function dkkAlphaBox(g, W, H, p){
