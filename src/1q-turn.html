@@ -1,0 +1,272 @@
+<style>
+/* ══════════════════════════════════════════════════════════════
+   ダイスキングダム — サイコロUI・マス選び・無人島／世界旅行の選択（1q-turn.html / WP6）
+   ──────────────────────────────────────────────────────────────
+   さわるセレクタ：#diceui #gauge #push #odd #even .oddeven #pickeye .dkt-*
+   動かすのは transform と opacity だけ。入場 keyframe の 0% で opacity を下げない。
+   位置は 1600×900 のステージ座標（盤の中心は x=808）。本家 s6/f05・f07 の並び：
+   上に弧のゲージ、左右に青い丸の［奇数］［偶数］、その下の真ん中に金縁のピンクの［押す］。
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── ゲージ（canvas）と説明の札 ── */
+#gauge{left:528px;top:290px;width:560px;height:214px;transform:none;z-index:1}
+#diceui .dkt-cap{position:absolute;left:808px;top:446px;transform:translateX(-50%);z-index:2;
+  padding:5px 18px 6px;border-radius:999px;white-space:nowrap;pointer-events:none;
+  font-family:var(--jp);font-weight:900;font-size:20px;line-height:1.2;color:#F6E6C0;
+  background:linear-gradient(180deg,rgba(44,28,8,.9),rgba(16,10,3,.92));
+  border:2px solid rgba(242,194,48,.78);box-shadow:0 4px 12px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,230,160,.25)}
+#diceui .dkt-cap:empty{display:none}
+#diceui .dkt-cap b{font-family:var(--pop);font-weight:400;color:#FFD44A}
+#diceui .dkt-cap .dkt-dot{display:inline-block;width:6px;height:6px;margin:0 10px 3px;border-radius:50%;
+  background:#C8952F;vertical-align:middle}
+#diceui.dkt-hit .dkt-cap{border-color:#FFE27A;box-shadow:0 0 18px 4px rgba(255,210,80,.6),inset 0 1px 0 rgba(255,230,160,.3)}
+
+/* ── ［押す］：金縁のピンクの楕円 ── */
+#diceui #push{left:696px;top:561px;width:224px;height:134px;transform:none;z-index:3;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:0 0 4px;
+  border:8px solid transparent;border-radius:50%;
+  background:
+    radial-gradient(60% 42% at 50% 20%,rgba(255,255,255,.62),rgba(255,255,255,0) 70%) padding-box,
+    radial-gradient(90% 90% at 50% 38%,#FFA6DA 0%,#F4499F 44%,#B51660 78%,#780A3A 100%) padding-box,
+    linear-gradient(162deg,#FFF7D6 0%,#F4D06A 16%,#B8801E 38%,#FFE69C 56%,#8A5A0C 78%,#F7DC8A 100%) border-box;
+  box-shadow:0 10px 0 #5C0A2F,0 20px 30px rgba(0,0,0,.55),inset 0 -14px 22px rgba(90,0,40,.5),inset 0 4px 0 rgba(255,255,255,.3);
+  color:#fff;-webkit-text-stroke:0;
+  animation:dktPushIdle 1.5s var(--fx-inout) infinite;transition:transform 140ms var(--fx-back)}
+#diceui #push::before{content:"";position:absolute;inset:-8px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(closest-side,rgba(255,255,255,.6),rgba(255,160,220,.28) 62%,rgba(255,160,220,0));
+  opacity:0;transition:opacity 160ms}
+#diceui #push:hover{filter:brightness(1.06)}
+#push .dkt-pl{display:block;font-family:var(--pop);font-weight:400;font-style:normal;font-size:46px;line-height:1;color:#fff;
+  -webkit-text-stroke:7px #6E0A36;paint-order:stroke fill;text-shadow:0 4px 0 rgba(80,0,32,.55);pointer-events:none}
+#push .dkt-ps{display:block;font-family:var(--jp);font-weight:900;font-style:normal;font-size:20px;line-height:1;color:#FFE6F3;
+  -webkit-text-stroke:3.5px #6E0A36;paint-order:stroke fill;pointer-events:none}
+#push.dkt-mode .dkt-pl{color:#FFF3B8}
+#push .dkt-pl.dkt-swap{animation:dktSwap 320ms var(--fx-spring)}
+@keyframes dktSwap{0%{transform:scale(.6)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
+@keyframes dktPushIdle{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
+@keyframes dktCharge{from{opacity:.55}to{opacity:1}}
+
+/* 後光（押すの後ろで呼吸する輪） */
+#diceui .dkt-halo{position:absolute;left:662px;top:531px;width:292px;height:194px;border-radius:50%;pointer-events:none;z-index:2;
+  background:radial-gradient(closest-side,rgba(255,120,200,0) 60%,rgba(255,150,215,.58) 75%,rgba(255,214,120,.34) 87%,rgba(255,214,120,0) 100%);
+  animation:dktHalo 1.5s var(--fx-inout) infinite}
+@keyframes dktHalo{0%,100%{transform:scale(.95);opacity:.55}50%{transform:scale(1.07);opacity:1}}
+#diceui:has(#push.dkt-hold) .dkt-halo{animation-duration:.42s;
+  background:radial-gradient(closest-side,rgba(255,220,120,0) 58%,rgba(255,232,150,.8) 74%,rgba(255,170,220,.45) 88%,rgba(255,170,220,0) 100%)}
+
+/* ── ［奇数］［偶数］：青い丸（押すとモード。もう一度押すと解除） ── */
+#diceui .oddeven{top:474px;width:108px;height:108px;padding:0;border-radius:50%;z-index:3;
+  display:flex;align-items:center;justify-content:center;
+  border:5px solid transparent;
+  background:
+    radial-gradient(70% 48% at 50% 22%,rgba(255,255,255,.55),rgba(255,255,255,0) 72%) padding-box,
+    radial-gradient(90% 90% at 50% 40%,#86CEFF 0%,#2E8BE0 48%,#134E9E 82%,#0B2C5E 100%) padding-box,
+    linear-gradient(160deg,#F0F8FF 0%,#9CC0E6 26%,#2B4A74 56%,#C9DDF2 82%,#5C7CA6 100%) border-box;
+  box-shadow:0 7px 0 #0A2548,0 13px 20px rgba(0,0,0,.5),inset 0 -9px 14px rgba(0,20,60,.5);
+  font-family:var(--pop);font-weight:400;font-size:28px;line-height:1;color:#fff;
+  -webkit-text-stroke:5px #0B2C5E;paint-order:stroke fill;
+  transition:transform var(--fx-t-release) var(--fx-back)}
+#diceui #odd{left:574px;right:auto}
+#diceui #even{left:934px;right:auto}
+#diceui .oddeven:hover{transform:translateY(-3px)}
+#diceui .oddeven:active{transform:scale(.92)}
+#diceui .oddeven.dkt-on{transform:translateY(-4px);
+  background:
+    radial-gradient(70% 48% at 50% 22%,rgba(255,255,255,.6),rgba(255,255,255,0) 72%) padding-box,
+    radial-gradient(90% 90% at 50% 40%,#9EDCFF 0%,#3A9AF0 48%,#1656A8 82%,#0B2C5E 100%) padding-box,
+    linear-gradient(160deg,#FFF7D6 0%,#F4D06A 20%,#B8801E 42%,#FFE69C 62%,#8A5A0C 84%,#F7DC8A 100%) border-box;
+  box-shadow:0 7px 0 #0A2548,0 0 0 3px rgba(255,236,150,.85),0 13px 20px rgba(0,0,0,.5),inset 0 -9px 14px rgba(0,20,60,.45)}
+#diceui .oddeven.dkt-on::before{content:"";position:absolute;inset:-12px;border-radius:50%;pointer-events:none;
+  box-shadow:0 0 24px 8px rgba(255,214,90,.8);animation:fxBreath 1.1s var(--fx-inout) infinite}
+#diceui .oddeven.dim{opacity:.62;filter:grayscale(.85) brightness(.8)}
+#diceui .oddeven u{position:absolute;right:-8px;top:-8px;min-width:36px;height:36px;padding:0 8px;border-radius:18px;
+  display:flex;align-items:center;justify-content:center;text-decoration:none;
+  font-family:var(--pop);font-weight:400;font-size:20px;line-height:1;color:#3A2405;-webkit-text-stroke:0;
+  background:linear-gradient(180deg,#FFF3C8,#F2C230 55%,#C8952F);border:2px solid #6B4408;box-shadow:0 2px 0 rgba(0,0,0,.4)}
+
+/* ── 出てくる時（transform だけ） ── */
+#diceui.dkt-in #push{animation:dktPopIn 420ms var(--fx-spring) both,dktPushIdle 1.5s var(--fx-inout) 420ms infinite}
+#diceui.dkt-in #odd{animation:dktInL 380ms var(--fx-out) 60ms both}
+#diceui.dkt-in #even{animation:dktInR 380ms var(--fx-out) 60ms both}
+#diceui.dkt-in #gauge{animation:dktGaugeIn 360ms var(--fx-out) both}
+#diceui.dkt-in .dkt-cap{animation:dktCapIn 360ms var(--fx-out) 120ms both}
+@keyframes dktPopIn{0%{transform:scale(.86)}60%{transform:scale(1.06)}100%{transform:scale(1)}}
+@keyframes dktInL{from{transform:translateX(-30px) scale(.9)}}
+@keyframes dktInR{from{transform:translateX(30px) scale(.9)}}
+@keyframes dktGaugeIn{from{transform:translateY(16px) scale(.94)}}
+@keyframes dktCapIn{from{transform:translateX(-50%) translateY(10px) scale(.9)}}
+
+/* 押している間・押した瞬間（入場のアニメより後ろに書く＝同じ強さなら後が勝つ） */
+#diceui #push:active,#diceui #push.dkt-hold{transform:scale(.95);animation:none;
+  box-shadow:0 4px 0 #5C0A2F,0 8px 16px rgba(0,0,0,.5),inset 0 -8px 18px rgba(90,0,40,.5),inset 0 4px 0 rgba(255,255,255,.3)}
+#diceui #push.dkt-hold::before{opacity:1;animation:dktCharge .3s linear infinite alternate}
+
+/* CPU の手番：ボタンは隠してゲージだけ動かす ／ マス選びの間は隠す */
+#diceui.dkt-watch #push,#diceui.dkt-watch .oddeven,#diceui.dkt-watch .dkt-halo{visibility:hidden}
+#stage.dkt-picking #diceui{visibility:hidden}
+
+/* ══════════ マス選びの案内パネル（湖の中に収める） ══════════ */
+.dkt-pick{position:absolute;left:578px;top:360px;width:460px;z-index:310;display:none;pointer-events:auto;
+  padding:34px 22px 16px;border-radius:18px;text-align:center;color:#FFF6E2;
+  background:
+    radial-gradient(120% 80% at 50% 0%,rgba(255,214,120,.18),rgba(255,214,120,0) 60%) padding-box,
+    linear-gradient(180deg,rgba(56,38,16,.96),rgba(18,11,4,.97)) padding-box,
+    var(--fx-gold-metal) border-box;
+  border:4px solid transparent;
+  box-shadow:0 8px 0 rgba(0,0,0,.35),0 18px 36px rgba(0,0,0,.6),inset 0 2px 0 rgba(255,220,150,.22)}
+.dkt-pick::before{content:"";position:absolute;inset:6px;border-radius:12px;pointer-events:none;border:1px solid rgba(196,150,70,.34)}
+.dkt-pick.dkt-on{display:block;animation:dktPickIn 380ms var(--fx-spring) both}
+.dkt-pick.dkt-out{animation:dktPickOut 170ms var(--fx-in) both}
+@keyframes dktPickIn{0%{transform:translateY(14px) scale(.88)}60%{transform:translateY(-2px) scale(1.03)}100%{transform:none}}
+@keyframes dktPickOut{to{transform:scale(.94);opacity:0}}
+.dkt-pk-tag{position:absolute;left:50%;top:-26px;transform:translateX(-50%);height:52px;padding:0 56px;white-space:nowrap;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(180deg,#F0604A 0 10%,#C9302C 45%,#8E1410);
+  clip-path:polygon(0 0,100% 0,95% 50%,100% 100%,0 100%,5% 50%)}
+.dkt-pk-tag b{font-family:var(--pop);font-weight:400;font-size:26px;line-height:1;color:#FFF6E2;
+  -webkit-text-stroke:5px #5A1206;paint-order:stroke fill}
+.dkt-pk-msg{font-family:var(--pop);font-weight:400;font-size:30px;line-height:1.2;color:#FFF6E2;
+  -webkit-text-stroke:5px #2A1604;paint-order:stroke fill}
+.dkt-pk-note{margin-top:8px;font-size:18px;font-weight:700;line-height:1.35;color:#E9D6A8}
+.dkt-pick.dkt-bad .dkt-pk-note{color:#FFB0A2}
+.dkt-pk-foot{display:flex;align-items:center;gap:12px;margin-top:14px}
+.dkt-pk-bar{flex:1;height:12px;border-radius:6px;overflow:hidden;background:#140C04;border:2px solid #7A5A22;
+  box-shadow:inset 0 2px 4px rgba(0,0,0,.6)}
+.dkt-pk-bar i{display:block;height:100%;transform-origin:0 50%;
+  background:linear-gradient(90deg,#FF6A5E,#F2C230 35%,#FFF3C8);animation:dktBar linear both}
+@keyframes dktBar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+.dkt-pk-sec{font-size:18px;font-weight:700;color:#E9D6A8;white-space:nowrap}
+.dkt-pk-sec b{font-family:var(--pop);font-weight:400;font-size:24px;color:#FFD44A}
+.dkt-pick.dkt-late .dkt-pk-sec b{color:#FF8A7A}
+.dkt-pk-x{position:relative;height:48px;padding:0 20px;border-radius:12px;cursor:pointer;white-space:nowrap;
+  font-family:var(--pop);font-weight:400;font-size:20px;line-height:1;color:#F3E6C8;
+  -webkit-text-stroke:3.5px #2A1604;paint-order:stroke fill;
+  background:linear-gradient(180deg,#6E5326,#3E2C11 52%,#271A07);border:2px solid #A98446;box-shadow:0 4px 0 rgba(0,0,0,.45);
+  transition:transform var(--fx-t-release) var(--fx-back)}
+.dkt-pk-x:hover{filter:brightness(1.12)}
+.dkt-pk-x:active{transform:translateY(3px) scale(.96)}
+
+/* ══════════ 無人島・世界旅行の選択（モーダルの中身） ══════════ */
+.dkt-mod{position:relative;width:790px;max-width:94%;padding:48px 28px 24px;border-radius:20px;text-align:center;color:#FFF6E2;
+  background:
+    radial-gradient(120% 70% at 50% 0%,rgba(255,214,120,.16),rgba(255,214,120,0) 60%) padding-box,
+    linear-gradient(180deg,rgba(60,42,18,.97),rgba(20,12,4,.98)) padding-box,
+    var(--fx-gold-metal) border-box;
+  border:5px solid transparent;
+  box-shadow:0 10px 0 rgba(0,0,0,.35),0 22px 44px rgba(0,0,0,.6),inset 0 2px 0 rgba(255,220,150,.22)}
+.dkt-mod::before{content:"";position:absolute;inset:7px;border-radius:13px;pointer-events:none;border:1px solid rgba(196,150,70,.35)}
+.dkt-rib{position:absolute;left:50%;top:-30px;transform:translateX(-50%);height:60px;padding:0 70px;white-space:nowrap;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(180deg,#F0604A 0 10%,#C9302C 45%,#8E1410);
+  clip-path:polygon(0 0,100% 0,95% 50%,100% 100%,0 100%,5% 50%)}
+.dkt-rib.dkt-blue{background:linear-gradient(180deg,#8FD2FF 0 10%,#2E8BE0 45%,#0B2C5E)}
+.dkt-rib b{font-family:var(--pop);font-weight:400;font-size:30px;line-height:1;color:#FFF6E2;
+  -webkit-text-stroke:5px #5A1206;paint-order:stroke fill}
+.dkt-rib.dkt-blue b{-webkit-text-stroke-color:#0B2C5E}
+.dkt-lead{margin:4px 0 18px;font-size:22px;font-weight:700;line-height:1.35;color:#F0DCA8}
+.dkt-lead em{font-style:normal;font-family:var(--pop);font-weight:400;color:#FFD44A}
+.dkt-foot{margin-top:16px;font-size:18px;font-weight:700;line-height:1.35;color:#CDB78A}
+.dkt-opts{display:flex;gap:18px;justify-content:center}
+.dkt-opt{position:relative;flex:1 1 0;max-width:236px;min-height:232px;padding:14px 12px 16px;border-radius:16px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:8px;color:#fff;
+  border:3px solid transparent;
+  background:linear-gradient(180deg,#48331A,#1E1407) padding-box,var(--fx-gold-metal) border-box;
+  box-shadow:0 6px 0 rgba(0,0,0,.45),0 12px 22px rgba(0,0,0,.45),inset 0 2px 0 rgba(255,230,170,.25);
+  transition:transform var(--fx-t-release) var(--fx-back);animation:dktDeal 420ms var(--fx-spring) both}
+.dkt-opt:nth-child(2){animation-delay:70ms}
+.dkt-opt:nth-child(3){animation-delay:140ms}
+@keyframes dktDeal{from{transform:translateY(26px) scale(.9)}}
+.dkt-opt:hover{transform:translateY(-6px)}
+.dkt-opt:active{transform:translateY(2px) scale(.97)}
+.dkt-opt .dkt-ic{width:84px;height:84px;flex:0 0 auto;filter:drop-shadow(0 4px 0 rgba(0,0,0,.35))}
+.dkt-opt b{font-family:var(--pop);font-weight:400;font-size:26px;line-height:1.1;-webkit-text-stroke:4.5px #2A1604;paint-order:stroke fill}
+.dkt-opt i{font-style:normal;font-weight:700;font-size:20px;line-height:1.3;color:#EBD9B2}
+.dkt-opt i.dkt-amt{font-family:var(--pop);font-weight:400;font-size:32px;line-height:1.1;color:#FFD44A;
+  -webkit-text-stroke:5px #3A2405;paint-order:stroke fill}
+.dkt-opt.dkt-gold{background:linear-gradient(180deg,#5A4015,#241806) padding-box,var(--fx-gold-metal) border-box;
+  box-shadow:0 6px 0 rgba(0,0,0,.45),0 0 22px 4px rgba(255,200,80,.45),inset 0 2px 0 rgba(255,230,170,.3)}
+.dkt-opt.dkt-blue{background:linear-gradient(180deg,#1F3E66,#0B1A30) padding-box,
+  linear-gradient(160deg,#E8F4FF,#7FA9D6 30%,#27466E 60%,#BFD8F2) border-box}
+.dkt-opt.dkt-off{cursor:default;filter:grayscale(.85) brightness(.75);animation:none}
+.dkt-opt.dkt-off:hover,.dkt-opt.dkt-off:active{transform:none}
+.dkt-trav{width:640px}
+.dkt-art{display:block;width:170px;height:118px;margin:2px auto 0;animation:dktFloat 3s var(--fx-inout) infinite}
+@keyframes dktFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.dkt-fee{display:inline-flex;align-items:baseline;gap:14px;margin:0 0 20px;padding:10px 26px 12px;border-radius:14px;
+  background:rgba(0,0,0,.35);border:2px solid rgba(242,194,48,.55)}
+.dkt-fee span{font-size:22px;font-weight:700;color:#EBD9B2}
+.dkt-fee b{font-family:var(--pop);font-weight:400;font-size:40px;line-height:1;color:#FFD44A;
+  -webkit-text-stroke:6px #3A2405;paint-order:stroke fill}
+.dkt-fee i{font-style:normal;font-size:20px;font-weight:700;color:#9FD8FF}
+.dkt-btns{display:flex;gap:18px;justify-content:center}
+.dkt-btn{position:relative;isolation:isolate;min-width:236px;height:78px;padding:0 20px;border-radius:14px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  font-family:var(--pop);font-weight:400;font-size:26px;line-height:1;color:#fff;
+  -webkit-text-stroke:4.5px rgba(30,18,4,.9);paint-order:stroke fill;
+  box-shadow:0 6px 0 rgba(0,0,0,.45),inset 0 2px 0 rgba(255,255,255,.4);
+  transition:transform var(--fx-t-release) var(--fx-back)}
+.dkt-btn small{font-family:var(--jp);font-weight:900;font-size:20px;line-height:1;-webkit-text-stroke:3px rgba(30,18,4,.85)}
+.dkt-btn:hover{filter:brightness(1.08)}
+.dkt-btn:active{transform:translateY(4px) scale(.97)}
+.dkt-btn.dkt-go{border:3px solid #1F5A0C;background:linear-gradient(180deg,#A8E877 0 8%,#5FBF3A 30%,#3A8C1C 72%,#22610E)}
+.dkt-btn.dkt-go::before{content:"";position:absolute;inset:-6px;border-radius:18px;z-index:-1;pointer-events:none;
+  box-shadow:0 0 22px 6px rgba(160,240,110,.6);animation:fxBreath 2.2s var(--fx-inout) infinite}
+.dkt-btn.dkt-no{border:3px solid #A98446;background:linear-gradient(180deg,#6E5326,#3E2C11 52%,#271A07);color:#F3E6C8}
+
+/* ══════════ 出目えらび（能力「突撃」・サイコロ改造） ══════════ */
+#pickeye{top:50%;width:1060px;max-width:94%;padding:22px 26px 26px;gap:12px;border-radius:18px;
+  background:
+    radial-gradient(120% 80% at 50% 0%,rgba(255,214,120,.18),rgba(255,214,120,0) 60%) padding-box,
+    linear-gradient(180deg,rgba(56,38,16,.96),rgba(18,11,4,.97)) padding-box,
+    var(--fx-gold-metal) border-box;
+  border:4px solid transparent;box-shadow:0 8px 0 rgba(0,0,0,.35),0 18px 36px rgba(0,0,0,.6)}
+#pickeye.on{animation:dktEyeIn 380ms var(--fx-spring) both}
+@keyframes dktEyeIn{0%{transform:translate(-50%,-50%) scale(.88)}60%{transform:translate(-50%,-50%) scale(1.03)}
+  100%{transform:translate(-50%,-50%)}}
+#pickeye .cap{font-family:var(--pop);font-weight:400;font-size:28px;color:#FFD44A;-webkit-text-stroke:5px #2A1604;margin-bottom:6px}
+#pickeye button{width:80px;height:80px;border-radius:50%;border:4px solid transparent;
+  background:radial-gradient(circle at 40% 30%,#FFFBE0,#FFE27A 40%,#F2B01E 72%,#B87F12) padding-box,
+    linear-gradient(160deg,#FFF6D0,#C8952F 40%,#6B4408) border-box;
+  font-family:var(--pop);font-size:32px;line-height:1;color:#4A2604;
+  box-shadow:0 6px 0 #5A3A04,0 10px 16px rgba(0,0,0,.45),inset 0 2px 0 rgba(255,255,255,.6);
+  transition:transform var(--fx-t-release) var(--fx-back)}
+#pickeye button:hover{transform:translateY(-4px)}
+#pickeye button:active{transform:translateY(3px) scale(.95);box-shadow:0 2px 0 #5A3A04}
+
+/* ══════════ 控えめ設定・視差を減らす設定 ══════════ */
+html.fx-lite #diceui .dkt-halo,html.fx-lite #diceui #push,html.fx-lite .dkt-art{animation:none}
+@media (prefers-reduced-motion:reduce){
+  #diceui .dkt-halo,#diceui #push,.dkt-art,#diceui .oddeven.dkt-on::before{animation:none}
+}
+
+/* ══════════ 横長スマホ（高さ560px未満）：主な文字 26px 以上・本文 22px 以上・押せる範囲 96px 以上 ══════════ */
+@media (max-height:560px){
+  #diceui .dkt-cap{font-size:26px;top:436px;padding:4px 18px 5px}
+  #push .dkt-pl{font-size:54px}
+  #push .dkt-ps{font-size:24px}
+  #diceui .oddeven{font-size:32px}
+  #diceui .oddeven u{font-size:26px;min-width:42px;height:42px;right:-12px;top:-12px}
+  #odd::after,#even::after{--gx:0px;--gy:0px}
+  .dkt-pick{left:538px;top:344px;width:540px}
+  .dkt-pk-tag b{font-size:30px}
+  .dkt-pk-msg{font-size:34px}
+  .dkt-pk-note,.dkt-pk-sec{font-size:22px}
+  .dkt-pk-sec b{font-size:28px}
+  .dkt-pk-x{font-size:26px;height:60px}
+  .dkt-pk-x::after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:calc(100% + 24px);height:96px;pointer-events:auto}
+  .dkt-rib b{font-size:34px}
+  .dkt-lead,.dkt-foot{font-size:24px}
+  .dkt-opt b{font-size:30px}
+  .dkt-opt i{font-size:24px}
+  .dkt-opt i.dkt-amt{font-size:32px;white-space:nowrap;letter-spacing:-.02em}
+  .dkt-fee span{font-size:26px}
+  .dkt-fee b{font-size:46px}
+  .dkt-fee i{font-size:24px}
+  .dkt-btn{font-size:30px;height:100px}
+  .dkt-btn small{font-size:24px}
+  #pickeye{width:1220px}
+  #pickeye .cap{font-size:32px}
+  #pickeye button{width:96px;height:96px;font-size:36px}
+}
+</style>

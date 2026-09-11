@@ -166,12 +166,22 @@ function dvOnlineBoot(){
   function myProfile(name){
     var id = (typeof SV !== 'undefined' && SV.equip) ? SV.equip : CARDPOOL[0].id;
     var o  = (typeof SV !== 'undefined' && SV.cards && SV.cards[id]) ? SV.cards[id] : {lv:1};
+    /* ペンダントの強化値とサイコロの Lv も配る（端末ごとの保存データで確率がずれないように） */
+    var hasSV = (typeof SV !== 'undefined' && SV);
+    var pendLv = {};
+    if(hasSV && SV.slots) SV.slots.slice(0,4).forEach(function(pid){
+      var q = SV.pendants && SV.pendants[pid];
+      if(pid) pendLv[pid] = Math.max(1, Math.min(8, (q && (q.lv | 0)) || 1));
+    });
+    var dieId = (hasSV && SV.die && SV.dice && SV.dice[SV.die]) ? SV.die : 'd0';
+    var dieLv = (hasSV && SV.dice && SV.dice[dieId]) ? Math.max(1, Math.min(10, (SV.dice[dieId] | 0) || 1)) : 1;
     return {
       name: String(name||'プレイヤー').slice(0,10),
       cardId: id, lv: o.lv || 1,
       slots: (typeof SV !== 'undefined' && SV.slots) ? SV.slots.slice(0,4) : [],
       bag:   (typeof SV !== 'undefined' && SV.bag)   ? SV.bag.slice(0,3)   : [],
-      die:   (typeof SV !== 'undefined' && SV.die)   ? SV.die              : 'd0'
+      die:   (typeof SV !== 'undefined' && SV.die)   ? SV.die              : 'd0',
+      pendLv: pendLv, dieId: dieId, dieLv: dieLv
     };
   }
 
@@ -661,6 +671,18 @@ function dvOnlineBoot(){
     hideWait();
     return b.v;
   }
+  /* §6 の契約 dvAsk：人間や CPU の選択を1つ取る。
+     オンライン中は、選ぶ人の端末で local() を動かし、その結果を全員に配る（値は JSON にできる物だけ）。 */
+  window.dvAsk = function(seat, tag, local, hint){
+    if(OL.started && G && !G.over) return ask(seat, tag, function(){ return Promise.resolve().then(local); }, hint);
+    return Promise.resolve().then(local);
+  };
+  /* §6 の契約 dvQueueDice：オンライン中は、振る人の端末で目を決めて OL.diceQ に積む */
+  window.dvQueueDice = function(seat, force, impact, target){
+    if(!(OL.started && G && !G.over)) return Promise.resolve();
+    return ask(seat, 'dice', function(){ return Promise.resolve(preRoll(seat, force, impact, target)); },
+      'サイコロを振っています').then(function(v){ OL.diceQ = Array.isArray(v) ? v.slice() : null; });
+  };
 
   /* ══════════ 差し替える関数たち ══════════ */
   function install(){
@@ -767,7 +789,10 @@ function dvOnlineBoot(){
           skillLeft:card.sk.uses, mana:0,
           freeToll:0, halfBuild:0, salaryX2:0, forceDouble:0, chooseEye:0, tollUp:0,
           render:tileCenter(0), hopY:0, squash:1, offx:0, offy:0, face:1, jam:3,
-          pend:pend, pboost:{}
+          pend:pend, pboost:{},
+          pendLv:(s.kind === 'cpu') ? {} : (pr.pendLv || {}),
+          dieId:(s.kind === 'cpu') ? 'd0' : (pr.dieId || pr.die || 'd0'),
+          dieLv:(s.kind === 'cpu') ? 1 : Math.max(1, Math.min(10, (pr.dieLv | 0) || 1))
         };
       }),
       turn:0, turnsLeft:cfg.turns, over:false, winner:-1, winReason:'', alarm:null,
@@ -777,11 +802,15 @@ function dvOnlineBoot(){
     destPin = null; stepPreview = null; diceAnim = null; fxList.length = 0;
   }
 
-  /* ── サイコロを振る（手番の人だけが決めて、目そのものを配る） ── */
-  function preRoll(pi, force){
-    var p = G.players[pi];
-    return [ OL.orig.rollPair(force, p.forceDouble > 0, dieOf(pi)),
-             OL.orig.rollPair(force, false, DICE[0]) ];
+  /* ── サイコロを振る（手番の人だけが決めて、目そのものを配る） ──
+     1組目の決め方は doRoll と同じ順：ダブル確定 → ゲージインパクト（合計＝target）→ ふつう */
+  function preRoll(pi, force, impact, target){
+    var p = G.players[pi], die = dieOf(pi);
+    var wantDbl = p.forceDouble > 0 && force !== 'odd';
+    var first = wantDbl ? OL.orig.rollPair(force, true, die)
+      : (impact && target >= 2 && target <= 12) ? dkGaugePair(target, die, force)
+      : OL.orig.rollPair(force, false, die);
+    return [ first, OL.orig.rollPair(force, false, DICE[0]) ];
   }
   function cpuRollChoice(pi){
     var p = G.players[pi], force = null;
@@ -791,7 +820,11 @@ function dvOnlineBoot(){
       else if(p.even > 0 && se > sn + (cfg.ai === 2 ? 6 : 16)) force = 'even';
     }
     var impact = cfg.ai === 2 ? Math.random() < 0.55 : cfg.ai === 1 ? Math.random() < 0.3 : Math.random() < 0.1;
-    return {force:force, impact:impact, eye:0, dice:preRoll(pi, force)};
+    /* CPU は「一番得をする合計」をねらう（当たれば誤差の範囲で出る） */
+    var target = (impact && typeof dktCpuTarget === 'function') ? dktCpuTarget(pi, force) : 0;
+    var eye = (p.chooseEye > 0 && typeof dktBestTotal === 'function') ? dktBestTotal(pi, null) : 0;
+    if(eye){ force = null; impact = false; target = 0; }
+    return {force:force, impact:impact, eye:eye, target:target, dice:preRoll(pi, force, impact, target)};
   }
 
   /* 手番の人の操作を1つ取る（能力・アイテム・サイコロのどれか） */
@@ -813,38 +846,19 @@ function dvOnlineBoot(){
         return {tag:'roll', v:cpuRollChoice(pi)};
       })();
     }
+    /* 人間：9g-turn.js のサイコロUI（長押しゲージ・奇数/偶数のモード）で決め、目まで決めてから配る */
     return new Promise(function(res){
-      stepPreview = {from:p.pos, max:12};
-      gaugeSweet = 0.22 + Math.random()*0.56;
-      gaugeHalf = 0.055 + (statOf(p,'gauge') + dieOf(pi).gauge)/100*0.075;
-      gaugeOn = true;
-      $('#diceui').classList.add('on');
-      $('#oddN').textContent = p.odd; $('#evenN').textContent = p.even;
-      $('#odd').classList.toggle('dim', p.odd <= 0);
-      $('#even').classList.toggle('dim', p.even <= 0);
-      var clear = function(){
-        $('#push').onclick = null; $('#odd').onclick = null; $('#even').onclick = null;
-        $('#skillBtn').onclick = null; OL.localPick = null;
-      };
-      OL.localPick = function(o){ clear(); res(o); };
-      var done = async function(force){
-        clear();
-        var impact = Math.abs(gaugePhase - gaugeSweet) < gaugeHalf;
-        var eye = 0;
-        if(p.chooseEye > 0){
-          gaugeOn = false; $('#diceui').classList.remove('on');
-          eye = await chooseEye();
-        }
-        res({tag:'roll', v:{force:force, impact:impact, eye:eye, dice:preRoll(pi, force)}});
-      };
-      $('#push').onclick = function(){ SFX.click(); done(null); };
-      $('#odd').onclick  = function(){ if(p.odd > 0){ SFX.click(); done('odd'); } };
-      $('#even').onclick = function(){ if(p.even > 0){ SFX.click(); done('even'); } };
-      $('#skillBtn').onclick = function(){
-        if($('#skillBtn').disabled) return;
-        clear(); gaugeOn = false; $('#diceui').classList.remove('on');
-        res({tag:'skill', v:1});
-      };
+      OL.localPick = function(o){ OL.localPick = null; dktInputCancel(o); };
+      dkRollInput(pi).then(function(o){
+        OL.localPick = null;
+        if(o && o.tag === 'skill'){ res({tag:'skill', v:1}); return; }
+        if(o && o.tag === 'item'){ res(o); return; }
+        o = o || {};
+        var eye = o.eye || 0, force = eye ? null : (o.force || null);
+        var impact = !eye && !!o.impact, target = impact ? (o.target || 0) : 0;
+        res({tag:'roll', v:{force:force, impact:impact, eye:eye, target:target,
+                            dice:preRoll(pi, force, impact, target)}});
+      });
     });
   }
 
@@ -856,7 +870,7 @@ function dvOnlineBoot(){
     var fixed = 0;
     if(p.chooseEye > 0){ p.chooseEye--; fixed = v.eye || 0; }
     OL.diceQ = (v.dice || []).slice();
-    try { return await doRoll(pi, v.force, !!v.impact, fixed); }
+    try { return await doRoll(pi, v.force, !!v.impact, fixed, v.target || 0); }
     finally { OL.diceQ = null; }
   }
 
@@ -893,26 +907,8 @@ function dvOnlineBoot(){
     return applyRoll(pi, {force:null, impact:false, eye:0, dice:preRoll(pi, null)});
   }
 
-  async function olJailTurn(pi){
-    var p = G.players[pi];
-    camTo(tileCenter(8).x, tileCenter(8).y, 1.55);
-    await band(G.map.corners[1] + ' — あと ' + p.jail + ' ターン', 'ゾロ目が出れば脱出できます', 1400);
-    var v = await ask(pi, 'roll',
-      function(){ return Promise.resolve({force:null, impact:false, eye:0, dice:preRoll(pi, null)}); },
-      'サイコロを振っています');
-    OL.diceQ = (v.dice || []).slice();
-    var r;
-    try { r = await doRoll(pi, null, false); } finally { OL.diceQ = null; }
-    if(r.isDbl){
-      p.jail = 0;
-      await band('脱出成功！', 'ゾロ目でここから出られます', 1300);
-      await moveSteps(pi, r.total); await resolve(pi);
-      return;
-    }
-    p.jail--;
-    if(p.jail <= 0) toast('R','🔓','次のターンから動けます','',1700);
-    camReset();
-  }
+  /* 無人島は 9g-turn.js の jailTurn に任せる（3択は dvAsk、サイコロは dvQueueDice で全員にそろう） */
+  function olJailTurn(pi){ return OL.orig.jailTurn(pi); }
 
   function olPickTile(pi, msg, filter){
     return ask(pi, 'tile',
@@ -936,27 +932,8 @@ function dvOnlineBoot(){
       '建設をじゃまするか考えています');
   }
 
-  async function olMaybeBuyout(pi, i){
-    var t = G.tiles[i], p = G.players[pi];
-    if(t.landmark) return;
-    var cost = Math.round(cityValue(t) * 2 * statMul(p,'buyout',0.3));
-    if(p.cash < cost) return;
-    var yes = await ask(pi, 'buyout', async function(){
-      if(p.kind === 'cpu') return !!aiBuyout(pi, i, cost);
-      return (await modal(parchHTML(t, cost, G.players[t.owner].name))) === 'ok';
-    }, '買収するか考えています');
-    if(!yes) return;
-    give(pi, -cost); give(t.owner, cost);
-    moneyFly(pi, t.owner, true);
-    t.owner = pi;
-    SFX.buy();
-    addFx('pillar', tileCenter(i).x, tileCenter(i).y, 900, PCOL[pi]);
-    addFx('spark',  tileCenter(i).x, tileCenter(i).y - 30, 900, '#FFD24D');
-    jingle('buyout');
-    toast('R','📜','買収成立', t.name + ' を手に入れました', 2100);
-    news(G.players[pi].name + ' が ' + t.name + ' を買収！ 持ち主が変わりました');
-    checkWin();
-  }
+  /* 買収は本体の maybeBuyout に任せる（確認は dvAsk(pi,'buyout') で全員にそろう） */
+  function olMaybeBuyout(pi, i){ return OL.orig.maybeBuyout(pi, i); }
 
   /* 建てる：どれを選んだかだけを配り、計算は各端末で同じようにやる */
   function pickBuild(pi, i){
@@ -970,6 +947,10 @@ function dvOnlineBoot(){
       var has = function(k){ return sel.indexOf(k) >= 0; };
       var sumEl = body.querySelector('#bSum');
       var cards = Array.from(body.querySelectorAll('.bcard'));
+      /* 本家どおり、最初から選ばれている札（.bcard.sel）から始める */
+      cards.forEach(function(c){
+        if(c.classList.contains('sel') && !c.classList.contains('dis') && !c.classList.contains('own')) sel.push(+c.dataset.k);
+      });
       var costOf = function(k){ return +cards.find(function(c){ return +c.dataset.k === k; }).dataset.c; };
       var recalc = function(){
         var s = 0, j;
@@ -1012,6 +993,13 @@ function dvOnlineBoot(){
     var disc = statMul(p,'build',0.3) * (p.halfBuild > 0 ? 0.5 : 1) * ((G.ev && G.ev.buildX) || 1);
     var reserve = [300000, 180000, 90000][lvl];
     var sel = [], spend = 0, lvTarget = t.lv, k, c;
+    /* 観光地は建物を建てられない＝土地だけ（ほかの観光地を持っていれば無理をしてでも買う） */
+    if(t.tour){
+      if(own) return [];
+      var tp = Math.round(t.base*disc);
+      var mineT = G.tiles.filter(function(x){ return x.tour && x.owner === pi; }).length;
+      return (p.cash - tp >= (mineT >= 1 ? 0 : reserve)) ? [0] : [];
+    }
     if(!own){
       var price = Math.round(t.base*disc);
       var mineG = CITY_SLOTS[t.g].filter(function(j){ return G.tiles[j].owner === pi; }).length;
@@ -1029,7 +1017,8 @@ function dvOnlineBoot(){
     var mx = maxLvOf(p);
     for(k = (own ? t.lv+1 : 1); k <= mx; k++){
       c = Math.round(BUILD[k].cost(t.base)*disc);
-      if(p.cash - spend - c < reserve - aggr*1500000) break;
+      /* 蓄えは崩してよいが、所持金より多くは払えない（0円が下限。ここが無いと所持金がマイナスになった） */
+      if(p.cash - spend - c < Math.max(0, reserve - aggr*1500000)) break;
       if(lvl === 0 && k > 1) break;
       if(lvl === 1 && k > 2 && !aggr) break;
       spend += c; lvTarget = k; sel.push(k);
@@ -1074,6 +1063,7 @@ function dvOnlineBoot(){
         }
       }
     }
+    if(spend > p.cash) return;                 // 念のため：所持金を超える投資はしない
     if(p.halfBuild > 0) p.halfBuild--;
     give(pi, -spend);
     if(has(0) || own) t.owner = pi;
@@ -1090,79 +1080,8 @@ function dvOnlineBoot(){
     checkWin();
   }
 
-  async function olMiniGame(pi){
-    var p = G.players[pi];
-    await band('悪夢の洞窟脱出','左右どちらかの通路を選んで逃げきろう！', 1500);
-    var stake = 1000000, round = 1, mult = 2 * ((G.ev && G.ev.miniX) || 1), hist = [], banked = 0;
-    var wrap = $('#modalWrap'), body = $('#modalBody');
-    var rate = 0.5 + statRate(p,'mini')*0.22;
-    var cpu = p.kind === 'cpu';
-    var render = function(){
-      body.innerHTML = miniHTML(stake, round, mult, hist, stake*mult);
-      wrap.classList.add('on');
-      body.querySelectorAll('.mgstake').forEach(function(el){
-        el.onclick = function(){ if(round > 1) return; stake = +el.dataset.v; SFX.click(); render(); };
-      });
-    };
-    render();
-    while(round <= 3){
-      var v = await ask(pi, 'mini', async function(){
-        var c;
-        if(cpu){ await wait(900); c = Math.random() < 0.5 ? 'L' : 'R'; }
-        else {
-          c = await new Promise(function(res){
-            body.querySelectorAll('[data-act]').forEach(function(b){
-              b.onclick = function(){ SFX.click(); res(b.dataset.act); };
-            });
-          });
-        }
-        return {c:c, s:stake};
-      }, '通路を選んでいます');
-      if(round === 1 && v.s){ stake = v.s; render(); }
-      if(v.c === 'stop') break;
-      var win = Math.random() < rate;
-      var art = body.querySelector('#mgArt'), msg = body.querySelector('#mgMsg');
-      if(art) art.textContent = v.c === 'L' ? '🏃‍♂️💨' : '💨🏃';
-      if(msg) msg.textContent = '……';
-      await wait(650);
-      hist.unshift(win ? v.c : (v.c === 'L' ? 'R' : 'L'));
-      if(hist.length > 6) hist.pop();
-      if(!win){
-        if(art) art.textContent = '💀';
-        if(msg){ msg.textContent = 'つかまった！ 賭け金を失いました'; msg.style.color = '#FF8A7A'; }
-        SFX.bad(); camShake(9);
-        await wait(1200);
-        wrap.classList.remove('on');
-        // 賭け金を払えないなら破産（4-game.js の miniGame と同じ扱いにする）
-        if(!payFrom(pi, stake)){ await bankrupt(pi, -1); return; }
-        give(pi, -stake);
-        toast('L','💀','脱出失敗', yen(stake) + ' を失いました', 2200);
-        return;
-      }
-      if(art) art.textContent = '✨🏃‍♂️';
-      if(msg){ msg.textContent = '逃げきった！ 倍率アップ'; msg.style.color = '#7DE08A'; }
-      SFX.coin();
-      banked = stake*mult;
-      await wait(850);
-      round++; mult *= 2;
-      if(round > 3) break;
-      render();
-      if(cpu){
-        var greedy = cfg.ai === 2 ? 0.6 : cfg.ai === 1 ? 0.45 : 0.3;
-        if(Math.random() > greedy) break;
-      }
-    }
-    wrap.classList.remove('on');
-    var prize = banked || 0;
-    if(prize > 0){
-      news('🕯️ ' + p.name + ' がミニゲームで ' + yen(prize) + ' を獲得！');
-      give(pi, prize);
-      addFx('pillar', tileCenter(p.pos).x, tileCenter(p.pos).y, 1000, '#FFD24D');
-      await cutIn('MINI GAME','脱出成功！', yen(prize) + ' を獲得');
-    } else {
-      toast('L','🕯️','脱出中止','何も得られませんでした', 1800);
-    }
-  }
+  /* ボーナスゲームは本体の miniGame に任せる（人間の入力は dvAsk(pi,'mini') で全員にそろう） */
+  function olMiniGame(pi){ return OL.orig.miniGame(pi); }
 
   /* ══════════ タイトルにボタンを足す（読み込めた時だけ） ══════════ */
   function addButton(){
