@@ -570,6 +570,12 @@ function dksHot(el){
     if(p && typeof dkskSpark === 'function') dkskSpark(p, 2, { x:12, y:12, w:76, h:72 });
   }catch(e){}
 }
+/* 机の小物（コンパス・巻物・羽根ペン・燭台）を画面のすみに置く。
+   押せない・読み上げない飾りなので、ボタンの上に重なっても当たり判定は奪わない */
+function dksProp(key, cls){
+  var u = (typeof dkskU === 'function') ? dkskU(key) : '';
+  return u ? '<i class="dks-prop ' + cls + ' fx-deco" aria-hidden="true" style="background-image:url(' + u + ')"></i>' : '';
+}
 
 /* ── CSS で描く小さな絵（絵文字だけに頼らない） ── */
 function dksArt(kind, o){
@@ -649,6 +655,10 @@ function dksPic(g, crop){
   var badge = (g.art === 'cardS') ? '<em class="dks-pb s">S以上</em>'
             : n ? '<em class="dks-pb">×' + n + '</em>'
             : g.act === 'gem3' ? '<em class="dks-pb">×3</em>' : '';
+  /* お手本の「大きく切り直した商品の絵」（金枠まで描いてある）は、台に乗せずに札の上半分いっぱいへ敷く */
+  var m3 = { card:'good3-card', cardS:'hero2-card', gem:'good3-gem', gold:'good3-gold' };
+  var u3 = (typeof dkskU === 'function' && m3[g.art]) ? dkskU(m3[g.art]) : '';
+  if(u3) return '<div class="pic big" style="background-image:url(' + u3 + ')">' + badge + '</div>';
   /* お手本の商品画（assets/ui2・透過）をビロードの台に乗せる。枚数は札で見せるので絵は1つでよい */
   var u2 = (typeof dkskU === 'function' && m2[g.art]) ? dkskU(m2[g.art]) : '';
   if(u2) return '<div class="pic art velvet2' + (g.art === 'cardS' ? ' saura' : '') + '">'
@@ -663,7 +673,8 @@ function dksPic(g, crop){
 /* 品物の札。limited（日替わり）は絵の焼き込みの「限定」をそのまま見せ、.tag は重ねない */
 function dksGoodHTML(g, i, opt){
   opt = opt || {};
-  var cls = 'dks-good st-' + g.state + (g.limited ? ' lim' : '') + (g.run ? ' run' : '')
+  /* 枠は細い金線をやめ、角飾りつきの太い彫り枠（frame-thick）を重ねる＝ .sk-frame2 */
+  var cls = 'dks-good sk-frame2 st-' + g.state + (g.limited ? ' lim' : '') + (g.run ? ' run' : '')
           + (opt.hot ? ' dks-hot' : '')
           + (DKS_focus && DKS_focus === g.key ? ' dks-focus' : '');
   var price = '<div class="pr">' + (g.off ? '<s class="was">' + dksPrice(g.pay, g.base) + '</s>' : '')
@@ -672,7 +683,7 @@ function dksGoodHTML(g, i, opt){
     ? '<div class="dks-sold"><i class="dks-stamp">済</i><span>' + esc(opt.soldTx || '購入済み') + '</span></div>'
     : '<button class="dkbtn gr dks-b' + (g.state === 'short' ? ' short' : '') + '" data-dks-buy="' + g.key + '"><i class="dks-sh"></i>購入</button>';
   return '<div class="' + cls + '" data-fx="deal">'
-    + '<i class="dks-gl" aria-hidden="true"></i>' + dksOrn(13)
+    + '<i class="dks-gl" aria-hidden="true"></i>'
     + dksPic(g, !g.limited)
     + (g.off ? '<span class="dks-off">' + (g.run ? '<small>連続</small>' : '') + '<b>−' + g.off + '%</b></span>' : '')
     + '<div class="nm">' + esc(g.nm) + '</div>'
@@ -1233,11 +1244,12 @@ function showQuest(tab){
          + (ready ? '宝箱を開ける' : 'あと ' + (ch.n - ch.got) + 'つ') + '</button>')
     + '</div>';
   var el = dkhAmb(dkMake('quest', 'quest', dkHead('quest', {}) + dkTabs(tabs, DKS_qtab)
-    + '<div class="dkbody dks-qbody">'
+    + dksProp('desk-props-l', 'pl') + dksProp('deco-candle', 'pc') + dksProp('desk-props-r', 'pr2')
+    + '<div class="dkbody dks-qbody sk-book">'
     +   '<div class="dkpar dks-qbox">' + dksOrn(18)
     +     '<div class="dks-qhd"><div class="dks-rib"><b>' + head[0] + '</b></div><span class="c">' + head[1] + '</span></div>'
     +     '<div class="dks-qlist" data-fx-step="50">' + list.map(dksQRow).join('') + '</div>'
-    +     '<button class="dkbtn gd dks-b sk-big dks-all' + (any ? ' fx-primary' : '') + '" id="dkAll"' + (any ? '' : ' disabled') + '>'
+    +     '<button class="dkbtn gd dks-b sk-big dks-all dks-laurel' + (any ? ' fx-primary' : '') + '" id="dkAll"' + (any ? '' : ' disabled') + '>'
     +       '<i class="dks-sh"></i>' + dksBico('ico-coins') + '一括受け取り</button>'
     +   '</div>'
     +   side
@@ -1320,6 +1332,7 @@ function showDaily(){
            : v.full ? '<b>28日</b>そろいました！明日から1日目にもどります'
            : '<b>' + v.day + '日目</b>まで受け取り済み';
   var el = dkhAmb(dkMake('daily', 'quest', dkHead('daily', { title:'出席簿' })
+    + dksProp('desk-props-l', 'pl') + dksProp('desk-props-r', 'pr2')
     + '<div class="dkbody dks-dbody">'
     +   '<div class="dkpar dks-daily">' + dksOrn(18)
     +     '<div class="dks-dhd"><div class="dks-rib"><b>毎日ログインで28日ぶんの報酬</b></div><span class="c">7日ごとに豪華・' + info + '</span></div>'
