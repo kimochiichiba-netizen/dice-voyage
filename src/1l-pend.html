@@ -410,11 +410,17 @@
 
 /* ══════════ 静かに：常時アニメは1画面8個まで（WP0#4・H9。止めた物は止まった絵のまま） ══════════ */
 #pend::after,#gacha::after,#cube::after{animation:none;opacity:.85}
-#pend > .fx-amb > .fx-mote,#gacha > .fx-amb > .fx-mote,#cube > .fx-amb > .fx-mote,
 #pend > .fx-amb > .fx-ray,#gacha > .fx-amb > .fx-ray,#cube > .fx-amb > .fx-ray,
 #pend .fx-edge::after,#gacha .fx-edge::after,#cube .fx-edge::after,.dkp-bar > i::after{display:none}
-#pend .dkbtn:not(.fx-primary)::after,#gacha .dkbtn:not(.fx-primary)::after,#cube .dkbtn:not(.fx-primary)::after,
-#pend .dktab .nw,#gacha .dktab .nw,#cube .dktab .nw,.dkp-ped,.dkp-gl::after,.dkp-arw,.dkp-modal .dkbtn:not(.fx-primary)::after{animation:none}
+#pend .dktab .nw,#gacha .dktab .nw,#cube .dktab .nw,.dkp-ped,.dkp-gl::after,.dkp-arw{animation:none}
+/* 共通の背景の光（fxAmbient の丸）は止まった絵に、金の粒（.fx-motes）だけ動かす。
+   ボタンの光の筋（dkBtnShine）は全部止め、息づかい（fxBreath）は主ボタン1つだけ残す。
+   ＝図鑑のように「受け取る」が並ぶ画面でも、常時アニメがボタンの数だけ増えない（H9・WP0#4）。 */
+#pend > .fx-amb > .fx-blob,#gacha > .fx-amb > .fx-blob,#cube > .fx-amb > .fx-blob,
+#pend .dkbtn::after,#gacha .dkbtn::after,#cube .dkbtn::after,.dkp-modal .dkbtn::after,
+#pend .fx-primary::before,#gacha .fx-primary::before,#cube .fx-primary::before,.dkp-modal .fx-primary::before{animation:none}
+#pend .dkp-go.fx-primary::before,#pend .dkp-big.fx-primary::before,#gacha .dkp-big.fx-primary::before,
+.dkp-modal .dkp-again.fx-primary::before,.dkp-modal .dkp-cok.fx-primary::before{animation:fxBreath 2.4s var(--fx-inout) infinite}
 
 /* ══════════ ペンダント：装着中のカードで開く枠（J38・C06）・ラッキーマイレージ・あと n 回 ══════════ */
 .dkp-eqf{width:54px;height:54px;flex:0 0 auto;border-radius:12px;background:50% 24%/190% auto no-repeat #2A1C08;border:3px solid #F5D36B;box-shadow:0 3px 0 rgba(0,0,0,.4)}
