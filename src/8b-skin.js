@@ -113,6 +113,52 @@ function dkskSpark(el, n, box){
   }catch(e){ return 0; }
 }
 
+/* ── 角飾りつきの太い彫り枠を1つの器に当てる（中身の位置は動かない） ── */
+function dkskFrame2(el){
+  if(!el || !el.classList) return el;
+  dkskSet(el, '--sk-f2', dkskUrl('frame-thick'));
+  el.classList.add('sk-frame2');
+  return el;
+}
+
+/* ── 銀＋金の写真額（ホームの中央カード）。金具の絵も一緒に置く ── */
+function dkskCardFrame(el){
+  if(!el || !el.classList) return el;
+  dkskSet(el, '--sk-fcard', dkskUrl('frame-card-silver'));
+  el.classList.add('sk-fcard');
+  try{
+    if(dkskHas('deco-clamp') && !el.querySelector(':scope > .sk-clamp')){
+      var c = document.createElement('i');
+      c.className = 'sk-clamp';
+      c.style.setProperty('--sk-clamp', dkskUrl('deco-clamp'));
+      el.appendChild(c);
+    }
+  }catch(e){}
+  return el;
+}
+
+/* ── ホームのレール：色分けの艶タイル＋大きな絵（文字はゲーム側で描く） ──
+   color = orange|blue|green|purple|pink、icon = card|dice|pend|cube|shop|
+           mission|event|daily|friend|guide */
+function dkskRail(el, color, icon){
+  if(!el || !el.classList) return el;
+  dkskSet(el, '--sk-tile', dkskUrl('rail-tile-' + (color || 'orange')));
+  dkskSet(el, '--sk-ricon', dkskUrl('rail-icon-' + (icon || '')));
+  el.classList.add('sk-rail');
+  return el;
+}
+
+/* ── 太い能力バーの1行（お手本の太さ・数値は袋文字） ── */
+function dkskBar2(name, pct, tone, value){
+  var p = Math.max(0, Math.min(100, Number(pct) || 0));
+  return '<div class="sk-barrow big">'
+       +   (name ? '<span class="nm">' + name + '</span>' : '')
+       +   '<span class="sk-bar2' + (tone && tone !== 'gold' ? ' ' + tone : '')
+       +     '"><i style="--sk-v:' + p + '%"></i></span>'
+       +   (value ? '<b class="vl">' + value + '</b>' : '')
+       + '</div>';
+}
+
 /* ── 能力バーの1行を作る（金＝gold／緑＝green／青＝blue） ── */
 function dkskBar(name, pct, tone, value){
   var p = Math.max(0, Math.min(100, Number(pct) || 0));
@@ -166,6 +212,10 @@ function dkskApply(el, opt){
     dkskSet(el, '--sk-cush', dkskUrl('deco-cushion'));
     dkskSet(el, '--sk-coins', dkskUrl('ico-coins'));
     dkskSet(el, '--sk-gems', dkskUrl('ico-gems'));
+    dkskSet(el, '--sk-f2', dkskUrl('frame-thick'));
+    dkskSet(el, '--sk-fcard', dkskUrl('frame-card-silver'));
+    dkskSet(el, '--sk-bookimg', dkskUrl('book-spread'));
+    dkskSet(el, '--sk-crest', dkskUrl('paper-crest'));
     dkskRootVars();
     /* 3. 既存の器に見た目を当てる（作りは壊さず class を足すだけ） */
     if(opt.frame !== false){
