@@ -19,6 +19,25 @@ var DKF_CLASSES = [
   { id:'dia',   nm:'ダイヤモンド', rank:'最上級', en:'Diamond Class',  cash:10000000, x:5,   lv:1, tk:'dia', n:2, gem:75 }
 ];
 var DKF_TK_NM = { biz:'ビジネス', first:'ファースト', dia:'ダイヤ' };
+/* 入場券の値段（J16）。ビジネス 550G・ファースト 3000G をゴールドで買う。
+   ダイヤモンドの券は売っていない（チュートリアル・ミッション・出席簿でもらう） */
+var DKF_TK_G = { biz:550, first:3000 };
+var DKF_TK_GET = 'チュートリアルの完了・ミッション・出席簿でもらえます';
+/* マップの詳細（角4マスの役割・特殊マスの名前と働き） */
+var DKF_CORNER_DS = [
+  'スタートを通ると 給料がもらえます',
+  'サイコロダブルが出ると 脱出できます',
+  '選んだ都市の通行料が ×2 になります',
+  '好きな都市へ 移動できます'
+];
+var DKF_SP_NM = { bonus:'ボーナスゲーム', card:'フォーチュンカード', tax:'国税庁',
+  crystal:'氷の結晶', roulette:'湯けむりルーレット' };
+var DKF_SP_DS = { bonus:'当たると賞金。はずれても損はしません',
+  card:'フォーチュンカードを1枚引きます',
+  tax:'所有する都市の建設費用の10%を納めます',
+  crystal:'［建設］か［凍結］を選べます',
+  roulette:'効果と対象がルーレットで決まります' };
+var DKF_TOUR_NM = { sky:'空色の名所', pink:'桃色の名所' };
 /* ルール（30ターン・25分が本家。12/20ターン・15/20分は短縮ルール＝当作） */
 var DKF_TURNS = [[12,'12'], [20,'20'], [30,'30']];
 var DKF_TIMES = [[0,'なし'], [900,'15'], [1200,'20'], [1500,'25']];
@@ -81,7 +100,7 @@ var DKF_ICO = {
 /* 画面の状態（セーブしない） */
 var DKF_S = { busy:false, roomRes:null, roomWait:false, slots:null, mapSig:'', drag:null, tick:0, freeT:0,
   ai:1, mul:1, team:false, practice:false, lastPractice:false, picking:false, randBusy:false, today:'', uid:0,
-  tut:null, hintT:0 };
+  tut:null, hintT:0, det:'' };
 
 /* ══════════ 小さな道具 ══════════ */
 function dkfEsc(s){ return (typeof esc === 'function') ? esc(s) : String(s); }
@@ -179,7 +198,7 @@ function dkfItemArt(id){
   if(id === 'dbl') return dkfArt('<rect x="8" y="30" width="44" height="44" rx="10" fill="#fff" stroke="#6A5A40" stroke-width="3" transform="rotate(-14 30 52)"/><rect x="44" y="22" width="44" height="44" rx="10" fill="#fff" stroke="#6A5A40" stroke-width="3" transform="rotate(12 66 44)"/><g fill="#3A2C1A"><circle cx="22" cy="44" r="4.5"/><circle cx="30" cy="52" r="4.5"/><circle cx="37" cy="59" r="4.5"/><circle cx="58" cy="34" r="4.5"/><circle cx="66" cy="43" r="4.5"/><circle cx="73" cy="52" r="4.5"/></g>');
   if(id === 'angel') return dkfArt('<path fill="#FFF7DC" stroke="#C8952F" stroke-width="3" d="M46 50C30 28 12 30 6 44c10-2 18 2 22 10-8-2-14 2-16 8 10-4 22 0 30-4zM50 50c16-22 34-20 40-6-10-2-18 2-22 10 8-2 14 2 16 8-10-4-22 0-30-4z"/><ellipse cx="48" cy="22" rx="16" ry="5" fill="none" stroke="#F2C230" stroke-width="4"/><circle cx="48" cy="54" r="9" fill="#F2C230" stroke="#7A5206" stroke-width="2.5"/>');
   if(id === 'coupon') return dkfArt('<g transform="rotate(-8 48 48)"><path fill="#FFE27A" stroke="#9A6A08" stroke-width="3" d="M8 26h80v12a8 8 0 0 0 0 16v12H8V54a8 8 0 0 0 0-16z"/><path d="M64 28v36" stroke="#9A6A08" stroke-width="2.5" stroke-dasharray="4 4"/>'
-    + T + 'x="36" y="58" font-size="26" fill="#C9302C">½</text>' + T + 'x="76" y="56" font-size="15" fill="#7A4A06">OFF</text></g>');
+    + T + 'x="36" y="58" font-size="26" fill="#C9302C">½</text>' + T + 'x="76" y="56" font-size="17" fill="#7A4A06">OFF</text></g>');
   if(id === 'shield') return dkfArt('<defs><linearGradient id="dkfSh' + u + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9FD8FF"/><stop offset="1" stop-color="#1E6AC8"/></linearGradient></defs><path fill="url(#dkfSh' + u + ')" stroke="#EAF6FF" stroke-width="4" d="M48 8l32 12v22c0 22-14 38-32 46C30 80 16 64 16 42V20z"/><path fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" d="M34 48l10 10 20-22"/>');
   if(id === 'escape') return dkfArt('<rect x="14" y="16" width="40" height="66" rx="4" fill="#8A5A2A" stroke="#3E2410" stroke-width="3"/><rect x="20" y="22" width="28" height="54" rx="2" fill="#5A3414"/><circle cx="42" cy="50" r="3.5" fill="#F2C230"/><path fill="#5FBF3A" stroke="#1E5A0C" stroke-width="3" stroke-linejoin="round" d="M56 40h14v-9l18 17-18 17v-9H56z"/>');
   return dkfArt('<rect x="22" y="10" width="52" height="76" rx="9" fill="#4A3517" stroke="#E0AE3A" stroke-width="4"/>' + T + 'x="48" y="62" font-size="40" fill="#F5D36B">?</text>');
@@ -315,8 +334,10 @@ function dkfPassHTML(c, cur){
     ? '<div class="dkf-pp-amt dkf-pp-dia"><b>ダイヤモンド</b></div>'
     : '<div class="dkf-pp-amt"><b>' + dkfMan(c.cash) + '</b><small>マーブル</small></div>';
   var play = c.id === 'dia' ? '1千万マーブルでゲームスタート' : c.n ? '1対1でプレイ' : 'ゲームプレイ';
-  var note = c.tk ? (n > 0 ? '入場券 <em>' + n + '</em>枚' : '入場券は <em>無料</em>でおわたし')
-                  : (c.id === 'easy' ? 'はじめての人むけ' : '入場券は いりません');
+  var note = c.tk
+    ? (n > 0 ? '入場券 <em>' + n + '</em>枚'
+             : (DKF_TK_G[c.tk] ? '入場券 <em>' + dkfG(DKF_TK_G[c.tk]) + '</em>ゴールド' : '入場券は <em>ミッション</em>でもらう'))
+    : (c.id === 'easy' ? 'はじめての人むけ' : '入場券は いりません');
   var foot = c.tk ? '入場券1枚<br>消費' : '入場無料';
   return '<div class="dkf-pass dkf-t-' + c.id + (cur ? ' dkf-cur' : '') + (c.tk && !n ? ' dkf-notk' : '') + '"'
     + ' role="button" data-dkf-cls="' + c.id + '" data-fx="deal">'
@@ -374,10 +395,10 @@ function dkFlowClass(){
 async function dkfPickClass(id, node){
   if(DKF_S.picking || DKF_S.busy) return false;
   var c = dkClassOf(id);
-  if(c.tk && dkfTk()[c.tk] <= 0){        // 持っていなければ その場で無料で1枚配る（遊べない状態を作らない）
+  if(c.tk && dkfTk()[c.tk] <= 0){        // 持っていなければ、その場でゴールドで買う（J16）
     DKF_S.picking = true;
     var ok = false;
-    try{ ok = await dkfGiveTicket(c); }catch(e){ console.error('[WP15a] ticket', e); }
+    try{ ok = await dkfBuyTicket(c, node); }catch(e){ console.error('[WP15a] ticket', e); }
     finally{ DKF_S.picking = false; }
     if(!ok) return false;
   }
@@ -389,21 +410,33 @@ async function dkfPickClass(id, node){
   dkFlowMap();
   return true;
 }
-/* 入場券が無い時は、その場で無料で1枚おわたしする（本家の「クラス入場」ポップアップ） */
-async function dkfGiveTicket(c){
-  var r = await modal('<div class="modal dkf-mod"><div class="fx-panel parch dkf-mod-in dkf-tkbuy-in">'
+/* 入場券が無い時（J16）：ビジネス 550G・ファースト 3000G をその場で買う。
+   ダイヤモンドの券は売っていない（チュートリアル・ミッション・出席簿でもらう）。
+   足りない時は、理由をそえて止める（黙って遊ばせない） */
+function dkfTkPrice(c){ return (c && c.tk && DKF_TK_G[c.tk]) || 0; }
+async function dkfBuyTicket(c, node){
+  var g = dkfTkPrice(c);
+  if(!g) return dkfNope(node, '💎', c.nm + 'の入場券がありません', 'ダイヤモンドの入場券は ' + DKF_TK_GET);
+  var have = dkfSvOk() ? (SV.gold | 0) : 0;
+  if(have < g) return dkfNope(node, '🪙', 'ゴールドが足りません',
+    c.nm + 'の入場券は ' + dkfG(g) + 'ゴールドです（いま ' + dkfG(have) + 'ゴールド）');
+  var r = await modal('<div class="modal dkf-mod"><div class="fx-panel fx-parch dkf-mod-in dkf-tkbuy-in">'
     + '<b class="dkf-mod-hd">' + c.nm + 'クラス入場</b>'
     + '<div class="dkf-tkbuy"><span class="dkf-tkbuy-art dkf-t-' + c.id + '">' + dkfSvg('ticket') + '</span>'
-    +   '<p>' + c.nm + 'クラスの入場券を<br>1枚おわたしします<small>入場券は1枚で1試合遊べます（無料）</small></p></div>'
+    +   '<p>' + c.nm + 'クラスの入場券を<br>1枚 購入しますか？<small>入場券は1枚で1試合 遊べます</small></p></div>'
     + '<div class="dkf-mod-ft"><button class="dkbtn dkf-btn-wood" data-act="no">やめる</button>'
-    + '<button class="dkbtn gr dkf-btn-buy" data-act="get"><i class="dkf-ticon">' + dkfSvg('ticket') + '</i>受け取って入場</button></div>'
+    + '<button class="dkbtn gr dkf-btn-buy" data-act="get"><i class="dkf-ticon">' + dkfSvg('ticket') + '</i>購入'
+    +   '<span class="dkf-price"><i class="dkf-coin"></i><b>' + dkfG(g) + '</b></span></button></div>'
     + '</div></div>');
   if(r !== 'get') return false;
+  if(!dkfSvOk() || (SV.gold | 0) < g)
+    return dkfNope(node, '🪙', 'ゴールドが足りません', c.nm + 'の入場券は ' + dkfG(g) + 'ゴールドです');
+  SV.gold -= g;
   dkfTk()[c.tk] += 1;
   try{ saveNow(); }catch(e){}
   try{ dkWallet(); }catch(e){}
   dkfSnd('buy');
-  dkfToast('🎫', c.nm + 'の入場券を1枚もらいました', '入場する時に1枚使います', 2000);
+  dkfToast('🎫', c.nm + 'の入場券を1枚 買いました', 'ゴールド ' + dkfG(g) + ' を使いました', 2000);
   return true;
 }
 function dkfOnline(){
@@ -420,7 +453,7 @@ async function dkfPractice(){
   var map = dkfMap(cfg.mapId), r0 = dkfNormRules() || {};
   var turns = dkfNear(DKF_TURNS, r0.turns == null ? 30 : r0.turns);
   var n = Math.max(2, Math.min(4, (r0.n | 0) || 4));
-  var r = await modal('<div class="modal dkf-mod"><div class="fx-panel parch dkf-mod-in dkf-prac-in">'
+  var r = await modal('<div class="modal dkf-mod"><div class="fx-panel fx-parch dkf-mod-in dkf-prac-in">'
     + '<b class="dkf-mod-hd">一人で遊ぶ</b>'
     + '<p class="dkf-mod-ds">CPU ' + (n - 1) + '人とすぐに対戦します（' + dkfEsc(map ? map.name : '') + '・' + n + '人・制限ターン ' + turns + '）</p>'
     + '<div class="dkf-prac">' + DKF_PRACTICE.map(function(o, i){
@@ -581,6 +614,7 @@ function dkfMapCardHTML(m, i){
     +   '<div class="dkf-mc-nm"><b>' + dkfEsc(m.name) + '</b><i>' + dkfEsc(m.sub) + '</i></div>'
     +   '<i class="fx-gloss dkf-mc-gloss"></i>'
     + '</div></div>'
+    + '<span class="dkf-mc-more">タップで くわしく</span>'
     + '<div class="dkf-mc-shade"></div>'
     + (today ? '<span class="dkf-today"><i class="dkf-today-ic">' + dkfSvg('crown') + '</i>本日のマップ</span>' : '')
     + '</div>';
@@ -614,6 +648,8 @@ function dkfBuildMap(){
     + '<div class="dkf-enter fx-primary" role="button" id="dkfMkRoom" data-fx="pop" data-fx-press><b>入場</b></div>'
     + (typeof walletHTML === 'function' ? walletHTML() : ''));
   el.classList.add('dkf-scr', 'dkf-map', 'dkf-t-' + c.id);
+  el.classList.remove('dkf-det-on');                       // 作り直したら詳細パネルは消える
+  DKF_S.det = '';
   el.setAttribute('data-fx-step', '60');
   dkfAmb(el);
   dkfWireNav(el);
@@ -624,8 +660,14 @@ function dkfBuildMap(){
   el.querySelectorAll('[data-dkf-step]').forEach(function(b){
     b.onclick = function(){ dkfStepMap(+b.getAttribute('data-dkf-step')); };
   });
+  /* 左右の送り（スワイプ）とタップを混ぜない：12px 動いたらもう「送り」で、クリックでは詳細を開かない */
   var car = el.querySelector('.dkf-carousel');
   car.addEventListener('pointerdown', function(e){ DKF_S.drag = { x:e.clientX, y:e.clientY, moved:false }; });
+  car.addEventListener('pointermove', function(e){
+    var d = DKF_S.drag;
+    if(!d || d.moved) return;
+    if(Math.abs(e.clientX - d.x) > 12 || Math.abs(e.clientY - d.y) > 12) d.moved = true;
+  });
   car.addEventListener('pointerup', function(e){
     var d = DKF_S.drag; if(!d) return;
     var dx = e.clientX - d.x;
@@ -637,8 +679,7 @@ function dkfBuildMap(){
     if(d && d.moved) return;
     var card = e.target.closest ? e.target.closest('.dkf-mcard') : null;
     if(!card) return;
-    if(card.classList.contains('dkf-p0')){ dkfSnd('click'); dkfPop(card, true); return; }
-    dkfGoMap(+card.getAttribute('data-dkf-i'));
+    dkfOpenDetail(card.getAttribute('data-dkf-map'));      // タップ＝そのマップの詳細を見る
   });
   var mk = el.querySelector('#dkfMkRoom');
   if(mk) mk.onclick = function(){ dkfSnd('click'); try{ ac(); }catch(e){} launch({ room:true }); };
@@ -655,6 +696,8 @@ function dkFlowMap(){
 function dkfClearSetup(){
   var el = document.getElementById('setup'); if(!el) return;
   el.innerHTML = '';
+  el.classList.remove('dkf-det-on');
+  DKF_S.det = '';
   DKF_S.mapSig = '';
 }
 /* マップ選択を離れたら、盤の小さな絵（canvas 640×380 ×3）の画素を返す（ワイプのあと。次に開く時に作り直す） */
@@ -663,7 +706,7 @@ function dkfFreeMapLater(){
   DKF_S.freeT = setTimeout(function(){
     var el = document.getElementById('setup');
     if(!el || el.classList.contains('on')) return;
-    var cvs = el.querySelectorAll('canvas.dkf-mcv'); if(!cvs.length) return;
+    var cvs = el.querySelectorAll('canvas.dkf-mcv, canvas.dkf-detcv'); if(!cvs.length) return;
     cvs.forEach(function(c){ c.width = 0; c.height = 0; });
     DKF_S.mapSig = '';
   }, 900);
@@ -700,7 +743,7 @@ function dkfGoMap(i){
   if(ln && ln.animate){ try{ ln.animate([{ transform:'translateY(12px)' }, { transform:'none' }], { duration:320, easing:'cubic-bezier(.16,1,.3,1)' }); }catch(e){} }
 }
 function dkfStepMap(d){
-  if(typeof MAPS === 'undefined') return;
+  if(typeof MAPS === 'undefined' || DKF_S.det) return;
   var n = MAPS.length, ci = Math.max(0, MAPS.findIndex(function(m){ return m.id === cfg.mapId; }));
   dkfGoMap(((ci + d) % n + n) % n);
 }
@@ -722,6 +765,209 @@ function dkfTickerStart(){
       if(ic && ic.animate){ try{ ic.animate([{ transform:'rotate(0)' }, { transform:'rotate(-12deg)', offset:.3 }, { transform:'rotate(10deg)', offset:.6 }, { transform:'rotate(0)' }], { duration:520 }); }catch(e){} }
     }, 5200);
   }catch(e){}
+}
+
+/* ══════════ マップの詳細（同じ画面に重ねるパネル）══════════
+   角4マスの名前と役割・特殊マス・そのマップだけの仕掛け・都市の数・観光地の位置を出す。
+   中身は C09 の契約（dkMapInfo・dkMapTiles）と WP11 の表だけから作る（本物が無い時は仮の部品が答える）。
+   ［このマップで遊ぶ］で閉じて、選択も確定する。 */
+/* 仕掛けの位置を知るための仮の盤（32マス）。乱数を引かせないよう、氷の目印を先に1つ立てておく */
+function dkfSynthTiles(map){
+  var i, k, t = new Array(32);
+  var SP = (typeof DKR_SPECIAL === 'object' && DKR_SPECIAL) ? DKR_SPECIAL
+         : ((typeof SPECIAL === 'object' && SPECIAL) ? SPECIAL : {});
+  var cn = (map && map.corners) || [];
+  t[0]  = { type:'start',   name:cn[0] || 'スタート' };
+  t[8]  = { type:'jail',    name:cn[1] || '無人島' };
+  t[16] = { type:'olympic', name:cn[2] || 'お祭り' };
+  t[24] = { type:'travel',  name:cn[3] || '世界旅行' };
+  for(k in SP){
+    i = +k;
+    if(!(i > 0) || i > 31 || i % 8 === 0) continue;
+    t[i] = SP[k] === 'tax'   ? { type:'tax',   name:DKF_SP_NM.tax }
+         : SP[k] === 'bonus' ? { type:'bonus', name:DKF_SP_NM.bonus }
+         :                     { type:'card',  name:DKF_SP_NM.card };
+  }
+  var TR = (typeof DKR_TOURS !== 'undefined' && Array.isArray(DKR_TOURS)) ? DKR_TOURS : [];
+  TR.forEach(function(s){
+    if(!(s.i > 0) || s.i > 31) return;
+    var nm = '';
+    try{ nm = (typeof dkrTourName === 'function') ? dkrTourName(map, s.i, s.kind) : ''; }catch(e){ nm = ''; }
+    t[s.i] = { type:'city', name:nm || DKF_TOUR_NM[s.kind] || '名所', tour:s.kind, idx:s.i };
+  });
+  for(i = 0; i < 32; i++) if(!t[i]) t[i] = { type:'city', name:'', idx:i, tour:null };
+  t[1].ice = true;
+  try{
+    if(typeof dkMapTiles === 'function'){
+      var t2 = dkMapTiles(t, map);
+      if(Array.isArray(t2) && t2.length === 32) t = t2;
+    }
+  }catch(e){ console.error('[WP15a] tiles', e); }
+  return t;
+}
+function dkfMapFacts(id){
+  var m = dkfMap(id), inf = null, i;
+  try{ inf = (typeof dkMapInfo === 'function') ? dkMapInfo(id) : null; }catch(e){ inf = null; }
+  var t = dkfSynthTiles(m), corners = [], tours = [], sp = [], cities = 0;
+  [0, 8, 16, 24].forEach(function(at, k){
+    corners.push({ i:at, nm:(t[at] && t[at].name) || '', ds:DKF_CORNER_DS[k] });
+  });
+  for(i = 0; i < 32; i++){
+    var x = t[i];
+    if(!x || i % 8 === 0) continue;
+    if(x.type === 'city'){
+      if(x.tour) tours.push({ i:i, nm:x.name || DKF_TOUR_NM[x.tour] || '名所', kind:x.tour });
+      else cities++;
+      continue;
+    }
+    sp.push({ i:i, nm:DKF_SP_NM[x.type] || x.name || '', type:x.type });
+  }
+  return { map:m, line:dkfMapLine(id),
+    gimmick:(inf && inf.gimmick) ? String(inf.gimmick) : '',
+    help:(inf && inf.help) ? String(inf.help) : '',
+    corners:corners, tours:tours, sp:sp, cities:cities };
+}
+/* 同じ名前の特殊マスは1行にまとめる（例 フォーチュンカード 12・20） */
+function dkfGroupSp(sp){
+  var out = [], by = {};
+  sp.forEach(function(o){
+    if(!by[o.nm]){ by[o.nm] = { nm:o.nm, type:o.type, at:[] }; out.push(by[o.nm]); }
+    by[o.nm].at.push(o.i);
+  });
+  return out;
+}
+function dkfDetNum(lb, n, ds){
+  return '<span class="dkf-dnum"><em>' + lb + '</em><b>' + n + '</b><small>' + ds + '</small></span>';
+}
+function dkfDetailHTML(f){
+  var m = f.map, today = DKF_S.today === m.id;
+  var help = f.help || 'このマップに特別な仕掛けはありません。都市を買って建物を建て、独占をねらいましょう。';
+  var corners = f.corners.map(function(c){
+    return '<li class="dkf-dc"><span class="dkf-dc-no">' + c.i + '</span>'
+      + '<span class="dkf-dc-tx"><b>' + dkfEsc(c.nm) + '</b><small>' + c.ds + '</small></span></li>';
+  }).join('');
+  var tags = f.tours.map(function(o){
+      return '<span class="dkf-dtag dkf-dtag-' + o.kind + '"><i>' + o.i + '</i>' + dkfEsc(o.nm) + '</span>';
+    }).join('')
+    + dkfGroupSp(f.sp).map(function(o){
+      return '<span class="dkf-dtag dkf-dsp-' + o.type + '"'
+        + (DKF_SP_DS[o.type] ? ' title="' + DKF_SP_DS[o.type] + '"' : '')
+        + '><i>' + o.at.join('・') + '</i>' + dkfEsc(o.nm) + '</span>';
+    }).join('');
+  var chips = f.corners.map(function(c, k){
+    return '<span class="dkf-cn dkf-cn' + k + '">' + dkfEsc(c.nm) + '</span>';
+  }).join('');
+  return '<div class="dkf-det-bg fx-deco"></div>'
+    + '<div class="dkf-det-in">'
+    +   '<div class="dkf-det-hd">'
+    +     '<span class="dkf-det-emb">' + dkfEmblem(m) + '</span>'
+    +     '<span class="dkf-det-ttl"><b>' + dkfEsc(m.name) + '</b><i>' + dkfEsc(m.sub) + '</i></span>'
+    +     (today ? '<span class="dkf-det-today"><i class="dkf-det-today-ic">' + dkfSvg('crown') + '</i>本日のマップ</span>' : '')
+    +     '<button type="button" class="dkf-det-x" data-dkf-det="close" aria-label="とじる"><i></i></button>'
+    +   '</div>'
+    +   '<div class="dkf-det-left">'
+    +     '<div class="dkf-det-board" style="--dkf-l0:' + m.lake[0] + ';--dkf-l1:' + m.lake[1] + ';--dkf-l2:' + m.lake[2] + '">'
+    +       '<div class="dkf-det-bin"><canvas class="dkf-detcv" width="640" height="380"></canvas>' + chips + '</div>'
+    +     '</div>'
+    +     '<p class="dkf-det-line">' + dkfEsc(f.line) + '</p>'
+    +     '<div class="dkf-det-nums">'
+    +       dkfDetNum('都市', f.cities, '買って建てる')
+    +       dkfDetNum('観光地', f.tours.length, '独占すると勝ち')
+    +       dkfDetNum('特殊マス', f.sp.length, '止まると起きる')
+    +     '</div>'
+    +   '</div>'
+    +   '<div class="dkf-det-right">'
+    +     '<div class="dkf-dsec dkf-dsec-gm">'
+    +       '<div class="dkf-dsec-hd"><span class="dkf-dtab"><b>このマップの仕掛け</b></span>'
+    +         (f.gimmick ? '<span class="dkf-dgm">' + dkfEsc(f.gimmick) + '</span>' : '<span class="dkf-dhint">仕掛けはありません</span>') + '</div>'
+    +       '<p class="dkf-dhelp">' + dkfEsc(help) + '</p>'
+    +     '</div>'
+    +     '<div class="dkf-dsec dkf-dsec-cn">'
+    +       '<div class="dkf-dsec-hd"><span class="dkf-dtab"><b>角の4マス</b></span></div>'
+    +       '<ul class="dkf-dcs">' + corners + '</ul>'
+    +     '</div>'
+    +     '<div class="dkf-dsec dkf-dsec-tg">'
+    +       '<div class="dkf-dsec-hd"><span class="dkf-dtab"><b>観光地と特殊マス</b></span>'
+    +         '<span class="dkf-dhint">数字はマスの番号です</span></div>'
+    +       '<div class="dkf-dtags">' + tags + '</div>'
+    +     '</div>'
+    +   '</div>'
+    +   '<div class="dkf-det-ft">'
+    +     '<button type="button" class="dkbtn dkf-btn-wood dkf-det-back" data-dkf-det="close">とじる</button>'
+    +     '<button type="button" class="dkbtn gd dkf-det-go fx-primary" data-dkf-det="play">このマップで遊ぶ</button>'
+    +   '</div>'
+    + '</div>';
+}
+function dkfDetailEl(make){
+  var el = document.getElementById('setup'); if(!el) return null;
+  var d = el.querySelector(':scope > .dkf-detail');
+  if(!d && make){
+    d = document.createElement('div');
+    d.className = 'dkf-detail';
+    d.setAttribute('role', 'dialog');
+    d.setAttribute('aria-label', 'マップの詳細');
+    el.appendChild(d);
+  }
+  return d;
+}
+function dkfOpenDetail(id){
+  var el = document.getElementById('setup');
+  if(!el || typeof MAPS === 'undefined') return false;
+  var m = dkfMap(id);
+  if(!m || DKF_S.det === m.id) return false;
+  var f;
+  try{ f = dkfMapFacts(m.id); }catch(e){ console.error('[WP15a] facts', e); return false; }
+  var d = dkfDetailEl(true); if(!d) return false;
+  DKF_S.det = m.id;
+  d.innerHTML = dkfDetailHTML(f);
+  d.classList.add('on');
+  el.classList.add('dkf-det-on');
+  try{ dkfDrawBoard(d.querySelector('canvas.dkf-detcv'), m); }catch(e){ console.error('[WP15a] board', e); }
+  d.querySelectorAll('[data-dkf-det]').forEach(function(b){
+    b.onclick = function(){
+      if(b.getAttribute('data-dkf-det') === 'play') dkfDetPlay();
+      else dkfCloseDetail();
+    };
+  });
+  dkfSnd('click');
+  var inn = d.querySelector('.dkf-det-in');
+  if(inn && inn.animate){
+    try{ inn.animate([{ transform:'translateY(28px) scale(.985)' }, { transform:'none' }],
+      { duration:340, easing:'cubic-bezier(.16,1,.3,1)' }); }catch(e){}
+  }
+  return true;
+}
+function dkfCloseDetail(quiet){
+  var el = document.getElementById('setup');
+  if(!DKF_S.det && !(el && el.classList.contains('dkf-det-on'))) return false;
+  DKF_S.det = '';
+  if(el) el.classList.remove('dkf-det-on');
+  var d = dkfDetailEl(false);
+  if(d){
+    var cv = d.querySelector('canvas.dkf-detcv');
+    if(cv){ cv.width = 0; cv.height = 0; }      /* 画素を返す（iPhone の合成レイヤー対策） */
+    d.classList.remove('on');
+    d.innerHTML = '';
+  }
+  if(!quiet) dkfSnd('click');
+  return true;
+}
+/* ［このマップで遊ぶ］：閉じて、そのマップを選んだ状態にする */
+function dkfDetPlay(){
+  var id = DKF_S.det, i = -1;
+  dkfCloseDetail(true);
+  if(!id || typeof MAPS === 'undefined') return;
+  for(var k = 0; k < MAPS.length; k++) if(MAPS[k].id === id) i = k;
+  if(i < 0) return;
+  if(MAPS[i].id === cfg.mapId){
+    dkfSnd('click');
+    renderMaps();
+    var el = document.getElementById('setup');
+    var card = el && el.querySelector('.dkf-mcard.dkf-p0');
+    if(card) dkfPop(card, true);
+    return;
+  }
+  dkfGoMap(i);
 }
 
 /* ══════════ 対戦の開始（二度押し防止つき） ══════════ */
@@ -1151,7 +1397,7 @@ function dkfBuyItem(id, node){
 function dkfDrawMagic(){ return DKF_MAGIC[(Math.random() * DKF_MAGIC.length) | 0].id; }
 function dkfRandHTML(id){
   var m = dkfMagicOf(id) || DKF_MAGIC[0];
-  return '<div class="modal dkf-mod"><div class="fx-panel parch dkf-mod-in dkf-rand-in">'
+  return '<div class="modal dkf-mod"><div class="fx-panel fx-parch dkf-mod-in dkf-rand-in">'
     + '<div class="dkf-rand-hd"><b class="dkf-mod-hd dkf-rand-ttl">' + m.nm + '</b>'
     +   '<button type="button" class="dkf-mod-x" data-act="ok" aria-label="とじる"><i></i></button></div>'
     + '<div class="dkf-rand-bd">'
@@ -1443,7 +1689,7 @@ function dkfSwapTeam(){
 async function dkfEditName(i){
   var s = DKF_S.slots && DKF_S.slots[i]; if(!s || s.kind !== 'human') return;
   dkfSnd('click');
-  var p = modal('<div class="modal dkf-mod"><div class="fx-panel parch dkf-mod-in dkf-name-in">'
+  var p = modal('<div class="modal dkf-mod"><div class="fx-panel fx-parch dkf-mod-in dkf-name-in">'
     + '<b class="dkf-mod-hd">' + (i + 1) + '番目の席の なまえ</b>'
     + '<input class="dkf-name-inp" type="text" maxlength="8" value="' + dkfEsc(s.name || '') + '" aria-label="なまえ">'
     + '<div class="dkf-mod-ft"><button class="dkbtn dkf-btn-wood" data-act="no">やめる</button>'
@@ -1483,7 +1729,7 @@ async function dkfCardPick(i){
       + (u ? '<span class="dkf-pc-used">' + u + '番の席</span>' : '')
       + '</div>';
   }).join('');
-  var r = await modal('<div class="modal dkf-mod"><div class="fx-panel parch dkf-mod-in dkf-pick-in">'
+  var r = await modal('<div class="modal dkf-mod"><div class="fx-panel fx-parch dkf-mod-in dkf-pick-in">'
     + '<b class="dkf-mod-hd">' + (i === 0 ? 'あなたの' : dkfEsc(s.name) + ' の') + 'カードを選ぶ</b>'
     + '<div class="dkf-pick-grid">' + tiles + '</div>'
     + '<div class="dkf-mod-ft"><button class="dkbtn gd" data-act="close">閉じる</button></div></div></div>');
@@ -1522,7 +1768,7 @@ function slotPicker(slot, after){
       }).join('');
   var body = owned.length ? '<div class="dkf-pgrid">' + tiles + '</div>'
     : '<p class="dkf-mod-empty">まだペンダントを持っていません。<br>ガチャか対戦の報酬で手に入ります。</p>';
-  var p = modal('<div class="modal dkf-mod"><div class="fx-panel parch dkf-mod-in dkf-slot-in">'
+  var p = modal('<div class="modal dkf-mod"><div class="fx-panel fx-parch dkf-mod-in dkf-slot-in">'
     + '<b class="dkf-mod-hd">' + (slot + 1) + '番目の枠に付けるペンダント</b>'
     + body
     + '<p class="dkf-mod-ds">' + (cur ? '<b>' + dkfEsc(cur.nm) + '</b>' + dkfEsc(cur.ds) : '空き枠です。付けたいペンダントを選んでください') + '</p>'
@@ -1558,7 +1804,7 @@ function dicePicker(after){
       + '</div>';
   }).join('');
   var cur = dieById(SV.die);
-  var p = modal('<div class="modal dkf-mod"><div class="fx-panel parch dkf-mod-in dkf-dice-in">'
+  var p = modal('<div class="modal dkf-mod"><div class="fx-panel fx-parch dkf-mod-in dkf-dice-in">'
     + '<b class="dkf-mod-hd">使うサイコロを選ぶ</b>'
     + '<div class="dkf-dgrid">' + tiles + '</div>'
     + '<p class="dkf-mod-ds"><b>' + dkfEsc(cur.nm) + '</b>' + dkfEsc(cur.ds) + '</p>'
@@ -1695,7 +1941,7 @@ function dkfRefundBag(){
     dkOn('screen', function(e){
       if(!e) return;
       if(e.changed) dkfTutHide();
-      if(e.id !== 'setup'){ if(e.changed) dkfFreeMapLater(); return; }
+      if(e.id !== 'setup'){ if(e.changed){ dkfCloseDetail(true); dkfFreeMapLater(); } return; }
       if(e.changed && DKF_S.mapSig !== dkfMapSig()) dkfBuildMap();
       if(e.changed) dkfTickerStart();
     });
@@ -1711,6 +1957,7 @@ function dkfRefundBag(){
     document.addEventListener('keydown', function(e){
       var s = document.getElementById('setup'), mw = document.getElementById('modalWrap');
       if(!s || !s.classList.contains('on') || (mw && mw.classList.contains('on'))) return;
+      if(DKF_S.det){ if(e.key === 'Escape') dkfCloseDetail(); return; }
       if(e.key === 'ArrowLeft') dkfStepMap(-1);
       else if(e.key === 'ArrowRight') dkfStepMap(1);
     });

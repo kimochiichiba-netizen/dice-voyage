@@ -200,6 +200,10 @@
   -webkit-text-stroke:10px #1E1A2A;paint-order:stroke fill;text-shadow:0 5px 0 rgba(0,0,0,.35)}
 #setup .dkf-mc-nm i{display:block;margin-top:4px;font-family:var(--caps);font-style:normal;font-size:18px;
   letter-spacing:.32em;text-indent:.32em;color:#FFF6DA;-webkit-text-stroke:3px rgba(0,0,0,.5);paint-order:stroke fill}
+#setup .dkf-mc-more{position:absolute;left:-14px;top:-16px;z-index:5;pointer-events:none;white-space:nowrap;
+  padding:5px 18px 6px;border-radius:999px;font-size:20px;font-weight:900;line-height:1;color:#FFF6DA;
+  background:rgba(18,11,4,.82);border:2px solid rgba(255,226,140,.8);box-shadow:0 2px 5px rgba(0,0,0,.45)}
+#setup .dkf-mcard:not(.dkf-p0) .dkf-mc-more{display:none}
 #setup .dkf-mc-shade{position:absolute;inset:0;border-radius:24px;background:rgba(10,6,2,.66);opacity:0;
   pointer-events:none;transition:opacity 380ms var(--fx-out);z-index:4}
 #setup .dkf-mcard:not(.dkf-p0) .dkf-mc-shade{opacity:1}
@@ -571,6 +575,8 @@
 .dkf-mod .dkf-name-inp{height:66px;padding:0 18px;border-radius:12px;border:3px solid #A9761A;outline:none;
   background:#FFFDF6;font-size:30px;font-weight:900;color:#3A2405;box-shadow:inset 0 3px 6px rgba(0,0,0,.12)}
 .dkf-mod .dkf-name-inp:focus{border-color:#E0AE3A;box-shadow:0 0 0 4px rgba(255,210,90,.45),inset 0 3px 6px rgba(0,0,0,.12)}
+/* モーダルのボタンは光を流さない（常時アニメを1画面8個までに収める。下の画面の分と合算されるため） */
+.dkf-mod .dkbtn::after{animation:none}
 .dkf-mod .dkf-mod-ft{display:flex;justify-content:center;gap:18px}
 .dkf-mod .dkf-mod-ft .dkbtn{min-width:180px}
 .dkf-mod .dkf-btn-wood{background:linear-gradient(180deg,#6E5326,#3E2C11 52%,#271A07);border:3px solid #C8952F;color:#FFE9B5}
@@ -680,6 +686,118 @@
 #dkfTut .dkf-tut-tx b{font-family:var(--pop);font-size:28px;line-height:1.1;color:#42300F}
 #dkfTut .dkf-tut-tx small{font-size:18px;font-weight:800;line-height:1.3;color:#5A3E1C}
 
+/* ══════════ マップの詳細（#setup に重ねるパネル。角4マス・特殊マス・仕掛け・数） ══════════ */
+#setup .dkf-detail{position:absolute;inset:0;z-index:20;display:none}
+#setup .dkf-detail.on{display:block}
+#setup.dkf-det-on > *:not(.dkf-detail){visibility:hidden}
+#setup .dkf-det-bg{position:absolute;inset:0;
+  background:radial-gradient(80% 60% at 30% 22%,rgba(255,214,130,.16),transparent 62%),
+             linear-gradient(180deg,rgba(20,12,4,.94) 0,rgba(8,5,2,.97) 100%)}
+#setup .dkf-det-in{position:absolute;inset:0}
+
+#setup .dkf-det-hd{position:absolute;left:0;right:0;top:0;height:96px;display:flex;align-items:center;gap:18px;padding:0 116px 0 26px;
+  background:linear-gradient(180deg,#6A4E26 0,#44311A 34%,#2A1C0A 76%,#170E04);border-bottom:3px solid #C8952F;
+  box-shadow:0 6px 18px rgba(0,0,0,.55),inset 0 2px 0 rgba(255,226,150,.28)}
+#setup .dkf-det-emb{flex:0 0 auto;width:64px;height:64px;border-radius:50%;display:grid;place-items:center;padding:12px;color:#fff;
+  background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.5),rgba(0,0,0,.3));
+  border:3px solid rgba(255,226,150,.85);box-shadow:0 3px 8px rgba(0,0,0,.4)}
+#setup .dkf-det-emb svg{display:block;width:100%;height:100%}
+#setup .dkf-det-ttl{flex:0 1 auto;min-width:0;display:flex;align-items:baseline;gap:18px}
+#setup .dkf-det-ttl b{font-family:var(--pop);font-size:42px;line-height:1;color:#FFD44A;white-space:nowrap;
+  -webkit-text-stroke:8px #3A2405;paint-order:stroke fill;text-shadow:0 4px 0 rgba(0,0,0,.45)}
+#setup .dkf-det-ttl i{font-style:normal;font-family:var(--caps);font-size:20px;line-height:1;letter-spacing:.3em;text-indent:.3em;
+  color:#F0DCA8;white-space:nowrap;-webkit-text-stroke:3px rgba(0,0,0,.5);paint-order:stroke fill}
+#setup .dkf-det-today{flex:0 0 auto;display:flex;align-items:center;gap:8px;white-space:nowrap;
+  padding:6px 18px 7px 10px;border-radius:12px;font-family:var(--pop);font-size:22px;line-height:1;color:#fff;
+  -webkit-text-stroke:5px #7A3A06;paint-order:stroke fill;
+  background:linear-gradient(180deg,#FFF3C0 0,#FFD24D 30%,#F2A21C 72%,#B8640C);border:3px solid #FFF6D8;
+  box-shadow:0 4px 0 rgba(0,0,0,.4)}
+#setup .dkf-det-today-ic{display:block;width:26px;height:26px;color:#fff;filter:drop-shadow(0 2px 0 rgba(122,58,6,.9))}
+#setup .dkf-det-x{position:absolute;right:22px;top:17px;width:76px;height:62px;border-radius:14px;cursor:pointer;
+  background:linear-gradient(180deg,#8A5A2A,#5A3414 55%,#3A2008);border:3px solid #F5D36B;
+  box-shadow:0 4px 0 rgba(0,0,0,.45),inset 0 2px 0 rgba(255,226,150,.4);transition:transform var(--fx-t-release) var(--fx-back)}
+#setup .dkf-det-x:active{transform:translateY(3px) scale(.96)}
+#setup .dkf-det-x i::before,#setup .dkf-det-x i::after{content:"";position:absolute;left:50%;top:50%;
+  width:34px;height:8px;margin:-4px 0 0 -17px;border-radius:4px;background:#FFF3D0;box-shadow:0 2px 0 rgba(0,0,0,.4)}
+#setup .dkf-det-x i::before{transform:rotate(45deg)}
+#setup .dkf-det-x i::after{transform:rotate(-45deg)}
+
+#setup .dkf-det-left{position:absolute;left:30px;top:116px;width:664px;bottom:124px;display:flex;flex-direction:column;gap:14px}
+#setup .dkf-det-board{position:relative;flex:0 0 404px;border-radius:22px;padding:6px;background:var(--fx-gold-metal);
+  box-shadow:0 10px 0 rgba(0,0,0,.35),0 22px 42px rgba(0,0,0,.55)}
+#setup .dkf-det-bin{position:relative;height:100%;border-radius:16px;overflow:hidden;
+  background:radial-gradient(90% 70% at 50% 32%,rgba(255,255,255,.4),transparent 62%),
+             linear-gradient(180deg,var(--dkf-l0) 0,var(--dkf-l1) 46%,var(--dkf-l2) 100%);
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.35),inset 0 -60px 60px rgba(0,0,0,.32)}
+#setup .dkf-detcv{position:absolute;left:6px;top:6px;width:640px;height:380px}
+#setup .dkf-det-bin .dkf-cn{font-size:20px;padding:5px 14px 6px}
+#setup .dkf-det-bin .dkf-cn0{left:50%;top:262px;transform:translateX(-50%)}
+#setup .dkf-det-bin .dkf-cn1{left:16px;top:166px}
+#setup .dkf-det-bin .dkf-cn2{left:calc(50% + 12px);top:14px}
+#setup .dkf-det-bin .dkf-cn3{right:16px;top:166px}
+#setup .dkf-det-line{margin:0;flex:0 0 auto;min-height:54px;display:flex;align-items:center;justify-content:center;
+  padding:8px 20px;border-radius:16px;text-align:center;font-size:23px;font-weight:900;line-height:1.3;color:#FFF6DA;
+  background:linear-gradient(90deg,transparent,rgba(16,10,4,.78) 12%,rgba(16,10,4,.78) 88%,transparent)}
+#setup .dkf-det-nums{margin-top:auto;flex:0 0 116px;display:flex;gap:14px}
+#setup .dkf-dnum{flex:1;min-width:0;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  background:linear-gradient(180deg,rgba(60,42,18,.94),rgba(24,15,5,.96));border:3px solid rgba(200,149,47,.9);
+  box-shadow:0 5px 0 rgba(0,0,0,.35),inset 0 2px 0 rgba(255,226,150,.22)}
+#setup .dkf-dnum em{font-style:normal;font-size:19px;font-weight:900;line-height:1;color:#F0DCA8;white-space:nowrap}
+#setup .dkf-dnum b{font-family:var(--pop);font-size:40px;line-height:1.1;color:#FFD44A;
+  -webkit-text-stroke:7px #3A2405;paint-order:stroke fill}
+#setup .dkf-dnum small{font-size:17px;font-weight:800;line-height:1;color:#C8B489;white-space:nowrap}
+
+#setup .dkf-det-right{position:absolute;left:722px;right:30px;top:116px;bottom:124px;display:flex;flex-direction:column;gap:12px}
+#setup .dkf-dsec{display:flex;flex-direction:column;gap:8px;padding:10px 16px 12px;border-radius:18px;
+  background:radial-gradient(120% 70% at 50% 0%,rgba(255,255,255,.55),transparent 58%),
+             linear-gradient(180deg,#FBF3DE,#F1E2C0 46%,#E2CC9E);
+  box-shadow:0 6px 0 rgba(0,0,0,.3),inset 0 0 0 3px rgba(169,118,26,.55),inset 0 0 0 6px rgba(255,248,226,.5)}
+#setup .dkf-dsec-gm{flex:0 0 250px}
+#setup .dkf-dsec-cn{flex:0 0 170px}
+#setup .dkf-dsec-tg{flex:1;min-height:0}
+#setup .dkf-dsec-hd{flex:0 0 auto;display:flex;align-items:center;gap:12px;height:38px}
+#setup .dkf-dtab{flex:0 0 auto;display:inline-flex;align-items:center;height:38px;padding:0 18px;border-radius:10px;
+  background:linear-gradient(180deg,#9A7350,#6E4A2C 55%,#54361D);border:2px solid #3E2814;
+  box-shadow:0 3px 5px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,220,170,.35)}
+#setup .dkf-dtab b{font-family:var(--pop);font-size:22px;line-height:1;color:#FFEBD0;white-space:nowrap;
+  -webkit-text-stroke:4px #3E2814;paint-order:stroke fill}
+#setup .dkf-dgm{flex:0 0 auto;padding:6px 16px 7px;border-radius:10px;white-space:nowrap;
+  font-family:var(--pop);font-size:21px;line-height:1;color:#fff;-webkit-text-stroke:4px #8A3A06;paint-order:stroke fill;
+  background:linear-gradient(180deg,#FFC65A,#E0801A 58%,#B85608);border:2px solid #FFE6B8;box-shadow:0 3px 0 rgba(0,0,0,.28)}
+#setup .dkf-dhint{margin-left:auto;font-size:17px;font-weight:800;color:#7A6A52;white-space:nowrap}
+#setup .dkf-dhelp{margin:0;flex:1;min-height:0;overflow-y:auto;scrollbar-width:thin;
+  font-size:18px;font-weight:800;line-height:1.55;color:#42300F}
+#setup .dkf-dcs{margin:0;padding:0;list-style:none;flex:1;min-height:0;
+  display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;align-content:start}
+#setup .dkf-dc{display:flex;align-items:center;gap:10px;min-width:0}
+#setup .dkf-dc-no{flex:0 0 48px;height:40px;border-radius:9px;display:grid;place-items:center;
+  font-family:var(--pop);font-size:22px;line-height:1;color:#FFF3D6;
+  background:linear-gradient(180deg,#8A5A2A,#4A2C0C);border:2px solid #C8952F}
+#setup .dkf-dc-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+#setup .dkf-dc-tx b{font-size:21px;font-weight:900;line-height:1.15;color:#42300F;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#setup .dkf-dc-tx small{font-size:17px;font-weight:800;line-height:1.2;color:#6A4A30;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#setup .dkf-dtags{flex:1;min-height:0;display:flex;flex-wrap:wrap;align-content:flex-start;gap:10px;
+  overflow-y:auto;scrollbar-width:thin}
+#setup .dkf-dtag{display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 15px 0 6px;border-radius:12px;
+  white-space:nowrap;font-size:19px;font-weight:900;line-height:1;color:#42300F;
+  background:#FFF8E4;border:2px solid #C8A868;box-shadow:0 2px 0 rgba(0,0,0,.18)}
+#setup .dkf-dtag i{font-style:normal;display:inline-grid;place-items:center;min-width:40px;height:30px;padding:0 7px;border-radius:8px;
+  font-family:var(--pop);font-size:18px;line-height:1;color:#FFF3D6;background:#8A5A2A}
+#setup .dkf-dtag-sky{background:#EAF6FF;border-color:#8FD8F8}
+#setup .dkf-dtag-sky i{background:#2E8BE0}
+#setup .dkf-dtag-pink{background:#FFEEF4;border-color:#F6A9C9}
+#setup .dkf-dtag-pink i{background:#D8457A}
+#setup .dkf-dsp-bonus i{background:#E0901A}
+#setup .dkf-dsp-tax i{background:#6E685C}
+#setup .dkf-dsp-crystal i{background:#2A94C8}
+#setup .dkf-dsp-roulette i{background:#C8562A}
+
+#setup .dkf-det-ft{position:absolute;left:0;right:0;bottom:18px;height:92px;display:flex;align-items:center;justify-content:center;gap:26px}
+#setup .dkf-det-back{min-width:230px;height:78px;font-size:30px}
+#setup .dkf-det-go{min-width:520px;height:88px;font-size:38px;color:#4A2C04;-webkit-text-stroke-color:#FFF6D8}
+
 /* ══════════════════════════════════════════════════════════════ */
 @media (max-height:560px){
   #dkclass .dkf-olbtn-tx small,#dkclass .dkf-practice small{font-size:22px}
@@ -696,6 +814,22 @@
   #setup .dkf-tk-tx,#setup .dkf-cn,#setup .dkf-mc-nm i,#setup .dkf-mline-tx{font-size:22px}
   #setup .dkf-mcard.dkf-p0::after{font-size:22px}
   #setup .dkf-rw-tx b{font-size:24px}
+  #setup .dkf-mc-more{font-size:22px}
+  #setup .dkf-det-ttl i{font-size:22px}
+  #setup .dkf-det-bin .dkf-cn{font-size:22px}
+  #setup .dkf-det-line{font-size:25px}
+  #setup .dkf-dnum em{font-size:22px}
+  #setup .dkf-dnum small{font-size:20px}
+  #setup .dkf-dtab b{font-size:26px}
+  #setup .dkf-dgm{font-size:24px}
+  #setup .dkf-dhint{font-size:20px}
+  #setup .dkf-dhelp{font-size:21px;line-height:1.5}
+  #setup .dkf-dc-tx b{font-size:23px}
+  #setup .dkf-dc-tx small{font-size:20px}
+  #setup .dkf-dtag{font-size:21px}
+  #setup .dkf-dtag i{font-size:20px}
+  #setup .dkf-det-x::after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:calc(100% + 22px);height:calc(100% + 34px);background:transparent;border:0;z-index:1;pointer-events:auto}
   #room.dkf-room .dkf-tab b{font-size:26px}
   #room.dkf-room .dkf-hint{font-size:22px}
   #room.dkf-room .dkf-item-tl b{font-size:22px}
@@ -779,4 +913,8 @@ html.fx-mob #setup .dkf-mcard.dkf-pr{transform:translateX(500px) translateY(26px
 html.fx-mob #dkclass .dkf-cur::before,html.fx-mob .dkf-scr .dkf-top::after,
 html.fx-mob #setup .dkf-enter::after,html.fx-mob #room.dkf-room .dkf-vs,html.fx-mob #room.dkf-room .dkf-go::after,
 html.fx-mob .dkf-scr .dkf-pp-gloss::after,html.fx-mob .dkf-scr .dkf-mc-gloss::after{animation:none!important}
+/* マップの詳細：スマホでは常時アニメを作らない（止まった絵にする） */
+html.fx-mob #setup .dkf-det-go::before,html.fx-mob #setup .dkf-det-ft .dkbtn::after,
+html.fx-mob #setup .dkf-det-x::after{animation:none!important}
+html.fx-mob #setup .dkf-det-go{box-shadow:0 5px 0 rgba(0,0,0,.42),inset 0 2px 0 rgba(255,255,255,.45)}
 </style>
