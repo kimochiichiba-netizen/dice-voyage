@@ -55,7 +55,7 @@ function dkpRarNm(r){ return r === 'SS' ? 'S+' : (r || 'A'); }
 function dkpShort(p){ return String(p && p.nm || '').replace(/のペンダント$/, ''); }
 function dkpTrg(t){
   return ({ onLandmark:'ランドマークを建てた時', onTollGet:'通行料を受け取る時', onBuild:'建設した時',
-    onTravel:'ワープのマス', onOwnLand:'自分の街に止まった時', onSameTile:'相手と同じマス',
+    onTravel:'ワープのマス', onOwnLand:'自分の都市に止まった時', onSameTile:'相手と同じマス',
     onRoll:'サイコロを振る時' })[t] || '対戦中';
 }
 function dkpSrc(r){
@@ -980,7 +980,7 @@ async function dkpDoSell(id, btn){
         + '<div class="dkp-mone">' + dkpMedal(p, { size:96, plus:dkpLv(id) - 1, rt:true }) + '<p class="dkp-mp">「' + esc(p.nm) + '」を '
         +   dkpFmt(price) + 'G で売ります。<br>所持から消えます（装備中なら外れます）。</p></div>'
         + '<div class="dkp-mrow"><button class="dkbtn dkp-wood" data-act="no">やめる</button>'
-        + '<button class="dkbtn dkp-sell" data-act="yes">売る</button></div></div></div>');
+        + '<button class="dkbtn dkp-sell" data-act="yes">売却</button></div></div></div>');
     } finally { dkpBusy(false); }
     if(act !== 'yes') return;
   }
@@ -1665,7 +1665,7 @@ function dkpCubeClick(e){
 }
 function dkpItemNm(it){
   var k = String(it.kind || '');
-  return ({ key:'ゴールドキー', ticket:'入場券', frame:'名札の枠', cube:'キューブ', card:'カード', pend:'ペンダント', die:'サイコロ' })[k] || k;
+  return ({ key:'ゴールドキー', ticket:'入場券', frame:'名札の枠', cube:'キューブ', card:'キャラクターカード', pend:'ペンダント', die:'サイコロ' })[k] || k;
 }
 /* 中身の札（dkOpenCube の戻り値は grant と同じ形。gem・items があっても出す） */
 function dkpCubeResHTML(res){
@@ -1686,7 +1686,7 @@ function dkpCubeResHTML(res){
   if(!ch.length) ch.push('<div class="dkp-crw"><div><b>中身は空でした</b><em>次のキューブに期待しましょう</em></div></div>');
   return '<div class="dkp-cres"><div class="fx-ribbon gold dkp-crib"><b>キューブオープン！</b></div>'
     + '<div class="dkp-crws">' + ch.join('') + '</div>'
-    + '<button class="dkbtn gd fx-primary dkp-cok" data-dkp-act="cok">OK</button></div>';
+    + '<button class="dkbtn gd fx-primary dkp-cok" data-dkp-act="cok">確認</button></div>';
 }
 /* 開ける：先に dkOpenCube（中身の付与とセーブは WP12a）→ 箱が台座へ飛ぶ・揺れる・光って中身 */
 async function dkpCubeOpen(i, btn){

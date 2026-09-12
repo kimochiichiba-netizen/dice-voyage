@@ -79,8 +79,8 @@
       <div class="col">
         <div class="namebar" id="fTopName">—</div>
         <div class="statrow"><span class="lbl">総資産</span><span class="sub" id="fTopAsset">0</span></div>
-        <div class="statrow"><span class="lbl">所持金</span><span class="big" id="fTopCash">0</span></div>
-        <div class="gauge"><i id="fTopGauge" style="width:0%"></i><span class="gtxt" id="fTopGtx">魔力 0%</span></div>
+        <div class="statrow"><span class="lbl">マーブル</span><span class="big" id="fTopCash">0</span></div>
+        <div class="gauge"><i id="fTopGauge" style="width:0%"></i><span class="gtxt" id="fTopGtx">能力 0%</span></div>
       </div>
     </div>
     <div class="rankbadge red" id="rTop" style="left:26.5%;top:1.6%">1<span>位</span></div>
@@ -95,8 +95,8 @@
       <div class="col">
         <div class="namebar" id="fBotName">—</div>
         <div class="statrow"><span class="lbl">総資産</span><span class="sub" id="fBotAsset">0</span></div>
-        <div class="statrow"><span class="lbl">所持金</span><span class="big" id="fBotCash">0</span></div>
-        <div class="gauge"><i id="fBotGauge" style="width:0%"></i><span class="gtxt" id="fBotGtx">魔力 0%</span></div>
+        <div class="statrow"><span class="lbl">マーブル</span><span class="big" id="fBotCash">0</span></div>
+        <div class="gauge"><i id="fBotGauge" style="width:0%"></i><span class="gtxt" id="fBotGtx">能力 0%</span></div>
         <div class="jam">邪魔できる回数：<b id="jamN">3</b></div>
       </div>
     </div>
@@ -110,7 +110,7 @@
       <div class="col">
         <div class="namebar" id="fTRName">—</div>
         <div class="statrow"><span class="lbl">総資産</span><span class="sub" id="fTRAsset">0</span></div>
-        <div class="statrow"><span class="lbl">所持金</span><span class="sub cash" id="fTRCash">0</span></div>
+        <div class="statrow"><span class="lbl">マーブル</span><span class="sub cash" id="fTRCash">0</span></div>
       </div>
     </div>
     <div class="rankbadge sm" id="rTR" style="right:26.5%;top:1.6%">3<span>位</span></div>
@@ -121,7 +121,7 @@
       <div class="col">
         <div class="namebar" id="fBLName">—</div>
         <div class="statrow"><span class="lbl">総資産</span><span class="sub" id="fBLAsset">0</span></div>
-        <div class="statrow"><span class="lbl">所持金</span><span class="sub cash" id="fBLCash">0</span></div>
+        <div class="statrow"><span class="lbl">マーブル</span><span class="sub cash" id="fBLCash">0</span></div>
       </div>
     </div>
     <div class="rankbadge sm" id="rBL" style="left:26.5%;bottom:2%">4<span>位</span></div>
@@ -137,7 +137,7 @@
       <button id="push">押す</button>
     </div>
     <div id="chip">7</div>
-    <div id="dbl">ゾロ目！</div>
+    <div id="dbl">×ダブル</div>
 
     <!-- ═══ トースト ═══ -->
     <div id="toastL"></div>
@@ -155,8 +155,8 @@
     <!-- ═══ ゆらす（相手の建設を邪魔する） ═══ -->
     <div id="shake">
       <b>相手が建物を設置中！</b>
-      <i>「ゆらす」を押して邪魔しましょう（残り <em id="jamLeft">3</em> 回）</i>
-      <button id="shakeBtn">ゆらす</button>
+      <i>揺らすをタッチして邪魔しましょう（残り <em id="jamLeft">3</em> 回）</i>
+      <button id="shakeBtn">揺らす</button>
     </div>
 
     <!-- ═══ 告知帯 ═══ -->
@@ -164,7 +164,7 @@
 
     <!-- ═══ 能力カットイン ═══ -->
     <div id="skillcut"><div class="band">
-      <div class="t1" id="scT1">SKILL</div>
+      <div class="t1" id="scT1">スペシャル能力</div>
       <div class="t2" id="scT2">—</div>
       <div class="t3" id="scT3">—</div>
     </div></div>
@@ -214,7 +214,7 @@
         <div class="logo">ダイスキングダム</div>
         <div class="sub">DICE KINGDOM</div>
         <div class="lead">
-          サイコロを振って街を買い、建てて、独占する。<br>
+          サイコロを振って都市を買い、建てて、独占する。<br>
           <b>横画面</b>で遊ぶボードゲーム。最大4人・CPU対戦つき。
         </div>
         <div class="go"><button class="btn gold" id="toSetup">はじめる</button></div>
@@ -236,7 +236,7 @@
             <label class="opt">制限時間
               <select id="optTime"><option value="0">なし</option><option value="900">15分</option><option value="1200" selected>20分</option><option value="1500">25分</option></select>
             </label>
-            <label class="opt">所持金
+            <label class="opt">マーブル
               <select id="optCash"><option value="10000000" selected>1000万</option><option value="15000000">1500万</option><option value="20000000">2000万</option><option value="30000000">3000万</option></select>
             </label>
             <label class="opt">CPUの強さ
@@ -250,9 +250,9 @@
             </label>
           </div>
           <div class="rules" style="margin-top:12px">
-            <b>勝ち方</b>は3つ。<b>①独占</b>＝同じ色の街を3つそろえる／1辺の街をぜんぶ持つ＝その場で勝ち。
+            <b>勝ち方</b>は3つ。<b>①独占</b>＝同じ色の都市を3つそろえる／1辺の都市をぜんぶ持つ＝その場で勝ち。
             <b>②破産</b>＝ほかの人が全員お金を払えなくなる。<b>③ターン切れ</b>＝最後に総資産が一番多い人。<br>
-            ゾロ目が出たらもう一回振れます（3回続くと氷の監獄行き）。
+            ダブルが出たらもう一回振れます（3回続くと氷の監獄へ）。
           </div>
         </div>
         <div class="panel">
@@ -264,7 +264,7 @@
           </div>
           <div class="seats" id="seatList"></div>
           <div class="rules" style="margin-top:13px">
-            <b>あなた</b>＝この端末で操作／<b>CPU</b>＝コンピュータ／<b>ともだち</b>＝同じ端末を回して遊ぶ。
+            <b>あなた</b>＝この端末で操作／<b>CPU</b>＝コンピュータ／<b>友だち</b>＝同じ端末を回して遊ぶ。
           </div>
         </div>
         <div class="foot">
@@ -314,11 +314,11 @@
         <h2>WIN</h2>
         <div class="win" id="resWin">—</div>
         <div class="reason" id="resReason">—</div>
-        <table><thead><tr><th></th><th>プレイヤー</th><th>所持金</th><th>不動産</th><th>総資産</th></tr></thead>
+        <table><thead><tr><th></th><th>プレイヤー</th><th>マーブル</th><th>不動産</th><th>総資産</th></tr></thead>
           <tbody id="resRows"></tbody></table>
         <div class="foot">
-          <button class="btn gold" id="againSame">もう一回（同じ設定）</button>
-          <button class="btn ghost" id="againSetup">設定を変える</button>
+          <button class="btn gold" id="againSame">もう一回</button>
+          <button class="btn ghost" id="againSetup">部屋にもどる</button>
         </div>
       </div>
     </div>
@@ -381,7 +381,7 @@ const MAPS = [
 lake:['#9FE3F0','#6FC3D8','#35708A'],
 slab:{top:'#C2B8E2', side:'#6A5F96', rim:'#E6ECF6'},
 deco:'ice',
-corners:['スタート','氷の監獄','氷雪の祭典','水晶の転移門'],
+corners:['スタート','氷の監獄','水晶の遺跡','洞窟探検'],
 cities:[
 ['氷結の泉','霜の小屋'], ['凍り村','雪見の丘'], ['氷柱回廊','白銀通り'],
 ['銀嶺市場','蒼氷広場'], ['凍湖港','水晶坑道'], ['極光台','氷紋宮'],
@@ -391,7 +391,7 @@ cities:[
 lake:['#63CBDE','#2E8CA6','#0D4A5C'],
 slab:{top:'#E8D9B0', side:'#8A7448', rim:'#F8F0DC'},
 deco:'world',
-corners:['スタート','乗り継ぎ待ち','オリンピック開催','世界旅行'],
+corners:['スタート','無人島','ワールドフェスティバル','世界旅行'],
 cities:[
 ['バリ','セブ'], ['プーケット','台北'], ['ソウル','香港'],
 ['シンガポール','ドバイ'], ['イスタンブール','カイロ'], ['ケープタウン','リオ'],
@@ -415,8 +415,8 @@ t[16] = {type:'olympic', name:map.corners[2]};
 t[24] = {type:'travel', name:map.corners[3]};
 for(const k in SPECIAL){
 const i = +k, v = SPECIAL[k];
-if(v==='card') t[i] = {type:'card', name:'チャンス'};
-if(v==='tax') t[i] = {type:'tax', name:'税務署', rate:0.10};
+if(v==='card') t[i] = {type:'card', name:'フォーチュンカード'};
+if(v==='tax') t[i] = {type:'tax', name:'国税庁', rate:0.10};
 if(v==='bonus') t[i] = {type:'bonus', name:'ボーナス', amount:1500000};
 }
 CITY_SLOTS.forEach((slots,g)=>{
@@ -435,8 +435,8 @@ t[cities.splice((Math.random()*cities.length)|0, 1)[0]].x2 = true;
 return t;
 }
 const BUILD = [
-{nm:'土地', ic:'🏳️', cost:b=>b, toll:b=>Math.round(b*0.10)},
-{nm:'別荘', ic:'🏠', cost:b=>Math.round(b*0.5), toll:b=>Math.round(b*0.60)},
+{nm:'土地権利書', ic:'🏳️', cost:b=>b, toll:b=>Math.round(b*0.10)},
+{nm:'マンション', ic:'🏠', cost:b=>Math.round(b*0.5), toll:b=>Math.round(b*0.60)},
 {nm:'ビル', ic:'🏢', cost:b=>b, toll:b=>Math.round(b*1.50)},
 {nm:'ホテル', ic:'🏨', cost:b=>Math.round(b*1.6), toll:b=>Math.round(b*3.00)},
 {nm:'ランドマーク', ic:'🗼', cost:b=>Math.round(b*4.0), toll:b=>Math.round(b*10.0)}
@@ -534,12 +534,12 @@ return statOf(p,key)/100;
 }
 const ITEMS = [
 { id:'angel', nm:'天使カード', ic:'🪽', desc:'次に払う通行料が1回だけ無料になる' },
-{ id:'dice', nm:'サイコロ改造', ic:'🎲', desc:'次のサイコロの出目を自分で選べる' },
+{ id:'dice', nm:'奇数／偶数アイテム', ic:'🎲', desc:'次のサイコロの出目を自分で選べる' },
 { id:'warp', nm:'ワープ札', ic:'🌀', desc:'好きなマスへ移動する' },
 { id:'half', nm:'建設割引券', ic:'🏗', desc:'次の建設が半額になる' },
-{ id:'freeze', nm:'凍結ブロック', ic:'🧊', desc:'相手の街を2ターン凍らせる（通行料0）' },
-{ id:'salary', nm:'給料2倍券', ic:'💴', desc:'次のスタート通過の給料が2倍' },
-{ id:'double', nm:'ダブルチャンス',ic:'✌️', desc:'次のサイコロが必ずゾロ目になる' },
+{ id:'freeze', nm:'停電', ic:'🧊', desc:'相手の都市を2ターン止める（通行料0）' },
+{ id:'salary', nm:'給料ボーナス', ic:'💴', desc:'次のスタート通過の給料が2倍' },
+{ id:'double', nm:'サイコロダブル',ic:'✌️', desc:'次のサイコロが必ずダブルになる' },
 ];
 function itemById(id){ return ITEMS.find(o=>o.id===id); }
 const DICE = [
@@ -548,11 +548,11 @@ ds:'なんの細工もない、木のサイコロ。', gauge:0, dbl:0, big:0 },
 { id:'d1', nm:'黄金のサイコロ', ic:'🥇', rar:'S', col:'#FFD24D',
 ds:'ゲージインパクトの当たり枠が広がる（＋12）。', gauge:12, dbl:0, big:0 },
 { id:'d2', nm:'LEDサイコロ', ic:'💡', rar:'S', col:'#7FE6FF',
-ds:'ゾロ目が出やすくなる（＋9%）。もう一回振れる。', gauge:0, dbl:0.09, big:0 },
+ds:'ダブルが出やすくなる（＋9%）。もう一回振れる。', gauge:0, dbl:0.09, big:0 },
 { id:'d3', nm:'トランプサイコロ', ic:'🃏', rar:'S+', col:'#FF8FB0',
 ds:'大きい目が出やすい（＋1.1マス）。遠くまで一気に進む。', gauge:0, dbl:0, big:1 },
 { id:'d4', nm:'亡者のサイコロ', ic:'💀', rar:'S+', col:'#B58CFF',
-ds:'ゾロ目＋6%、ゲージ＋8。強いが、目が荒れる。', gauge:8, dbl:0.06, big:0.5 }
+ds:'ダブル＋6%、ゲージ＋8。強いが、目が荒れる。', gauge:8, dbl:0.06, big:0.5 }
 ];
 function dieById(id){ return DICE.find(d=>d.id===id) || DICE[0]; }
 const cam = {x:BCX, y:BCY, z:1, tx:BCX, ty:BCY, tz:1, shake:0};
@@ -7676,7 +7676,7 @@ const d = await pickTile(pi,'ワープ先を選んでください');
 if(d>=0){ await jumpTo(pi,d); await resolve(pi); }
 }
 if(it.id==='freeze'){
-const d = await pickTile(pi,'凍らせる街を選んでください',
+const d = await pickTile(pi,'凍らせる都市を選んでください',
 i=>G.tiles[i].type==='city' && G.tiles[i].owner>=0 && G.tiles[i].owner!==pi);
 if(d>=0){ G.tiles[d].frozen = 2;
 addFx('ring', tileCenter(d).x, tileCenter(d).y, 700, '#8FE8FF');
@@ -7822,7 +7822,7 @@ if(wantDbl) p.forceDouble--;
 if(impact){
 const c = rollPair(force, false);
 if(scoreLanding(pi, c[0]+c[1]) > scoreLanding(pi, a+b)){ a=c[0]; b=c[1]; }
-toast('R','🎯','ゲージインパクト成功！','出目をコントロールしました',1800);
+toast('R','🎯','カード効果','ゲージインパクト',1800);
 }
 }
 const seed = (pi*7919 + G.turnsLeft*131 + a*13 + b*7 + G.players[pi].pos) % 100000;
@@ -7915,9 +7915,9 @@ await wait(180);
 function salary(pi){
 const p = G.players[pi];
 let amt = Math.round((600000 + p.laps*200000) * ((G.ev && G.ev.salaryX) || 1));
-if(p.salaryX2>0){ amt *= 2; p.salaryX2--; toast('R','💴','給料2倍券','給料が2倍になりました',1900); }
+if(p.salaryX2>0){ amt *= 2; p.salaryX2--; toast('R','💴','給料ボーナス','給料が2倍になりました',1900); }
 give(pi, amt);
-toast('R','🚩','スタート通過','給料 '+yen(amt)+' を受け取りました',1800);
+toast('R','🚩','給料','給料 '+yen(amt)+' を受け取りました',1800);
 }
 async function jumpTo(pi, idx){
 const p = G.players[pi];
@@ -7941,39 +7941,39 @@ const c = tileCenter(i);
 camTo(c.x, c.y, 1.55);
 await wait(160);
 if(t.type === 'start'){
-await band('スタートにぴったり！','好きな自分の街を1段そだてられます',1400);
+await band('スタート建設ボーナス','建設する都市を選択してください',1400);
 const mine0 = [];
 for(let z=0; z<32; z++){ const tz = G.tiles[z];
 if(tz.type==='city' && tz.owner===pi && !tz.landmark) mine0.push(z); }
 if(mine0.length){
 const d0 = (p.kind==='cpu')
 ? mine0.reduce((a,b)=> tollOf(G.tiles[b],G) > tollOf(G.tiles[a],G) ? b : a)
-: await pickTile(pi,'そだてる街を選んでください',
+: await pickTile(pi,'そだてる都市を選んでください',
 z=>G.tiles[z].type==='city' && G.tiles[z].owner===pi && !G.tiles[z].landmark);
 if(d0>=0){ const tz = G.tiles[d0];
 if(tz.lv>=3) tz.landmark = true; else tz.lv = Math.min(3, tz.lv+1);
 await growAnim(d0); }
-} else { give(pi, 600000); toast('R','💴','街がまだありません','かわりに 60万 を受け取りました',2000); }
+} else { give(pi, 600000); toast('R','💴','都市がまだありません','かわりに 60万 を受け取りました',2000); }
 }
 else if(t.type === 'jail'){
 p.jail = 3; p.dblRun = 0; SFX.bad(); camShake(10);
-await band(G.map.corners[1]+'に閉じ込められました！','3ターンのあいだ移動できません（ゾロ目で脱出）',1800);
+await band(G.map.corners[1]+'に閉じ込められました！','3ターンのあいだ移動できません（ダブルで脱出）',1800);
 }
 else if(t.type === 'olympic'){
 const mine = [];
 for(let z=0; z<32; z++){ const tz=G.tiles[z];
 if(tz.type==='city' && tz.owner===pi && tz.olym < 5) mine.push(z); }
 if(!mine.length){
-await band('オリンピック開催地','開催できる自分の街がありません',1500);
+await band('ワールドフェスティバル','開催できる自分の都市がありません',1500);
 } else {
 const cost = Math.round(Math.max(150000, assetOf(G,pi)*0.05) * statMul(p,'special',0.4));
 if(p.cash < cost){
-await band('オリンピック開催','費用 '+yen(cost)+' が足りません',1600);
+await band('ワールドフェスティバル','費用 '+yen(cost)+' が足りません',1600);
 } else {
-await band('オリンピック開催！','費用 '+yen(cost)+' で自分の街の通行料を上げられます',1600);
+await band('ワールドフェスティバル！','費用 '+yen(cost)+' で自分の都市の通行料を上げられます',1600);
 const d = (p.kind==='cpu')
 ? mine.reduce((a,b)=> tollOf(G.tiles[b],G) > tollOf(G.tiles[a],G) ? b : a)
-: await pickTile(pi,'開催する街を選んでください',
+: await pickTile(pi,'開催する都市を選んでください',
 z=>G.tiles[z].type==='city' && G.tiles[z].owner===pi && G.tiles[z].olym < 5);
 if(d>=0){
 give(pi, -cost);
@@ -7982,8 +7982,8 @@ tz.olym = Math.min(5, tz.olym + 1);
 boardChanged(); SFX.landmark(); camShake(10);
 addFx('pillar', tileCenter(d).x, tileCenter(d).y, 1000, '#FFD24D');
 raiseBanner('通行料 ×' + tz.olym + '！');
-toast('R','🏟','オリンピック開催', tz.name+' の通行料が ×'+tz.olym+' になりました', 2400);
-news('🏟 '+p.name+' が '+tz.name+' でオリンピックを開催！ 通行料 ×'+tz.olym);
+toast('R','🏟','ワールドフェスティバル', tz.name+' の通行料が ×'+tz.olym+' になりました', 2400);
+news('🏟 '+p.name+' が '+tz.name+' でワールドフェスティバルを開催！ 通行料 ×'+tz.olym);
 }
 }
 }
@@ -7991,7 +7991,7 @@ news('🏟 '+p.name+' が '+tz.name+' でオリンピックを開催！ 通行�
 else if(t.type === 'travel'){
 await band(G.map.corners[2]+'に到着','行きたいマスを1つ選べます',1200);
 if(await pendFire(pi,'onTravel',{pick:true}) === 'jumped'){ await resolve(pi); return; }
-const dest = (p.kind==='cpu') ? aiPickTravel(pi) : await pickTile(pi,'行き先を選んでください');
+const dest = (p.kind==='cpu') ? aiPickTravel(pi) : await pickTile(pi,'希望する都市を選択してください');
 if(dest>=0 && dest!==i){ await jumpTo(pi, dest); await resolve(pi); return; }
 }
 else if(t.type === 'minigame'){
@@ -8082,7 +8082,7 @@ function maxLvOf(p){ return Math.max(1, Math.min(3, (p.laps||0) + 1)); }
 function lvLockNote(p){
 const m = maxLvOf(p);
 if(m >= 3) return '';
-return '　🔒 いまは「'+BUILD[m].nm+'」まで（スタートを通るたびに1段ずつ増えます）';
+return '　🔒 1周すると建設可能（いまは '+BUILD[m].nm+' まで）';
 }
 function buildHTML(i, pi){
 const t = G.tiles[i], p = G.players[pi];
@@ -8090,10 +8090,10 @@ const own = t.owner === pi;
 const disc = statMul(p,'build',0.3) * (p.halfBuild>0 ? 0.5 : 1) * ((G.ev && G.ev.buildX) || 1);
 let html = '<div class="modal"><div class="deed">'
 + '<div class="dhd"><span class="sw" style="background:'+GCOL[t.g]+'"></span><b>'+esc(t.name)+'</b>'
-+ '<span>いまの通行料 '+yen(tollOf(t,G))+'</span></div><div class="dbd">'
++ '<span>通行料 → '+yen(tollOf(t,G))+'</span></div><div class="dbd">'
 + '<div class="buildgrid">';
 const steps = [];
-steps.push({k:0, nm:'土地', ic:'🏳️', cost:Math.round(t.base*disc), have:own, can:!own});
+steps.push({k:0, nm:'土地権利書', ic:'🏳️', cost:Math.round(t.base*disc), have:own, can:!own});
 const mx = maxLvOf(p);
 for(let k=1;k<=3;k++)
 steps.push({k, nm:BUILD[k].nm, ic:BUILD[k].ic, cost:Math.round(BUILD[k].cost(t.base)*disc),
@@ -8104,18 +8104,18 @@ steps.forEach(s=>{
 const cls = 'bcard' + (s.have?' own':'') + (!s.can?' dis':'');
 html += '<div class="'+cls+'" data-k="'+s.k+'" data-c="'+s.cost+'"><div class="ico">'+s.ic+'</div>'
 + '<div class="nm">'+s.nm+'</div>'
-+ '<div class="pr">'+(s.have?'所有ずみ':yen(s.cost))+'</div>'
++ '<div class="pr">'+(s.have?'所有中':yen(s.cost))+'</div>'
 + '<div class="tl">通行料 +'+yen(BUILD[s.k].toll(t.base))+'</div></div>';
 });
 html += '</div>'
-+ '<div class="sums"><span>選んだぶんの合計</span><em id="bSum">0</em></div>'
++ '<div class="sums"><span>建設費用</span><em id="bSum">0</em></div>'
 + '<div style="font-size:12.5px;color:#6b5a3c;margin-top:6px">'
-+ '色を3つぶん独占（トリプル独占）・1辺の街ぜんぶ（ライン独占）・ランドマーク6つ（観光地独占）の'
++ '色を3つぶん独占（トリプル独占）・1辺の都市ぜんぶ（ライン独占）・ランドマーク6つ（観光地独占）の'
 + 'どれかが成立した瞬間に勝ちです。'
 + lvLockNote(p)
 + (p.halfBuild>0 ? '　🏗 建設割引券 適用中（半額）' : '') + '</div>'
 + '<div class="btnrow"><button class="btn ghost" data-act="no">やめる</button>'
-+ '<button class="btn gold" data-act="ok" id="bOk">建てる</button></div>'
++ '<button class="btn gold" data-act="ok" id="bOk">購入</button></div>'
 + '</div></div></div>';
 return html;
 }
@@ -8176,11 +8176,11 @@ res();
 }
 async function deedCard(i, paid){
 const t = G.tiles[i];
-const lvNm = t.landmark ? 'ランドマーク' : t.lv>0 ? BUILD[t.lv].nm : '土地';
+const lvNm = t.landmark ? 'ランドマーク' : t.lv>0 ? BUILD[t.lv].nm : '土地権利書';
 await modal('<div class="modal"><div class="deedcard">'
 + '<div class="body">'
 + '<div class="cap" style="background:linear-gradient(90deg,'+GCOL[t.g]+','+shade(GCOL[t.g],-.45)+')">'
-+ 'TITLE DEED ／ 権利証</div>'
++ '土地権利書</div>'
 + '<h4>'+esc(t.name)+'</h4>'
 + '<div class="rows">'
 + '<div><span>いまの建物</span><b>'+esc(lvNm)+'</b></div>'
@@ -8233,7 +8233,7 @@ if(t.landmark) await pendFire(t.owner, 'onLandmark', {tile:i});
 }
 function pickTile(pi, msg, filter){
 return new Promise(res=>{
-toast('R','🌀', msg, 'マスをタップしてください', 8000);
+toast('R','🌀', msg, '希望する都市を選択してください', 8000);
 camReset();
 const c = $('#world');
 const done = (v)=>{ c.removeEventListener('pointerdown', onClick); destPin=null; res(v); };
@@ -8260,7 +8260,7 @@ const cells = hist.map(h=>'<div style="padding:3px 0;font-family:var(--pop);font
 const stakes = [500000,1000000,1500000].map(v=>
 '<div class="mgstake'+(v===stake?' on':'')+'" data-v="'+v+'">'+yen(v)+'</div>').join('');
 return '<div class="modal"><div class="mg">'
-+ '<div class="mghd">悪夢の洞窟脱出</div>'
++ '<div class="mghd">ボーナスゲーム</div>'
 + '<div class="mgbody">'
 + '<div class="mgleft">'
 + '<div class="mgcap">最近の結果</div><div class="mghist">'+(cells||'<div style="color:#a98">—</div>')+'</div>'
@@ -8287,7 +8287,7 @@ return '<div class="modal"><div class="mg">'
 }
 async function miniGame(pi){
 const p = G.players[pi];
-await band('悪夢の洞窟脱出','左右どちらかの通路を選んで逃げきろう！',1500);
+await band('ボーナスゲーム','左右どちらかの通路を選んで逃げきろう！',1500);
 let stake = 1000000, round = 1, mult = 2 * ((G.ev && G.ev.miniX) || 1), hist = [], banked = 0;
 const wrap = $('#modalWrap'), body = $('#modalBody');
 const rate = 0.5 + statRate(p,'mini')*0.22;
@@ -8382,9 +8382,9 @@ const a=1500000; if(!payFrom(pi,a)) return bankrupt(pi,-1); give(pi,-a); }},
 await jumpTo(pi,0); G.players[pi].laps++; salary(pi); }},
 {t:'天使カード', ic:'🪽', d:'アイテム「天使カード」を手に入れた', f:async pi=>addItem(pi,'angel')},
 {t:'ワープ札', ic:'🌀', d:'アイテム「ワープ札」を手に入れた', f:async pi=>addItem(pi,'warp')},
-{t:'凍結ブロック',ic:'🧊', d:'アイテム「凍結ブロック」を手に入れた', f:async pi=>addItem(pi,'freeze')},
-{t:'サイコロ改造',ic:'🎲', d:'アイテム「サイコロ改造」を手に入れた', f:async pi=>addItem(pi,'dice')},
-{t:'監獄行き', ic:'🧊', d:'氷の監獄へ送られます', f:async pi=>{
+{t:'停電',ic:'🧊', d:'アイテム「停電」を手に入れた', f:async pi=>addItem(pi,'freeze')},
+{t:'奇数／偶数アイテム',ic:'🎲', d:'アイテム「奇数／偶数アイテム」を手に入れた', f:async pi=>addItem(pi,'dice')},
+{t:'無人島サバイバル', ic:'🧊', d:'氷の監獄へ送られます', f:async pi=>{
 await jumpTo(pi,8); G.players[pi].jail=3; SFX.bad(); }},
 {t:'建設バーゲン',ic:'🏗', d:'アイテム「建設割引券」を手に入れた', f:async pi=>addItem(pi,'half')},
 {t:'みんなから', ic:'🤝', d:'全員から 100万 ずつ受け取ります', f:async pi=>{
@@ -8402,20 +8402,20 @@ async function chanceCard(pi){
 const p = G.players[pi];
 const lucky = Math.random() < (statRate(p,'fortune')*0.55 + ((G.ev && G.ev.luck) || 0));
 let pool = CARDS;
-if(lucky) pool = CARDS.filter(c=>c.t!=='修繕費' && c.t!=='監獄行き');
+if(lucky) pool = CARDS.filter(c=>c.t!=='修繕費' && c.t!=='無人島サバイバル');
 const c = pool[(Math.random()*pool.length)|0];
 if(p.kind!=='cpu'){
 await modal('<div class="modal"><div class="deedcard">'
 + '<div class="body">'
-+ '<div class="cap" style="background:linear-gradient(90deg,#7A4BC8,#3D2470)">CHANCE CARD</div>'
++ '<div class="cap" style="background:linear-gradient(90deg,#7A4BC8,#3D2470)">フォーチュンカード</div>'
 + '<h4>'+c.ic+' '+esc(c.t)+'</h4>'
 + '<div class="rows"><div><span>効果</span></div></div>'
 + '<p style="padding:0 16px 14px;font-size:14px;line-height:1.75;text-align:center">'+esc(c.d)+'</p>'
 + '<div class="btnrow" style="justify-content:center;padding:0 16px 16px">'
-+ '<button class="btn gold" data-act="ok">OK</button></div>'
++ '<button class="btn gold" data-act="ok">閉じる</button></div>'
 + '</div><div class="seal">'+c.ic+'</div></div></div>');
 } else {
-toast('L','❓','チャンスカード', c.t+' — '+c.d, 2000);
+toast('L','❓','フォーチュンカード', c.t+' — '+c.d, 2000);
 await wait(900);
 }
 await c.f(pi);
@@ -8436,7 +8436,7 @@ if(colorMono(G,pi) === 2 && G.reach !== pi){
 G.reach = pi;
 SFX.warn(); camShake(10);
 bgm('boss');
-alarmBand(G.players[pi].name+' 独占リーチ！', 'あと1色そろえられたら負け。買収して崩せ！');
+alarmBand(G.players[pi].name+' 独占まであと1色！', 'あと1色そろえられたら負け。買収して崩せ！');
 news('🚨 '+G.players[pi].name+' がカラー独占2色。あと1色で勝たれます');
 }
 }
@@ -8452,7 +8452,7 @@ G.alarm = { pi, kind:m.kind, label:m.label, col:m.col, key:m.key };
 const nm = G.players[pi].name;
 SFX.bad(); camShake(13);
 news('🚨 '+nm+' が「'+m.label+'」に到達！ 次の '+nm+' の手番までに崩さないと敗北！');
-alarmBand(nm+' 「'+m.label+'」', 'その街を買収して崩せ！ 崩せなければ '+nm+' の勝ち');
+alarmBand(nm+' 「'+m.label+'」', 'その都市を買収して崩せ！ 崩せなければ '+nm+' の勝ち');
 updHUD();
 }
 function dropAlarm(){
@@ -8495,12 +8495,12 @@ addFx('coinburst', b2.x, b2.y-8, 1200);
 }
 news('！！ '+p.name+' が破産しました ！！');
 await band(p.name+' が破産しました',
-toPi>=0 ? '持っていた街は '+G.players[toPi].name+' のものに' : '街は市場に戻りました', 2000);
+toPi>=0 ? '持っていた都市は '+G.players[toPi].name+' のものに' : '都市は市場に戻りました', 2000);
 checkWin();
 }
 function finish(pi, reason, col){
 if(String(reason).indexOf('独占') >= 0) jingle('mono');
-showCelebrate(['おめでとうございます！', reason, G.players[pi].name + ' の勝ち！'], 2800);
+showCelebrate(['おめでとうございます！', reason, G.players[pi].name + ' WIN!'], 2800);
 addFx('confetti', SW/2, 0, 3000, null, null, false, {scr:true, w:SW, h:SH, n:110});
 bgm('win');
 news('🏆 '+G.players[pi].name+' が「'+reason+'」で勝利！');
@@ -8512,7 +8512,7 @@ async function celebrate(pi, reason, col){
 SFX.win();
 $('#cel1').textContent = 'おめでとうございます！';
 $('#cel2').textContent = reason;
-$('#cel3').textContent = G.players[pi].name + ' の勝ち！';
+$('#cel3').textContent = G.players[pi].name + ' WIN!';
 const l4 = $('#cel4'); if(l4) l4.textContent = 'FORTUNE!';
 $('#celebrate').classList.add('on');
 const f = $('#flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
@@ -8533,8 +8533,8 @@ function showResult(){
 if(!G || G.winner < 0 || !G.players[G.winner]) return;
 bgm('result');
 const rk = rank();
-$('#resWin').textContent = G.players[G.winner].name + ' の勝利！';
-$('#resReason').textContent = '勝ち方：' + G.winReason;
+$('#resWin').textContent = G.players[G.winner].name + ' WIN';
+$('#resReason').textContent = '詳細：' + G.winReason;
 const tb = $('#resRows'); tb.innerHTML = '';
 rk.forEach((r,k)=>{
 const p = G.players[r.i];
@@ -8574,7 +8574,7 @@ if(G.over) break;
 if(r.isDbl){
 p.dblRun++;
 if(p.dblRun >= 3){
-await band('ゾロ目 3回！', G.map.corners[1]+'へ送られます', 1700);
+await band('連続ダブル3回！', G.map.corners[1]+'へ送られます', 1700);
 await jumpTo(pi, 8); p.jail = 3; p.dblRun = 0; break;
 }
 await moveSteps(pi, r.total);
@@ -8582,7 +8582,7 @@ await resolve(pi);
 if(G.over) break;
 if(p.out) break;
 if(p.jail > 0) break;
-toast('R','🎲','ゾロ目！','もう一回サイコロを振れます', 1700);
+toast('R','🎲','ダブルボーナス！','もう一回！サイコロを振ります', 1700);
 again = true;
 } else {
 p.dblRun = 0;
@@ -8592,7 +8592,7 @@ if(p.out) break;
 }
 if(!again && !G.over && !p.out && p.jail<=0 && p.extraRoll > 0){
 p.extraRoll--;
-toast('R','🔮','追加のサイコロ','もう一回サイコロを振れます', 1700);
+toast('R','🔮','追加のサイコロ','もう一回！サイコロを振ります', 1700);
 again = true;
 }
 }
@@ -8629,11 +8629,11 @@ function timeUp(){ const rk = rank(); finish(rk[0].i, 'ターン終了・総資�
 async function jailTurn(pi){
 const p = G.players[pi];
 camTo(tileCenter(8).x, tileCenter(8).y, 1.55);
-await band(G.map.corners[1]+' — あと '+p.jail+' ターン','ゾロ目が出れば脱出できます',1400);
+await band(G.map.corners[1]+' — あと '+p.jail+' ターン','サイコロダブルが出ると脱出できます',1400);
 const r = await doRoll(pi, null, false);
 if(r.isDbl){
 p.jail = 0;
-await band('脱出成功！','ゾロ目でここから出られます',1300);
+await band('脱出成功！','サイコロダブルでここから出られます',1300);
 await moveSteps(pi, r.total); await resolve(pi);
 return;
 }
@@ -8770,7 +8770,7 @@ if(card.rar==='SS'){
 const d = (p.kind==='cpu')
 ? (()=>{ let b=-1,bv=-1; for(let i=0;i<32;i++){ const t=G.tiles[i];
 if(t.type==='city'&&t.owner>=0&&t.owner!==pi){ const v=tollOf(t,G); if(v>bv){bv=v;b=i;} } } return b; })()
-: await pickTile(pi,'凍らせる街を選んでください',
+: await pickTile(pi,'凍らせる都市を選んでください',
 i=>G.tiles[i].type==='city'&&G.tiles[i].owner>=0&&G.tiles[i].owner!==pi);
 if(d>=0){ G.tiles[d].frozen = 2;
 addFx('ring', tileCenter(d).x, tileCenter(d).y, 700, '#8FE8FF');
@@ -8806,7 +8806,7 @@ if(t.type==='city' && t.owner===pi && !t.landmark) mine.push(i); }
 if(mine.length){
 let d;
 if(p.kind==='cpu'){ d = mine.reduce((a,b)=> tollOf(G.tiles[b],G) > tollOf(G.tiles[a],G) ? b : a); }
-else d = await pickTile(pi,'ただで建てる街を選んでください',
+else d = await pickTile(pi,'ただで建てる都市を選んでください',
 i=>G.tiles[i].type==='city' && G.tiles[i].owner===pi && !G.tiles[i].landmark);
 if(d>=0){
 const t = G.tiles[d];
@@ -8814,19 +8814,19 @@ if(t.lv>=3) t.landmark = true; else t.lv++;
 await growAnim(d);
 toast('R','🏗','無料建設', t.name+' が育ちました', 2200);
 }
-} else toast('L','🏗','建てる街がありません','まず街を買いましょう',1900);
+} else toast('L','🏗','建てる都市がありません','まず都市を買いましょう',1900);
 }
 if(k===6){
 const amt = Math.round(600000 + p.laps*200000);
 give(pi, amt); p.salaryX2++;
 SFX.coin(); toast('R','💴','臨時収入', yen(amt)+'／次の給料も2倍', 2200);
 }
-if(k===7){ p.forceDouble++; toast('R','✌️','ゾロ目確定','次のサイコロは必ずゾロ目です',2000); }
+if(k===7){ p.forceDouble++; toast('R','✌️','サイコロダブル確定','次のサイコロは必ずダブルです',2000); }
 if(k===8){
 p.tollUp = 2; boardChanged();
 raiseBanner('地価高騰！');
-toast('R','📈','地価高騰','自分の街の通行料が2ターン 1.6倍', 2300);
-news(p.name+' の街の通行料が跳ね上がった！');
+toast('R','📈','地価高騰','自分の都市の通行料が2ターン 1.6倍', 2300);
+news(p.name+' の都市の通行料が跳ね上がった！');
 }
 if(k===9){
 let tgt = -1, bv = -1;
@@ -9021,7 +9021,7 @@ d.innerHTML = '<span class="dot" style="background:'+PCOL[i]+'"></span>'
 + '<input type="text" id="sn'+i+'" value="'+esc(s.name)+'" maxlength="10">'
 + '<select id="sk'+i+'">'
 + '<option value="you"'+(s.kind==='you'?' selected':'')+'>あなた</option>'
-+ '<option value="human"'+(s.kind==='human'?' selected':'')+'>ともだち</option>'
++ '<option value="human"'+(s.kind==='human'?' selected':'')+'>友だち</option>'
 + '<option value="cpu"'+(s.kind==='cpu'?' selected':'')+'>CPU</option></select>';
 box.appendChild(d);
 d.querySelector('#sn'+i).oninput = e => cfg.seats[i].name = e.target.value || ('プレイヤー'+(i+1));
@@ -9100,21 +9100,21 @@ else nextHuman();
 await done;
 }
 const TIPS = [
-'同じ色の街を全部そろえると、その色の通行料が2倍になります。',
+'同じ色の都市を全部そろえると、その色の通行料が2倍になります。',
 '色の独占を3つそろえると「トリプル独占」でその場で勝ちです。',
-'同じ色をあと1つで独占される時は、その街を買収して崩すのが唯一の防ぎ方です。',
+'同じ色をあと1つで独占される時は、その都市を買収して崩すのが唯一の防ぎ方です。',
 'ランドマークを6つ持つと「観光地独占」で勝ちです（報酬5倍）。',
-'1辺の街をぜんぶ持つと「ライン独占」で勝ちです（報酬3倍）。',
+'1辺の都市をぜんぶ持つと「ライン独占」で勝ちです（報酬3倍）。',
 '建物は1周ごとに1段ずつ解放されます。スタートを通るのが近道です。',
 '残り6ターンから通行料が毎ターン1.5倍。負けていても最後まで諦めないこと。',
-'1辺の街をぜんぶ持つと「ライン独占」でその場で勝ちです。',
+'1辺の都市をぜんぶ持つと「ライン独占」でその場で勝ちです。',
 '奇数・偶数ボタンを押すと、かならずその出目が出ます（回数かぎり）。',
 'ゲージが光っているところで「押す」と、出目をコントロールできます。',
-'ゾロ目が出たらもう一回。ただし3回続くと監獄行きです。',
-'相手の街には「買収」で乗り込めます。値段は評価額の2倍です。',
+'ダブルが出たらもう一回。ただし3回続くと無人島行きです。',
+'相手の都市には「買収」で乗り込めます。値段は評価額の2倍です。',
 'ランドマークを建てると通行料が跳ね上がり、買収されなくなります。',
-'角の「悪夢の洞窟」ではミニゲームに挑戦できます。当たるたび倍率が2倍に。',
-'キャラクターの能力は魔力ゲージが満タンになると使えます。',
+'角の「ボーナスゲーム」に挑戦できます。当たるたび倍率が2倍に。',
+'キャラクターのスペシャル能力は、決まった時機に発動します。',
 'アイテムはサイコロを振る前に使ってください。'
 ];
 async function loadingPhase(){
@@ -10796,7 +10796,7 @@ const CARDPOOL = [
 {id:'c01', art:3, kind:8, col:'#E0452A', nm:'業火のカイン', role:'炎の賭博師', rar:'SS',
 line:'燃えないものは、賭けに値しない。',
 st:{toll:92,mini:64,special:58,fortune:72,build:70,gauge:88,buyout:66},
-sk:{nm:'獄炎の地脈', ds:'自分の街ぜんぶの通行料が2ターン1.6倍になる', uses:2}},
+sk:{nm:'獄炎の地脈', ds:'自分の都市ぜんぶの通行料が2ターン1.6倍になる', uses:2}},
 {id:'c02', art:0, kind:0, col:'#9FD8F0', nm:'氷華のリーゼ', role:'氷の姫', rar:'S',
 line:'凍れば、痛みも止まります。',
 st:{toll:74,mini:58,special:66,fortune:62,build:68,gauge:70,buyout:60},
@@ -10804,7 +10804,7 @@ sk:{nm:'氷結の加護', ds:'次に払う通行料が0になる', uses:3}},
 {id:'c03', art:7, kind:4, col:'#F2C230', nm:'雷拳のゴウ', role:'雷の闘士', rar:'S',
 line:'奪う。理由はそれだけだ。',
 st:{toll:68,mini:86,special:52,fortune:54,build:62,gauge:78,buyout:58},
-sk:{nm:'雷鳴の徴収', ds:'相手全員から所持金の16%を奪う', uses:2}},
+sk:{nm:'雷鳴の徴収', ds:'相手全員からマーブルの16%を奪う', uses:2}},
 {id:'c04', art:6, kind:1, col:'#8F6BC8', nm:'星詠みのセレナ', role:'星の魔女', rar:'SS',
 line:'その目は、もう見えています。',
 st:{toll:66,mini:72,special:78,fortune:94,build:64,gauge:96,buyout:70},
@@ -10816,11 +10816,11 @@ sk:{nm:'一閃の威', ds:'一番資産のある相手を監獄へ送る', uses:
 {id:'c06', art:5, kind:5, col:'#E86AA0', nm:'発明家ミリィ', role:'機械技師', rar:'A',
 line:'こわれたら、直せばいいの！',
 st:{toll:52,mini:68,special:62,fortune:58,build:74,gauge:60,buyout:54},
-sk:{nm:'突貫工事', ds:'自分の街をひとつ、ただで一段そだてる', uses:2}},
+sk:{nm:'突貫工事', ds:'自分の都市をひとつ、ただで一段そだてる', uses:2}},
 {id:'c07', art:1, kind:7, col:'#3E8FE0', nm:'勝負師レイ', role:'賭博王', rar:'S',
-line:'ゾロ目？　出すものだよ。',
+line:'ダブル？　出すものだよ。',
 st:{toll:60,mini:74,special:60,fortune:82,build:56,gauge:90,buyout:62},
-sk:{nm:'双六の理', ds:'次のサイコロが必ずゾロ目になる（もう一回振れる）', uses:3}},
+sk:{nm:'双六の理', ds:'次のサイコロが必ずダブルになる（もう一回振れる）', uses:3}},
 {id:'c08', art:2, kind:10, col:'#C0392B', nm:'怪盗ノワール', role:'宝石泥棒', rar:'S',
 line:'いただくわ。あとで返すかは、気分。',
 st:{toll:64,mini:80,special:70,fortune:76,build:54,gauge:72,buyout:86},
@@ -10828,11 +10828,11 @@ sk:{nm:'夜想の手', ds:'宝箱をひらく。金額は運しだい（最大2.
 {id:'c09', art:7, kind:5, col:'#5E8A3C', nm:'大地のガルド', role:'岩の守人', rar:'A',
 line:'動かぬものが、いちばん強い。',
 st:{toll:70,mini:52,special:54,fortune:46,build:76,gauge:50,buyout:58},
-sk:{nm:'岩盤工事', ds:'自分の街をひとつ、ただで一段そだてる', uses:2}},
+sk:{nm:'岩盤工事', ds:'自分の都市をひとつ、ただで一段そだてる', uses:2}},
 {id:'c10', art:5, kind:0, col:'#F0E0A8', nm:'聖女アルテア', role:'光の導き手', rar:'SS',
 line:'あなたの負債、わたしが背負います。',
 st:{toll:78,mini:66,special:88,fortune:86,build:72,gauge:68,buyout:82},
-sk:{nm:'聖域の盾', ds:'次に払う通行料が0になる（相手の街も凍る）', uses:3}},
+sk:{nm:'聖域の盾', ds:'次に払う通行料が0になる（相手の都市も凍る）', uses:3}},
 {id:'c11', art:4, kind:2, col:'#6BB2D2', nm:'疾風のシン', role:'影の刺客', rar:'S',
 line:'間合いは、こちらが決める。',
 st:{toll:66,mini:78,special:58,fortune:60,build:54,gauge:92,buyout:66},
@@ -10844,11 +10844,11 @@ sk:{nm:'森の恵み', ds:'その場で給料を受け取り、次の給料も2�
 {id:'c13', art:1, kind:4, col:'#C98A3A', nm:'海賊王バルド', role:'海の商人', rar:'S',
 line:'海の上では、おれが法だ。',
 st:{toll:76,mini:72,special:56,fortune:64,build:60,gauge:70,buyout:88},
-sk:{nm:'略奪の宴', ds:'相手全員から所持金の16%を奪う', uses:2}},
+sk:{nm:'略奪の宴', ds:'相手全員からマーブルの16%を奪う', uses:2}},
 {id:'c14', art:3, kind:8, col:'#E0405A', nm:'紅竜のヴェル', role:'竜の姫', rar:'SS',
 line:'地価も、わたしが決めるの。',
 st:{toll:96,mini:62,special:60,fortune:58,build:80,gauge:74,buyout:68},
-sk:{nm:'竜脈の高騰', ds:'自分の街ぜんぶの通行料が2ターン1.6倍になる', uses:2}},
+sk:{nm:'竜脈の高騰', ds:'自分の都市ぜんぶの通行料が2ターン1.6倍になる', uses:2}},
 {id:'c15', art:6, kind:1, col:'#B8C0D8', nm:'時計師クロノ', role:'時の管理人', rar:'S',
 line:'一手だけ、巻き戻します。',
 st:{toll:58,mini:64,special:84,fortune:78,build:66,gauge:88,buyout:72},
@@ -10868,7 +10868,7 @@ sk:{nm:'満ち潮', ds:'総資産の14%を現金で受け取る', uses:2}},
 {id:'c19', art:4, kind:4, col:'#8A3A6A', nm:'夜宴のヴィクター', role:'夜の貴族', rar:'SS',
 line:'いただくのは、血ではなく利子です。',
 st:{toll:88,mini:58,special:74,fortune:80,build:62,gauge:72,buyout:94},
-sk:{nm:'血税の宴', ds:'相手全員から所持金の19%を奪う', uses:2}},
+sk:{nm:'血税の宴', ds:'相手全員からマーブルの19%を奪う', uses:2}},
 {id:'c20', art:6, kind:2, col:'#C8CCE8', nm:'月読のルナ', role:'月の巫女', rar:'S',
 line:'月の道を、お通しします。',
 st:{toll:60,mini:66,special:76,fortune:84,build:54,gauge:70,buyout:60},
@@ -10880,11 +10880,11 @@ sk:{nm:'資産の換金', ds:'総資産の14%を現金で受け取る', uses:2}}
 {id:'c22', art:5, kind:5, col:'#D8A030', nm:'整備士ハナ', role:'鉄の職人', rar:'A',
 line:'一晩で建てちゃうよ。',
 st:{toll:54,mini:66,special:60,fortune:56,build:80,gauge:58,buyout:52},
-sk:{nm:'突貫の腕', ds:'自分の街をひとつ、ただで一段そだてる', uses:2}},
+sk:{nm:'突貫の腕', ds:'自分の都市をひとつ、ただで一段そだてる', uses:2}},
 {id:'c23', art:6, kind:0, col:'#9A7FE0', nm:'結晶王アメジスト', role:'結晶の支配者', rar:'SS',
 line:'砕けぬものに、税は届かぬ。',
 st:{toll:90,mini:60,special:92,fortune:74,build:84,gauge:66,buyout:78},
-sk:{nm:'結晶の壁', ds:'次に払う通行料が0になる（相手の街も凍る）', uses:3}},
+sk:{nm:'結晶の壁', ds:'次に払う通行料が0になる（相手の都市も凍る）', uses:3}},
 {id:'c24', art:2, kind:6, col:'#E06A4A', nm:'空賊のエル', role:'空の旅人', rar:'A',
 line:'下を見てる暇はないよ！',
 st:{toll:58,mini:72,special:58,fortune:66,build:50,gauge:74,buyout:56},
@@ -10897,17 +10897,17 @@ ds:'ランドマークを建てたとき、同じ辺にいる相手を自分の�
 {id:'p2', nm:'蒼穹のペンダント', ic:'💠', rar:'SS', trg:'onTollGet', p:0.60,
 ds:'相手が自分のランドマークに止まったとき束縛し、次の移動でもう一度通行料を取る'},
 {id:'p3', nm:'翠風のペンダント', ic:'🍀', rar:'S', trg:'onBuild', p:0.50,
-ds:'建設したとき、自分の別の街の建物がもう1段上がる'},
+ds:'建設したとき、自分の別の都市の建物がもう1段上がる'},
 {id:'p4', nm:'大地のペンダント', ic:'🟤', rar:'S', trg:'onBuild', p:0.31,
 ds:'建物を3棟以上持っているとき、スタートへ移動して給料を受け取る'},
 {id:'p5', nm:'陽光のペンダント', ic:'🌞', rar:'S', trg:'onTravel', p:0.30,
 ds:'ワープのマスで、選ばずに一番得なマスへ即座に移動する'},
 {id:'p6', nm:'桜華のペンダント',ic:'🌸', rar:'A', trg:'onOwnLand', p:0.38,
-ds:'自分の街に止まったとき、同じ辺の自分の別の街へ跳ぶ'},
+ds:'自分の都市に止まったとき、同じ辺の自分の別の都市へ跳ぶ'},
 {id:'p7', nm:'月影のペンダント', ic:'🌙', rar:'A', trg:'onSameTile', p:0.45,
-ds:'相手と同じマスに止まったとき、相手の所持金の20%を奪う'},
+ds:'相手と同じマスに止まったとき、相手のマーブルの20%を奪う'},
 {id:'p8', nm:'炎帝のペンダント', ic:'🔥', rar:'A', trg:'onRoll', p:0.37,
-ds:'サイコロを振るとき、ゾロ目が出る'}
+ds:'サイコロを振るとき、ダブルが出る'}
 ];
 const PEND_RAR = { A:{nm:'A', c:'#8FB2D8'}, S:{nm:'S', c:'#D8B6F0'}, SS:{nm:'S+', c:'#F2C230'} };
 const pendById = id => PENDANTS.find(p=>p.id===id);
@@ -11001,7 +11001,7 @@ return el;
 const META_TABS = [
 {id:'play', ic:'🎲', nm:'対戦', go:()=>screenTo('setup')},
 {id:'home', ic:'🏠', nm:'ホーム', go:()=>showHome()},
-{id:'cards', ic:'🎴', nm:'カード', go:()=>showCards()},
+{id:'cards', ic:'🎴', nm:'キャラクターカード', go:()=>showCards()},
 {id:'gacha', ic:'✨', nm:'ガチャ', go:()=>showGacha()},
 {id:'pend', ic:'📿', nm:'ペンダント', go:()=>showPend()}
 ];
@@ -11075,7 +11075,7 @@ if(!SV.pendants[p.id]) SV.pendants[p.id] = {}; }
 if(d.ic==='✨'){ const c = drawOne(); grant(c); }
 saveNow(); SFX.coin();
 await modal('<div class="modal"><div class="reward"><div class="in">'
-+ '<h3>出席ボーナス</h3><div class="items"><div class="it">'
++ '<h3>出席簿</h3><div class="items"><div class="it">'
 + '<div class="ic">'+d.ic+'</div><div class="v">×'+d.v+'</div><div class="l">'+esc(d.nm)+'</div>'
 + '</div></div><div class="btnrow" style="justify-content:center;margin-top:12px">'
 + '<button class="btn gold" data-act="ok">受け取る</button></div></div></div></div>');
@@ -11089,7 +11089,7 @@ const QUESTS = [
 {id:'q3', nm:'カードを4枚あつめる', need:4, get:()=>ownedCards().length, rw:{d:5}},
 {id:'q4', nm:'カードをLv.5まで育てる', need:5,
 get:()=>Math.max(1, ...CARDPOOL.map(c=>(SV.cards[c.id]||{lv:0}).lv)), rw:{g:5000}},
-{id:'q5', nm:'ペンダントを4つ装備する', need:4,
+{id:'q5', nm:'ペンダントを4つ装着する', need:4,
 get:()=>SV.slots.filter(Boolean).length, rw:{d:8}}
 ];
 function questReady(){
@@ -11145,7 +11145,7 @@ railHTML('')
 + '注目カード：<b>'+esc(featureCard().nm)+'</b>（ガチャで出やすくなっています）</p>'
 + '</div></div>'
 + '<div class="pan" style="margin-top:14px"><div class="in">'
-+ '<h3>遊び方</h3><p style="font-size:13.5px;line-height:2">'
++ '<h3>ガイド</h3><p style="font-size:13.5px;line-height:2">'
 + TIPS.map(t=>'・'+esc(t)).join('<br>')
 + '</p></div></div>'
 + '</div>' + walletHTML());
@@ -11311,7 +11311,7 @@ const rows = RIVALS.concat([me]).sort((x,y)=>y.a-x.a);
 const rank = rows.findIndex(r=>r.me) + 1;
 const medal = i => i===0 ? '🥇' : i===1 ? '🥈' : i===2 ? '🥉' : (i+1);
 return '<div class="rankpane">'
-+ '<div class="rtab"><span class="on">全体ランキング</span><span>ともだち</span></div>'
++ '<div class="rtab"><span class="on">全体ランキング</span><span>友だちランキング</span></div>'
 + '<div class="rlist">'
 + rows.slice(0,7).map((r,i)=>
 '<div class="rrow'+(r.me?' me':'')+'">'
@@ -11372,7 +11372,7 @@ $('#cardDetail').innerHTML =
 + '<div style="margin-top:9px">'+statRows(st)+'</div>'
 + '<div style="display:flex;gap:9px;margin-top:12px">'
 + '<button class="btn ghost" id="cdEquip" style="flex:1;font-size:16px;padding:9px 0"'
-+ (SV.equip===c.id?' disabled':'')+'>'+(SV.equip===c.id?'装備中':'装備する')+'</button>'
++ (SV.equip===c.id?' disabled':'')+'>'+(SV.equip===c.id?'装着中':'装着')+'</button>'
 + '<button class="btn gold" id="cdUp" style="flex:1.3;font-size:16px;padding:9px 0"'
 + (canUp?'':' disabled')+'>強化 🪙'+cost+' ／ 同カード×1</button>'
 + '</div>'
@@ -11661,7 +11661,7 @@ apply:g=>{ g.ev = {salaryX:2}; }},
 apply:g=>{ g.ev = {buildX:0.8}; }},
 {id:'toll', ic:'💰', nm:'通行料値上げ', ds:'すべての通行料が1.3倍になる週',
 apply:g=>{ g.ev = {tollX:1.3}; }},
-{id:'luck', ic:'🍀', nm:'幸運のフォーチュン', ds:'チャンスカードで良い効果が出やすい週',
+{id:'luck', ic:'🍀', nm:'幸運のフォーチュン', ds:'フォーチュンカードで良い効果が出やすい週',
 apply:g=>{ g.ev = {luck:0.45}; }},
 {id:'mini', ic:'🕯️', nm:'洞窟フィーバー', ds:'ミニゲームの倍率が最初から×4の週',
 apply:g=>{ g.ev = {miniX:2}; }},
@@ -11738,8 +11738,8 @@ let h = '';
 ord.forEach(function(s, i){
 if(!s){
 h += '<div class="rm-seat empty r' + (i + 1) + '" style="top:' + top[i] + '%">'
-+ '<div class="lb"><b>空席</b></div><div class="fc"></div>'
-+ '<div class="nm"><b>—</b><i>ともだちを待っています</i></div></div>';
++ '<div class="lb"><b>待機中</b></div><div class="fc"></div>'
++ '<div class="nm"><b>—</b><i>プレイヤーが入場するとスタートできます</i></div></div>';
 return;
 }
 const cc = cardById(s.cardId) || CARDPOOL[i % CARDPOOL.length];
@@ -11809,8 +11809,8 @@ el.innerHTML = '<div class="rmwrap">'
 + '<div class="rm-rp"></div>' + seatsHTML()
 + '<div class="rm-add" id="rmAdd"><span class="t1">ゲーム友だち</span>'
 + '<span class="t2">＋追加</span></div>'
-+ '<div class="rm-go" id="rmGo"><div class="fc"><b>プレイ準備完了</b></div></div>'
-+ '<div class="rm-notice"><b>30秒以内に準備ないと自動退場されます</b></div>'
++ '<div class="rm-go" id="rmGo"><div class="fc"><b>ゲームスタート</b></div></div>'
++ '<div class="rm-notice"><b>10秒以内に始めないと自動退場されます</b></div>'
 + walletHTML()
 + '</div>';
 regPortrait(el.querySelector('#roomPic'), c.art, c.col, c.id);
@@ -11856,7 +11856,7 @@ const i = MAPS.findIndex(function(m){ return m.id === cfg.mapId; });
 cfg.mapId = MAPS[(i + 1) % MAPS.length].id; render();
 });
 on('#rmAdd', function(){
-toast('R','👥','ともだち募集','いまはCPUと遊べます。ともだち対戦はこれからです', 2200);
+toast('R','👥','友だち募集','いまはCPUと遊べます。友だち対戦はこれからです', 2200);
 });
 on('#rmUmap', function(){ resolve(false); });
 on('#rmGo', function(){ resolve(true); });
@@ -11946,7 +11946,7 @@ const sell = q('#krSell');
 if(sell) sell.onclick = async function(){
 const c = cardById(krCardSel), o = SV.cards[krCardSel];
 if(!c || !o) return;
-if(SV.equip === c.id){ SFX.warn(); toast('R','🚫','装備中は売れません','ほかのカードを装備してからにしてください', 2400); return; }
+if(SV.equip === c.id){ SFX.warn(); toast('R','🚫','装着中は売れません','ほかのカードを装着してからにしてください', 2400); return; }
 if(SV.locks && SV.locks[c.id]){ SFX.warn(); toast('R','🔒','ロック中です','カードの🔓を押すと外せます', 2200); return; }
 if(ownedCards().length <= 1){ SFX.warn(); toast('R','🚫','最後の1枚は売れません','', 2000); return; }
 const g = krSellPrice(c, o);
@@ -11954,10 +11954,10 @@ const yes = (await modal('<div class="modal"><div class="dark">'
 + '<h3>カードを売りますか？</h3>'
 + '<p>'+esc(c.nm)+'（'+RAR[c.rar].nm+' ／ Lv.'+o.lv+'）</p>'
 + '<div class="big">🪙 '+g.toLocaleString()+'</div>'
-+ '<p style="font-size:13px;color:#9FBBD6">売ると元には戻せません</p>'
++ '<p style="font-size:13px;color:#9FBBD6">売却すると元には戻せません</p>'
 + '<div class="btnrow" style="justify-content:center">'
 + '<button class="btn ghost" data-act="no">やめる</button>'
-+ '<button class="btn red" data-act="ok">売る</button></div>'
++ '<button class="btn red" data-act="ok">売却</button></div>'
 + '</div></div>')) === 'ok';
 if(!yes) return;
 delete SV.cards[c.id]; SV.gold += g; saveNow(); SFX.coin();
@@ -11970,7 +11970,7 @@ if(fu) fu.onclick = async function(){
 const c = cardById(krCardSel), o = SV.cards[krCardSel];
 if(!c || !o) return;
 if(SV.equip === c.id){ SFX.warn();
-toast('R','🚫','装備中は素材にできません','ほかのカードを装備してからにしてください', 2400); return; }
+toast('R','🚫','装着中は素材にできません','ほかのカードを装着してからにしてください', 2400); return; }
 if(SV.locks && SV.locks[c.id]){ SFX.warn(); toast('R','🔒','ロック中です','カードの🔓を押すと外せます', 2200); return; }
 const nx = krNextRar(c.rar);
 if(!nx){ SFX.warn(); toast('R','✨','これ以上の等級はありません', RAR[c.rar].nm+' が最高です', 2400); return; }
@@ -12041,7 +12041,7 @@ const used = SV.slots.indexOf(p.id);
 html += '<div class="pslot' + (used===slot?' on':'') + '" data-p="' + p.id + '"'
 + (used>=0 && used!==slot ? ' style="opacity:.4"' : '') + '>'
 + '<div class="ic">' + p.ic + '</div><div class="nm">' + esc(p.nm) + '</div>'
-+ (used>=0 && used!==slot ? '<div class="em">' + (used+1) + '番に装備中</div>' : '')
++ (used>=0 && used!==slot ? '<div class="em">' + (used+1) + '番に装着中</div>' : '')
 + '</div>';
 });
 html += '</div>';
@@ -12187,7 +12187,7 @@ card.innerHTML = '<span class="rank">'+RAR[c.rar].nm+'</span>'
 + '<div class="art"><canvas id="krPic" width="330" height="437"></canvas>'
 + '<div class="nameband"><b>'+esc(c.nm)+'</b></div></div>'
 + '<div class="side">'
-+ '<b class="warn" id="krEquip" title="このカードを装備する">'
++ '<b class="warn" id="krEquip" title="このカードを装着する">'
 + (SV.equip===c.id ? '★' : '▲')+'</b>'
 + '<b class="lock" id="krLock" title="売却・合成から守る">'
 + ((SV.locks&&SV.locks[c.id]) ? '🔒' : '🔓')+'</b>'
@@ -12197,7 +12197,7 @@ card.innerHTML = '<span class="rank">'+RAR[c.rar].nm+'</span>'
 regPortrait(document.getElementById('krPic'), c.art, c.col, c.id);
 const eq = document.getElementById('krEquip');
 if(eq) eq.onclick = function(){
-if(SV.equip === c.id){ SFX.warn(); toast('R','★','すでに装備中です','', 1800); return; }
+if(SV.equip === c.id){ SFX.warn(); toast('R','★','すでに装着中です','', 1800); return; }
 SV.equip = c.id; saveNow(); SFX.click();
 krRedraw(); toast('R','★','装備しました', c.nm+' で対戦します', 2200);
 };
@@ -12388,7 +12388,7 @@ b.onclick = function(){ SFX.click(); if(onTab) onTab(b.dataset.dktab); };
 });
 }
 const DK_LEFT = [
-{id:'cards', ic:'🎴', nm:'カード'},
+{id:'cards', ic:'🎴', nm:'キャラクターカード'},
 {id:'dice', ic:'🎲', nm:'サイコロ'},
 {id:'pend', ic:'📿', nm:'ペンダント'},
 {id:'gacha', ic:'🧊', nm:'キューブ'},
@@ -12398,7 +12398,7 @@ const DK_RIGHT = [
 {id:'quest', ic:'📜', nm:'ミッション'},
 {id:'news', ic:'📣', nm:'イベント'},
 {id:'daily', ic:'📅', nm:'出席簿'},
-{id:'play', ic:'🤝', nm:'ともだち'},
+{id:'play', ic:'🤝', nm:'友達'},
 {id:'title', ic:'⏏️', nm:'タイトル'}
 ];
 function dkRank(){
@@ -12476,7 +12476,7 @@ let dkQuestTab = 'daily';
 const DK_QTABS = [
 {id:'daily', ic:'🪶', nm:'デイリー'},
 {id:'weekly', ic:'📅', nm:'ウィークリー'},
-{id:'trophy', ic:'🏆', nm:'実績'}
+{id:'trophy', ic:'🏆', nm:'限定ミッション'}
 ];
 function dkQuestList(tab){
 if(tab === 'weekly'){
@@ -12632,7 +12632,7 @@ dkHead('pend', {})
 + '<div class="btns">'
 + '<button class="dkbtn gd" id="dkUp">強化する</button>'
 + '<button class="dkbtn gr" id="dkEq"' + (eq ? ' disabled' : '') + '>'
-+ (eq ? '装備中' : '装備する') + '</button>'
++ (eq ? '装着中' : '装着') + '</button>'
 + '</div>'
 + '</div>'
 + '</div>'
@@ -12695,7 +12695,7 @@ return '<div class="dkitem' + (o.id === dkDiceSel ? ' on' : '') + (have ? '' : '
 var bars = [
 ['⚔️ 出目の大きさ', Math.round((d.big || 0) * 60 + 20), 'rd', '+' + Math.round((d.big || 0) * 22) + '%'],
 ['🎯 ゲージの当たり', Math.min(100, (d.gauge || 0) * 5 + 20), 'bl', '+' + (d.gauge || 0)],
-['🎲 ゾロ目の出やすさ', Math.min(100, (d.dbl || 0) * 500 + 18), 'gd', '+' + Math.round((d.dbl || 0) * 100) + '%'],
+['🎲 ダブルの出やすさ', Math.min(100, (d.dbl || 0) * 500 + 18), 'gd', '+' + Math.round((d.dbl || 0) * 100) + '%'],
 ['🍀 育ち具合', Math.min(100, lv * 16), '', 'Lv.' + lv]
 ].map(function(b){
 return '<div class="st"><span class="l">' + b[0] + '</span>'
@@ -12722,7 +12722,7 @@ dkHead('dice', {})
 + bars
 + '<div class="btns"><button class="dkbtn gd" id="dkDup">強化する</button>'
 + '<button class="dkbtn gr" id="dkDeq"' + (eq ? ' disabled' : '') + '>'
-+ (eq ? '装備中' : '装備する') + '</button></div>'
++ (eq ? '装着中' : '装着') + '</button></div>'
 + '</div>'
 + '</div>'
 + '<div class="dkdark dkbottom"><span class="cnt">所持<br>サイコロ<br><b>'
@@ -12758,7 +12758,7 @@ screenTo('dice');
 let dkShopTab = 'osusume';
 const DK_STABS = [
 {id:'osusume', ic:'👑', nm:'おすすめ'},
-{id:'card', ic:'🎴', nm:'カード'},
+{id:'card', ic:'🎴', nm:'キャラクターカード'},
 {id:'gem', ic:'💎', nm:'ダイヤ'}
 ];
 function dkGoods(tab){
@@ -12870,7 +12870,7 @@ if(d.ic === '✨'){ grant(drawOne()); }
 saveNow(); SFX.coin(); dkWallet();
 dkBurst(b, d.ic, 16);
 await modal('<div class="modal"><div class="reward"><div class="in">'
-+ '<h3>出席ボーナス</h3><div class="items"><div class="it">'
++ '<h3>出席簿</h3><div class="items"><div class="it">'
 + '<div class="ic">' + d.ic + '</div><div class="v">×' + d.v + '</div><div class="l">' + esc(d.nm) + '</div>'
 + '</div></div><div class="btnrow" style="justify-content:center;margin-top:12px">'
 + '<button class="btn gold" data-act="ok">受け取る</button></div></div></div></div>');
@@ -12916,7 +12916,7 @@ return '<div class="dkitem' + (o.id === dkCardSel ? ' on' : '') + (mine ? '' : '
 + '<span class="nm">' + esc(o.nm) + '</span></div>';
 }).join('');
 var el = dkMake('cards', 'shop',
-dkHead('cards', { title:'カード' })
+dkHead('cards', { title:'キャラクターカード' })
 + dkTabs(DK_CTABS, dkCardTab)
 + '<div class="dkbody dkcol">'
 + '<div class="dkmain">'
@@ -12943,7 +12943,7 @@ dkHead('cards', { title:'カード' })
 + '<button class="dkbtn gd" id="dkCup"' + (own && lv < 30 ? '' : ' disabled') + '>'
 + '強化 ' + (own && lv < 30 ? '🪙' + cost.toLocaleString() : 'できません') + '</button>'
 + '<button class="dkbtn gr" id="dkCeq"' + (eq || !own ? ' disabled' : '') + '>'
-+ (eq ? '装備中' : own ? '装備する' : '未所持') + '</button>'
++ (eq ? '装着中' : own ? '装着' : '未所持') + '</button>'
 + '</div>'
 + '</div>'
 + '</div>'
@@ -14701,7 +14701,7 @@ function dkpRarNm(r){ return r === 'SS' ? 'S+' : (r || 'A'); }
 function dkpShort(p){ return String(p && p.nm || '').replace(/のペンダント$/, ''); }
 function dkpTrg(t){
 return ({ onLandmark:'ランドマークを建てた時', onTollGet:'通行料を受け取る時', onBuild:'建設した時',
-onTravel:'ワープのマス', onOwnLand:'自分の街に止まった時', onSameTile:'相手と同じマス',
+onTravel:'ワープのマス', onOwnLand:'自分の都市に止まった時', onSameTile:'相手と同じマス',
 onRoll:'サイコロを振る時' })[t] || '対戦中';
 }
 function dkpSrc(r){
@@ -15577,7 +15577,7 @@ act = await modal('<div class="modal"><div class="fx-panel dkp-modal">'
 + '<div class="dkp-mone">' + dkpMedal(p, { size:96, plus:dkpLv(id) - 1, rt:true }) + '<p class="dkp-mp">「' + esc(p.nm) + '」を '
 + dkpFmt(price) + 'G で売ります。<br>所持から消えます（装備中なら外れます）。</p></div>'
 + '<div class="dkp-mrow"><button class="dkbtn dkp-wood" data-act="no">やめる</button>'
-+ '<button class="dkbtn dkp-sell" data-act="yes">売る</button></div></div></div>');
++ '<button class="dkbtn dkp-sell" data-act="yes">売却</button></div></div></div>');
 } finally { dkpBusy(false); }
 if(act !== 'yes') return;
 }
@@ -16243,7 +16243,7 @@ if(a === 'cok'){ dkpSfx('click'); S.cres = null; dkpShowCube(); return; }
 }
 function dkpItemNm(it){
 var k = String(it.kind || '');
-return ({ key:'ゴールドキー', ticket:'入場券', frame:'名札の枠', cube:'キューブ', card:'カード', pend:'ペンダント', die:'サイコロ' })[k] || k;
+return ({ key:'ゴールドキー', ticket:'入場券', frame:'名札の枠', cube:'キューブ', card:'キャラクターカード', pend:'ペンダント', die:'サイコロ' })[k] || k;
 }
 function dkpCubeResHTML(res){
 var o = res.got || {}, ch = [], cd = o.card && cardById(o.card.id), pd = o.pend && pendById(o.pend.id);
@@ -16263,7 +16263,7 @@ if(it && it.kind) ch.push('<div class="dkp-crw"><span class="dkp-crdie">' + dkpC
 if(!ch.length) ch.push('<div class="dkp-crw"><div><b>中身は空でした</b><em>次のキューブに期待しましょう</em></div></div>');
 return '<div class="dkp-cres"><div class="fx-ribbon gold dkp-crib"><b>キューブオープン！</b></div>'
 + '<div class="dkp-crws">' + ch.join('') + '</div>'
-+ '<button class="dkbtn gd fx-primary dkp-cok" data-dkp-act="cok">OK</button></div>';
++ '<button class="dkbtn gd fx-primary dkp-cok" data-dkp-act="cok">確認</button></div>';
 }
 async function dkpCubeOpen(i, btn){
 var S = dkpS(); if(S.busy) return;
@@ -18311,7 +18311,7 @@ dkfTop({ back:'home', title:'<b>クラス選択</b>', right:dkfHomeBtn() })
 + '<div class="dkf-sub">'
 + '<div class="dkf-olbtn" role="button" id="dkfOnline" data-fx="riseL" data-fx-press>'
 + '<span class="dkf-olbtn-ic">' + dkfSvg('globe') + '</span>'
-+ '<span class="dkf-olbtn-tx"><b>オンライン対戦</b><small>ともだちと通信で遊ぶ</small></span></div>'
++ '<span class="dkf-olbtn-tx"><b>オンライン対戦</b><small>友だちと通信で遊ぶ</small></span></div>'
 + '<div class="dkf-tkbox" data-fx="rise"><b class="dkf-tkbox-hd">入場券</b>'
 + ['biz', 'first', 'dia'].map(function(k){
 return '<span class="dkf-tkc dkf-t-' + k + '"><i class="dkf-tkc-ic">' + dkfSvg('ticket') + '</i>'
@@ -18876,7 +18876,7 @@ var add = el.querySelector('#dkfAdd');
 if(add) add.onclick = function(){
 if(dkfOnlineOk()){ dkfSnd('click'); window.DV_OL_API.open(); return; }
 dkfSnd('click');
-dkfToast('👥', 'この端末で ともだちと遊べます', '席を押して「ともだち」にすると交代で遊べます', 2800);
+dkfToast('👥', 'この端末で 友だちと遊べます', '席を押して「友だち」にすると交代で遊べます', 2800);
 var s = el.querySelector('.dkf-seat.dkf-k-cpu, .dkf-seat.dkf-k-lock');
 if(s) dkfPop(s);
 };
@@ -18923,8 +18923,8 @@ dkFlowMap();
 }
 function dkfRoomStart(node){
 var c = dkClassOf(cfg.cls);
-if(cfg.n < 2) return dkfNope(node, '👥', '2人から遊べます', '席を押して CPU か ともだちを入れてください');
-if(cfg.team && cfg.n !== 4) return dkfNope(node, '👥', 'チーム戦は4人で遊びます', '席を押して CPU か ともだちを入れてください');
+if(cfg.n < 2) return dkfNope(node, '👥', '2人から遊べます', '席を押して CPU か 友だちを入れてください');
+if(cfg.team && cfg.n !== 4) return dkfNope(node, '👥', 'チーム戦は4人で遊びます', '席を押して CPU か 友だちを入れてください');
 if(!dkfTicketOk(c)) return dkfNope(node, '🎫', c.nm + 'の入場券がありません', 'クラス選択で入場券を用意してください');
 var r = DKF_S.roomRes;
 if(!r || DKF_S.busy) return;
@@ -19267,8 +19267,8 @@ return '<div class="rm-seat dkf-seat dkf-k-lock' + tcls + '" role="button" data-
 var cc = cardById(s.cardId) || CARDPOOL[i % CARDPOOL.length];
 var tag = k === 'you' ? '<span class="dkf-stag-ic">' + dkfSvg('house') + '</span><b>部屋主</b>'
 : k === 'cpu' ? '<span class="dkf-stag-cpu">CPU</span><b>' + DKF_AIS[cfg.ai | 0][1] + '</b>'
-: '<span class="dkf-stag-fr">' + dkfSvg('pen') + '</span><b>ともだち</b>';
-var btns = k === 'cpu' ? '<span class="dkf-shint">タップで ともだちに</span>'
+: '<span class="dkf-stag-fr">' + dkfSvg('pen') + '</span><b>友だち</b>';
+var btns = k === 'cpu' ? '<span class="dkf-shint">タップで 友だちに</span>'
 : '<span class="dkf-sbtns">'
 + (k === 'you' && team ? '<span class="dkf-sb dkf-sb-team" role="button" data-dkf-team="1">' + dkfSvg('swap') + '<b>チーム<br>変更</b></span>' : '')
 + (k === 'human' ? '<span class="dkf-sb" role="button" data-dkf-name="' + i + '">' + dkfSvg('pen') + '<b>名前</b></span>' : '')
@@ -19337,7 +19337,7 @@ var c = dkClassOf(cfg.cls);
 if(c.n && i > 1) return;
 var noLock = !!c.n || !!cfg.team;
 var s = DKF_S.slots[i];
-if(s.kind === 'cpu'){ s.kind = 'human'; s.name = 'ともだち' + (i + 1); s.cardId = null; s.trial = false; }
+if(s.kind === 'cpu'){ s.kind = 'human'; s.name = '友だち' + (i + 1); s.cardId = null; s.trial = false; }
 else if(s.kind === 'human' && !noLock){ s.kind = 'lock'; s.cardId = null; s.trial = false; }
 else { s.kind = 'cpu'; s.name = 'CPU ' + DKF_CPU_NM[(i + 2) % 3]; s.cardId = null; s.trial = false; }
 dkfSnd(s.kind === 'lock' ? 'click' : 'cardIn');
@@ -19647,7 +19647,7 @@ const DKM_TIPS = [
 '観光地をすべて持つと「観光地独占」で、その場で勝利です。',
 '空色の観光地は、たくさん持つほど通行料が上がります。',
 'お祭り FESTIVAL の都市は試合の最初に決まり、通行料が2倍になります。',
-'サイコロでダブルが出ると、もう一回サイコロを振れます。',
+'サイコロでダブルが出ると、もう一回！サイコロを振ります。',
 '無人島では「ダブルに挑戦」「保釈金」「脱出カード」から選べます。',
 '世界旅行に止まると、次のターンに希望する都市へ移動できます。',
 '［押す］を長押しするとゲージが動きます。狙った数で離すとゲージインパクト！',
@@ -19655,7 +19655,7 @@ const DKM_TIPS = [
 '相手の都市は買収できます。観光地とランドマークは買収できません。',
 'ランドマークを建てると通行料が大きく上がり、買収されなくなります。',
 '建物は1周すると建設可能になります。スタートを通るのが近道です。',
-'スタートにぴったり止まると「スタート建設ボーナス」。',
+'スタートにちょうど止まると「スタート建設ボーナス」。',
 'フォーチュンカードには黄金・シルバー・罰のカードがあります。',
 '国税庁に止まると、持っている建物の建設費用に応じて税金を払います。',
 '天使カードを持っていると、通行料が無料になります。',
@@ -20859,7 +20859,7 @@ if(pz.kind === 'gem') return pz.v + ' ダイヤ';
 return '';
 }
 function dkmPrizeSub(pz){
-if(pz.kind === 'card'){ var c = cardById(pz.id); return (c ? RAR[c.rar].nm + 'クラス' : '') + ' カード'; }
+if(pz.kind === 'card'){ var c = cardById(pz.id); return (c ? RAR[c.rar].nm + 'クラス' : '') + ' キャラクターカード'; }
 if(pz.kind === 'pend') return 'ペンダント（1個）';
 if(pz.kind === 'ticket') return '入場券（1枚）';
 if(pz.kind === 'gold' || pz.kind === 'gem') return '財布へ';
@@ -21247,7 +21247,7 @@ try{ SFX.warn(); }catch(e){}
 try{ bgm('boss'); }catch(e){}
 fresh.forEach(function(r){
 var ts = r.tiles.map(function(i){ return G.tiles[i].name; }).join('・');
-try{ news('🚨 ' + G.players[r.pi].name + ' が' + r.label + 'リーチ！ 残り都市 ' + ts); }catch(e){}
+try{ news('🚨 ' + G.players[r.pi].name + ' の' + r.label + '残り都市 ' + ts); }catch(e){}
 });
 }
 return list;
@@ -22237,7 +22237,7 @@ if(p.kind === 'cpu' || dkIsAuto(pi)) return raiseCash(pi, amt);
 var guard = 0;
 while(p.cash < amt && guard++ < 40){
 if(!dkrOwned(pi).length) return false;
-var v = await dvAsk(pi, 'sell', function(){ return dkrSellPick(pi, amt, toPi); }, '売るエリアを選んでいます');
+var v = await dvAsk(pi, 'sell', function(){ return dkrSellPick(pi, amt, toPi); }, '売却するエリアを選んでいます');
 if(!v || v.bankrupt) return false;
 var list = (Array.isArray(v.sell) ? v.sell : []).filter(function(i){
 var t = G.tiles[i]; return t && t.type === 'city' && t.owner === pi; });
@@ -24852,7 +24852,7 @@ if(p.out) break;
 }
 if(!again && G === g0 && !G.over && !p.out && p.jail <= 0 && !p.travel && p.extraRoll > 0){
 p.extraRoll--;
-dkNotify(pi, '🔮', '追加のサイコロ', 'もう一回サイコロを振れます', { ms:1700 });
+dkNotify(pi, '🔮', '追加のサイコロ', 'もう一回！サイコロを振ります', { ms:1700 });
 again = true;
 }
 }
@@ -25021,7 +25021,7 @@ coupon: { ic: '🎟', nm: '割引クーポン', ds: '通行料を1回だけ半�
 shield: { ic: '🛡', nm: 'シールドカード', ds: '相手の攻撃カードを1回だけ防ぎます' },
 escape: { ic: '🎫', nm: '脱出カード', ds: '閉じ込められた時、すぐに出られます' }
 };
-var DKB_LVNM = ['土地', 'マンション', 'ビル', 'ホテル'];
+var DKB_LVNM = ['土地権利書', 'マンション', 'ビル', 'ホテル'];
 var DKB_MOVE = { short: 170, mid: 150, long: 130, pass: 320, cap: 1300, all: 1300 };
 var DKB_S = {
 built: false, hud: {}, band: {}, pbox: {}, seatOf: {}, piOf: {}, lastBR: -1, stackSig: '',
@@ -25909,7 +25909,7 @@ function finish(pi, reason, col){
 if(G.over && G.winner >= 0) return true;
 var mono = String(reason).indexOf('独占') >= 0;
 if(mono) jingle('mono');
-var l3 = mono ? '独占ボーナス x' + (G.winX || 1) + '倍' : G.players[pi].name + ' の勝ち！';
+var l3 = mono ? '独占ボーナス x' + (G.winX || 1) + '倍' : G.players[pi].name + ' WIN!';
 showCelebrate(['おめでとうございます！', reason, l3], 2000);
 if(G.map && G.map.deco === 'ice') dkbIceShards();
 else addFx('confetti', SW / 2, 0, 3000, null, null, false, { scr: true, w: SW, h: SH, n: 110 });
@@ -26927,7 +26927,7 @@ var el = DKB_S.tinfo, t = G && G.tiles[i]; if(!el || !t) return;
 var me = dkbMe(), mp = G.players[me], d = mp ? (i - mp.pos + 32) % 32 : 0, rows = [];
 if(t.type === 'city'){
 var own = (t.owner >= 0) ? G.players[t.owner] : null;
-var lvn = t.landmark ? 'ランドマーク' : t.tour ? '観光地' : (DKB_LVNM[t.lv | 0] || '土地');
+var lvn = t.landmark ? 'ランドマーク' : t.tour ? '観光地' : (DKB_LVNM[t.lv | 0] || '土地権利書');
 rows.push(['持ち主', own ? own.name : 'なし']);
 rows.push(['建物', own ? lvn : '—']);
 var toll = '—';
@@ -27017,7 +27017,7 @@ var DKS_TABS = [
 { id:'free', ic:'🎁', nm:'むりょう' },
 { id:'ticket', ic:'🎫', nm:'入場券' },
 { id:'dice', ic:'🎲', nm:'サイコロ' },
-{ id:'card', ic:'🎴', nm:'カード' },
+{ id:'card', ic:'🎴', nm:'キャラクターカード' },
 { id:'gem', ic:'💎', nm:'財貨' }
 ];
 var DKS_PED_TAB = { id:'peddler', ic:'🏮', nm:'行商人' };
@@ -27587,7 +27587,7 @@ return dksStrip('日替わり 4品', '入れ替えまで ' + dksCd(dksNextReset(
 + '<div class="dks-goods n4">' + dkGoods('osusume').map(function(g, i){ return dksGoodHTML(g, i); }).join('') + '</div>';
 }
 function dksPaneCard(){
-return dksStrip('カード', '同じ品を続けて買うと 2個目から <b>20%OFF</b>', '<button class="dks-pedlink dks-golink" data-dkgo="gacha">ガチャを引く</button>')
+return dksStrip('キャラクターカード', '同じ品を続けて買うと 2個目から <b>20%OFF</b>', '<button class="dks-pedlink dks-golink" data-dkgo="gacha">ガチャを引く</button>')
 + '<div class="dks-goods n3">' + dkGoods('card').map(function(g, i){ return dksGoodHTML(g, i); }).join('') + '</div>';
 }
 function dksPaneDice(){

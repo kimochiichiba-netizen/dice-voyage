@@ -26,7 +26,7 @@ var DKB_FCARD = {
   escape: { ic: '🎫', nm: '脱出カード', ds: '閉じ込められた時、すぐに出られます' }
 };
 /* 建物の段の名前（日本版） */
-var DKB_LVNM = ['土地', 'マンション', 'ビル', 'ホテル'];
+var DKB_LVNM = ['土地権利書', 'マンション', 'ビル', 'ホテル'];
 /* 移動のテンポ（本家の等速録画・kr G04。×SPEED は hop が掛ける） */
 /* cap＝ホップの合計の上限、all＝ホップ＋着地の間の上限。hop は rAF で1コマ（約10ms）ずつ遅れて終わるので、1.5秒に余白を残す */
 var DKB_MOVE = { short: 170, mid: 150, long: 130, pass: 320, cap: 1300, all: 1300 };
@@ -1024,7 +1024,7 @@ function finish(pi, reason, col){
   if(G.over && G.winner >= 0) return true;
   var mono = String(reason).indexOf('独占') >= 0;
   if(mono) jingle('mono');
-  var l3 = mono ? '独占ボーナス x' + (G.winX || 1) + '倍' : G.players[pi].name + ' の勝ち！';
+  var l3 = mono ? '独占ボーナス x' + (G.winX || 1) + '倍' : G.players[pi].name + ' WIN!';
   showCelebrate(['おめでとうございます！', reason, l3], 2000);      // 決着カットイン 約2.0秒（J46）
   if(G.map && G.map.deco === 'ice') dkbIceShards();
   else addFx('confetti', SW / 2, 0, 3000, null, null, false, { scr: true, w: SW, h: SH, n: 110 });
@@ -2112,7 +2112,7 @@ function dkbTileInfo(i){
   var me = dkbMe(), mp = G.players[me], d = mp ? (i - mp.pos + 32) % 32 : 0, rows = [];
   if(t.type === 'city'){
     var own = (t.owner >= 0) ? G.players[t.owner] : null;
-    var lvn = t.landmark ? 'ランドマーク' : t.tour ? '観光地' : (DKB_LVNM[t.lv | 0] || '土地');
+    var lvn = t.landmark ? 'ランドマーク' : t.tour ? '観光地' : (DKB_LVNM[t.lv | 0] || '土地権利書');
     rows.push(['持ち主', own ? own.name : 'なし']);
     rows.push(['建物', own ? lvn : '—']);
     var toll = '—';

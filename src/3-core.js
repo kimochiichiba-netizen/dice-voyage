@@ -53,7 +53,7 @@ const MAPS = [
   lake:['#9FE3F0','#6FC3D8','#35708A'],
   slab:{top:'#C2B8E2', side:'#6A5F96', rim:'#E6ECF6'},
   deco:'ice',
-  corners:['スタート','氷の監獄','氷雪の祭典','水晶の転移門'],
+  corners:['スタート','氷の監獄','水晶の遺跡','洞窟探検'],
   cities:[
     ['氷結の泉','霜の小屋'], ['凍り村','雪見の丘'], ['氷柱回廊','白銀通り'],
     ['銀嶺市場','蒼氷広場'], ['凍湖港','水晶坑道'], ['極光台','氷紋宮'],
@@ -63,7 +63,7 @@ const MAPS = [
   lake:['#63CBDE','#2E8CA6','#0D4A5C'],
   slab:{top:'#E8D9B0', side:'#8A7448', rim:'#F8F0DC'},
   deco:'world',
-  corners:['スタート','乗り継ぎ待ち','オリンピック開催','世界旅行'],
+  corners:['スタート','無人島','ワールドフェスティバル','世界旅行'],
   cities:[
     ['バリ','セブ'], ['プーケット','台北'], ['ソウル','香港'],
     ['シンガポール','ドバイ'], ['イスタンブール','カイロ'], ['ケープタウン','リオ'],
@@ -88,8 +88,8 @@ function buildTiles(map){
   t[24] = {type:'travel',   name:map.corners[3]};
   for(const k in SPECIAL){
     const i = +k, v = SPECIAL[k];
-    if(v==='card')  t[i] = {type:'card',  name:'チャンス'};
-    if(v==='tax')   t[i] = {type:'tax',   name:'税務署', rate:0.10};
+    if(v==='card')  t[i] = {type:'card',  name:'フォーチュンカード'};
+    if(v==='tax')   t[i] = {type:'tax',   name:'国税庁', rate:0.10};
     if(v==='bonus') t[i] = {type:'bonus', name:'ボーナス', amount:1500000};
   }
   CITY_SLOTS.forEach((slots,g)=>{
@@ -113,8 +113,8 @@ function buildTiles(map){
 
 /* 建物：0=土地 1=別荘 2=ビル 3=ホテル 4=ランドマーク */
 const BUILD = [
-  {nm:'土地',        ic:'🏳️', cost:b=>b,                 toll:b=>Math.round(b*0.10)},
-  {nm:'別荘',        ic:'🏠', cost:b=>Math.round(b*0.5), toll:b=>Math.round(b*0.60)},
+  {nm:'土地権利書',        ic:'🏳️', cost:b=>b,                 toll:b=>Math.round(b*0.10)},
+  {nm:'マンション',        ic:'🏠', cost:b=>Math.round(b*0.5), toll:b=>Math.round(b*0.60)},
   {nm:'ビル',        ic:'🏢', cost:b=>b,                 toll:b=>Math.round(b*1.50)},
   {nm:'ホテル',      ic:'🏨', cost:b=>Math.round(b*1.6), toll:b=>Math.round(b*3.00)},
   {nm:'ランドマーク', ic:'🗼', cost:b=>Math.round(b*4.0), toll:b=>Math.round(b*10.0)}
@@ -221,12 +221,12 @@ function statRate(p, key){                 // 確率系：0..1
 /* ══════════ 持ち込みアイテム（本家の「アイテム」相当） ══════════ */
 const ITEMS = [
   { id:'angel',  nm:'天使カード',    ic:'🪽', desc:'次に払う通行料が1回だけ無料になる' },
-  { id:'dice',   nm:'サイコロ改造',  ic:'🎲', desc:'次のサイコロの出目を自分で選べる' },
+  { id:'dice',   nm:'奇数／偶数アイテム',  ic:'🎲', desc:'次のサイコロの出目を自分で選べる' },
   { id:'warp',   nm:'ワープ札',      ic:'🌀', desc:'好きなマスへ移動する' },
   { id:'half',   nm:'建設割引券',    ic:'🏗', desc:'次の建設が半額になる' },
-  { id:'freeze', nm:'凍結ブロック',  ic:'🧊', desc:'相手の街を2ターン凍らせる（通行料0）' },
-  { id:'salary', nm:'給料2倍券',     ic:'💴', desc:'次のスタート通過の給料が2倍' },
-  { id:'double', nm:'ダブルチャンス',ic:'✌️', desc:'次のサイコロが必ずゾロ目になる' },
+  { id:'freeze', nm:'停電',  ic:'🧊', desc:'相手の都市を2ターン止める（通行料0）' },
+  { id:'salary', nm:'給料ボーナス',     ic:'💴', desc:'次のスタート通過の給料が2倍' },
+  { id:'double', nm:'サイコロダブル',ic:'✌️', desc:'次のサイコロが必ずダブルになる' },
 ];
 function itemById(id){ return ITEMS.find(o=>o.id===id); }
 
@@ -237,11 +237,11 @@ const DICE = [
   { id:'d1', nm:'黄金のサイコロ',   ic:'🥇', rar:'S',  col:'#FFD24D',
     ds:'ゲージインパクトの当たり枠が広がる（＋12）。', gauge:12, dbl:0, big:0 },
   { id:'d2', nm:'LEDサイコロ',      ic:'💡', rar:'S',  col:'#7FE6FF',
-    ds:'ゾロ目が出やすくなる（＋9%）。もう一回振れる。', gauge:0, dbl:0.09, big:0 },
+    ds:'ダブルが出やすくなる（＋9%）。もう一回振れる。', gauge:0, dbl:0.09, big:0 },
   { id:'d3', nm:'トランプサイコロ', ic:'🃏', rar:'S+', col:'#FF8FB0',
     ds:'大きい目が出やすい（＋1.1マス）。遠くまで一気に進む。', gauge:0, dbl:0, big:1 },
   { id:'d4', nm:'亡者のサイコロ',   ic:'💀', rar:'S+', col:'#B58CFF',
-    ds:'ゾロ目＋6%、ゲージ＋8。強いが、目が荒れる。', gauge:8, dbl:0.06, big:0.5 }
+    ds:'ダブル＋6%、ゲージ＋8。強いが、目が荒れる。', gauge:8, dbl:0.06, big:0.5 }
 ];
 function dieById(id){ return DICE.find(d=>d.id===id) || DICE[0]; }
 

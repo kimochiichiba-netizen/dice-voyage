@@ -29,8 +29,8 @@
       <div class="col">
         <div class="namebar" id="fTopName">—</div>
         <div class="statrow"><span class="lbl">総資産</span><span class="sub" id="fTopAsset">0</span></div>
-        <div class="statrow"><span class="lbl">所持金</span><span class="big" id="fTopCash">0</span></div>
-        <div class="gauge"><i id="fTopGauge" style="width:0%"></i><span class="gtxt" id="fTopGtx">魔力 0%</span></div>
+        <div class="statrow"><span class="lbl">マーブル</span><span class="big" id="fTopCash">0</span></div>
+        <div class="gauge"><i id="fTopGauge" style="width:0%"></i><span class="gtxt" id="fTopGtx">能力 0%</span></div>
       </div>
     </div>
     <div class="rankbadge red" id="rTop" style="left:26.5%;top:1.6%">1<span>位</span></div>
@@ -45,8 +45,8 @@
       <div class="col">
         <div class="namebar" id="fBotName">—</div>
         <div class="statrow"><span class="lbl">総資産</span><span class="sub" id="fBotAsset">0</span></div>
-        <div class="statrow"><span class="lbl">所持金</span><span class="big" id="fBotCash">0</span></div>
-        <div class="gauge"><i id="fBotGauge" style="width:0%"></i><span class="gtxt" id="fBotGtx">魔力 0%</span></div>
+        <div class="statrow"><span class="lbl">マーブル</span><span class="big" id="fBotCash">0</span></div>
+        <div class="gauge"><i id="fBotGauge" style="width:0%"></i><span class="gtxt" id="fBotGtx">能力 0%</span></div>
         <div class="jam">邪魔できる回数：<b id="jamN">3</b></div>
       </div>
     </div>
@@ -60,7 +60,7 @@
       <div class="col">
         <div class="namebar" id="fTRName">—</div>
         <div class="statrow"><span class="lbl">総資産</span><span class="sub" id="fTRAsset">0</span></div>
-        <div class="statrow"><span class="lbl">所持金</span><span class="sub cash" id="fTRCash">0</span></div>
+        <div class="statrow"><span class="lbl">マーブル</span><span class="sub cash" id="fTRCash">0</span></div>
       </div>
     </div>
     <div class="rankbadge sm" id="rTR" style="right:26.5%;top:1.6%">3<span>位</span></div>
@@ -71,7 +71,7 @@
       <div class="col">
         <div class="namebar" id="fBLName">—</div>
         <div class="statrow"><span class="lbl">総資産</span><span class="sub" id="fBLAsset">0</span></div>
-        <div class="statrow"><span class="lbl">所持金</span><span class="sub cash" id="fBLCash">0</span></div>
+        <div class="statrow"><span class="lbl">マーブル</span><span class="sub cash" id="fBLCash">0</span></div>
       </div>
     </div>
     <div class="rankbadge sm" id="rBL" style="left:26.5%;bottom:2%">4<span>位</span></div>
@@ -87,7 +87,7 @@
       <button id="push">押す</button>
     </div>
     <div id="chip">7</div>
-    <div id="dbl">ゾロ目！</div>
+    <div id="dbl">×ダブル</div>
 
     <!-- ═══ トースト ═══ -->
     <div id="toastL"></div>
@@ -105,8 +105,8 @@
     <!-- ═══ ゆらす（相手の建設を邪魔する） ═══ -->
     <div id="shake">
       <b>相手が建物を設置中！</b>
-      <i>「ゆらす」を押して邪魔しましょう（残り <em id="jamLeft">3</em> 回）</i>
-      <button id="shakeBtn">ゆらす</button>
+      <i>揺らすをタッチして邪魔しましょう（残り <em id="jamLeft">3</em> 回）</i>
+      <button id="shakeBtn">揺らす</button>
     </div>
 
     <!-- ═══ 告知帯 ═══ -->
@@ -114,7 +114,7 @@
 
     <!-- ═══ 能力カットイン ═══ -->
     <div id="skillcut"><div class="band">
-      <div class="t1" id="scT1">SKILL</div>
+      <div class="t1" id="scT1">スペシャル能力</div>
       <div class="t2" id="scT2">—</div>
       <div class="t3" id="scT3">—</div>
     </div></div>
@@ -164,7 +164,7 @@
         <div class="logo">ダイスキングダム</div>
         <div class="sub">DICE KINGDOM</div>
         <div class="lead">
-          サイコロを振って街を買い、建てて、独占する。<br>
+          サイコロを振って都市を買い、建てて、独占する。<br>
           <b>横画面</b>で遊ぶボードゲーム。最大4人・CPU対戦つき。
         </div>
         <div class="go"><button class="btn gold" id="toSetup">はじめる</button></div>
@@ -186,7 +186,7 @@
             <label class="opt">制限時間
               <select id="optTime"><option value="0">なし</option><option value="900">15分</option><option value="1200" selected>20分</option><option value="1500">25分</option></select>
             </label>
-            <label class="opt">所持金
+            <label class="opt">マーブル
               <select id="optCash"><option value="10000000" selected>1000万</option><option value="15000000">1500万</option><option value="20000000">2000万</option><option value="30000000">3000万</option></select>
             </label>
             <label class="opt">CPUの強さ
@@ -200,9 +200,9 @@
             </label>
           </div>
           <div class="rules" style="margin-top:12px">
-            <b>勝ち方</b>は3つ。<b>①独占</b>＝同じ色の街を3つそろえる／1辺の街をぜんぶ持つ＝その場で勝ち。
+            <b>勝ち方</b>は3つ。<b>①独占</b>＝同じ色の都市を3つそろえる／1辺の都市をぜんぶ持つ＝その場で勝ち。
             <b>②破産</b>＝ほかの人が全員お金を払えなくなる。<b>③ターン切れ</b>＝最後に総資産が一番多い人。<br>
-            ゾロ目が出たらもう一回振れます（3回続くと氷の監獄行き）。
+            ダブルが出たらもう一回振れます（3回続くと氷の監獄へ）。
           </div>
         </div>
         <div class="panel">
@@ -214,7 +214,7 @@
           </div>
           <div class="seats" id="seatList"></div>
           <div class="rules" style="margin-top:13px">
-            <b>あなた</b>＝この端末で操作／<b>CPU</b>＝コンピュータ／<b>ともだち</b>＝同じ端末を回して遊ぶ。
+            <b>あなた</b>＝この端末で操作／<b>CPU</b>＝コンピュータ／<b>友だち</b>＝同じ端末を回して遊ぶ。
           </div>
         </div>
         <div class="foot">
@@ -264,11 +264,11 @@
         <h2>WIN</h2>
         <div class="win" id="resWin">—</div>
         <div class="reason" id="resReason">—</div>
-        <table><thead><tr><th></th><th>プレイヤー</th><th>所持金</th><th>不動産</th><th>総資産</th></tr></thead>
+        <table><thead><tr><th></th><th>プレイヤー</th><th>マーブル</th><th>不動産</th><th>総資産</th></tr></thead>
           <tbody id="resRows"></tbody></table>
         <div class="foot">
-          <button class="btn gold" id="againSame">もう一回（同じ設定）</button>
-          <button class="btn ghost" id="againSetup">設定を変える</button>
+          <button class="btn gold" id="againSame">もう一回</button>
+          <button class="btn ghost" id="againSetup">部屋にもどる</button>
         </div>
       </div>
     </div>

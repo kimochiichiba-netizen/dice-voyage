@@ -17,7 +17,7 @@ const CARDPOOL = [
   {id:'c01', art:3, kind:8, col:'#E0452A', nm:'業火のカイン', role:'炎の賭博師', rar:'SS',
    line:'燃えないものは、賭けに値しない。',
    st:{toll:92,mini:64,special:58,fortune:72,build:70,gauge:88,buyout:66},
-   sk:{nm:'獄炎の地脈', ds:'自分の街ぜんぶの通行料が2ターン1.6倍になる', uses:2}},
+   sk:{nm:'獄炎の地脈', ds:'自分の都市ぜんぶの通行料が2ターン1.6倍になる', uses:2}},
   {id:'c02', art:0, kind:0, col:'#9FD8F0', nm:'氷華のリーゼ', role:'氷の姫', rar:'S',
    line:'凍れば、痛みも止まります。',
    st:{toll:74,mini:58,special:66,fortune:62,build:68,gauge:70,buyout:60},
@@ -25,7 +25,7 @@ const CARDPOOL = [
   {id:'c03', art:7, kind:4, col:'#F2C230', nm:'雷拳のゴウ', role:'雷の闘士', rar:'S',
    line:'奪う。理由はそれだけだ。',
    st:{toll:68,mini:86,special:52,fortune:54,build:62,gauge:78,buyout:58},
-   sk:{nm:'雷鳴の徴収', ds:'相手全員から所持金の16%を奪う', uses:2}},
+   sk:{nm:'雷鳴の徴収', ds:'相手全員からマーブルの16%を奪う', uses:2}},
   {id:'c04', art:6, kind:1, col:'#8F6BC8', nm:'星詠みのセレナ', role:'星の魔女', rar:'SS',
    line:'その目は、もう見えています。',
    st:{toll:66,mini:72,special:78,fortune:94,build:64,gauge:96,buyout:70},
@@ -37,11 +37,11 @@ const CARDPOOL = [
   {id:'c06', art:5, kind:5, col:'#E86AA0', nm:'発明家ミリィ', role:'機械技師', rar:'A',
    line:'こわれたら、直せばいいの！',
    st:{toll:52,mini:68,special:62,fortune:58,build:74,gauge:60,buyout:54},
-   sk:{nm:'突貫工事', ds:'自分の街をひとつ、ただで一段そだてる', uses:2}},
+   sk:{nm:'突貫工事', ds:'自分の都市をひとつ、ただで一段そだてる', uses:2}},
   {id:'c07', art:1, kind:7, col:'#3E8FE0', nm:'勝負師レイ', role:'賭博王', rar:'S',
-   line:'ゾロ目？　出すものだよ。',
+   line:'ダブル？　出すものだよ。',
    st:{toll:60,mini:74,special:60,fortune:82,build:56,gauge:90,buyout:62},
-   sk:{nm:'双六の理', ds:'次のサイコロが必ずゾロ目になる（もう一回振れる）', uses:3}},
+   sk:{nm:'双六の理', ds:'次のサイコロが必ずダブルになる（もう一回振れる）', uses:3}},
   {id:'c08', art:2, kind:10, col:'#C0392B', nm:'怪盗ノワール', role:'宝石泥棒', rar:'S',
    line:'いただくわ。あとで返すかは、気分。',
    st:{toll:64,mini:80,special:70,fortune:76,build:54,gauge:72,buyout:86},
@@ -49,11 +49,11 @@ const CARDPOOL = [
   {id:'c09', art:7, kind:5, col:'#5E8A3C', nm:'大地のガルド', role:'岩の守人', rar:'A',
    line:'動かぬものが、いちばん強い。',
    st:{toll:70,mini:52,special:54,fortune:46,build:76,gauge:50,buyout:58},
-   sk:{nm:'岩盤工事', ds:'自分の街をひとつ、ただで一段そだてる', uses:2}},
+   sk:{nm:'岩盤工事', ds:'自分の都市をひとつ、ただで一段そだてる', uses:2}},
   {id:'c10', art:5, kind:0, col:'#F0E0A8', nm:'聖女アルテア', role:'光の導き手', rar:'SS',
    line:'あなたの負債、わたしが背負います。',
    st:{toll:78,mini:66,special:88,fortune:86,build:72,gauge:68,buyout:82},
-   sk:{nm:'聖域の盾', ds:'次に払う通行料が0になる（相手の街も凍る）', uses:3}},
+   sk:{nm:'聖域の盾', ds:'次に払う通行料が0になる（相手の都市も凍る）', uses:3}},
   {id:'c11', art:4, kind:2, col:'#6BB2D2', nm:'疾風のシン', role:'影の刺客', rar:'S',
    line:'間合いは、こちらが決める。',
    st:{toll:66,mini:78,special:58,fortune:60,build:54,gauge:92,buyout:66},
@@ -65,11 +65,11 @@ const CARDPOOL = [
   {id:'c13', art:1, kind:4, col:'#C98A3A', nm:'海賊王バルド', role:'海の商人', rar:'S',
    line:'海の上では、おれが法だ。',
    st:{toll:76,mini:72,special:56,fortune:64,build:60,gauge:70,buyout:88},
-   sk:{nm:'略奪の宴', ds:'相手全員から所持金の16%を奪う', uses:2}},
+   sk:{nm:'略奪の宴', ds:'相手全員からマーブルの16%を奪う', uses:2}},
   {id:'c14', art:3, kind:8, col:'#E0405A', nm:'紅竜のヴェル', role:'竜の姫', rar:'SS',
    line:'地価も、わたしが決めるの。',
    st:{toll:96,mini:62,special:60,fortune:58,build:80,gauge:74,buyout:68},
-   sk:{nm:'竜脈の高騰', ds:'自分の街ぜんぶの通行料が2ターン1.6倍になる', uses:2}},
+   sk:{nm:'竜脈の高騰', ds:'自分の都市ぜんぶの通行料が2ターン1.6倍になる', uses:2}},
   {id:'c15', art:6, kind:1, col:'#B8C0D8', nm:'時計師クロノ', role:'時の管理人', rar:'S',
    line:'一手だけ、巻き戻します。',
    st:{toll:58,mini:64,special:84,fortune:78,build:66,gauge:88,buyout:72},
@@ -89,7 +89,7 @@ const CARDPOOL = [
   {id:'c19', art:4, kind:4, col:'#8A3A6A', nm:'夜宴のヴィクター', role:'夜の貴族', rar:'SS',
    line:'いただくのは、血ではなく利子です。',
    st:{toll:88,mini:58,special:74,fortune:80,build:62,gauge:72,buyout:94},
-   sk:{nm:'血税の宴', ds:'相手全員から所持金の19%を奪う', uses:2}},
+   sk:{nm:'血税の宴', ds:'相手全員からマーブルの19%を奪う', uses:2}},
   {id:'c20', art:6, kind:2, col:'#C8CCE8', nm:'月読のルナ', role:'月の巫女', rar:'S',
    line:'月の道を、お通しします。',
    st:{toll:60,mini:66,special:76,fortune:84,build:54,gauge:70,buyout:60},
@@ -101,11 +101,11 @@ const CARDPOOL = [
   {id:'c22', art:5, kind:5, col:'#D8A030', nm:'整備士ハナ', role:'鉄の職人', rar:'A',
    line:'一晩で建てちゃうよ。',
    st:{toll:54,mini:66,special:60,fortune:56,build:80,gauge:58,buyout:52},
-   sk:{nm:'突貫の腕', ds:'自分の街をひとつ、ただで一段そだてる', uses:2}},
+   sk:{nm:'突貫の腕', ds:'自分の都市をひとつ、ただで一段そだてる', uses:2}},
   {id:'c23', art:6, kind:0, col:'#9A7FE0', nm:'結晶王アメジスト', role:'結晶の支配者', rar:'SS',
    line:'砕けぬものに、税は届かぬ。',
    st:{toll:90,mini:60,special:92,fortune:74,build:84,gauge:66,buyout:78},
-   sk:{nm:'結晶の壁', ds:'次に払う通行料が0になる（相手の街も凍る）', uses:3}},
+   sk:{nm:'結晶の壁', ds:'次に払う通行料が0になる（相手の都市も凍る）', uses:3}},
   {id:'c24', art:2, kind:6, col:'#E06A4A', nm:'空賊のエル', role:'空の旅人', rar:'A',
    line:'下を見てる暇はないよ！',
    st:{toll:58,mini:72,special:58,fortune:66,build:50,gauge:74,buyout:56},
@@ -123,17 +123,17 @@ const PENDANTS = [
   {id:'p2', nm:'蒼穹のペンダント', ic:'💠', rar:'SS', trg:'onTollGet',  p:0.60,
    ds:'相手が自分のランドマークに止まったとき束縛し、次の移動でもう一度通行料を取る'},
   {id:'p3', nm:'翠風のペンダント',     ic:'🍀', rar:'S',  trg:'onBuild',    p:0.50,
-   ds:'建設したとき、自分の別の街の建物がもう1段上がる'},
+   ds:'建設したとき、自分の別の都市の建物がもう1段上がる'},
   {id:'p4', nm:'大地のペンダント',   ic:'🟤', rar:'S',  trg:'onBuild',    p:0.31,
    ds:'建物を3棟以上持っているとき、スタートへ移動して給料を受け取る'},
   {id:'p5', nm:'陽光のペンダント',   ic:'🌞', rar:'S',  trg:'onTravel',   p:0.30,
    ds:'ワープのマスで、選ばずに一番得なマスへ即座に移動する'},
   {id:'p6', nm:'桜華のペンダント',ic:'🌸', rar:'A',  trg:'onOwnLand',  p:0.38,
-   ds:'自分の街に止まったとき、同じ辺の自分の別の街へ跳ぶ'},
+   ds:'自分の都市に止まったとき、同じ辺の自分の別の都市へ跳ぶ'},
   {id:'p7', nm:'月影のペンダント',       ic:'🌙', rar:'A',  trg:'onSameTile', p:0.45,
-   ds:'相手と同じマスに止まったとき、相手の所持金の20%を奪う'},
+   ds:'相手と同じマスに止まったとき、相手のマーブルの20%を奪う'},
   {id:'p8', nm:'炎帝のペンダント',         ic:'🔥', rar:'A',  trg:'onRoll',     p:0.37,
-   ds:'サイコロを振るとき、ゾロ目が出る'}
+   ds:'サイコロを振るとき、ダブルが出る'}
 ];
 const PEND_RAR = { A:{nm:'A', c:'#8FB2D8'}, S:{nm:'S', c:'#D8B6F0'}, SS:{nm:'S+', c:'#F2C230'} };
 const pendById = id => PENDANTS.find(p=>p.id===id);
@@ -254,7 +254,7 @@ function mkScreen(id, innerHTML){
 const META_TABS = [
   {id:'play',  ic:'🎲', nm:'対戦',       go:()=>screenTo('setup')},
   {id:'home',  ic:'🏠', nm:'ホーム',     go:()=>showHome()},
-  {id:'cards', ic:'🎴', nm:'カード',     go:()=>showCards()},
+  {id:'cards', ic:'🎴', nm:'キャラクターカード',     go:()=>showCards()},
   {id:'gacha', ic:'✨', nm:'ガチャ',     go:()=>showGacha()},
   {id:'pend',  ic:'📿', nm:'ペンダント', go:()=>showPend()}
 ];
@@ -332,7 +332,7 @@ function showDaily(){
     if(d.ic==='✨'){ const c = drawOne(); grant(c); }
     saveNow(); SFX.coin();
     await modal('<div class="modal"><div class="reward"><div class="in">'
-      + '<h3>出席ボーナス</h3><div class="items"><div class="it">'
+      + '<h3>出席簿</h3><div class="items"><div class="it">'
       + '<div class="ic">'+d.ic+'</div><div class="v">×'+d.v+'</div><div class="l">'+esc(d.nm)+'</div>'
       + '</div></div><div class="btnrow" style="justify-content:center;margin-top:12px">'
       + '<button class="btn gold" data-act="ok">受け取る</button></div></div></div></div>');
@@ -348,7 +348,7 @@ const QUESTS = [
   {id:'q3', nm:'カードを4枚あつめる',      need:4,  get:()=>ownedCards().length, rw:{d:5}},
   {id:'q4', nm:'カードをLv.5まで育てる',   need:5,
    get:()=>Math.max(1, ...CARDPOOL.map(c=>(SV.cards[c.id]||{lv:0}).lv)), rw:{g:5000}},
-  {id:'q5', nm:'ペンダントを4つ装備する',  need:4,
+  {id:'q5', nm:'ペンダントを4つ装着する',  need:4,
    get:()=>SV.slots.filter(Boolean).length, rw:{d:8}}
 ];
 function questReady(){
@@ -406,7 +406,7 @@ function showNews(){
     + '注目カード：<b>'+esc(featureCard().nm)+'</b>（ガチャで出やすくなっています）</p>'
     + '</div></div>'
     + '<div class="pan" style="margin-top:14px"><div class="in">'
-    + '<h3>遊び方</h3><p style="font-size:13.5px;line-height:2">'
+    + '<h3>ガイド</h3><p style="font-size:13.5px;line-height:2">'
     + TIPS.map(t=>'・'+esc(t)).join('<br>')
     + '</p></div></div>'
     + '</div>' + walletHTML());
@@ -586,7 +586,7 @@ function rankPaneHTML(){
   const rank = rows.findIndex(r=>r.me) + 1;
   const medal = i => i===0 ? '🥇' : i===1 ? '🥈' : i===2 ? '🥉' : (i+1);
   return '<div class="rankpane">'
-    + '<div class="rtab"><span class="on">全体ランキング</span><span>ともだち</span></div>'
+    + '<div class="rtab"><span class="on">全体ランキング</span><span>友だちランキング</span></div>'
     + '<div class="rlist">'
     + rows.slice(0,7).map((r,i)=>
         '<div class="rrow'+(r.me?' me':'')+'">'
@@ -649,7 +649,7 @@ function drawCardDetail(){
     + '<div style="margin-top:9px">'+statRows(st)+'</div>'
     + '<div style="display:flex;gap:9px;margin-top:12px">'
     +   '<button class="btn ghost" id="cdEquip" style="flex:1;font-size:16px;padding:9px 0"'
-    +     (SV.equip===c.id?' disabled':'')+'>'+(SV.equip===c.id?'装備中':'装備する')+'</button>'
+    +     (SV.equip===c.id?' disabled':'')+'>'+(SV.equip===c.id?'装着中':'装着')+'</button>'
     +   '<button class="btn gold" id="cdUp" style="flex:1.3;font-size:16px;padding:9px 0"'
     +     (canUp?'':' disabled')+'>強化 🪙'+cost+' ／ 同カード×1</button>'
     + '</div>'
@@ -960,7 +960,7 @@ const WEEKLY = [
    apply:g=>{ g.ev = {buildX:0.8}; }},
   {id:'toll',  ic:'💰', nm:'通行料値上げ',     ds:'すべての通行料が1.3倍になる週',
    apply:g=>{ g.ev = {tollX:1.3}; }},
-  {id:'luck',  ic:'🍀', nm:'幸運のフォーチュン', ds:'チャンスカードで良い効果が出やすい週',
+  {id:'luck',  ic:'🍀', nm:'幸運のフォーチュン', ds:'フォーチュンカードで良い効果が出やすい週',
    apply:g=>{ g.ev = {luck:0.45}; }},
   {id:'mini',  ic:'🕯️', nm:'洞窟フィーバー',   ds:'ミニゲームの倍率が最初から×4の週',
    apply:g=>{ g.ev = {miniX:2}; }},
@@ -1052,8 +1052,8 @@ function roomPhase(){
       ord.forEach(function(s, i){
         if(!s){
           h += '<div class="rm-seat empty r' + (i + 1) + '" style="top:' + top[i] + '%">'
-            + '<div class="lb"><b>空席</b></div><div class="fc"></div>'
-            + '<div class="nm"><b>—</b><i>ともだちを待っています</i></div></div>';
+            + '<div class="lb"><b>待機中</b></div><div class="fc"></div>'
+            + '<div class="nm"><b>—</b><i>プレイヤーが入場するとスタートできます</i></div></div>';
           return;
         }
         const cc = cardById(s.cardId) || CARDPOOL[i % CARDPOOL.length];
@@ -1130,8 +1130,8 @@ function roomPhase(){
         + '<div class="rm-rp"></div>' + seatsHTML()
         + '<div class="rm-add" id="rmAdd"><span class="t1">ゲーム友だち</span>'
         +   '<span class="t2">＋追加</span></div>'
-        + '<div class="rm-go" id="rmGo"><div class="fc"><b>プレイ準備完了</b></div></div>'
-        + '<div class="rm-notice"><b>30秒以内に準備ないと自動退場されます</b></div>'
+        + '<div class="rm-go" id="rmGo"><div class="fc"><b>ゲームスタート</b></div></div>'
+        + '<div class="rm-notice"><b>10秒以内に始めないと自動退場されます</b></div>'
         + walletHTML()
         + '</div>';
 
@@ -1180,7 +1180,7 @@ function roomPhase(){
         cfg.mapId = MAPS[(i + 1) % MAPS.length].id; render();
       });
       on('#rmAdd', function(){
-        toast('R','👥','ともだち募集','いまはCPUと遊べます。ともだち対戦はこれからです', 2200);
+        toast('R','👥','友だち募集','いまはCPUと遊べます。友だち対戦はこれからです', 2200);
       });
       on('#rmUmap', function(){ resolve(false); });
       on('#rmGo',   function(){ resolve(true); });
@@ -1283,7 +1283,7 @@ function krWireFoot(el){
   if(sell) sell.onclick = async function(){
     const c = cardById(krCardSel), o = SV.cards[krCardSel];
     if(!c || !o) return;
-    if(SV.equip === c.id){ SFX.warn(); toast('R','🚫','装備中は売れません','ほかのカードを装備してからにしてください', 2400); return; }
+    if(SV.equip === c.id){ SFX.warn(); toast('R','🚫','装着中は売れません','ほかのカードを装着してからにしてください', 2400); return; }
     if(SV.locks && SV.locks[c.id]){ SFX.warn(); toast('R','🔒','ロック中です','カードの🔓を押すと外せます', 2200); return; }
     if(ownedCards().length <= 1){ SFX.warn(); toast('R','🚫','最後の1枚は売れません','', 2000); return; }
     const g = krSellPrice(c, o);
@@ -1291,10 +1291,10 @@ function krWireFoot(el){
       + '<h3>カードを売りますか？</h3>'
       + '<p>'+esc(c.nm)+'（'+RAR[c.rar].nm+' ／ Lv.'+o.lv+'）</p>'
       + '<div class="big">🪙 '+g.toLocaleString()+'</div>'
-      + '<p style="font-size:13px;color:#9FBBD6">売ると元には戻せません</p>'
+      + '<p style="font-size:13px;color:#9FBBD6">売却すると元には戻せません</p>'
       + '<div class="btnrow" style="justify-content:center">'
       + '<button class="btn ghost" data-act="no">やめる</button>'
-      + '<button class="btn red" data-act="ok">売る</button></div>'
+      + '<button class="btn red" data-act="ok">売却</button></div>'
       + '</div></div>')) === 'ok';
     if(!yes) return;
     delete SV.cards[c.id]; SV.gold += g; saveNow(); SFX.coin();
@@ -1310,7 +1310,7 @@ function krWireFoot(el){
     if(!c || !o) return;
     // 装備中のカードを素材にすると、装備が「持っていないカード」を指したまま残ってしまう
     if(SV.equip === c.id){ SFX.warn();
-      toast('R','🚫','装備中は素材にできません','ほかのカードを装備してからにしてください', 2400); return; }
+      toast('R','🚫','装着中は素材にできません','ほかのカードを装着してからにしてください', 2400); return; }
     if(SV.locks && SV.locks[c.id]){ SFX.warn(); toast('R','🔒','ロック中です','カードの🔓を押すと外せます', 2200); return; }
     const nx = krNextRar(c.rar);
     if(!nx){ SFX.warn(); toast('R','✨','これ以上の等級はありません', RAR[c.rar].nm+' が最高です', 2400); return; }
@@ -1389,7 +1389,7 @@ function slotPicker(slot, after){
       html += '<div class="pslot' + (used===slot?' on':'') + '" data-p="' + p.id + '"'
         + (used>=0 && used!==slot ? ' style="opacity:.4"' : '') + '>'
         + '<div class="ic">' + p.ic + '</div><div class="nm">' + esc(p.nm) + '</div>'
-        + (used>=0 && used!==slot ? '<div class="em">' + (used+1) + '番に装備中</div>' : '')
+        + (used>=0 && used!==slot ? '<div class="em">' + (used+1) + '番に装着中</div>' : '')
         + '</div>';
     });
     html += '</div>';
@@ -1557,7 +1557,7 @@ function drawKrCard(){
     + '<div class="art"><canvas id="krPic" width="330" height="437"></canvas>'
     +   '<div class="nameband"><b>'+esc(c.nm)+'</b></div></div>'
     + '<div class="side">'
-    +   '<b class="warn" id="krEquip" title="このカードを装備する">'
+    +   '<b class="warn" id="krEquip" title="このカードを装着する">'
     +     (SV.equip===c.id ? '★' : '▲')+'</b>'
     +   '<b class="lock" id="krLock" title="売却・合成から守る">'
     +     ((SV.locks&&SV.locks[c.id]) ? '🔒' : '🔓')+'</b>'
@@ -1567,7 +1567,7 @@ function drawKrCard(){
   regPortrait(document.getElementById('krPic'), c.art, c.col, c.id);
   const eq = document.getElementById('krEquip');
   if(eq) eq.onclick = function(){
-    if(SV.equip === c.id){ SFX.warn(); toast('R','★','すでに装備中です','', 1800); return; }
+    if(SV.equip === c.id){ SFX.warn(); toast('R','★','すでに装着中です','', 1800); return; }
     SV.equip = c.id; saveNow(); SFX.click();
     krRedraw(); toast('R','★','装備しました', c.nm+' で対戦します', 2200);
   };

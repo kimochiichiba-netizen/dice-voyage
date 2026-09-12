@@ -1346,7 +1346,7 @@ async function dktRollPhase(pi, g0){
     // SSカードの「追加でもう一回振れる」
     if(!again && G === g0 && !G.over && !p.out && p.jail <= 0 && !p.travel && p.extraRoll > 0){
       p.extraRoll--;
-      dkNotify(pi, '🔮', '追加のサイコロ', 'もう一回サイコロを振れます', { ms:1700 });
+      dkNotify(pi, '🔮', '追加のサイコロ', 'もう一回！サイコロを振ります', { ms:1700 });
       again = true;
     }
   }

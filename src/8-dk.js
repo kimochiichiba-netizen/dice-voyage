@@ -153,7 +153,7 @@ function dkWire(el, onTab){
    ホーム
    ══════════════════════════════════════════════════════════════ */
 const DK_LEFT = [
-  {id:'cards', ic:'🎴', nm:'カード'},
+  {id:'cards', ic:'🎴', nm:'キャラクターカード'},
   {id:'dice',  ic:'🎲', nm:'サイコロ'},
   {id:'pend',  ic:'📿', nm:'ペンダント'},
   {id:'gacha', ic:'🧊', nm:'キューブ'},
@@ -163,7 +163,7 @@ const DK_RIGHT = [
   {id:'quest', ic:'📜', nm:'ミッション'},
   {id:'news',  ic:'📣', nm:'イベント'},
   {id:'daily', ic:'📅', nm:'出席簿'},
-  {id:'play',  ic:'🤝', nm:'ともだち'},
+  {id:'play',  ic:'🤝', nm:'友達'},
   {id:'title', ic:'⏏️', nm:'タイトル'}
 ];
 
@@ -252,7 +252,7 @@ let dkQuestTab = 'daily';
 const DK_QTABS = [
   {id:'daily',  ic:'🪶', nm:'デイリー'},
   {id:'weekly', ic:'📅', nm:'ウィークリー'},
-  {id:'trophy', ic:'🏆', nm:'実績'}
+  {id:'trophy', ic:'🏆', nm:'限定ミッション'}
 ];
 /* 週替わり・実績は、既存のミッションを別の目標値で見せる */
 function dkQuestList(tab){
@@ -417,7 +417,7 @@ function showPend(){
     +       '<div class="btns">'
     +         '<button class="dkbtn gd" id="dkUp">強化する</button>'
     +         '<button class="dkbtn gr" id="dkEq"' + (eq ? ' disabled' : '') + '>'
-    +           (eq ? '装備中' : '装備する') + '</button>'
+    +           (eq ? '装着中' : '装着') + '</button>'
     +       '</div>'
     +     '</div>'
     +   '</div>'
@@ -487,7 +487,7 @@ function showDice(){
   var bars = [
     ['⚔️ 出目の大きさ', Math.round((d.big || 0) * 60 + 20), 'rd', '+' + Math.round((d.big || 0) * 22) + '%'],
     ['🎯 ゲージの当たり', Math.min(100, (d.gauge || 0) * 5 + 20), 'bl', '+' + (d.gauge || 0)],
-    ['🎲 ゾロ目の出やすさ', Math.min(100, (d.dbl || 0) * 500 + 18), 'gd', '+' + Math.round((d.dbl || 0) * 100) + '%'],
+    ['🎲 ダブルの出やすさ', Math.min(100, (d.dbl || 0) * 500 + 18), 'gd', '+' + Math.round((d.dbl || 0) * 100) + '%'],
     ['🍀 育ち具合', Math.min(100, lv * 16), '', 'Lv.' + lv]
   ].map(function(b){
     return '<div class="st"><span class="l">' + b[0] + '</span>'
@@ -515,7 +515,7 @@ function showDice(){
     +       bars
     +       '<div class="btns"><button class="dkbtn gd" id="dkDup">強化する</button>'
     +         '<button class="dkbtn gr" id="dkDeq"' + (eq ? ' disabled' : '') + '>'
-    +         (eq ? '装備中' : '装備する') + '</button></div>'
+    +         (eq ? '装着中' : '装着') + '</button></div>'
     +     '</div>'
     +   '</div>'
     +   '<div class="dkdark dkbottom"><span class="cnt">所持<br>サイコロ<br><b>'
@@ -556,7 +556,7 @@ function showDice(){
 let dkShopTab = 'osusume';
 const DK_STABS = [
   {id:'osusume', ic:'👑', nm:'おすすめ'},
-  {id:'card',    ic:'🎴', nm:'カード'},
+  {id:'card',    ic:'🎴', nm:'キャラクターカード'},
   {id:'gem',     ic:'💎', nm:'ダイヤ'}
 ];
 function dkGoods(tab){
@@ -676,7 +676,7 @@ function showDaily(){
     saveNow(); SFX.coin(); dkWallet();
     dkBurst(b, d.ic, 16);
     await modal('<div class="modal"><div class="reward"><div class="in">'
-      + '<h3>出席ボーナス</h3><div class="items"><div class="it">'
+      + '<h3>出席簿</h3><div class="items"><div class="it">'
       + '<div class="ic">' + d.ic + '</div><div class="v">×' + d.v + '</div><div class="l">' + esc(d.nm) + '</div>'
       + '</div></div><div class="btnrow" style="justify-content:center;margin-top:12px">'
       + '<button class="btn gold" data-act="ok">受け取る</button></div></div></div></div>');
@@ -730,7 +730,7 @@ function showCards(){
   }).join('');
 
   var el = dkMake('cards', 'shop',
-      dkHead('cards', { title:'カード' })
+      dkHead('cards', { title:'キャラクターカード' })
     + dkTabs(DK_CTABS, dkCardTab)
     + '<div class="dkbody dkcol">'
     +   '<div class="dkmain">'
@@ -757,7 +757,7 @@ function showCards(){
     +         '<button class="dkbtn gd" id="dkCup"' + (own && lv < 30 ? '' : ' disabled') + '>'
     +           '強化 ' + (own && lv < 30 ? '🪙' + cost.toLocaleString() : 'できません') + '</button>'
     +         '<button class="dkbtn gr" id="dkCeq"' + (eq || !own ? ' disabled' : '') + '>'
-    +           (eq ? '装備中' : own ? '装備する' : '未所持') + '</button>'
+    +           (eq ? '装着中' : own ? '装着' : '未所持') + '</button>'
     +       '</div>'
     +     '</div>'
     +   '</div>'

@@ -310,7 +310,7 @@ function dkrReachUpdate(){
     try{ bgm('boss'); }catch(e){}
     fresh.forEach(function(r){
       var ts = r.tiles.map(function(i){ return G.tiles[i].name; }).join('・');
-      try{ news('🚨 ' + G.players[r.pi].name + ' が' + r.label + 'リーチ！ 残り都市 ' + ts); }catch(e){}
+      try{ news('🚨 ' + G.players[r.pi].name + ' の' + r.label + '残り都市 ' + ts); }catch(e){}
     });
   }
   return list;
@@ -1356,7 +1356,7 @@ async function dkPayFrom(pi, amt, toPi){
   var guard = 0;
   while(p.cash < amt && guard++ < 40){
     if(!dkrOwned(pi).length) return false;
-    var v = await dvAsk(pi, 'sell', function(){ return dkrSellPick(pi, amt, toPi); }, '売るエリアを選んでいます');
+    var v = await dvAsk(pi, 'sell', function(){ return dkrSellPick(pi, amt, toPi); }, '売却するエリアを選んでいます');
     if(!v || v.bankrupt) return false;
     var list = (Array.isArray(v.sell) ? v.sell : []).filter(function(i){
       var t = G.tiles[i]; return t && t.type === 'city' && t.owner === pi; });

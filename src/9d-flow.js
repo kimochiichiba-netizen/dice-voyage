@@ -345,7 +345,7 @@ function dkFlowClass(){
     + '<div class="dkf-sub">'
     +   '<div class="dkf-olbtn" role="button" id="dkfOnline" data-fx="riseL" data-fx-press>'
     +     '<span class="dkf-olbtn-ic">' + dkfSvg('globe') + '</span>'
-    +     '<span class="dkf-olbtn-tx"><b>オンライン対戦</b><small>ともだちと通信で遊ぶ</small></span></div>'
+    +     '<span class="dkf-olbtn-tx"><b>オンライン対戦</b><small>友だちと通信で遊ぶ</small></span></div>'
     +   '<div class="dkf-tkbox" data-fx="rise"><b class="dkf-tkbox-hd">入場券</b>'
     +     ['biz', 'first', 'dia'].map(function(k){
             return '<span class="dkf-tkc dkf-t-' + k + '"><i class="dkf-tkc-ic">' + dkfSvg('ticket') + '</i>'
@@ -940,7 +940,7 @@ function dkfBuildRoom(){
   if(add) add.onclick = function(){
     if(dkfOnlineOk()){ dkfSnd('click'); window.DV_OL_API.open(); return; }
     dkfSnd('click');
-    dkfToast('👥', 'この端末で ともだちと遊べます', '席を押して「ともだち」にすると交代で遊べます', 2800);
+    dkfToast('👥', 'この端末で 友だちと遊べます', '席を押して「友だち」にすると交代で遊べます', 2800);
     var s = el.querySelector('.dkf-seat.dkf-k-cpu, .dkf-seat.dkf-k-lock');
     if(s) dkfPop(s);
   };
@@ -988,8 +988,8 @@ function dkfRoomExit(){
 }
 function dkfRoomStart(node){
   var c = dkClassOf(cfg.cls);
-  if(cfg.n < 2) return dkfNope(node, '👥', '2人から遊べます', '席を押して CPU か ともだちを入れてください');
-  if(cfg.team && cfg.n !== 4) return dkfNope(node, '👥', 'チーム戦は4人で遊びます', '席を押して CPU か ともだちを入れてください');
+  if(cfg.n < 2) return dkfNope(node, '👥', '2人から遊べます', '席を押して CPU か 友だちを入れてください');
+  if(cfg.team && cfg.n !== 4) return dkfNope(node, '👥', 'チーム戦は4人で遊びます', '席を押して CPU か 友だちを入れてください');
   if(!dkfTicketOk(c)) return dkfNope(node, '🎫', c.nm + 'の入場券がありません', 'クラス選択で入場券を用意してください');
   var r = DKF_S.roomRes;
   if(!r || DKF_S.busy) return;                   // 二度押し
@@ -1346,8 +1346,8 @@ function dkfSeatHTML(s, i, tm){
   var cc = cardById(s.cardId) || CARDPOOL[i % CARDPOOL.length];
   var tag = k === 'you' ? '<span class="dkf-stag-ic">' + dkfSvg('house') + '</span><b>部屋主</b>'
           : k === 'cpu' ? '<span class="dkf-stag-cpu">CPU</span><b>' + DKF_AIS[cfg.ai | 0][1] + '</b>'
-          : '<span class="dkf-stag-fr">' + dkfSvg('pen') + '</span><b>ともだち</b>';
-  var btns = k === 'cpu' ? '<span class="dkf-shint">タップで ともだちに</span>'
+          : '<span class="dkf-stag-fr">' + dkfSvg('pen') + '</span><b>友だち</b>';
+  var btns = k === 'cpu' ? '<span class="dkf-shint">タップで 友だちに</span>'
     : '<span class="dkf-sbtns">'
       + (k === 'you' && team ? '<span class="dkf-sb dkf-sb-team" role="button" data-dkf-team="1">' + dkfSvg('swap') + '<b>チーム<br>変更</b></span>' : '')
       + (k === 'human' ? '<span class="dkf-sb" role="button" data-dkf-name="' + i + '">' + dkfSvg('pen') + '<b>名前</b></span>' : '')
@@ -1418,7 +1418,7 @@ function dkfCycleSeat(i){
   if(c.n && i > 1) return;
   var noLock = !!c.n || !!cfg.team;
   var s = DKF_S.slots[i];
-  if(s.kind === 'cpu'){ s.kind = 'human'; s.name = 'ともだち' + (i + 1); s.cardId = null; s.trial = false; }
+  if(s.kind === 'cpu'){ s.kind = 'human'; s.name = '友だち' + (i + 1); s.cardId = null; s.trial = false; }
   else if(s.kind === 'human' && !noLock){ s.kind = 'lock'; s.cardId = null; s.trial = false; }
   else { s.kind = 'cpu'; s.name = 'CPU ' + DKF_CPU_NM[(i + 2) % 3]; s.cardId = null; s.trial = false; }
   dkfSnd(s.kind === 'lock' ? 'click' : 'cardIn');

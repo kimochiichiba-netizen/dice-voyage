@@ -27,7 +27,7 @@ var DKS_TABS = [
   { id:'free',    ic:'🎁', nm:'むりょう' },
   { id:'ticket',  ic:'🎫', nm:'入場券' },
   { id:'dice',    ic:'🎲', nm:'サイコロ' },
-  { id:'card',    ic:'🎴', nm:'カード' },
+  { id:'card',    ic:'🎴', nm:'キャラクターカード' },
   { id:'gem',     ic:'💎', nm:'財貨' }
 ];
 var DKS_PED_TAB = { id:'peddler', ic:'🏮', nm:'行商人' };
@@ -660,7 +660,7 @@ function dksPaneOsusume(ped){
     + '<div class="dks-goods n4">' + dkGoods('osusume').map(function(g, i){ return dksGoodHTML(g, i); }).join('') + '</div>';
 }
 function dksPaneCard(){
-  return dksStrip('カード', '同じ品を続けて買うと 2個目から <b>20%OFF</b>', '<button class="dks-pedlink dks-golink" data-dkgo="gacha">ガチャを引く</button>')
+  return dksStrip('キャラクターカード', '同じ品を続けて買うと 2個目から <b>20%OFF</b>', '<button class="dks-pedlink dks-golink" data-dkgo="gacha">ガチャを引く</button>')
     + '<div class="dks-goods n3">' + dkGoods('card').map(function(g, i){ return dksGoodHTML(g, i); }).join('') + '</div>';
 }
 function dksPaneDice(){
