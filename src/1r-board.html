@@ -172,7 +172,14 @@
 /* ══════════ 中央プレート（時間・制限ターン／場の総額） ══════════ */
 /* 大きなぼかしの影を置かない（1秒ごとに変わる時計と同じ層を重くしない。H10） */
 /* 少し上に置き、ゲージの「ゲージインパクト！」と×ダブルの札にかからないようにする（GO-3・WP7#3） */
-#plate{top:192px;min-width:300px;overflow:hidden;box-shadow:0 3px 0 rgba(0,0,0,.35),inset 0 0 0 3px #F7E7DB}
+#plate{top:238px;min-width:300px;overflow:hidden;box-shadow:0 3px 0 rgba(0,0,0,.35),inset 0 0 0 3px #F7E7DB}
+/* 四隅の鋲（本家の羊皮紙プレートの金具）。静止した背景なので層は増えない＝iPhone の画素は増えない */
+#plate::after{content:"";position:absolute;inset:0;z-index:3;pointer-events:none;
+  background:
+    radial-gradient(circle at 8px 8px,#FFF4D2 0 1.5px,#DCAC42 2.6px,#7A5518 3.9px,transparent 4.3px),
+    radial-gradient(circle at calc(100% - 8px) 8px,#FFF4D2 0 1.5px,#DCAC42 2.6px,#7A5518 3.9px,transparent 4.3px),
+    radial-gradient(circle at 8px calc(100% - 8px),#FFF4D2 0 1.5px,#DCAC42 2.6px,#7A5518 3.9px,transparent 4.3px),
+    radial-gradient(circle at calc(100% - 8px) calc(100% - 8px),#FFF4D2 0 1.5px,#DCAC42 2.6px,#7A5518 3.9px,transparent 4.3px)}
 #plate .hd{display:flex;align-items:center;justify-content:center;gap:8px;padding:4px 16px 3px;font-size:17px;line-height:1.2;
   background:linear-gradient(180deg,#8A6848,#5E432B);color:#EFDCA8}
 #plate .hd .dkb-pk{font-size:16px;font-weight:900;color:#E8D0A0}

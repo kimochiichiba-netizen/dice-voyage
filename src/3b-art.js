@@ -4300,9 +4300,13 @@ function dvCelebrate(ctx, T, lines, W, H){
 
   /* ── 1行目：ベタ白＋濃縁＋暖色のにじみ ── */
   (function(){
+    /* 3行は順番に出す（本家のカットインは1行ずつ遅れて入る） */
+    const kk = easeOut(Math.min(1, t / 300));
+    if(kk <= 0) return;
     const fs = fit(l1, h1, '900');
     ctx.save();
-    ctx.translate(W * 0.5, y1);
+    ctx.translate(W * 0.5, y1 + (1 - kk) * 26);
+    ctx.globalAlpha *= kk;
     ctx.font = '900 ' + fs.toFixed(2) + 'px "Noto Sans JP","Mochiy Pop One",sans-serif';
     /* 外側の暖色のにじみ */
     ctx.save();
@@ -4327,10 +4331,13 @@ function dvCelebrate(ctx, T, lines, W, H){
 
   /* ── 2行目：画面で最大。銀グラデ＋濃赤の二重縁＋アーチ＋約-3°傾き ── */
   (function(){
+    const kk = easeOut(Math.min(1, (t - 160) / 320));
+    if(kk <= 0) return;
     const fs = fit(l2, h2, '900');
     ctx.save();
-    ctx.translate(W * 0.5, y2);
+    ctx.translate(W * 0.5, y2 + (1 - kk) * 34);
     ctx.rotate(-3 * Math.PI / 180);
+    ctx.globalAlpha *= kk;
     ctx.font = '900 ' + fs.toFixed(2) + 'px "Noto Sans JP","Mochiy Pop One",sans-serif';
     ctx.textAlign = 'left';
 
@@ -4382,6 +4389,8 @@ function dvCelebrate(ctx, T, lines, W, H){
   /* ── 3行目：金グラデ＋紺の縁。「x2倍」だけ1.3倍 ── */
   (function(){
     if(!l3) return;
+    const kk = easeOut(Math.min(1, (t - 330) / 320));
+    if(kk <= 0) return;
     /* 「x2倍」「×2倍」のような末尾の倍率だけ大きくする */
     let head = l3, tail = '';
     const m = l3.match(/[xX×]\s*[0-9０-９]+\s*倍?\s*$/);
@@ -4390,7 +4399,8 @@ function dvCelebrate(ctx, T, lines, W, H){
     const fsA = fit(head || l3, h3, '900');
     const fsB = fsA * 1.3;
     ctx.save();
-    ctx.translate(W * 0.5, y3);
+    ctx.translate(W * 0.5, y3 + (1 - kk) * 26);
+    ctx.globalAlpha *= kk;
     ctx.textAlign = 'left';
     ctx.font = '900 ' + fsA.toFixed(2) + 'px "Noto Sans JP","Mochiy Pop One",sans-serif';
     const wA = head ? ctx.measureText(head).width : 0;

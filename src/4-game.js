@@ -286,7 +286,8 @@ function layoutTokens(){
     arr.forEach((pi,j)=>{
       const p = G.players[pi];
       if(arr.length===1){ p.offx=0; p.offy=0; }
-      else { p.offx = (j - (arr.length-1)/2) * 26; p.offy = (j%2)*8; }
+      /* 同じマスに重なった時は扇状に広げる（26px では絵のコマ（幅104px）が重なって札が乱雑に見えた） */
+      else { p.offx = (j - (arr.length-1)/2) * 44; p.offy = (j%2)*11; }
       if(!p.moving) p.render = tileCenter(p.pos);
     });
   });
@@ -1959,6 +1960,8 @@ function screenTo(id){
 }
 function hideAllScreens(){
   const w = $('#wipe');
+  /* 開いたままのポップアップを持ち越さない（9-fx.js の DKFX.mclose） */
+  try{ if(typeof DKFX === 'object' && DKFX && DKFX.mclose) DKFX.mclose(); }catch(e){}
   w.classList.add('on','go');
   return new Promise(res=>{
     setTimeout(()=>{ $$('.screen').forEach(s=>s.classList.remove('on')); res(); }, 300);

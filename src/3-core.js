@@ -7,14 +7,14 @@
 
 const SW = 1600, SH = 900;
 const S  = 888;                          // 盤（正方形）の1辺（盤空間px）
-const RHO= 1.88;                         // 角マス : 通常マス（本家の実測比）
-const TW = S / (2*RHO + 7);              // 通常マスの幅（進行方向）＝103.9
-const CW = RHO * TW;                     // 角マスの1辺＝178.8
+const RHO= 2.10;                         // 角マス : 通常マス（本家の実測比。マス間隔の比 (RHO+1)/2 = 1.55）
+const TW = S / (2*RHO + 7);              // 通常マスの幅（進行方向）＝79.3
+const CW = RHO * TW;                     // 角マスの1辺＝166.5
 const TD = CW;                           // 帯の深さ。角マスと合わせて段差を無くす
 const KX = 0.7071067811865476;
-const KSQ= 0.650;                        // 縦潰し（実測: ひし形の横:縦 = 1.54:1）
+const KSQ= 0.585;                        // 縦潰し（実測: ひし形の横:縦 = 1.71:1）
 const KY = KX * KSQ;
-const BCX= SW * 0.505, BCY = SH * 0.500; // 盤中心（上頂点 4.7%・下頂点 95%）
+const BCX= SW * 0.505, BCY = SH * 0.535; // 盤中心（実測: 画面の 50.5% / 53.5%）
 const TILE_H = 8;                        // マスの厚み（実測 画面高の0.9%）
 
 function proj(p, q){
@@ -343,43 +343,50 @@ function bandQuad(i, f){
 function outSign(side){ return (side===0 || side===3) ? 1 : -1; }
 
 function drawBackdrop(ctx, map, T){
-  dvBackdrop(ctx, map.deco, T, SW, SH, BCX, BCY);
-  drawTable(ctx, T);
-}
-/* 盤が載っている卓。本家は濃いウォールナットのテーブルを斜め上から見た絵で、
-   盤の周りだけスポットで明るく、四隅は落としてある（舞台照明）。
-   ここを暗い紺にしていたので、盤が闇に浮いて安っぽく見えていた。 */
-function drawTable(ctx, T){
+  const deco = map.deco;
+  const P = (typeof _dvbPalette === 'function') ? _dvbPalette(deco) : null;
+  /* カメラが引いた時に作り置きの板の外が黒く出ないよう、先に板いっぱいを地の色で塗る */
   ctx.save();
-  // 木地
-  ctx.fillStyle = '#3A2617'; ctx.fillRect(0,0,SW,SH);
-  // 盤の周りだけを照らすスポット（実測: 盤際 #604437 → 四隅 #201210）
-  const rg = ctx.createRadialGradient(BCX, BCY-40, SW*0.10, BCX, BCY-40, SW*0.78);
-  rg.addColorStop(0,   '#6A4A38');
-  rg.addColorStop(0.34,'#604437');
-  rg.addColorStop(0.66,'#3F281C');
-  rg.addColorStop(1,   '#201210');
-  ctx.fillStyle = rg; ctx.fillRect(0,0,SW,SH);
-  // 木目。盤の右下辺とほぼ平行（画面上で約-30°）に流れる直線
-  ctx.globalAlpha = 0.16;
-  ctx.lineWidth = 1;
-  for(let k=-26; k<=26; k++){
-    const off = k*38 + Math.sin(k*2.7)*11;
-    ctx.strokeStyle = (k % 3 === 0) ? '#7A5A40' : '#2A1A10';
-    ctx.beginPath();
-    ctx.moveTo(-200, SH*0.5 + off + 200*0.577);
-    ctx.lineTo(SW+200, SH*0.5 + off - (SW+200)*0.577 + SW*0.577);
-    ctx.stroke();
-  }
-  ctx.globalAlpha = 1;
-  // 四隅のビネット
-  const vg = ctx.createRadialGradient(BCX, BCY, SW*0.30, BCX, BCY, SW*0.80);
-  vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,0.55)');
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle = (P && P.skyLo) || '#04101E';
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.restore();
+  dvBackdrop(ctx, deco, T, SW, SH, BCX, BCY);
+  drawTable(ctx, P, T);
+}
+/* 盤が載っている床。
+   以前はここで画面いっぱいを不透明な茶色で塗りつぶしていたため、
+   dvBackdrop が描いた氷柱・山影の3層・光条・浮遊粒子が毎回すべて消え、
+   盤の外が「濃い茶色の平面＋ビネット」だけに見えていた（再現度の最大の穴）。
+   いまは景色を残したまま、地平から下にだけ床を敷き、盤の真下に影と照り返しを置く。 */
+function drawTable(ctx, P, T){
+  const flo = (P && P.near && P.near[1]) ? P.near[1] : '#05101C';
+  const rim = (P && P.halo) ? P.halo : 'rgba(80,186,255,';
+  const n = parseInt(String(flo).replace('#',''), 16) || 0;
+  const fc = ((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+',';
+  const top = BCY - SH*0.03;                       // 床の地平（盤の中心のすぐ上）
+  const fy  = BCY + KY*S*0.60;                     // 盤の真下
+  ctx.save();
+  // 床：地平でぼかして奥の景色へつなぐ
+  const g = ctx.createLinearGradient(0, top, 0, SH);
+  g.addColorStop(0,    'rgba('+fc+'0)');
+  g.addColorStop(0.30, 'rgba('+fc+'0.58)');
+  g.addColorStop(1,    'rgba('+fc+'0.94)');
+  ctx.fillStyle = g; ctx.fillRect(0, top, SW, SH-top);
+  // 床の照り返し（盤の真下に広がる細長い光）
+  ctx.globalCompositeOperation = 'lighter';
+  const rg = ctx.createRadialGradient(BCX, fy, SW*0.03, BCX, fy, SW*0.40);
+  rg.addColorStop(0, rim+'0.20)'); rg.addColorStop(0.5, rim+'0.07)'); rg.addColorStop(1, rim+'0)');
+  ctx.fillStyle = rg; ctx.fillRect(0, top, SW, SH-top);
+  ctx.globalCompositeOperation = 'source-over';
+  // 盤の下2辺の外側に落ちる柔らかい影
+  const sh = ctx.createRadialGradient(BCX, fy, SW*0.05, BCX, fy, SW*0.40);
+  sh.addColorStop(0,'rgba(2,6,14,0.58)'); sh.addColorStop(0.55,'rgba(2,6,14,0.26)'); sh.addColorStop(1,'rgba(2,6,14,0)');
+  ctx.fillStyle = sh; ctx.fillRect(0, BCY-40, SW, SH-BCY+40);
+  // 四隅を締める（強いビネット）
+  const vg = ctx.createRadialGradient(BCX, BCY, SH*0.30, BCX, BCY, SW*0.74);
+  vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(0.55,'rgba(1,4,10,0.22)'); vg.addColorStop(1,'rgba(1,4,10,0.72)');
   ctx.fillStyle = vg; ctx.fillRect(0,0,SW,SH);
-  // 盤の下2辺の外側にだけ落ちる柔らかい影
-  const sh = ctx.createRadialGradient(BCX, BCY + KY*S*0.55, SW*0.06, BCX, BCY + KY*S*0.55, SW*0.42);
-  sh.addColorStop(0,'rgba(10,6,4,0.55)'); sh.addColorStop(1,'rgba(10,6,4,0)');
-  ctx.fillStyle = sh; ctx.fillRect(0, BCY, SW, SH-BCY);
   ctx.restore();
 }
 

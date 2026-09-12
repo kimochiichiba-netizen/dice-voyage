@@ -607,10 +607,23 @@ function modal(html){
     wrap.classList.remove('fx-closing');
     wrap.classList.add('on');
     var closing = false;
+    /* 画面が変わった時に外から閉じる口（DKFX.mclose）。
+       待っている処理が止まらないよう、必ず null で resolve する */
+    var force = function(){
+      if(closing) return;
+      closing = true;
+      if(F.mfin === force) F.mfin = null;
+      wrap.classList.remove('fx-closing');
+      if(F.mseq === seq) wrap.classList.remove('on');
+      if(typeof DKFX === 'object' && DKFX) DKFX.vg = (DKFX.vg | 0) + 1;
+      res(null);
+    };
+    F.mfin = force;
     body.querySelectorAll('[data-act]').forEach(function(b){
       b.onclick = function(){
         if(closing) return;
         closing = true;
+        if(F.mfin === force) F.mfin = null;
         try{ SFX.click(); }catch(e){}
         var act = b.dataset.act;
         var fin = function(){
@@ -628,6 +641,15 @@ function modal(html){
     });
   });
 }
+/* 開いているモーダルを閉じる（画面切替の共通入口から呼ぶ）。
+   これが無いと、監獄などのポップアップが WIN パネルやホームの上に残り続ける */
+DKFX.mclose = function(){
+  var f = DKFX.mfin;
+  DKFX.mfin = null;
+  if(typeof f === 'function'){ try{ f(); return; }catch(e){} }
+  var w = document.getElementById('modalWrap');
+  if(w) w.classList.remove('on', 'fx-closing');
+};
 /* 数字がパラパラと増える（旧 dkCount と同じ引数） */
 function dkCount(el, to, ms){
   if(!el) return Promise.resolve();
@@ -768,6 +790,8 @@ screenTo = function(id){
   var cur = document.querySelector('.screen.on');
   var changed = !cur || cur.id !== id;
   var was = (typeof wiping !== 'undefined') ? wiping : false;
+  /* 画面が変わる時は開いたままのポップアップを閉じる（監獄などを次の画面へ持ち越さない） */
+  if(changed){ try{ DKFX.mclose(); }catch(e){} }
   var r = DKFX.o.screenTo.apply(this, arguments);
   try{
     DKFX.vg = (DKFX.vg | 0) + 1;

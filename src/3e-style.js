@@ -195,6 +195,11 @@ function dvChar(ctx, id, col, T, facing, cardId){
   const tim = _dvImg(_dvKeyTok(cardId));
   if(tim){
     ctx.save();
+    /* 接地影（影が無いと絵のコマが盤から浮いた札に見える） */
+    ctx.fillStyle = 'rgba(6,14,26,0.34)';
+    ctx.beginPath(); ctx.ellipse(0, 0, 21, 6.5, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = 'rgba(6,14,26,0.15)';
+    ctx.beginPath(); ctx.ellipse(0, 0.8, 29, 9.5, 0, 0, 6.283); ctx.fill();
     if((facing|0) < 0) ctx.scale(-1, 1);
     const done = _dvContain(ctx, tim, -TOK_W/2, -TOK_H, TOK_W, TOK_H);
     ctx.restore();

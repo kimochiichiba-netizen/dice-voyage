@@ -1615,7 +1615,7 @@ function dkbLakeSkin(ctx, map, T){
       ctx.beginPath(); ctx.ellipse(pp.x, pp.y, 2 + dkbH(i + 90) * 3.5, 1.3 + dkbH(i + 91) * 2, 0, 0, 6.283); ctx.fill();
     }
     rim('rgba(92,62,28,A)');
-    dkbCrest(ctx, { fill: 'rgba(134,94,46,.28)', hi: 'rgba(255,248,226,.5)', lo: 'rgba(96,64,28,.42)' });
+    dkbCrest(ctx, { fill: 'rgba(134,94,46,.16)', hi: 'rgba(255,248,226,.3)', lo: 'rgba(96,64,28,.26)' });
   } else if(deco === 'onsen'){
     /* 湯の湖（乳白の翡翠色）と縁の岩 */
     fillR([[0, '#EAFCF5'], [0.45, '#B2EADA'], [0.8, '#6CC6AE'], [1, '#3C9884']]);
@@ -1639,10 +1639,10 @@ function dkbLakeSkin(ctx, map, T){
         ctx.strokeStyle = 'rgba(40,36,30,.35)'; ctx.lineWidth = 1; ctx.stroke();
       }
     }
-    dkbCrest(ctx, { fill: 'rgba(255,255,255,.3)', hi: 'rgba(255,255,255,.55)', lo: 'rgba(26,96,82,.38)' });
+    dkbCrest(ctx, { fill: 'rgba(255,255,255,.18)', hi: 'rgba(255,255,255,.32)', lo: 'rgba(26,96,82,.24)' });
   } else {
     /* 氷の湖（ひび・霜） */
-    fillR([[0, '#F8FEFF'], [0.48, '#D6F1F8'], [0.84, '#A4DAEA'], [1, '#76BCD4']]);
+    fillR([[0, '#EAFAFF'], [0.42, '#BCE8F6'], [0.80, '#7FC4DE'], [1, '#4A97B9']]);
     for(k = 0; k < 12; k++){
       var fp = dkbLakeUV(0.15 + dkbH(k + 200) * 0.7, 0.15 + dkbH(k + 230) * 0.7);
       ctx.save(); ctx.translate(fp.x, fp.y); ctx.scale(1, 0.6);
@@ -1663,8 +1663,96 @@ function dkbLakeSkin(ctx, map, T){
       ctx.save(); ctx.translate(1, 1.2); ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(70,140,170,.4)'; ctx.stroke(); ctx.restore();
     }
     rim('rgba(40,110,140,A)');
-    dkbCrest(ctx, { fill: 'rgba(255,255,255,.42)', hi: 'rgba(255,255,255,.72)', lo: 'rgba(64,136,166,.42)' });
+    dkbCrest(ctx, { fill: 'rgba(255,255,255,.22)', hi: 'rgba(255,255,255,.38)', lo: 'rgba(64,136,166,.24)' });
   }
+
+  /* ══ 水面の見せ方（本家：内側から光る・白い渦・きらめき・縁の建物の映り込み） ══
+     すべて作り置きの盤キャンバスに描くので毎コマの重さは増えず、スマホでも「止まった絵」のまま。
+     色と位置は dkbH（決まった乱数）と盤の形だけで決まるので、部分描き直し（dkkPatch）でも同じ絵になる。 */
+  var wet = (deco !== 'world');
+  var wc  = wet ? (deco === 'onsen' ? [255, 252, 236] : [214, 246, 255]) : [255, 240, 206];
+  var wrgba = function(c, al){ return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + al + ')'; };
+  var whexA = function(h, al){
+    var v = parseInt(String(h || '#ffffff').replace('#', ''), 16) || 0;
+    return 'rgba(' + ((v >> 16) & 255) + ',' + ((v >> 8) & 255) + ',' + (v & 255) + ',' + al + ')';
+  };
+
+  /* 1) 内側から発光する水面 */
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.translate(cx, cy + 6); ctx.scale(1, 0.60);
+  var wg = ctx.createRadialGradient(0, -30, 12, 0, 0, 430);
+  wg.addColorStop(0, wrgba(wc, wet ? 0.18 : 0.14));
+  wg.addColorStop(0.42, wrgba(wc, wet ? 0.06 : 0.05));
+  wg.addColorStop(1, wrgba(wc, 0));
+  ctx.fillStyle = wg; ctx.fillRect(-700, -700, 1400, 1400);
+  ctx.restore();
+
+  /* 2) 白い渦模様（3本。中心からゆるく外へ巻く） */
+  if(wet){
+    ctx.save();
+    ctx.translate(cx, cy + 10); ctx.scale(1, 0.60);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for(var wk = 0; wk < 3; wk++){
+      var wa0 = wk * 2.094 + 0.4;
+      ctx.beginPath();
+      for(var wi = 0; wi <= 46; wi++){
+        var wu = wi / 46, waa = wa0 + wu * 3.9, wrr = (62 + wk * 26) + wu * (238 + wk * 24);
+        var wx = Math.cos(waa) * wrr, wy = Math.sin(waa) * wrr;
+        if(wi) ctx.lineTo(wx, wy); else ctx.moveTo(wx, wy);
+      }
+      ctx.lineWidth = 17; ctx.strokeStyle = wrgba(wc, 0.13); ctx.stroke();
+      ctx.lineWidth = 6;  ctx.strokeStyle = wrgba(wc, 0.26); ctx.stroke();
+      ctx.lineWidth = 1.8; ctx.strokeStyle = 'rgba(255,255,255,.62)'; ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /* 3) 縁の建物の映り込み（水面の上側 2辺だけ。画面の下へ伸ばす） */
+  if(wet && typeof G === 'object' && G && G.tiles){
+    ctx.save();
+    for(var ri = 0; ri < 32; ri++){
+      var rc = RECTS[ri]; if(!rc || (rc.side !== 1 && rc.side !== 2)) continue;
+      var rt = G.tiles[ri]; if(!rt) continue;
+      var rcol = (rt.type === 'city' && typeof GCOL !== 'undefined') ? GCOL[rt.g] : '#D7E6F0';
+      var rp = (rc.side === 2) ? proj(rc.p + rc.w / 2, TD) : proj(TD, rc.q + rc.h / 2);
+      var rh = 26 + dkbH(ri + 500) * 24, rw = 13 + dkbH(ri + 520) * 11;
+      var rg2 = ctx.createLinearGradient(0, rp.y, 0, rp.y + rh);
+      rg2.addColorStop(0, whexA(rcol, 0.34));
+      rg2.addColorStop(0.55, whexA(rcol, 0.14));
+      rg2.addColorStop(1, whexA(rcol, 0));
+      ctx.fillStyle = rg2;
+      ctx.fillRect(rp.x - rw / 2, rp.y, rw, rh);
+      /* さざ波で映り込みを崩す */
+      ctx.strokeStyle = wrgba(wc, 0.22); ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      for(var rk = 1; rk <= 3; rk++){
+        var ry2 = rp.y + rh * (rk / 4.2);
+        ctx.moveTo(rp.x - rw * 0.62, ry2); ctx.lineTo(rp.x + rw * 0.62, ry2);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /* 4) きらめき粒子（4方向の小さな星） */
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = '#FFFFFF';
+  for(var si = 0; si < 30; si++){
+    var sp2 = dkbLakeUV(0.08 + dkbH(si + 600) * 0.84, 0.08 + dkbH(si + 640) * 0.84);
+    var sr = 2.2 + dkbH(si + 680) * 4.4;
+    ctx.globalAlpha = 0.28 + dkbH(si + 700) * 0.55;
+    ctx.beginPath();
+    ctx.moveTo(sp2.x, sp2.y - sr);
+    ctx.quadraticCurveTo(sp2.x + sr * 0.22, sp2.y - sr * 0.22, sp2.x + sr, sp2.y);
+    ctx.quadraticCurveTo(sp2.x + sr * 0.22, sp2.y + sr * 0.22, sp2.x, sp2.y + sr);
+    ctx.quadraticCurveTo(sp2.x - sr * 0.22, sp2.y + sr * 0.22, sp2.x - sr, sp2.y);
+    ctx.quadraticCurveTo(sp2.x - sr * 0.22, sp2.y - sr * 0.22, sp2.x, sp2.y - sr);
+    ctx.fill();
+  }
+  ctx.restore();
+
   ctx.restore();
 }
 /* 振っている間は満ちて、サイコロが止まったら 0.6秒で引く */

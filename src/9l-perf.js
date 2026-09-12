@@ -461,7 +461,8 @@ function dkkTagPanel(ctx, arr){
     var w = ctx.measureText(G.players[pi].name).width + 14, off = (j - (n - 1) / 2) * 26;
     lo = Math.min(lo, off - w / 2); hi = Math.max(hi, off + w / 2); maxw = Math.max(maxw, w);
   });
-  var W = Math.max(hi - lo + 6, maxw + 26), H = n * 21 + 6, x0 = (lo + hi) / 2 - W / 2, y0 = -57 - H;
+  /* 絵のコマ（高さ92px）に名前札がかぶらないよう、札は頭より上に置く */
+  var W = Math.max(hi - lo + 6, maxw + 26), H = n * 21 + 6, x0 = (lo + hi) / 2 - W / 2, y0 = -104 - H;
   if(own){ cv0.width = Math.ceil((W + 4) * sc); cv0.height = Math.ceil((H + 4) * sc); ctx = cv0.getContext('2d'); ctx.setTransform(sc, 0, 0, sc, (2 - x0) * sc, (2 - y0) * sc); }
   ctx.save();
   ctx.font = '900 13px "Noto Sans JP", sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
