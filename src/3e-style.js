@@ -188,12 +188,91 @@ function dvPort(id, ctx, T, cardId){
   }
   try{ set[i](ctx, T||0); }catch(e){}
 }
+/* ── 盤のコマを「札」ではなく「立ち絵」にする ─────────────────
+   t01…t24 の絵は白フチの肖像カードなので、そのまま置くと盤にカードが立って見える。
+   外枠を切り落としたうえで、周りの下地を消して人物だけを抜く。
+   ・まず縁から同じ色をたどって消す（下地の抜き）。人物の白い髪や服は縁とつながらないので残る。
+   ・file:// で画素を読めない時は、楕円でぼかして角を消す（どちらでもカードの形は消える）。
+   1枚だけ作って使い回すので、毎コマの重さは今までと同じ（drawImage 1回）。 */
+const _DV_TOKCUT = Object.create(null);
+function _dvTokKey(im, W, H){
+  const iw = im.naturalWidth, ih = im.naturalHeight;
+  const mx = iw * 0.075, my = ih * 0.075, sw = iw - mx * 2, sh = ih - my * 2;
+  const s = Math.min(W / sw, H / sh), dw = sw * s, dh = sh * s;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d', { willReadFrequently: true });
+  g.drawImage(im, mx, my, sw, sh, (W - dw) / 2, H - dh, dw, dh);
+  return { cv: cv, g: g };
+}
+/* 縁から同じ色をたどって透明にする（下地の抜き） */
+function _dvTokKeyOut(g, W, H){
+  const im = g.getImageData(0, 0, W, H), d = im.data;
+  const at = (x, y) => (y * W + x) * 4;
+  let br = 0, bg = 0, bb = 0, n = 0;
+  const corners = [[0,0],[W-1,0],[0,H-1],[W-1,H-1],[(W>>1),0],[0,(H>>1)]];
+  for(const c of corners){ const k = at(c[0], c[1]); if(d[k+3] < 8) continue; br += d[k]; bg += d[k+1]; bb += d[k+2]; n++; }
+  if(!n) return false;
+  br /= n; bg /= n; bb /= n;
+  const tol = 40, seen = new Uint8Array(W * H), st = [];
+  const push = (x, y) => {
+    if(x < 0 || y < 0 || x >= W || y >= H) return;
+    const p = y * W + x; if(seen[p]) return;
+    const k = p * 4;
+    if(d[k+3] > 8 && (Math.abs(d[k]-br) > tol || Math.abs(d[k+1]-bg) > tol || Math.abs(d[k+2]-bb) > tol)) return;
+    seen[p] = 1; st.push(p);
+  };
+  for(let x = 0; x < W; x++){ push(x, 0); push(x, H - 1); }
+  for(let y = 0; y < H; y++){ push(0, y); push(W - 1, y); }
+  let cut = 0;
+  while(st.length){
+    const p = st.pop(), x = p % W, y = (p / W) | 0;
+    d[p * 4 + 3] = 0; cut++;
+    push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
+  }
+  if(cut < W * H * 0.12) return false;      // ほとんど消えないなら抜けていない
+  g.putImageData(im, 0, 0);
+  return true;
+}
+/* 画素を読めない時の控え：楕円でぼかして角（＝カードの形）を消す */
+function _dvTokFeather(g, W, H){
+  g.globalCompositeOperation = 'destination-in';
+  g.save();
+  g.translate(W * 0.5, H * 0.46);
+  g.scale(1, (H * 0.56) / (W * 0.50));
+  const rg = g.createRadialGradient(0, 0, 0, 0, 0, W * 0.50);
+  rg.addColorStop(0,    'rgba(0,0,0,1)');
+  rg.addColorStop(0.64, 'rgba(0,0,0,1)');
+  rg.addColorStop(0.86, 'rgba(0,0,0,0.45)');
+  rg.addColorStop(1,    'rgba(0,0,0,0)');
+  g.fillStyle = rg;
+  g.fillRect(-W * 2, -H * 2, W * 4, H * 4);
+  g.restore();
+  g.globalCompositeOperation = 'source-over';
+}
+function _dvTokCut(key, im){
+  let c = _DV_TOKCUT[key];
+  if(c !== undefined) return c;
+  c = null;
+  try{
+    if(im.naturalWidth > 0 && im.naturalHeight > 0){
+      const W = TOK_W * 2, H = TOK_H * 2, o = _dvTokKey(im, W, H);
+      let ok = false;
+      try{ ok = _dvTokKeyOut(o.g, W, H); }catch(e){ ok = false; }
+      if(!ok) _dvTokFeather(o.g, W, H);
+      c = o.cv;
+    }
+  }catch(e){ c = null; }
+  _DV_TOKCUT[key] = c;
+  return c;
+}
 /* 盤の駒：接地点原点・上へ約70px */
 function dvChar(ctx, id, col, T, facing, cardId){
   _dvSets();
   const i = ((id|0)%8+8)%8;
-  const tim = _dvImg(_dvKeyTok(cardId));
+  const tk = _dvKeyTok(cardId);
+  const tim = _dvImg(tk);
   if(tim){
+    const cut = _dvTokCut(tk, tim);
     ctx.save();
     /* 接地影（影が無いと絵のコマが盤から浮いた札に見える） */
     ctx.fillStyle = 'rgba(6,14,26,0.34)';
@@ -201,7 +280,9 @@ function dvChar(ctx, id, col, T, facing, cardId){
     ctx.fillStyle = 'rgba(6,14,26,0.15)';
     ctx.beginPath(); ctx.ellipse(0, 0.8, 29, 9.5, 0, 0, 6.283); ctx.fill();
     if((facing|0) < 0) ctx.scale(-1, 1);
-    const done = _dvContain(ctx, tim, -TOK_W/2, -TOK_H, TOK_W, TOK_H);
+    let done = false;
+    if(cut){ try{ ctx.drawImage(cut, -TOK_W / 2, -TOK_H, TOK_W, TOK_H); done = true; }catch(e){ done = false; } }
+    if(!done) done = _dvContain(ctx, tim, -TOK_W/2, -TOK_H, TOK_W, TOK_H);
     ctx.restore();
     if(done) return;
   }

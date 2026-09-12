@@ -1014,13 +1014,13 @@ async function moveSteps(pi, n){
   try{
     var plan = dkbStepDurs(p.pos, n), g0 = G;
     var spd = (typeof SPEED === 'number' && SPEED > 0) ? SPEED : 1, oSum = 0, oN = 0;
-    var c0 = tileCenter(p.pos); dkbCamTo(c0.x, c0.y, 1.45);
+    var c0 = tileCenter(p.pos); dkbCamTo(c0.x, c0.y, 1.60);   // 動いている間はぐっと寄る（本家の追従）
     for(var k = 0; k < n; k++){
       if(G !== g0) break;
       var from = tileCenter(p.pos), np = (p.pos + 1) % 32;
       p.pos = np;
       var to = tileCenter(np);
-      dkbCamTo(to.x, to.y, 1.45);
+      dkbCamTo(to.x, to.y, 1.60);
       if(np === 0) p.laps++;
       var d = plan.d[k];
       if(d < 0){ d = -d; dkbPassStart(pi); }
@@ -1075,8 +1075,15 @@ async function celebrate(pi, reason, col){
   var f = document.getElementById('flash');
   if(f){ if(f.classList.contains('go')) dkbReplay(f); else f.classList.add('go'); }
   camShake(16);
+  /* 3行の文字は finish が出すが、決着の演出だけを呼ばれた時のためにここでも出す（無ければ足す） */
+  try{
+    if(typeof celOverlay === 'function' && !celOverlay.on){
+      var wnm = (G && G.players[pi]) ? G.players[pi].name : '';
+      showCelebrate(['おめでとうございます！', reason || '勝利', wnm ? wnm + ' WIN!' : ''], 2000);
+    }
+  }catch(e){ dkbErr('celtext', e); }
   var ice = G.map && G.map.deco === 'ice';
-  for(var k = 0; k < 9; k++) addFx('steam', 210 + k * 150, 760, 1800);
+  for(var k = 0; k < 11; k++) addFx('steam', 150 + k * 130, 772, 2200);   // 盤の下辺から立つ噴煙の柱
   for(var j = 0; j < 6; j++){
     var x = 260 + dkbRnd() * 1080, y = 300 + dkbRnd() * 320;
     addFx('steam', x, y + 150, 1500);
@@ -1642,7 +1649,7 @@ function dkbLakeSkin(ctx, map, T){
     dkbCrest(ctx, { fill: 'rgba(255,255,255,.18)', hi: 'rgba(255,255,255,.32)', lo: 'rgba(26,96,82,.24)' });
   } else {
     /* 氷の湖（ひび・霜） */
-    fillR([[0, '#EAFAFF'], [0.42, '#BCE8F6'], [0.80, '#7FC4DE'], [1, '#4A97B9']]);
+    fillR([[0, '#CFF3FF'], [0.32, '#8FD9F2'], [0.66, '#3E9AC6'], [1, '#175F88']]);
     for(k = 0; k < 12; k++){
       var fp = dkbLakeUV(0.15 + dkbH(k + 200) * 0.7, 0.15 + dkbH(k + 230) * 0.7);
       ctx.save(); ctx.translate(fp.x, fp.y); ctx.scale(1, 0.6);
@@ -1650,17 +1657,29 @@ function dkbLakeSkin(ctx, map, T){
       gf.addColorStop(0, 'rgba(255,255,255,.5)'); gf.addColorStop(1, 'rgba(255,255,255,0)');
       ctx.fillStyle = gf; ctx.beginPath(); ctx.arc(0, 0, 100, 0, 6.283); ctx.fill(); ctx.restore();
     }
-    for(k = 0; k < 10; k++){
-      var sp = dkbLakeUV(0.1 + dkbH(k + 300) * 0.8, 0.1 + dkbH(k + 330) * 0.8);
-      var ang = dkbH(k + 360) * 6.283, x0 = sp.x, y0 = sp.y;
-      ctx.beginPath(); ctx.moveTo(x0, y0);
-      for(i = 0; i < 5; i++){
-        ang += (dkbH(k * 7 + i + 400) - 0.5) * 1.3;
-        x0 += Math.cos(ang) * (18 + dkbH(k * 9 + i) * 26); y0 += Math.sin(ang) * (10 + dkbH(k * 5 + i) * 14);
-        ctx.lineTo(x0, y0);
+    /* 氷の割れ目：濃い影の上に白い芯を重ねて常に見えるようにする。
+       ただし真ん中の紋章にはかけない（外まわりだけ。落書きに見えないよう本数も短さも抑える） */
+    for(k = 0; k < 9; k++){
+      var sp = dkbLakeUV(0.06 + dkbH(k + 300) * 0.88, 0.06 + dkbH(k + 330) * 0.88);
+      if(Math.abs(sp.x - cx) < 200 && Math.abs(sp.y - cy) < 96) continue;
+      var ang = dkbH(k + 360) * 6.283, x0 = sp.x, y0 = sp.y, cpt = [[x0, y0]];
+      for(i = 0; i < 4; i++){
+        ang += (dkbH(k * 7 + i + 400) - 0.5) * 1.1;
+        x0 += Math.cos(ang) * (15 + dkbH(k * 9 + i) * 20); y0 += Math.sin(ang) * (8 + dkbH(k * 5 + i) * 11);
+        cpt.push([x0, y0]);
       }
-      ctx.lineWidth = 1.6; ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.stroke();
-      ctx.save(); ctx.translate(1, 1.2); ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(70,140,170,.4)'; ctx.stroke(); ctx.restore();
+      var crack = function(w, col, dx, dy){
+        ctx.save(); ctx.translate(dx, dy);
+        ctx.beginPath(); ctx.moveTo(cpt[0][0], cpt[0][1]);
+        for(var m = 1; m < cpt.length; m++) ctx.lineTo(cpt[m][0], cpt[m][1]);
+        var b = cpt[2];
+        ctx.moveTo(b[0], b[1]);
+        ctx.lineTo(b[0] + Math.cos(ang + 1.9) * 18, b[1] + Math.sin(ang + 1.9) * 10);
+        ctx.lineWidth = w; ctx.strokeStyle = col; ctx.stroke();
+        ctx.restore();
+      };
+      crack(2.6, 'rgba(22,86,126,.42)', 1.2, 1.4);
+      crack(1.3, 'rgba(255,255,255,.8)', 0, 0);
     }
     rim('rgba(40,110,140,A)');
     dkbCrest(ctx, { fill: 'rgba(255,255,255,.22)', hi: 'rgba(255,255,255,.38)', lo: 'rgba(64,136,166,.24)' });
@@ -1681,9 +1700,9 @@ function dkbLakeSkin(ctx, map, T){
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   ctx.translate(cx, cy + 6); ctx.scale(1, 0.60);
-  var wg = ctx.createRadialGradient(0, -30, 12, 0, 0, 430);
-  wg.addColorStop(0, wrgba(wc, wet ? 0.18 : 0.14));
-  wg.addColorStop(0.42, wrgba(wc, wet ? 0.06 : 0.05));
+  var wg = ctx.createRadialGradient(0, -20, 8, 0, 0, 330);
+  wg.addColorStop(0, wrgba(wc, wet ? 0.24 : 0.14));
+  wg.addColorStop(0.42, wrgba(wc, wet ? 0.10 : 0.05));
   wg.addColorStop(1, wrgba(wc, 0));
   ctx.fillStyle = wg; ctx.fillRect(-700, -700, 1400, 1400);
   ctx.restore();
@@ -1701,9 +1720,9 @@ function dkbLakeSkin(ctx, map, T){
         var wx = Math.cos(waa) * wrr, wy = Math.sin(waa) * wrr;
         if(wi) ctx.lineTo(wx, wy); else ctx.moveTo(wx, wy);
       }
-      ctx.lineWidth = 17; ctx.strokeStyle = wrgba(wc, 0.13); ctx.stroke();
-      ctx.lineWidth = 6;  ctx.strokeStyle = wrgba(wc, 0.26); ctx.stroke();
-      ctx.lineWidth = 1.8; ctx.strokeStyle = 'rgba(255,255,255,.62)'; ctx.stroke();
+      ctx.lineWidth = 21; ctx.strokeStyle = wrgba(wc, 0.22); ctx.stroke();
+      ctx.lineWidth = 8;  ctx.strokeStyle = wrgba(wc, 0.44); ctx.stroke();
+      ctx.lineWidth = 2.6; ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.stroke();
     }
     ctx.restore();
   }
@@ -1716,10 +1735,10 @@ function dkbLakeSkin(ctx, map, T){
       var rt = G.tiles[ri]; if(!rt) continue;
       var rcol = (rt.type === 'city' && typeof GCOL !== 'undefined') ? GCOL[rt.g] : '#D7E6F0';
       var rp = (rc.side === 2) ? proj(rc.p + rc.w / 2, TD) : proj(TD, rc.q + rc.h / 2);
-      var rh = 26 + dkbH(ri + 500) * 24, rw = 13 + dkbH(ri + 520) * 11;
+      var rh = 42 + dkbH(ri + 500) * 34, rw = 15 + dkbH(ri + 520) * 12;
       var rg2 = ctx.createLinearGradient(0, rp.y, 0, rp.y + rh);
-      rg2.addColorStop(0, whexA(rcol, 0.34));
-      rg2.addColorStop(0.55, whexA(rcol, 0.14));
+      rg2.addColorStop(0, whexA(rcol, 0.56));
+      rg2.addColorStop(0.55, whexA(rcol, 0.24));
       rg2.addColorStop(1, whexA(rcol, 0));
       ctx.fillStyle = rg2;
       ctx.fillRect(rp.x - rw / 2, rp.y, rw, rh);

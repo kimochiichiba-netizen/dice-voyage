@@ -766,13 +766,13 @@ function hop(p, from, to, dur){
       p.hopY = Math.sin(k*Math.PI)*38;
       if(k<1) requestAnimationFrame(step);
       else {
-        p.render = to; p.hopY = 0; p.moving = false; p.squash = 1.22;
+        p.render = to; p.hopY = 0; p.moving = false; p.squash = 1.36;   // 着地のつぶれ（目で見えるところまで強く）
         SFX.hop();
         let t1 = null;
         requestAnimationFrame(function un(n2){
           if(t1 === null) t1 = n2;
-          const k2 = Math.max(0, Math.min(1,(n2-t1)/(140*SPEED)));
-          p.squash = 1.22 + (1-1.22)*k2;
+          const k2 = Math.max(0, Math.min(1,(n2-t1)/(170*SPEED)));
+          p.squash = 1.36 + (1-1.36)*k2;
           if(k2<1) requestAnimationFrame(un); else p.squash = 1;
         });
         res();
@@ -1107,9 +1107,13 @@ async function growAnim(i){
   jingle(G.tiles[i].landmark ? 'landmark' : 'build');
   const c = tileCenter(i);
   if(t.landmark){ SFX.landmark(); news('🗼 '+G.players[t.owner].name+' が '+t.name+' にランドマークを建設！'); }
-  addFx('pillar', c.x, c.y, 950, t.landmark ? '#7FE6FF' : PCOL[t.owner]);
+  /* 建った瞬間は「マスから立ち上がる光の柱＋粒」。色の柱に白い芯を重ねて、止めた絵でも見えるようにする */
+  addFx('pillar', c.x, c.y, 1250, t.landmark ? '#7FE6FF' : PCOL[t.owner]);
+  addFx('pillar', c.x, c.y, 900, '#FFFFFF');
+  addFx('starburst', c.x, c.y-58, 800, '#FFF3C0', null, false, {r:96});
   addFx('ring', c.x, c.y, 700, '#FFD24D');
   addFx('spark', c.x, c.y-26, 900, '#FFF3C0');
+  try{ fxBurst({x:c.x, y:c.y-22}, {kind:'star', n: t.landmark ? 22 : 14, power: t.landmark ? 1.25 : 0.95}); }catch(e){}
   addFx('smoke', c.x, c.y+4, 1100);                                        // 建設の土煙
   addFx('shockring', c.x, c.y+4, 620, '#FFE7A8', null, false, {r:150});
   if(t.landmark) addFx('starburst', c.x, c.y-70, 900, '#FFFFFF', null, false, {r:120});

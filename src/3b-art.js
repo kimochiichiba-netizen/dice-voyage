@@ -1309,21 +1309,21 @@ function dvVilla(ctx, col, T){
   _dvShadow(ctx, 20, 7, 0.62);
 
   // 石の土台（雪をかぶった基壇）
-  _dvBox(ctx, 0, 0, 32, 5, 7,
-    _dvHG(ctx, -16, 16, '#b9cbdc', '#6d8298'),
+  _dvBox(ctx, 0, 0, 36, 5, 8,
+    _dvHG(ctx, -18, 18, '#b9cbdc', '#6d8298'),
     '#55697f', '#d7e6f3', line);
 
-  // 本体（壁）
-  _dvBox(ctx, 0, -5, 26, 19, 6,
+  // 本体（壁）※ビル（細くて高い）と見分けがつくよう、横に広く低い形にする
+  _dvBox(ctx, 0, -5, 31, 19, 6,
     _dvHG(ctx, -13, 13, wallL, wallR),
     _dvMix(col, '#16283c', 0.55), _dvMix(col, '#e6f2ff', 0.62), line);
 
   // 木組みの横桟（ロッジ感）
   ctx.strokeStyle = _dvMix(col, '#0d1d2e', 0.62, 0.55); ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(-13, -14.5); ctx.lineTo(13, -14.5); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-15, -14.5); ctx.lineTo(15, -14.5); ctx.stroke();
 
   // 切妻屋根：右斜面（影）
-  const ax = 0, ay = -38, el = -16, er = 16, ey = -24, dx = 6 * 0.62, dy = -6 * 0.42;
+  const ax = 0, ay = -34, el = -20, er = 20, ey = -24, dx = 6 * 0.62, dy = -6 * 0.42;
   ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax + dx, ay + dy); ctx.lineTo(er + dx, ey + dy); ctx.lineTo(er, ey); ctx.closePath();
   ctx.fillStyle = roofR; ctx.fill(); ctx.strokeStyle = line; ctx.lineWidth = 1; ctx.stroke();
   // 切妻屋根：正面三角（明）
@@ -1341,7 +1341,7 @@ function dvVilla(ctx, col, T){
   ctx.beginPath(); ctx.moveTo(el - 1, ey + 1); ctx.lineTo(ax, ay - 1); ctx.lineTo(er + 1, ey + 1); ctx.stroke();
 
   // 煙突（右屋根の上）
-  const chX = 8.5, chY = -38 + (chX / 16) * 14;
+  const chX = 10.5, chY = ay + (chX / er) * (ey - ay);
   _dvBox(ctx, chX, chY, 5, 12, 4, _dvHG(ctx, chX - 2.5, chX + 2.5, '#9fb2c6', '#5d7188'), '#4a5d73', '#d3e3f2', line);
   // 煙（Tで決定的に流す）
   ctx.save();
@@ -1370,11 +1370,11 @@ function dvVilla(ctx, col, T){
   ctx.moveTo(7.8, -21); ctx.lineTo(7.8, -15.6); ctx.moveTo(5.1, -18.3); ctx.lineTo(10.5, -18.3);
   ctx.stroke();
 
-  _dvRim(ctx, -13, -24, -5, 0.5);
+  _dvRim(ctx, -15.5, -24, -5, 0.5);
   ctx.restore();
 }
 
-/* ---------- ビル：中層タワー（高さ約72px） ---------- */
+/* ---------- ビル：中層タワー（高さ約78px） ---------- */
 function dvTowerB(ctx, col, T){
   ctx.save();
   const line = _dvMix(col, '#07121f', 0.80, 0.95);
@@ -1383,48 +1383,48 @@ function dvTowerB(ctx, col, T){
 
   _dvShadow(ctx, 18, 6.5, 0.6);
 
-  // 基壇
-  _dvBox(ctx, 0, 0, 30, 5, 8,
-    _dvHG(ctx, -15, 15, '#b4c6d8', '#687d93'), '#51657a', '#d5e5f3', line);
+  // 基壇 ※マンション（低くて横に広い）と見分けがつくよう、細くて高い形にする
+  _dvBox(ctx, 0, 0, 27, 5, 8,
+    _dvHG(ctx, -13.5, 13.5, '#b4c6d8', '#687d93'), '#51657a', '#d5e5f3', line);
 
   // 低層部（エントランス）
-  _dvBox(ctx, 0, -5, 26, 8, 7,
-    _dvHG(ctx, -13, 13, _dvTone(col, 0.34), _dvTone(col, -0.22)),
+  _dvBox(ctx, 0, -5, 24, 8, 7,
+    _dvHG(ctx, -12, 12, _dvTone(col, 0.34), _dvTone(col, -0.22)),
     _dvTone(col, -0.44), _dvTone(col, 0.20), line);
 
   // 主塔
-  _dvBox(ctx, 0, -13, 22, 34, 6,
-    _dvHG(ctx, -11, 11, facL, facR),
+  _dvBox(ctx, 0, -13, 19, 38, 6,
+    _dvHG(ctx, -9.5, 9.5, facL, facR),
     _dvMix(col, '#0e1e30', 0.60), _dvMix(col, '#dcecfb', 0.55), line);
 
   // セットバック（中段）
-  _dvBox(ctx, 0, -47, 16, 15, 5,
-    _dvHG(ctx, -8, 8, facL, facR),
+  _dvBox(ctx, 0, -51, 14, 15, 5,
+    _dvHG(ctx, -7, 7, facL, facR),
     _dvMix(col, '#0e1e30', 0.60), _dvMix(col, '#dcecfb', 0.55), line);
 
   // 塔屋
-  _dvBox(ctx, 0, -62, 9, 6, 4,
-    _dvHG(ctx, -4.5, 4.5, _dvTone(col, 0.40), _dvTone(col, -0.16)),
+  _dvBox(ctx, 0, -66, 8, 6, 4,
+    _dvHG(ctx, -4, 4, _dvTone(col, 0.40), _dvTone(col, -0.16)),
     _dvTone(col, -0.42), _dvTone(col, 0.30), line);
 
   // 冠のライン（所有者色の帯）
   ctx.fillStyle = _dvTone(col, 0.15);
-  ctx.fillRect(-11, -48.6, 22, 2.2);
-  ctx.fillRect(-8, -62.6, 16, 2);
+  ctx.fillRect(-9.5, -52.6, 19, 2.2);
+  ctx.fillRect(-7, -66.6, 14, 2);
 
   // 窓格子：正面（一部だけ点灯）
   const litFront = [];
   for (let r = 0; r < 7; r++){
     for (let c = 0; c < 4; c++){
       const i = r * 4 + c;
-      const x = -9 + c * 4.6, y = -17 - r * 4.6;
+      const x = -7.6 + c * 4.4, y = -17 - r * 4.6;
       if (_dvRnd(i) > 0.42) litFront.push([x, y, i]);
       else { ctx.fillStyle = _dvMix(col, '#0a1726', 0.72); ctx.fillRect(x, y, 3.2, 3.2); }
     }
   }
   for (let r = 0; r < 3; r++){
     for (let c = 0; c < 3; c++){
-      const i = 40 + r * 3 + c, x = -6.4 + c * 4.6, y = -50 - r * 4.4;
+      const i = 40 + r * 3 + c, x = -5.6 + c * 4.2, y = -54 - r * 4.4;
       if (_dvRnd(i) > 0.45) litFront.push([x, y, i]);
       else { ctx.fillStyle = _dvMix(col, '#0a1726', 0.72); ctx.fillRect(x, y, 3.2, 3.2); }
     }
@@ -1443,27 +1443,27 @@ function dvTowerB(ctx, col, T){
 
   // 右面の窓（影側なので暗い）
   for (let r = 0; r < 7; r++){
-    const wx = 12.3, wy = -17 - r * 4.6 - 0.9;
+    const wx = 10.8, wy = -17 - r * 4.6 - 0.9;
     ctx.fillStyle = _dvRnd(r + 200) > 0.62 ? 'rgba(255,222,150,0.5)' : _dvMix(col, '#000814', 0.6, 0.85);
     ctx.fillRect(wx, wy, 2.2, 3.0);
   }
 
   // アンテナ＋航空障害灯（明滅）
   ctx.strokeStyle = _dvTone(col, -0.55); ctx.lineWidth = 1.4;
-  ctx.beginPath(); ctx.moveTo(0, -68); ctx.lineTo(0, -76); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, -72); ctx.lineTo(0, -84); ctx.stroke();
   const blink = 0.35 + 0.65 * Math.abs(Math.sin(T * 0.0022));
   ctx.save();
   ctx.shadowColor = 'rgba(255,110,110,0.95)'; ctx.shadowBlur = 8 * blink;
   ctx.fillStyle = 'rgba(255,140,130,' + (0.5 + blink * 0.5).toFixed(3) + ')';
-  ctx.beginPath(); ctx.arc(0, -77, 1.7, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(0, -85, 1.7, 0, Math.PI * 2); ctx.fill();
   ctx.shadowBlur = 0; ctx.shadowColor = 'rgba(0,0,0,0)';
   ctx.restore();
 
   // エントランスの灯り
   _dvGlowFill(ctx, function(){ _dvRR(ctx, -4.5, -11.5, 9, 6.5, 1.6); }, 'rgba(255,236,190,0.9)', 'rgba(255,200,110,0.85)', 6);
 
-  _dvRim(ctx, -11, -47, -13, 0.45);
-  _dvRim(ctx, -8, -62, -47, 0.4);
+  _dvRim(ctx, -9.5, -51, -13, 0.45);
+  _dvRim(ctx, -7, -66, -51, 0.4);
   ctx.restore();
 }
 
@@ -1787,15 +1787,16 @@ function _dvbPalette(theme){
       halo:'rgba(255,170,110,'
     };
   }
+  /* 氷窟は「明るい氷の洞窟」。暗いと氷柱が読めず本家と一番差が出るので、空も層も持ち上げる */
   return {
-    skyTop:'#16456f', skyMid:'#0d2c50', skyLo:'#020814',
-    glowIn:'rgba(120,214,255,0.20)', glowMid:'rgba(40,110,175,0.09)',
-    far:['#8ed2ef','#4b8fbc','rgba(215,246,255,0.40)'],
-    mid:['#4f9ecb','#1b4f7d','rgba(190,236,255,0.34)'],
-    near:['#0c3251','#010710','rgba(158,228,255,0.42)'],
-    ray:'rgba(186,234,255,', mote:'rgba(220,246,255,',
-    vig:'rgba(1,5,14,', shadow:'rgba(0,3,12,',
-    halo:'rgba(80,186,255,'
+    skyTop:'#2E77A8', skyMid:'#164C7C', skyLo:'#061A2E',
+    glowIn:'rgba(150,228,255,0.34)', glowMid:'rgba(60,140,205,0.16)',
+    far:['#A9E2F7','#5FA6CE','rgba(226,250,255,0.52)'],
+    mid:['#6BB6DE','#26648F','rgba(205,242,255,0.46)'],
+    near:['#17456A','#06192C','rgba(170,234,255,0.52)'],
+    ray:'rgba(200,240,255,', mote:'rgba(228,250,255,',
+    vig:'rgba(2,10,22,', shadow:'rgba(0,6,18,',
+    halo:'rgba(96,198,255,'
   };
 }
 
@@ -2100,12 +2101,12 @@ function _dvbSteam(ctx,P,T,SW,SH,cx){
 function _dvbLayers(ctx,theme,P,T,SW,SH,cx,cy){
   if(theme === 'ice'){
     // 奥：地平の氷林（小さく淡い）
-    _dvbIceRow(ctx,P,T,SW,SH,cx,{seed:11,n:22,x0:-50,x1:SW+50,by:SH*0.575,hMin:80,hMax:230,wMin:14,wMax:40,alpha:0.26,dir:1,tone:'far',sway:2});
+    _dvbIceRow(ctx,P,T,SW,SH,cx,{seed:11,n:22,x0:-50,x1:SW+50,by:SH*0.575,hMin:80,hMax:230,wMin:14,wMax:40,alpha:0.42,dir:1,tone:'far',sway:2});
     // 奥：天井から下がる氷
-    _dvbIceRow(ctx,P,T,SW,SH,cx,{seed:37,n:15,x0:-50,x1:SW+50,by:-4,hMin:70,hMax:210,wMin:12,wMax:34,alpha:0.22,dir:-1,tone:'far',sway:2});
+    _dvbIceRow(ctx,P,T,SW,SH,cx,{seed:37,n:15,x0:-50,x1:SW+50,by:-4,hMin:70,hMax:210,wMin:12,wMax:34,alpha:0.36,dir:-1,tone:'far',sway:2});
     // 中：氷壁
-    _dvbIceRow(ctx,P,T,SW,SH,cx,{seed:59,n:14,x0:-70,x1:SW+70,by:SH*0.760,hMin:190,hMax:400,wMin:30,wMax:78,alpha:0.40,dir:1,tone:'mid',sway:3});
-    _dvbIceRow(ctx,P,T,SW,SH,cx,{seed:83,n:11,x0:-70,x1:SW+70,by:-10,hMin:150,hMax:340,wMin:26,wMax:68,alpha:0.32,dir:-1,tone:'mid',sway:3});
+    _dvbIceRow(ctx,P,T,SW,SH,cx,{seed:59,n:14,x0:-70,x1:SW+70,by:SH*0.760,hMin:190,hMax:400,wMin:30,wMax:78,alpha:0.58,dir:1,tone:'mid',sway:3});
+    _dvbIceRow(ctx,P,T,SW,SH,cx,{seed:83,n:11,x0:-70,x1:SW+70,by:-10,hMin:150,hMax:340,wMin:26,wMax:68,alpha:0.48,dir:-1,tone:'mid',sway:3});
     _dvbCrystals(ctx,P,T,SW,SH,cx);
     // 手前：画面端に濃く大きい氷柱（額縁）
     _dvbIceRow(ctx,P,T,SW,SH,cx,{seed:131,n:9,by:SH*1.10,hMin:380,hMax:780,wMin:52,wMax:126,alpha:0.92,dir:1,tone:'near',sway:1,edgeOnly:true});
@@ -2138,8 +2139,8 @@ function _dvbRays(ctx,P,T,SW,SH,ox,oy,count){
     const len = SH*(0.72+r2*0.58);
     const sway = Math.sin(T/5200 + i*1.7)*20;
     const x1 = x0 + (r3*2-1)*SW*0.20 + sway;
-    const wTop = 6 + r2*16;
-    const wBot = 46 + r3*104;
+    const wTop = 8 + r2*20;
+    const wBot = 58 + r3*126;
     const pulse = 0.42 + 0.58*Math.abs(Math.sin(T/(2600+i*520) + i*0.8));
     ctx.beginPath();
     ctx.moveTo(x0-wTop, oy);
@@ -2148,8 +2149,8 @@ function _dvbRays(ctx,P,T,SW,SH,ox,oy,count){
     ctx.lineTo(x1-wBot, oy+len);
     ctx.closePath();
     const g = ctx.createLinearGradient(x0,oy,x1,oy+len);
-    g.addColorStop(0, P.ray + (0.30*pulse).toFixed(3) + ')');
-    g.addColorStop(0.35, P.ray + (0.15*pulse).toFixed(3) + ')');
+    g.addColorStop(0, P.ray + (0.44*pulse).toFixed(3) + ')');
+    g.addColorStop(0.35, P.ray + (0.23*pulse).toFixed(3) + ')');
     g.addColorStop(1, P.ray + '0)');
     ctx.fillStyle = g;
     ctx.fill();
@@ -2161,7 +2162,7 @@ function _dvbRays(ctx,P,T,SW,SH,ox,oy,count){
     ctx.lineTo(x1-wBot*0.45, oy+len*0.9);
     ctx.closePath();
     const g2 = ctx.createLinearGradient(x0,oy,x1,oy+len*0.9);
-    g2.addColorStop(0, P.ray + (0.18*pulse).toFixed(3) + ')');
+    g2.addColorStop(0, P.ray + (0.27*pulse).toFixed(3) + ')');
     g2.addColorStop(1, P.ray + '0)');
     ctx.fillStyle = g2;
     ctx.fill();
@@ -2198,19 +2199,19 @@ function _dvbVignette(ctx,P,SW,SH,cx,cy){
   ctx.save();
   const g = ctx.createRadialGradient(cx,cy,SH*0.16,cx,cy,SW*0.80);
   g.addColorStop(0, P.vig + '0)');
-  g.addColorStop(0.34, P.vig + '0.12)');
-  g.addColorStop(0.62, P.vig + '0.46)');
-  g.addColorStop(0.84, P.vig + '0.76)');
-  g.addColorStop(1, P.vig + '0.94)');
+  g.addColorStop(0.34, P.vig + '0.08)');
+  g.addColorStop(0.62, P.vig + '0.34)');
+  g.addColorStop(0.84, P.vig + '0.60)');
+  g.addColorStop(1, P.vig + '0.82)');
   ctx.fillStyle = g;
   ctx.fillRect(0,0,SW,SH);
   // 上下の締め
   const t = ctx.createLinearGradient(0,0,0,SH*0.22);
-  t.addColorStop(0, P.vig + '0.58)');
+  t.addColorStop(0, P.vig + '0.44)');
   t.addColorStop(1, P.vig + '0)');
   ctx.fillStyle = t; ctx.fillRect(0,0,SW,SH*0.22);
   const b = ctx.createLinearGradient(0,SH,0,SH*0.74);
-  b.addColorStop(0, P.vig + '0.66)');
+  b.addColorStop(0, P.vig + '0.52)');
   b.addColorStop(1, P.vig + '0)');
   ctx.fillStyle = b; ctx.fillRect(0,SH*0.74,SW,SH*0.26);
   ctx.restore();

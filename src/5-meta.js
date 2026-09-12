@@ -1652,7 +1652,7 @@ function drawKrCard(){
     const chip = ev.target.closest('.kr-chip');
     if(chip){
       const t = chip.textContent || '';
-      if(t.indexOf('合成') >= 0) say('\u2728', '合成はまだ準備中です', '同じカードが2枚そろうと強くできる仕組みを用意しています');
+      if(t.indexOf('合成') >= 0) say('\u2728', 'カードの合成', '同じカードが2枚そろうと強くできます。カード画面の「合成」から進めます');
       else say('\u2739', '成長はカード強化でできます', '下の「強化」ボタンからレベルを上げられます');
       return;
     }

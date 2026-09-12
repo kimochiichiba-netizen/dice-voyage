@@ -426,7 +426,7 @@ function showPend(){
     +     '<div class="dkrow">' + listHTML + '</div></div>'
     + '</div>');
 
-  dkWire(el, function(id){ if(id !== 'pend') toast('L', '🚧', 'ただいま準備中', 'もう少しお待ちください', 1500); });
+  dkWire(el);
   el.querySelectorAll('[data-dkp]').forEach(function(b){
     b.onclick = function(){ SFX.click(); dkPendSel = b.dataset.dkp; showPend(); };
   });
@@ -523,7 +523,7 @@ function showDice(){
     +     '<div class="dkrow">' + listHTML + '</div></div>'
     + '</div>');
 
-  dkWire(el, function(id){ if(id !== 'dice') toast('L', '🚧', 'ただいま準備中', 'もう少しお待ちください', 1500); });
+  dkWire(el);
   el.querySelectorAll('[data-dkd]').forEach(function(b){
     b.onclick = function(){ SFX.click(); dkDiceSel = b.dataset.dkd; showDice(); };
   });

@@ -647,8 +647,9 @@ function dkrPlanBuild(pi, i, disc){
     return (price <= p.cash && p.cash - price >= (urgent ? 0 : reserve)) ? [0] : [];
   }
   if(S.mode === 'lm'){
+    /* ランドマークは一番の見せ場。弱い CPU でも、余裕があるなら建てる */
     var cl = S.steps[0].cost;
-    return (lvl >= 1 && p.cash - cl > reserve) ? [4] : [];
+    return (p.cash - cl > reserve * (lvl >= 1 ? 1 : 1.5)) ? [4] : [];
   }
   var sel = [], spend = 0;
   if(!side){
@@ -667,7 +668,8 @@ function dkrPlanBuild(pi, i, disc){
     var floor = Math.max(0, reserve - aggr * 1500000 * sc);
     if(p.cash - spend - s.cost < floor) break;
     if(lvl === 0 && k > 1) break;
-    if(lvl === 1 && k > 2 && !aggr) break;
+    /* ふつうの CPU も、手元が厚いならホテル（3段目）まで建てる（最上段が一度も出ないのを直す） */
+    if(lvl === 1 && k > 2 && !aggr && (p.cash - spend - s.cost) < reserve * 3) break;
     sel.push(k); spend += s.cost;
   }
   return sel;

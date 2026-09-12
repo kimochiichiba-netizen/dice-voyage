@@ -379,7 +379,7 @@ function drawToken(ctx, G, pi, T){
   var p = G.players[pi]; if(!p || p.out) return;
   var S = DKK_S || dkkS(), pos = p.render || tileCenter(p.pos), sq = p.squash || 1, tg;
   ctx.save(); ctx.translate(pos.x + (p.offx || 0), pos.y + (p.offy || 0) - (p.hopY || 0));
-  if(G.turn === pi && !G.over) dkkRing(ctx, T);
+  if(G.turn === pi && !G.over) dkkRing(ctx, T, pi);
   ctx.save(); ctx.scale(1 / sq, sq);
   dvChar(ctx, p.ch, PCOL[pi], T + pi * 700, p.face || 1, p.card);
   ctx.restore();
@@ -396,7 +396,7 @@ function dkkShared(G, pi){
   for(k = 0; k < G.players.length; k++){ q = G.players[k]; if(k !== pi && !q.out && !q.moving && q.pos === p.pos) return true; }
   return false;
 }
-function dkkRing(ctx, T){
+function dkkRing(ctx, T, pi){
   var S = DKK_S, pu = 0.55 + 0.45 * Math.sin(T * 0.005), a0 = (T * 0.0022) % 6.283, c = S.spr.glow, lv = Math.round(pu * 32);
   if(!c){ // 足元の光
     c = S.spr.glow = dkkCanvas(168, 76);
@@ -415,6 +415,12 @@ function dkkRing(ctx, T){
   ctx.beginPath(); ctx.ellipse(0, 3, 30, 13, 0, 0, 6.283); ctx.stroke();
   ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,.9)';
   ctx.beginPath(); ctx.ellipse(0, 3, 30, 13, 0, a0, a0 + 2.1); ctx.stroke();
+  /* 手番の人は「席の色」の輪も足す（本家は誰の番かを足元の色で見せる） */
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = (typeof PCOL !== 'undefined' && PCOL[pi]) ? PCOL[pi] : '#FFD24D';
+  ctx.beginPath(); ctx.ellipse(0, 3.5, 37, 16, 0, 0, 6.283); ctx.stroke();
+  ctx.lineWidth = 1.4; ctx.strokeStyle = 'rgba(255,255,255,.75)';
+  ctx.beginPath(); ctx.ellipse(0, 3.5, 34, 14.4, 0, 0, 6.283); ctx.stroke();
   ctx.restore();
 }
 function dkkTagRaw(ctx, name, pi){
