@@ -565,6 +565,39 @@ function dkcFxMarks(el){
   el.querySelectorAll('.dkhd > *').forEach(function(n){ if(!n.hasAttribute('data-fx')) n.setAttribute('data-fx', 'pop'); });
   el.querySelectorAll('.dktab').forEach(function(n){ n.setAttribute('data-fx', 'riseL'); n.setAttribute('data-fx-press', ''); });
 }
+/* ══════════════════════════════════════════════════════════════
+   お手本の絵に寄せる（社長 2026-09-12・S2）：共通スキン（8b-skin.js）をこの画面に当てる
+   ・背景は静止の1枚（カード＝書斎／サイコロ＝金の広間）。タブとボタンは .sk- の見た目。
+   ・主役のまわりに光の輪1個ときらめき1〜2個だけ足す。dkskBudget が1画面8個を超えさせない。
+     サイコロ画面は元から動く物が1つ多い（台座で跳ねるサイコロ）ので、きらめきを1個にして余裕を残す。
+     スマホ（DKFX.mob）では dkskHalo/dkskSpark が何も作らない＝動く層を増やさない。
+   ・金の彫り枠は 1m-cards.html 側で「重ねる飾り」として描く（frame は false）。
+     .sk-frame の border-image を当てると枠の太さぶん器の中身が細くなるため。
+   ・素材が無い時も何も起きないだけ（dkskUrl が空なら CSS 変数を置かない）。
+   ══════════════════════════════════════════════════════════════ */
+function dkcSkin(el, which){
+  if(!el || typeof dkskApply !== 'function') return;
+  try{
+    dkskApply(el, {
+      bg:       which === 'dice' ? 'hall' : 'study',
+      frame:    false,
+      frameDark:false,
+      tabs:     '.dktabs',
+      btns:     '.dkbtn',
+      halo:     '.dkc-stage',
+      haloSize: '88%',
+      spark:    which === 'dice' ? 1 : 2,
+      sparkSel: '.dkc-stage',
+      sparkBox: { x:20, y:14, w:60, h:56 }
+    });
+    if(typeof dkskUrl === 'function'){
+      [['--dkc-wood', 'wood'], ['--dkc-candle', 'deco-candle'], ['--dkc-globe', 'deco-globe']].forEach(function(p){
+        var u = dkskUrl(p[1]);
+        if(u) el.style.setProperty(p[0], u);
+      });
+    }
+  }catch(e){}
+}
 function dkcTabs(list, active, icons, badges){
   return dkTabs(list.map(function(t, i){
     return { id:t.id, nm:t.nm, ic:dkcSvg(icons[i]), badge:(badges && badges[t.id]) || '' };
@@ -1096,6 +1129,7 @@ function showCards(tab){
   try{ part.wire(el); }catch(e){ console.error('[WP2]', e); }
   dkcStrip(el);
   screenTo('cards');
+  dkcSkin(el, 'cards');
   dkcRestore(el);
 }
 /* ══════════════════════════════════════════════════════════════
@@ -1593,6 +1627,7 @@ function showDice(tab){
   try{ part.wire(el); }catch(e){ console.error('[WP2]', e); }
   dkcStrip(el);
   screenTo('dice');
+  dkcSkin(el, 'dice');
   dkcRestore(el);
 }
 /* サイコロの演出 */

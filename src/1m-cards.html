@@ -818,4 +818,202 @@
   #dice .dkc-pedglow,#dice .dkc-pedring::after,#dice .dkc-dcimg img,#cards .dkc-fr::after,#dice .dkc-fr::after{animation:none!important}
 }
 html.fx-lite #dice .dkc-ghost,html.fx-lite #dice .dkc-pedring::after{animation:none}
+
+/* ══════════════════════════════════════════════════════════════
+   お手本の絵に寄せる（社長 2026-09-12「安っぽいのでエフェクトを」・S2）
+   ──────────────────────────────────────────────────────────────
+   ・当てるのは 9c-cards.js の dkcSkin()。共通スキン（8b-skin.js の dkskApply）で
+     背景・タブ・ボタン・光の輪・きらめきを当て、器の彫り飾りはここで重ねる。
+   ・金の彫り枠は「重ねる飾り（::after）」で描く。.sk-frame の border-image を
+     そのまま当てると枠の太さ（34px）ぶん器の中身が細くなり、細い画面で文字が切れるため。
+     枠の太さは器ごとに --dkc-fw で決め、同じ分の余白を器に足して中身と重ならないようにする。
+   ・常時アニメは増やさない：放射線の回転を止め（お手本の部屋は止まっている）、
+     そのぶんで主役の光の輪1個ときらめき1〜2個を足す（1画面8個以内）。
+     スマホ（html.fx-mob）では dkskHalo/dkskSpark が何も作らない。
+   ・素材（window.DV_UI2）が無くても崩れない：--sk-* が無ければ枠も飾りも出ないだけ。
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 1. 画面の地：ステージを「部屋をのぞく窓」にする（お手本は書き割りの上に主役が立つ） ── */
+#cards .dkc-stage,#dice .dkc-stage{
+  background:radial-gradient(ellipse 58% 52% at 50% 56%,rgba(255,208,124,.24),rgba(255,196,96,0) 72%),
+             radial-gradient(ellipse 96% 88% at 50% 46%,rgba(10,6,2,0) 44%,rgba(8,5,1,.52));
+  box-shadow:inset 0 0 74px rgba(8,5,1,.55)}
+/* 放射線は回さない（常時アニメを1つ空けて、主役の光の輪に回す） */
+#cards .dkc-stage > .fx-rays,#dice .dkc-stage > .fx-rays{animation:none;opacity:.28}
+#cards .dkc-stage > .fx-rays.dkc-hot{opacity:.5}
+/* 書斎の小物（燭台・天球儀）。止まった絵なので合成レイヤーを増やさない */
+#cards .dkc-stage::before,#dice .dkc-stage::before{
+  content:"";position:absolute;left:-3%;bottom:-5%;width:23%;height:44%;z-index:0;pointer-events:none;
+  background:var(--dkc-candle,none) left bottom/contain no-repeat;opacity:.82;
+  filter:drop-shadow(0 6px 12px rgba(0,0,0,.6))}
+#cards .dkc-stage::after,#dice .dkc-stage::after{
+  content:"";position:absolute;right:-5%;top:2%;width:15%;height:32%;z-index:0;pointer-events:none;
+  background:var(--dkc-globe,none) right top/contain no-repeat;opacity:.48;
+  filter:drop-shadow(0 6px 12px rgba(0,0,0,.6))}
+/* 書き割りを少し明るく：スキンの焼き込みとロウソクの揺らぎが二重にかかって暗くなるため。
+   お手本の部屋は旗の青緑と金がはっきり見える明るさ。 */
+#cards.sk-bg::before,#dice.sk-bg::before{
+  background:radial-gradient(64% 46% at 50% 6%,rgba(255,208,124,.1),transparent 74%),
+             linear-gradient(180deg,rgba(0,0,0,.1),transparent 26% 82%,rgba(0,0,0,.22))}
+#cards.dk::after,#dice.dk::after{opacity:.5}
+/* 主役の光の輪ときらめき（8b-skin.js が入れる） */
+#cards .dkc-stage > .sk-halo{z-index:1;opacity:.95;filter:drop-shadow(0 0 12px rgba(150,220,255,.45))}
+#dice  .dkc-stage > .sk-halo{z-index:0;opacity:.8}
+#cards .dkc-stage > .sk-spark,#dice .dkc-stage > .sk-spark{z-index:3;width:14px;height:14px}
+
+/* ── 2. 器の縁：金の帯（金属のグラデ）＋重ねる金の彫り枠 ── */
+#cards .dkc-det,#dice .dkc-det{
+  padding:16px 24px;border:4px solid transparent;
+  background:linear-gradient(180deg,rgba(58,41,18,.95),rgba(18,11,3,.975)) padding-box,
+             var(--fx-gold-metal) border-box;
+  box-shadow:0 10px 26px rgba(0,0,0,.62),inset 0 2px 0 rgba(255,224,154,.22),inset 0 0 44px rgba(0,0,0,.6)}
+#cards .dkc-bottom,#dice .dkc-bottom{
+  padding:0 26px;border:4px solid transparent;
+  background:var(--dkc-wood,none) center/auto 100% repeat-x padding-box,
+             linear-gradient(180deg,rgba(60,42,19,.96),rgba(22,13,4,.98)) padding-box,
+             var(--fx-gold-metal) border-box;
+  background-blend-mode:soft-light,normal,normal;
+  box-shadow:0 10px 26px rgba(0,0,0,.6),inset 0 2px 0 rgba(255,224,154,.2)}
+#cards .dkc-bookL,#dice .dkc-dbtop{
+  border:4px solid transparent;
+  background:linear-gradient(180deg,rgba(58,41,18,.95),rgba(18,11,3,.975)) padding-box,
+             var(--fx-gold-metal) border-box}
+/* 重ねる彫り枠（9分割で伸縮。指は素通し＝押せる物をふさがない） */
+#cards .dkc-det::after,#dice .dkc-det::after,
+#cards .dkc-bottom::after,#dice .dkc-bottom::after,
+#cards .dkc-bookL::after,#dice .dkc-dbtop::after{
+  content:"";position:absolute;inset:0;z-index:6;pointer-events:none;border-radius:16px;
+  border-style:solid;border-color:transparent;border-width:var(--dkc-fw,16px);
+  border-image:var(--sk-frame,none) 80 / var(--dkc-fw,16px) / 0 stretch}
+/* 上下は細く・左右は太く。上下を太らせると、器の一番下のボタンや一番上の見出しに枠がかぶる
+   （器の中身は縦にいっぱいまで使うので、逃がせる余白が上下には無い） */
+#cards .dkc-det::after,#dice .dkc-det::after{--dkc-fw:8px 20px}
+#cards .dkc-bottom::after,#dice .dkc-bottom::after{--dkc-fw:9px 14px;z-index:2}
+#cards .dkc-bookL::after{--dkc-fw:11px 14px}
+#dice .dkc-dbtop::after{--dkc-fw:9px 12px}
+/* 彫り枠のぶん、帯の中身を内側へ寄せる（装着中の札が枠に隠れないように） */
+#cards .dkc-row,#dice .dkc-row{padding:20px 20px 12px}
+#cards .dkc-cnt,#dice .dkc-cnt{padding-left:16px}
+
+/* 小さい器は角の飾りだけ（枠を太くすると絵と文字が隠れる） */
+/* 角の飾りは小さい器では点にしか見えず、青い斑点のように散らかるのでやめた。
+   代わりに上辺に金の光の線を1本引く（お手本の小さい札の上辺と同じ見え方） */
+#cards .dkc-album::after,#dice .dkc-dcard::after{
+  content:"";position:absolute;left:11%;right:11%;top:4px;height:3px;z-index:5;pointer-events:none;
+  border-radius:2px;background:linear-gradient(90deg,transparent,rgba(255,234,170,.9),transparent)}
+
+/* ── 3. 左の縦タブ：金の彫り枠と、選ばれている時の青い光（お手本の左タブ） ── */
+#cards .dktab,#dice .dktab{
+  background:linear-gradient(180deg,#5C4321 0 8%,#3A2810 34%,#1F1406 72%,#150C03);
+  border-color:#8A6626;
+  box-shadow:0 5px 0 rgba(0,0,0,.55),inset 0 2px 0 rgba(255,226,150,.3),0 8px 16px rgba(0,0,0,.42)}
+/* 元の ::before（上の艶）を彫り枠に差し替える。艶は上の背景の 0〜8% に畳んである */
+#cards .dktab::before,#dice .dktab::before{
+  content:"";position:absolute;left:0;right:0;top:0;bottom:0;height:auto;z-index:3;pointer-events:none;
+  border-radius:15px;background:none;
+  border:15px solid transparent;border-image:var(--sk-frame,none) 80 / 15px / 0 stretch}
+#cards .dktab .ic .dkc-svg,#dice .dktab .ic .dkc-svg{width:44px;height:44px}
+#cards .dktab.on,#dice .dktab.on{
+  background:linear-gradient(180deg,#A7DEFF 0 6%,#3E9BEC 20%,#1A5FB4 62%,#0C3068);
+  border-color:var(--dk-g2);
+  box-shadow:0 5px 0 rgba(0,0,0,.55),inset 0 3px 0 rgba(255,255,255,.45),
+             0 0 0 2px rgba(255,228,150,.5),0 0 26px 6px rgba(92,182,255,.6)}
+
+/* ── 4. 主役の台座（お手本の緑のビロード＋金の輪） ── */
+#cards .dkc-floor{
+  left:21%;right:21%;bottom:5%;height:104px;z-index:0;
+  background:radial-gradient(closest-side,rgba(255,228,152,.42),rgba(255,196,90,.12) 60%,transparent 80%),
+             radial-gradient(ellipse at 50% 40%,#2E6F61 0%,#18473F 54%,#0B2621 100%);
+  box-shadow:0 0 0 5px #C8952F,0 0 0 8px #5C3A06,0 12px 0 2px rgba(20,12,4,.8),
+             0 22px 34px rgba(0,0,0,.6),inset 0 -12px 24px rgba(0,0,0,.5)}
+#cards .dkc-floor::after{
+  content:"";position:absolute;left:9%;right:9%;top:16%;bottom:24%;border-radius:50%;
+  border:2px solid rgba(255,228,152,.4)}
+/* ビロードの台座は「主役が1枚だけ立つ」所持タブのみ。強化・合成は横に並ぶ作りで
+   主役の真下に来ないため、元の床の光に戻す（台座だけが浮いて見えるのを防ぐ） */
+#cards .dkc-upst .dkc-floor,#cards .dkc-mixst .dkc-floor{
+  left:14%;right:14%;bottom:4%;height:74px;
+  background:radial-gradient(closest-side,rgba(255,216,124,.42),rgba(255,180,60,.1) 60%,transparent);
+  box-shadow:none}
+#cards .dkc-upst .dkc-floor::after,#cards .dkc-mixst .dkc-floor::after{display:none}
+
+/* ── 5. 等級バッジ（台座は絵・文字は CSS で重ねる＝焼き込みの文字は使わない） ── */
+#cards .dkc-det .hd .dkc-rar,#dice .dkc-det .hd .dkc-rar{
+  display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;
+  width:64px;height:66px;font-size:30px;
+  background:var(--sk-badge,none) center/contain no-repeat;
+  filter:drop-shadow(0 3px 5px rgba(0,0,0,.6))}
+#cards .dkc-det .hd .dkc-rar.dkc-gS,#dice .dkc-det .hd .dkc-rar.dkc-gS{
+  filter:drop-shadow(0 3px 5px rgba(0,0,0,.6)) hue-rotate(-52deg) saturate(1.15)}
+#cards .dkc-det .hd .dkc-rar.dkc-gA,#dice .dkc-det .hd .dkc-rar.dkc-gA{
+  filter:drop-shadow(0 3px 5px rgba(0,0,0,.6)) saturate(.2) brightness(1.1)}
+#cards .dkc-bighd .dkc-rar{
+  display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;
+  width:46px;height:48px;font-size:24px;
+  background:var(--sk-badge,none) center/contain no-repeat}
+
+/* ── 6. 見出し（お手本の青いリボンの名前と、金の Lv 札） ── */
+#cards .dkc-det .hd,#dice .dkc-det .hd{gap:14px;padding-bottom:10px;border-bottom:2px solid rgba(214,168,80,.48)}
+#cards .dkc-det .hd .nm,#dice .dkc-det .hd .nm{
+  padding:5px 16px;border-radius:9px;
+  background:linear-gradient(90deg,rgba(46,139,224,.6),rgba(11,44,94,.24) 76%,rgba(11,44,94,0));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.26)}
+#cards .dkc-det .hd .lv,#dice .dkc-det .hd .lv{
+  box-shadow:0 3px 0 rgba(92,58,6,.6),inset 0 2px 0 rgba(255,255,255,.6),0 0 0 2px rgba(92,58,6,.45)}
+
+/* ── 7. 羊皮紙の小面（お手本の効果の枠とセリフは紙の上の黒い字） ── */
+#cards .dkc-det .dkc-ef,#dice .dkc-det .dkc-ef{
+  padding:12px 14px;border-radius:12px;border:2px solid #A9761A;
+  background:var(--sk-paper,none) left center/auto 100% repeat-x,
+             linear-gradient(180deg,#F8EEDA,#ECDBBC 52%,#D9C29A);
+  background-blend-mode:multiply,normal;
+  box-shadow:0 3px 0 rgba(0,0,0,.34),inset 0 0 0 1px rgba(255,255,255,.5)}
+#cards .dkc-det .dkc-ef b,#dice .dkc-det .dkc-ef b{
+  color:#2F2008;-webkit-text-stroke:0;text-shadow:0 1px 0 rgba(255,255,255,.55)}
+#cards .dkc-det .dkc-ef p,#dice .dkc-det .dkc-ef p{color:#4A3416}
+#cards .dkc-det .dkc-line{
+  color:#3E2C10;border-left:4px solid #A9761A;border-radius:0 10px 10px 0;padding:7px 12px;margin:2px 0 4px;
+  background:linear-gradient(90deg,rgba(248,238,218,.96),rgba(236,219,188,.72))}
+
+/* ── 8. ボタン（お手本の艶と厚みと縁取り。艶は止まった絵のまま） ── */
+#cards .dkc-bt,#dice .dkc-bt,#cards .dkc-bt2,#dice .dkc-bt2,.dkc-modal .dkc-bt,.dkc-modal .dkc-bt2{
+  box-shadow:0 7px 0 rgba(0,0,0,.46),0 10px 18px rgba(0,0,0,.4),inset 0 2px 0 rgba(255,255,255,.5)}
+#cards .dkc-bt:active,#dice .dkc-bt:active,#cards .dkc-bt2:active,#dice .dkc-bt2:active{
+  box-shadow:0 1px 0 rgba(0,0,0,.46),inset 0 2px 0 rgba(255,255,255,.4)}
+.dkc-modal .dkbtn.gd,.dkc-modal .dkbtn.gr{border-width:3px;border-style:solid}
+
+/* ── 9. 能力バー（お手本の金と緑の塗り・止まった斜めの光） ── */
+#cards .dkc-det .dkbar,#dice .dkc-det .dkbar{
+  border:2px solid #2A2118;box-shadow:inset 0 3px 7px rgba(0,0,0,.66),0 1px 0 rgba(255,226,150,.14)}
+#cards .dkc-det .dkbar i::after,#dice .dkc-det .dkbar i::after{
+  content:"";display:block;position:absolute;inset:0;pointer-events:none;animation:none;
+  background:linear-gradient(104deg,transparent 34%,rgba(255,255,255,.4) 50%,transparent 66%)}
+
+/* ── 10. 小さいカード（帯・図鑑・アルバム）に金の内側の線 ── */
+#cards .dkc-item,#dice .dkc-item{
+  box-shadow:0 5px 0 rgba(0,0,0,.48),0 8px 16px rgba(0,0,0,.4),
+             inset 0 0 0 1px rgba(255,224,154,.3),inset 0 2px 0 rgba(255,220,150,.2)}
+#cards .dkc-item.on,#dice .dkc-item.on{
+  box-shadow:0 5px 0 rgba(0,0,0,.48),0 0 0 3px rgba(255,214,110,.6),0 0 26px 7px rgba(255,200,80,.6),
+             inset 0 0 0 1px rgba(255,240,200,.5)}
+
+/* ── 11. 横長スマホ（高さ560px未満）：彫り枠と余白を小さくして中身を押さない ── */
+@media (max-height:560px){
+  #cards .dkc-det,#dice .dkc-det{padding:14px 20px}
+  /* 細い画面では詳細の器が中でスクロールする作りなので、重ねた彫り枠は出さない
+     （枠が中身と一緒に動いて、下のボタンに重なってしまう）。金の金属の縁は残る。 */
+  #cards .dkc-det::after,#dice .dkc-det::after{display:none}
+  #cards .dkc-det .hd .dkc-rar,#dice .dkc-det .hd .dkc-rar{width:70px;height:72px;font-size:34px}
+  #cards .dktab .ic .dkc-svg,#dice .dktab .ic .dkc-svg{width:40px;height:40px}
+  #cards .dktab::before,#dice .dktab::before{border-width:12px;border-image-width:12px}
+  #cards .dkc-row,#dice .dkc-row{padding:24px 16px 10px}
+  #cards .dkc-floor{height:88px}
+}
+
+/* ── 12. スマホ・動きを減らす設定：光の輪ときらめきを止める（1w-skin.html と同じ） ── */
+html.fx-mob #cards .sk-halo,html.fx-mob #dice .sk-halo{animation:none!important;opacity:.45}
+html.fx-mob #cards .sk-spark,html.fx-mob #dice .sk-spark{display:none!important}
+@media (prefers-reduced-motion:reduce){
+  #cards .sk-halo,#dice .sk-halo,#cards .sk-spark,#dice .sk-spark{animation:none!important}
+}
 </style>
