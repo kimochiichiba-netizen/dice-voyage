@@ -778,4 +778,145 @@ html.fx-mob #quest .dks-chestbox .fx-rays,html.fx-mob .dks-mglow .fx-rays,html.f
   .dks-rib{padding:0 44px}
   .dks-rib > b::before{left:-30px} .dks-rib > b::after{right:-30px}
 }
+
+/* ══════════════════════════════════════════════════════════════
+   第2回・お手本寄せ（ショップ・ミッション・出席簿）— 絵の密度を上げる
+   ・絵は assets/ui2（book-spread／desk-props-l,r／deco-candle／good3-*／
+     frame-thick／paper-crest）。window.DV_UI2 から来る。
+     素材が無くても下の指定だけで成り立つ（絵が無い時に崩れない）。
+   ・足すのは「止まった絵」だけ。常時アニメは1つも増やさない。
+   ・画面いっぱいの filter は作らない（iPhone の画素のメモリを増やさないため）。
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 机の小物（コンパス・巻物・羽根ペン・燭台）。押せない飾り ── */
+.dks-prop{position:absolute;z-index:3;pointer-events:none;
+  background-position:center;background-size:contain;background-repeat:no-repeat;
+  filter:drop-shadow(0 8px 14px rgba(0,0,0,.55))}
+
+/* ══════ ショップ ══════ */
+/* 店員を左の列いっぱい（上から下まで）に立たせる。看板では押し下げない */
+#shop .dks-clerk{left:2px;top:0;bottom:0;width:406px;height:auto;
+  background-position:center top;background-size:cover;background-repeat:no-repeat}
+/* 看板は細くして、かかるのは髪の先だけ（顔から下は出したまま） */
+#shop .dks-sign{left:34px;top:0;width:342px;height:78px;gap:1px}
+#shop .dks-sign > b{font-size:28px;letter-spacing:.08em}
+#shop .dks-sign > span{font-size:16px}
+#shop .dks-chain{top:-24px;height:24px}
+/* 本日のおすすめは列の足もとへ（お手本と同じ位置） */
+/* 店員の絵に焼き込まれた「本日のおすすめ」の板を、本物の日替わりで完全に覆う大きさにする */
+#shop .dks-pick{top:auto;bottom:0;left:4px;width:212px;height:330px}
+#shop .dks-pick .pa{height:100px}
+#shop .dks-pick .pa .pic.big{background-size:cover;background-position:center 24%}
+/* 商品の札：絵は上半分より大きく、枠は角飾りつきの太い彫り枠（.sk-frame2） */
+#shop .dks-good{padding:14px 14px 16px}
+#shop .dks-good .pic{flex:0 0 54%;min-height:0}
+/* 金枠まで描いてある商品画は、台に乗せず札いっぱいに敷く */
+#shop .dks-good .pic.big{background-size:cover;background-position:center center;border-color:#6B4A10}
+#shop .dks-good .nm{font-size:26px}
+/* 値引きの札・枚数の札を彫り枠（z-index:5）の上に出す */
+#shop .dks-off{z-index:8}
+#shop .dks-good .pic > .dks-pb{z-index:4}
+
+/* ══════ ミッション：見開きの本を下敷きにする ══════
+   book-spread.webp は背表紙が横 70% の所にある非対称の見開き。
+   本文（1362px）を「左46＋左頁882＋背表紙70＋右頁318＋右46」に割ると、
+   パネルの切れ目が本の背表紙にちょうど重なり、紙のふくらみ・角の金飾り・
+   内側の金の罫が絵のまま出る（自前で描き足さない）。 */
+/* position は必ず書き直す：共通スキンの .sk-book が position:relative を持っていて、
+   1w-skin.html は 1s-shop.html より後ろに連結されるので、同じ強さだと .dkbody の
+   position:absolute が負ける＝right:18px が効かず本文が 1600px に広がってはみ出す */
+#quest .dks-qbody.sk-book{position:absolute;box-sizing:border-box;padding:36px 46px 37px;gap:70px;filter:none}
+/* 左の頁：下地の羊皮紙と枠を消して、本の紙をそのまま見せる */
+#quest .dks-qbox{background:none;border:0;border-radius:0;box-shadow:none;padding:6px 22px 8px 16px}
+#quest .dks-qbox::before,#quest .dks-qbox::after{display:none}
+#quest .dks-qbox > .dks-orn{display:none}
+/* 右の頁に載せる「デイリーコンプリート」の板 */
+#quest .dks-qside{width:318px;padding:18px 14px 14px}
+/* 行：金枠タイルの絵を大きく、進み具合の数字を太く */
+/* 5行＋一括受取が頁に収まる高さにそろえる（あふれると最後の行が半分に切れる） */
+/* 行の高さを決めているのは min-height ではなく中身（名前＋説明＋バー）なので、
+   詰めるのは padding と段の間。5行＋一括受取がちょうど1頁に収まる */
+#quest .dks-q{min-height:92px;gap:14px;padding:7px 14px}
+#quest .dks-q .ds{margin-top:0}
+#quest .dks-q .prog{margin-top:4px}
+#quest .dks-qlist{gap:7px}
+#quest .dks-q .ic{width:84px;height:84px;border-radius:16px}
+#quest .dks-q .prog .dkbar{height:26px}
+#quest .dks-q .prog > b{font-size:25px;min-width:84px}
+/* 達成状況の「0/5」が頁の端で切れないように詰める */
+#quest .dks-chprog{gap:8px}
+#quest .dks-chprog .dkbar{flex:1 1 0;min-width:0}
+#quest .dks-chprog > b{font-size:21px;flex:0 0 auto;white-space:nowrap}
+/* 一括受取：月桂樹つきの金の大ボタン */
+#quest .dks-all{height:74px;font-size:30px;margin-top:10px}
+#quest .dks-all.dks-laurel::before,#quest .dks-all.dks-laurel::after{
+  content:"";position:absolute;top:50%;width:58px;height:30px;margin-top:-15px;
+  pointer-events:none;animation:none;opacity:.95;
+  background-image:var(--sk-fleur,none);background-position:center;
+  background-size:contain;background-repeat:no-repeat;
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,.45))}
+#quest .dks-all.dks-laurel::before{left:24px}
+#quest .dks-all.dks-laurel::after{right:24px;transform:scaleX(-1)}
+/* 左の縦タブも金の彫り枠に */
+#quest .dktab{height:126px}
+#quest .dktab .ic{font-size:48px}
+#quest .dktab::after{content:"";position:absolute;inset:-7px;z-index:3;pointer-events:none;
+  border:20px solid transparent;
+  border-image-source:var(--sk-f2,var(--sk-frame,none));border-image-slice:36;
+  border-image-width:20px;border-image-repeat:stretch}
+#quest .dktab .nw{z-index:4}
+/* 机の小物（本の外側に燭台とコンパス、右頁の手前に羽根ペン） */
+#quest .dks-prop.pl{left:8px;bottom:6px;width:210px;height:140px}
+#quest .dks-prop.pc{left:26px;bottom:168px;width:118px;height:103px}
+/* 羽根ペンは本の右の外側（留め金の帯）に立てる。
+   頁の内側まで伸ばすと「達成状況 0/5」の数字の上に重なって隠してしまう */
+#quest .dks-prop.pr2{right:0;bottom:6px;width:66px;height:146px;z-index:6}
+
+/* ══════ 出席簿 ══════ */
+/* 板を少し小さくして、背景の書き割りを左右と下に見せる */
+#daily .dks-dbody{left:88px;right:88px;top:114px;bottom:26px}
+/* マスに内側のベベルと紙の目（paper-crest の透かしを重ねる） */
+#daily .dks-day{
+  background-image:var(--sk-crest,none),
+    radial-gradient(120% 70% at 50% 0%,rgba(255,255,255,.7),transparent 60%),
+    linear-gradient(180deg,#FFF7E4,#EBD9B0 58%,#D6BF92);
+  background-size:cover,auto,auto;background-repeat:no-repeat,no-repeat,no-repeat;
+  background-blend-mode:soft-light,normal,normal;
+  box-shadow:inset 0 3px 0 rgba(255,255,255,.92),inset 0 -4px 0 rgba(150,116,64,.34),
+             inset 0 0 0 2px rgba(255,255,255,.55),inset 0 0 22px rgba(160,124,66,.22),
+             0 4px 0 rgba(92,58,10,.5),0 8px 14px rgba(60,36,6,.32)}
+/* 7日ごとのマス：金の彫り枠を重ね、放射光を強くする */
+#daily .dks-day.d7{box-shadow:inset 0 3px 0 rgba(255,255,255,.95),inset 0 0 26px rgba(255,196,70,.42),
+  0 0 0 2px rgba(255,220,120,.6),0 0 30px 6px rgba(255,200,80,.55),0 6px 12px rgba(80,50,10,.34)}
+#daily .dks-day.d7::after{content:"";position:absolute;inset:-5px;z-index:2;pointer-events:none;
+  border:16px solid transparent;
+  border-image-source:var(--sk-f2,var(--sk-frame,none));border-image-slice:36;
+  border-image-width:16px;border-image-repeat:stretch}
+#daily .dks-d7rays .fx-rays{background:repeating-conic-gradient(from 0deg,rgba(255,206,70,.34) 0 7deg,rgba(255,206,70,0) 7deg 18deg)}
+#daily .dks-prop.pl{left:10px;bottom:10px;width:196px;height:131px}
+#daily .dks-prop.pr2{right:10px;bottom:8px;width:100px;height:221px}
+
+/* 看板は店員より前に出す（店員を列いっぱいにしたら、うしろに隠れてしまうため） */
+#shop .dks-sign{z-index:2}
+/* 購入ボタンの高さをそろえる（値段が2行になる札だけ下がっていた） */
+#shop .dks-good > .dks-b,#shop .dks-good > .dks-sold{margin-top:auto}
+/* 右の頁は幅が狭いので、見出しリボンの文字と金の飾りを詰める */
+#quest .dks-qside .dks-rib{padding:0 20px}
+#quest .dks-qside .dks-rib > b{font-size:19px}
+#quest .dks-qside .dks-rib > b::before{left:-16px}
+#quest .dks-qside .dks-rib > b::after{right:-16px}
+/* 出席簿も板を小さくしたぶん、見出しリボンの文字を詰める */
+#daily .dks-rib > b{font-size:22px}
+/* 紙の目は透かしの紋章を soft-light で薄く掛ける。
+   縦の紙目（paper.webp）はマスが小さいと縞に見え、multiply だと紙が茶色くにごるため使わない */
+#daily .dks-day{background-color:#FBF3DE}
+
+/* ── 横長スマホ（高さ560px未満）：上の指定が前の @media を上書きしないよう言い直す ── */
+@media (max-height:560px){
+  #shop .dks-good .nm{font-size:27px}
+  #quest .dks-q .ic{width:84px;height:84px}
+  #quest .dks-all{height:76px}
+  #quest .dktab{height:118px}
+  #quest .dks-qside .dks-rib > b{font-size:22px}
+}
 </style>
