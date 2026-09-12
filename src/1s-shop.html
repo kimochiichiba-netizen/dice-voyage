@@ -700,4 +700,82 @@ html.fx-lite .dks-gl,html.fx-lite .dks-d7rays,html.fx-lite .dks-mglow .fx-rays{d
 html.fx-mob #shop .dks-sign,html.fx-mob #shop .dks-lamps .dks-a-lantern,html.fx-mob #shop .dks-orb > b,html.fx-mob #quest .dks-chest,
 html.fx-mob #daily .dks-day.now::before,html.fx-mob .dks-gmedal,html.fx-mob #daily .dks-d7rays .fx-rays,
 html.fx-mob #quest .dks-chestbox .fx-rays,html.fx-mob .dks-mglow .fx-rays,html.fx-mob #shop .fx-rays{animation:none!important}
+
+/* ══════════════════════════════════════════════════════════════
+   お手本に寄せる見た目（S3）— 書き割りの背景・金の彫り枠・主役の絵・艶のボタン
+   ・素材は window.DV_UI2。9i-shop.js の dksSkin() が dkskApply を通して
+     --sk-frame（金の彫り枠）・--sk-paper（羊皮紙）・--sk-badge・--sk-fleur を配る。
+     素材が無くても崩れない（下の指定だけで成り立つ）。
+   ・ここでは新しい常時アニメを作らない。足すのは主役の品の光の輪1個ときらめき2個だけで、
+     それは 8b-skin.js が上限（1画面8個）とスマホ（html.fx-mob）を見て作る。
+   ══════════════════════════════════════════════════════════════ */
+/* 金の彫り枠（9分割で伸縮）。絶対配置なので中身の位置は動かない */
+.dks-orn{position:absolute;inset:0;z-index:6;pointer-events:none;
+  border:var(--dks-ow,16px) solid transparent;
+  border-image-source:var(--sk-frame,none);border-image-slice:80;
+  border-image-width:var(--dks-ow,16px);border-image-repeat:stretch}
+/* 紙面はにごりのない羊皮紙のまま（素材の紙目は縞に見えたので敷かず、焼けだけ足す） */
+#quest .dks-qbox,#daily .dks-daily{
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.6),inset 0 -16px 34px rgba(150,116,64,.2),
+             inset 0 0 0 2px rgba(255,255,255,.4)}
+/* 主役の絵（お手本の商品画・透過）をビロードの台に乗せる */
+#shop .pic.art.velvet2{background:
+  radial-gradient(circle at 50% 40%,rgba(255,216,132,.34),transparent 60%),
+  radial-gradient(circle at 50% 60%,#5A1526,#210610 80%)}
+#shop .dks-h2{position:absolute;inset:5%;z-index:1;background:center/contain no-repeat;
+  filter:drop-shadow(0 6px 12px rgba(0,0,0,.5))}
+#shop .dks-good .pic > .sk-spark{z-index:2}
+#shop .dks-good .pic > .dks-pb{z-index:3}
+/* 光の輪は札の外へ広がる淡い光にする（絵の中だと切れて汚れに見えるため） */
+#shop .dks-good > .sk-halo{z-index:0;opacity:.55}
+#shop .dks-good > .pic,#shop .dks-good > .nm,#shop .dks-good > .ds,#shop .dks-good > .pr,
+#shop .dks-good > .dks-b,#shop .dks-good > .dks-sold{position:relative;z-index:1}
+/* 品物の絵では「？」を出さない（品名と説明で分かるため。お手本は大きな絵だけ） */
+#shop .dks-good .pic .dks-a-pend > em,#shop .dks-pick .pa .pic .dks-a-pend > em{display:none}
+#shop .dks-pick .pa .pic .dks-h2{inset:8%}
+/* 主役の品（いちばん値引きが大きい品）を金の輪で目立たせる */
+#shop .dks-good.dks-hot{box-shadow:0 8px 0 rgba(0,0,0,.35),0 16px 30px rgba(0,0,0,.55),
+  0 0 0 2px rgba(255,228,146,.5),0 0 26px 6px rgba(255,200,80,.28)}
+/* ペンダントの石を本物の宝石の絵にする（お手本の「宝石の発光」） */
+.dks-a-pend.gemimg > b::after{background-image:var(--g,none);background-size:cover;background-position:center;
+  box-shadow:0 0 10px 2px rgba(190,140,255,.45)}
+/* 値段の行を暗い板に（お手本の値段行） */
+#shop .dks-good .pr{margin:0 2px;padding:5px 10px;border-radius:10px;
+  background:linear-gradient(180deg,rgba(8,5,2,.72),rgba(36,24,10,.6));
+  border:2px solid rgba(200,152,70,.5);box-shadow:inset 0 2px 6px rgba(0,0,0,.5)}
+/* ボタンの艶と厚み（止まった斜めの光。触れた時だけ滑らせる） */
+.dks-scr .dkbtn.dks-b,#modalBody .dkbtn.dks-b{
+  box-shadow:0 6px 0 rgba(0,0,0,.45),inset 0 2px 0 rgba(255,255,255,.5),0 10px 18px rgba(0,0,0,.38)}
+.dks-scr .dkbtn.dks-b:active,#modalBody .dkbtn.dks-b:active{box-shadow:0 1px 0 rgba(0,0,0,.45)}
+.dks-b .dks-sh{border-radius:inherit}
+.dks-b .dks-sh::after{left:-16%;width:30%;transform:translateX(0);transition:transform .5s ease;
+  background:linear-gradient(105deg,transparent,rgba(255,255,255,.24),transparent)}
+.dks-b:hover .dks-sh::after{transform:translateX(330%)}
+.dks-scr .dkbtn.gr.dks-b{border:3px solid #1F5B0C}
+.dks-scr .dkbtn.gd.dks-b{border:3px solid #7C5406}
+/* 進行中は灰色（お手本） */
+#quest .dkbtn.dks-wip{background:linear-gradient(180deg,#B5AAA0 0 8%,#8C8278 40%,#575149);
+  border:3px solid #3A342D;color:#FBF6EE;-webkit-text-stroke:4px rgba(38,32,26,.9)}
+#quest .dks-wip > small{color:#F2EADC;-webkit-text-stroke:3px rgba(38,32,26,.9)}
+/* リボンの左右に金の飾り */
+.dks-rib{padding:0 52px}
+.dks-rib > b::before,.dks-rib > b::after{content:"";position:absolute;top:50%;width:24px;height:13px;margin-top:-7px;
+  background:var(--sk-fleur,none) center/contain no-repeat;opacity:.95}
+.dks-rib > b::before{left:-36px}
+.dks-rib > b::after{right:-36px;transform:scaleX(-1)}
+/* 等級バッジの台座（お手本の飾り文字） */
+#shop .dks-die > .dks-rr{background-image:var(--sk-badge,none),linear-gradient(180deg,#2A1C08,#120B03);
+  background-size:contain,auto;background-position:center,center;background-repeat:no-repeat,repeat}
+/* 宝箱と店員のうしろの灯り（止まった光） */
+#quest .dks-chestbox{background:
+  radial-gradient(circle at 50% 52%,rgba(255,214,110,.30),rgba(255,190,70,.10) 42%,transparent 68%),
+  linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.05))}
+#shop .dks-clerk::before{content:"";position:absolute;left:-8%;right:-8%;top:4%;bottom:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(56% 44% at 52% 32%,rgba(255,208,132,.26),transparent 70%)}
+/* 小さな画面：彫り枠と飾りを細く */
+@media (max-height:560px){
+  .dks-orn{--dks-ow:11px}
+  .dks-rib{padding:0 44px}
+  .dks-rib > b::before{left:-30px} .dks-rib > b::after{right:-30px}
+}
 </style>

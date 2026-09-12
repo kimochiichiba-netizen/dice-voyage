@@ -542,11 +542,40 @@ async function dksFreeFx(el, kind, got, before, title){
   DKS_busy = false;
 }
 
+/* ══════════ お手本の見た目（共通スキン 8b-skin.js / 1w-skin.html）を当てる ══════════ */
+/* 画面の地を「書き割りの絵」1枚にする（静止。動く層を増やさない＝iPhone の画素のメモリ対策）。
+   あわせて dkskApply に --sk-frame（金の彫り枠）・--sk-paper・--sk-badge・--sk-fleur を配らせる。
+   枠・タブ・ボタンは 1s-shop.html 側の .dks- で当てるので、ここでは器の付け替えはしない。 */
+function dksSkin(el, bg){
+  try{
+    var u = (typeof dkskU === 'function') ? dkskU('bg2-' + bg) : '';
+    if(u && el && el.style) el.style.setProperty('--dk-bg', 'url(' + u + ')');
+    if(typeof dkskApply === 'function') dkskApply(el, { bg:false, frame:false, tabs:false, btns:false });
+  }catch(e){}
+  return el;
+}
+/* 金の彫り枠を縁に重ねる（絶対配置なのでレイアウトは変わらない。素材が無ければ透明） */
+function dksOrn(w){
+  return '<i class="dks-orn" aria-hidden="true"' + (w ? ' style="--dks-ow:' + w + 'px"' : '') + '></i>';
+}
+/* 主役の品の光の輪（1個）ときらめき（2個）。スマホと常時アニメ8個超では 8b-skin.js が作らない */
+function dksHot(el){
+  try{
+    var c = el && el.querySelector('.dks-good.dks-hot');
+    if(!c) return;
+    if(typeof dkskHalo === 'function') dkskHalo(c, '126%');
+    var p = c.querySelector('.pic');
+    if(p && typeof dkskSpark === 'function') dkskSpark(p, 2, { x:12, y:12, w:76, h:72 });
+  }catch(e){}
+}
+
 /* ── CSS で描く小さな絵（絵文字だけに頼らない） ── */
 function dksArt(kind, o){
   o = o || {};
-  var st = o.c ? ' style="--c:' + o.c + '"' : '';
-  var h = '<i class="dks-a dks-a-' + kind + ' fx-deco" aria-hidden="true"' + st + '><b></b>';
+  /* o.g ＝宝石の絵（assets/ui2 の gem2-*）。渡すと石の面だけ本物の絵に差し替わる */
+  var sv = (o.c ? '--c:' + o.c + ';' : '') + (o.g ? '--g:url(' + o.g + ');' : '');
+  var st = sv ? ' style="' + sv + '"' : '';
+  var h = '<i class="dks-a dks-a-' + kind + (o.g ? ' gemimg' : '') + ' fx-deco" aria-hidden="true"' + st + '><b></b>';
   if(kind === 'pend' && o.ic) h += '<em>' + o.ic + '</em>';
   if(kind === 'die') h += '<s></s>';
   if(kind === 'fan') h += '<b></b><b></b>';
@@ -609,21 +638,28 @@ function dksPic(g, crop){
     + '<em class="dks-tkl fx-deco">' + ({ biz:'BUSINESS', first:'FIRST', dia:'DIAMOND' })[g.tk] + '</em>'
     + (g.n > 1 ? '<em class="dks-pb">×' + g.n + '</em>' : '') + '</div>';
   var map = { card:'goods-card', cardS:'goods-card', gem:'goods-gem', gold:'goods-gold' };
+  var m2  = { card:'good2-card', cardS:'hero2-card', gem:'good2-gem', gold:'good2-gold' };
   var n = g.act === 'card3' ? 3 : g.act === 'card5' ? 5 : g.act === 'card10' ? 10 : 0;
   var u = (!n && map[g.art]) ? dkU(map[g.art]) : '';
   var badge = (g.art === 'cardS') ? '<em class="dks-pb s">S以上</em>'
             : n ? '<em class="dks-pb">×' + n + '</em>'
             : g.act === 'gem3' ? '<em class="dks-pb">×3</em>' : '';
+  /* お手本の商品画（assets/ui2・透過）をビロードの台に乗せる。枚数は札で見せるので絵は1つでよい */
+  var u2 = (typeof dkskU === 'function' && !n && m2[g.art]) ? dkskU(m2[g.art]) : '';
+  if(u2) return '<div class="pic art velvet2' + (g.art === 'cardS' ? ' saura' : '') + '">'
+    + '<i class="dks-h2" aria-hidden="true" style="background-image:url(' + u2 + ')"></i>' + badge + '</div>';
   if(u) return '<div class="pic' + (crop ? ' crop' : '') + (g.art === 'cardS' ? ' saura' : '') + '" style="background-image:url(' + u + ')">' + badge + '</div>';
   /* 複数枚のチケットは、同じ絵を並べずに扇に広げたカードで描く */
   if(n) return '<div class="pic art fan">' + dksArt('fan') + badge + '</div>';
-  var art = (g.art === 'pend') ? dksArt('pend', { c:'#B07CE8', ic:'？' }) : dksArt(g.art || 'card');
+  var gem = (g.art === 'pend' && typeof dkskU === 'function') ? dkskU('gem2-red') : '';
+  var art = (g.art === 'pend') ? dksArt('pend', { c:'#B07CE8', ic:'？', g:gem }) : dksArt(g.art || 'card');
   return '<div class="pic art' + (g.art === 'pend' ? ' velvet' : '') + '">' + art + badge + '</div>';
 }
 /* 品物の札。limited（日替わり）は絵の焼き込みの「限定」をそのまま見せ、.tag は重ねない */
 function dksGoodHTML(g, i, opt){
   opt = opt || {};
   var cls = 'dks-good st-' + g.state + (g.limited ? ' lim' : '') + (g.run ? ' run' : '')
+          + (opt.hot ? ' dks-hot' : '')
           + (DKS_focus && DKS_focus === g.key ? ' dks-focus' : '');
   var price = '<div class="pr">' + (g.off ? '<s class="was">' + dksPrice(g.pay, g.base) + '</s>' : '')
             + '<b class="now ' + g.pay + '">' + dksPrice(g.pay, g.cost) + '</b></div>';
@@ -631,7 +667,7 @@ function dksGoodHTML(g, i, opt){
     ? '<div class="dks-sold"><i class="dks-stamp">済</i><span>' + esc(opt.soldTx || '購入済み') + '</span></div>'
     : '<button class="dkbtn gr dks-b' + (g.state === 'short' ? ' short' : '') + '" data-dks-buy="' + g.key + '"><i class="dks-sh"></i>購入</button>';
   return '<div class="' + cls + '" data-fx="deal">'
-    + '<i class="dks-gl" aria-hidden="true"></i>'
+    + '<i class="dks-gl" aria-hidden="true"></i>' + dksOrn(13)
     + dksPic(g, !g.limited)
     + (g.off ? '<span class="dks-off">' + (g.run ? '<small>連続</small>' : '') + '<b>−' + g.off + '%</b></span>' : '')
     + '<div class="nm">' + esc(g.nm) + '</div>'
@@ -660,8 +696,11 @@ function dksPips(lbl, on, n, tail){
 
 function dksPaneOsusume(ped){
   var pl = ped ? '<button class="dks-pedlink" data-dktab="peddler">' + dksArt('lantern') + '<span>行商人 あと</span>' + dksCd(ped.until) + '</button>' : '';
+  /* いちばん値引きの大きい品を「主役」にして、光の輪ときらめきを1つだけ付ける */
+  var list = dkGoods('osusume'), hot = null;
+  list.forEach(function(g){ if(g.state !== 'done' && (!hot || (g.off | 0) > (hot.off | 0))) hot = g; });
   return dksStrip('日替わり 4品', '入れ替えまで ' + dksCd(dksNextReset()), pl)
-    + '<div class="dks-goods n4">' + dkGoods('osusume').map(function(g, i){ return dksGoodHTML(g, i); }).join('') + '</div>';
+    + '<div class="dks-goods n4">' + list.map(function(g, i){ return dksGoodHTML(g, i, { hot:!!(hot && g.key === hot.key) }); }).join('') + '</div>';
 }
 function dksPaneCard(){
   return dksStrip('キャラクターカード', '同じ品を続けて買うと 2個目から <b>20%OFF</b>', '<button class="dks-pedlink dks-golink" data-dkgo="gacha">ガチャを引く</button>')
@@ -672,7 +711,7 @@ function dksPaneDice(){
   for(var i = 0; i < list.length; i += 2){
     var a = list[i], b = list[i + 1], d = dieById(a.id), r = dkNormRar(d.rar), own = (a.state === 'done');
     h += '<div class="dks-die r' + r + (own ? ' own' : '') + '" data-fx="deal">'
-      + '<i class="dks-gl" aria-hidden="true"></i>'
+      + '<i class="dks-gl" aria-hidden="true"></i>' + dksOrn(13)
       + '<div class="art">' + (r === 'SS' ? '<div class="fx-rays fx-deco"></div>' : '') + dksArt('die', { c:d.col }) + '</div>'
       + '<span class="dks-rr">' + (r === 'SS' ? 'S+' : r) + '</span>'
       + '<div class="nm">' + esc(d.nm) + '</div>'
@@ -723,7 +762,7 @@ function dksPaneGem(){
 }
 function dksPaneFree(){
   var f = dksFreeState(), now = Date.now(), dot = '<i class="dks-dot big" aria-hidden="true"></i>';
-  var pot = '<div class="dks-free pot' + (f.pot ? ' ready' : '') + '" data-fx="deal"><i class="dks-gl" aria-hidden="true"></i>' + (f.pot ? dot : '')
+  var pot = '<div class="dks-free pot' + (f.pot ? ' ready' : '') + '" data-fx="deal"><i class="dks-gl" aria-hidden="true"></i>' + dksOrn(13) + (f.pot ? dot : '')
     + '<div class="art">' + (f.pot ? '<div class="fx-rays fx-deco"></div>' : '') + dksArt('pot') + '</div>'
     + '<div class="nm">金貨のつぼ</div><div class="ds">4時間ごとに 800G がたまる</div>'
     + dksMeter('たまり具合', Math.min(1, 1 - f.potLeft / DKS_POT_MS))
@@ -748,11 +787,11 @@ function dksPaneFree(){
       + (f.picks > 0 ? '<div class="dks-picks">つるはし あと <b>' + f.picks + '</b> 回</div>'
                      : '<div class="dks-picks">今日は <b>' + (DKS_MINE_D + f.mineGot) + '</b> 個 掘れた</div>');
   }
-  var mine = '<div class="dks-free mine' + ((f.mine || f.picks > 0) ? ' ready' : '') + '" data-fx="deal"><i class="dks-gl" aria-hidden="true"></i>'
+  var mine = '<div class="dks-free mine' + ((f.mine || f.picks > 0) ? ' ready' : '') + '" data-fx="deal"><i class="dks-gl" aria-hidden="true"></i>' + dksOrn(13)
     + ((f.mine || f.picks > 0) ? dot : '')
     + '<div class="art">' + dksArt('mine') + '</div>'
     + '<div class="nm">ダイヤ鉱山</div><div class="ds">1日1回 ダイヤ2個＋つるはし3回</div>' + mineAct + '</div>';
-  var map = '<div class="dks-free map' + (f.map ? ' ready' : '') + '" data-fx="deal"><i class="dks-gl" aria-hidden="true"></i>' + (f.map ? dot : '')
+  var map = '<div class="dks-free map' + (f.map ? ' ready' : '') + '" data-fx="deal"><i class="dks-gl" aria-hidden="true"></i>' + dksOrn(13) + (f.map ? dot : '')
     + '<div class="art">' + (f.map ? '<div class="fx-rays fx-deco"></div>' : '') + dksArt('map') + '</div>'
     + '<div class="nm">宝の地図</div><div class="ds">7日ごとに S以上のカードが1枚</div>'
     + dksPips('地図が届くまで', f.map ? 7 : Math.max(0, Math.min(7, Math.floor((DKS_MAP_MS - f.mapLeft) / DKS_DAYMS))), 7,
@@ -867,6 +906,7 @@ function showShop(tab){
     + '</div>'));
   el.classList.add('dks-scr');
   el.classList.toggle('dks-pedscr', t === 'peddler');
+  dksSkin(el, t === 'peddler' ? 'study' : 'hall');
   dkWire(el, function(id){ showShop(id); });
   el.querySelectorAll('[data-dks-buy]').forEach(function(b){
     b.onclick = function(){ if(DKS_busy) return; dkBuy(b.getAttribute('data-dks-buy'), 0, '', b); };
@@ -888,6 +928,7 @@ function showShop(tab){
   screenTo('shop');
   /* タイマーは screenTo のあと（画面が変わると DKFX.stopTimers が前の画面のタイマーを止めるため） */
   dkEvery('dks-shop', dksShopTick, 1000);
+  dksHot(el);
   dkhGlint(el, '.dks-good > .dks-gl, .dks-die > .dks-gl, .dks-free > .dks-gl', 'dks-glint', '::after');
   return el;
 }
@@ -1128,7 +1169,7 @@ function dksQRow(q){
   return '<div class="dks-q ' + st + '" data-q="' + q.id + '" data-fx="riseR">'
     + '<div class="ic" aria-hidden="true"><span>' + q.ic + '</span></div>'
     + '<div class="mid"><div class="nm">' + esc(q.nm) + '</div><div class="ds">' + esc(q.ds) + '</div>'
-    +   '<div class="prog"><span class="dkbar' + (q.ok ? ' gd' : ' bl') + '"><i style="width:' + (q.cur / q.need * 100).toFixed(1) + '%"></i></span>'
+    +   '<div class="prog"><span class="dkbar' + (q.ok ? '' : ' bl') + '"><i style="width:' + (q.cur / q.need * 100).toFixed(1) + '%"></i></span>'
     +   '<b>' + num + '</b></div></div>'
     + '<div class="rw">' + rw + '</div>' + act + '</div>';
 }
@@ -1147,7 +1188,7 @@ function showQuest(tab){
            : ['限定ミッション', '1つずつ進みます。クリアすると次の段が開きます'];
   var any = list.some(function(q){ return q.ok && !q.got && !q.lock; });
   var img = dkU('hero-chest');
-  var side = '<div class="dkdark dks-qside" data-fx="riseR">'
+  var side = '<div class="dkdark dks-qside" data-fx="riseR">' + dksOrn(18)
     + '<div class="dks-rib gold"><b>デイリーコンプリート</b></div>'
     + '<p class="dks-qsp">デイリー5つクリアで開く宝箱</p>'
     + '<div class="dks-chestbox' + (ready ? ' ready' : '') + (ch.taken ? ' taken' : '') + '">'
@@ -1165,7 +1206,7 @@ function showQuest(tab){
     + '</div>';
   var el = dkhAmb(dkMake('quest', 'quest', dkHead('quest', {}) + dkTabs(tabs, DKS_qtab)
     + '<div class="dkbody dks-qbody">'
-    +   '<div class="dkpar dks-qbox">'
+    +   '<div class="dkpar dks-qbox">' + dksOrn(18)
     +     '<div class="dks-qhd"><div class="dks-rib"><b>' + head[0] + '</b></div><span class="c">' + head[1] + '</span></div>'
     +     '<div class="dks-qlist" data-fx-step="50">' + list.map(dksQRow).join('') + '</div>'
     +     '<button class="dkbtn gd dks-b dks-all' + (any ? ' fx-primary' : '') + '" id="dkAll"' + (any ? '' : ' disabled') + '>'
@@ -1174,6 +1215,7 @@ function showQuest(tab){
     +   side
     + '</div>'));
   el.classList.add('dks-scr');
+  dksSkin(el, 'study');
   dkWire(el, function(id){ showQuest(id); });
   el.querySelectorAll('[data-dks-take]').forEach(function(b){
     b.onclick = function(){ dksTakeUI(b, b.getAttribute('data-dks-take')); };
@@ -1245,7 +1287,7 @@ function showDaily(){
            : '<b>' + v.day + '日目</b>まで受け取り済み';
   var el = dkhAmb(dkMake('daily', 'quest', dkHead('daily', { title:'出席簿' })
     + '<div class="dkbody dks-dbody">'
-    +   '<div class="dkpar dks-daily">'
+    +   '<div class="dkpar dks-daily">' + dksOrn(18)
     +     '<div class="dks-dhd"><div class="dks-rib"><b>毎日ログインで28日ぶんの報酬</b></div><span class="c">7日ごとに豪華・' + info + '</span></div>'
     +     '<div class="dks-days" data-fx="rise">' + cells + '</div>'
     +     (v.can
@@ -1254,6 +1296,7 @@ function showDaily(){
     +   '</div>'
     + '</div>'));
   el.classList.add('dks-scr');
+  dksSkin(el, 'page');
   dkWire(el);
   var b = el.querySelector('#dGet');
   if(b) b.onclick = function(){ dksDailyClaim(b); };
