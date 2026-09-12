@@ -58,12 +58,14 @@ var DKH_LEFT = [
 ];
 /* 右の縦のボタンは5つ（お手本と同じ並び）。設定は上段の右端の⚙へ移した（行き先は同じ dkGo('settings')）。
    色は左右で段ごとにずらす（同じ高さに同じ色を並べない＝お手本の色分けが効く） */
+/* 右のレールはお手本では「全部が金茶＋金枠で、絵だけが違う」。
+   t を素材の無い名前（gold）にすると艶タイルの絵が当たらず、既定の金茶の地になる＝お手本と同じ作法 */
 var DKH_RIGHT = [
-  { id:'quest',    ic:'scroll', nm:'ミッション', m:'amber', t:'purple', ri:'mission' },
-  { id:'news',     ic:'horn',   nm:'イベント',   m:'ruby',  t:'orange', ri:'event' },
-  { id:'daily',    ic:'cal',    nm:'出席簿',     m:'sapph', t:'blue',   ri:'daily' },
-  { id:'friends',  ic:'duo',    nm:'友達',       m:'emer',  t:'green',  ri:'friend' },
-  { id:'guide',    ic:'book',   nm:'ガイド',     m:'amet',  t:'pink',   ri:'guide' }
+  { id:'quest',    ic:'scroll', nm:'ミッション', m:'amber', t:'gold', ri:'mission' },
+  { id:'news',     ic:'horn',   nm:'イベント',   m:'ruby',  t:'gold', ri:'event' },
+  { id:'daily',    ic:'cal',    nm:'出席簿',     m:'sapph', t:'gold', ri:'daily' },
+  { id:'friends',  ic:'duo',    nm:'友達',       m:'emer',  t:'gold', ri:'friend' },
+  { id:'guide',    ic:'book',   nm:'ガイド',     m:'amet',  t:'gold', ri:'guide' }
 ];
 /* 週替わりイベントの絵（絵文字のかわり。assets/ui2 の名前。無ければ今までの絵文字が出る） */
 var DKH_WKPIC = { gold:'ico-coins', sale:'rail-icon-shop', toll:'gem2-red', luck:'rail-icon-card',
@@ -175,7 +177,8 @@ function dkhU2(k){ var u = dkhUi2(k); return u ? 'url(' + u + ')' : 'none'; }
 var DKH_GEMS = { ruby:'gem2-red', amber:'gem2-sun', emer:'gem2-green', sapph:'gem2-blue', amet:'gem2-moon', wood:'gem2-sakura' };
 /* 画面の空いた所を埋める描き絵（机の小物・旗・紙の透かし）。名前は assets/ui2 のファイル名 */
 var DKH_VARS = ['desk-props-l', 'desk-props-r', 'deco-banner', 'deco-globe', 'deco-cushion',
-                'art-mail', 'art-friends', 'art-chest', 'ico-coins', 'ico-scroll', 'ico-crown'];
+                'art-mail', 'art-friends', 'art-chest', 'ico-coins', 'ico-scroll', 'ico-crown',
+                'medal-laurel'];
 /* 素材を CSS 変数で1回だけ配る（data URI を HTML に何度も書かないため、置き場は <html>） */
 function dkhSkinVars(){
   try{

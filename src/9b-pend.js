@@ -997,6 +997,8 @@ function dkpBodyPend(){
       + (eq ? '<span class="dkp-eqtag">着用中</span>' : '')
       + '<b class="dkp-cnm">' + esc(dkpShort(p)) + '</b></div>';
   }).join('');
+  /* お手本の帯は空きでも「絵の入った受け皿」が並ぶ。持ち数が少ない時の黒い空き帯を埋める（押せない飾り） */
+  for(var fi = own.length; fi < 6; fi++) cells += '<i class="dkp-cell dkp-sh dkp-shempty" aria-hidden="true"></i>';
   var shelf = '<section class="dkp-dark dkp-shelf" data-fx="rise">'
     + '<i class="sk-paper dkp-swm" aria-hidden="true"></i>'
     + '<div class="dkp-shl"><span class="dkp-own">所有 <b>' + own.length + '</b> / ' + PENDANTS.length + '</span>'

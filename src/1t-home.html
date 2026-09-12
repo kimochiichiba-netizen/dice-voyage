@@ -1148,4 +1148,70 @@ html.fx-mob .dkh-logo::after,html.fx-mob .dkh-gl{display:none}
 
 /* ── ⑧ スマホ（html.fx-mob）：重ねる枠と絵は止まった絵なのでそのまま出す ── */
 html.fx-mob .dkh-rail .dkh-rb.sk-rail::before{border-width:10px;border-image-width:10px}
+
+/* ══════════════════════════════════════════════════════════════
+   第3回・お手本寄せ（採点係2人の指摘）— 空いた面を絵で埋め、主役を大きく
+   ・郵便／友達：紙の透かしを濃く・内側に二重の彫り罫・机の小物と中央の絵を大きく
+   ・ホーム：順位のメダルと顔を大きく（お手本の月桂樹つきの大メダル）
+   ・イベント：赤帯の空いた右側に旗と王冠を置く
+   足すのは「止まった絵」だけ。常時アニメは1つも増やさない。
+   ══════════════════════════════════════════════════════════════ */
+/* ① 郵便・友達：透かしを濃く（.26→.5）・王冠と唐草を大きく */
+.dkh-crest::before{opacity:.62;
+  background:
+    var(--dkh-ico-crown,none) center 40%/auto 46% no-repeat,
+    var(--sk-fleur,none) left 12px top 6px/104px auto no-repeat,
+    var(--sk-fleur,none) right 12px top 6px/104px auto no-repeat,
+    var(--sk-fleur,none) left 12px bottom 12px/104px auto no-repeat,
+    var(--sk-fleur,none) right 12px bottom 12px/104px auto no-repeat,
+    repeating-linear-gradient(42deg,rgba(150,112,48,.1) 0 2px,transparent 2px 9px)}
+/* 机の小物を大きく・上の両隅に金具（面の2割以上が無地にならないように） */
+#mail .dkh-mrows,#friends .dkh-frrows{
+  background:
+    var(--sk-fleur,none) left 10px top 4px/92px auto no-repeat,
+    var(--sk-fleur,none) right 10px top 4px/92px auto no-repeat,
+    var(--dkh-desk-props-l,none) left 2px bottom -8px/auto 244px no-repeat,
+    var(--dkh-desk-props-r,none) right 6px bottom -6px/auto 268px no-repeat}
+/* 中央の絵を大きく（郵便 430→556・友達 572→726）。
+   字は下の「紙色の光」で読ませるので、絵は縮めずに上へ寄せて場所を分ける */
+#mail .dkh-mrows .dkh-empty > .sk-pic.dkh-bigart{width:556px;height:530px;margin-top:-30px}
+#friends .dkh-frrows .dkh-empty > .sk-pic.dkh-bigart{width:726px;height:340px}
+/* 机の小物の上に字が乗っても読めるように、字のまわりに紙色の光を置く */
+#mail .dkh-empty b,#mail .dkh-empty span,#friends .dkh-empty b,#friends .dkh-empty span{
+  text-shadow:0 1px 0 rgba(255,255,255,.9),0 0 9px rgba(248,241,222,.96),0 0 20px rgba(248,241,222,.92)}
+/* 内側の飾り枠：1本線 → 二重の彫り罫 */
+#mail .dkh-mlist::before,#friends .dkh-frlist::before{inset:12px;border-radius:12px;
+  border:3px solid rgba(150,112,48,.66);
+  box-shadow:inset 0 0 0 3px rgba(255,255,255,.62),inset 0 0 0 6px rgba(150,112,48,.36),
+             inset 0 0 0 9px rgba(255,255,255,.42)}
+/* 右の面：宝箱と地球儀の絵を大きく */
+#mail .dkh-msic2{width:372px;height:276px}
+#friends .dkh-globe.dkh-gpic{width:256px;height:248px}
+/* ② ホーム：順位のメダルと顔を大きく・マイレージのバーを太く */
+#home .dkh-no{flex:0 0 84px}
+#home .dkh-row .dkh-medal,#home .dkh-me .dkh-medal{width:72px;height:72px;font-size:33px;
+  background-image:var(--dkh-medal-laurel,var(--sk-badge,none))}
+/* 月桂冠の台座があるときは、上の小さな冠（CSS で描いていた物）は消す＝二重にしない */
+#home .dkh-row .dkh-medal::after{top:-16px;width:36px;height:19px;margin-left:-18px}
+#home .dkh-row .dkh-face,#home .dkh-me .dkh-face{flex-basis:68px;width:68px;height:68px;border:3px solid #C8952F}
+#home .dkh-mile{flex:0 0 86px}
+#home .dkh-mbar{height:56px}
+/* ③ イベント：赤帯の空いた右に旗と王冠・週の絵を大きく */
+#news .dkh-wkmain{
+  background:var(--dkh-ico-crown,none) right 18px top 4px/auto 70px no-repeat,
+             var(--dkh-deco-banner,none) right 0 bottom -8px/auto 198px no-repeat}
+#news .dkh-wkic{flex:0 0 200px;height:200px}
+@media (max-aspect-ratio:1/1){
+  #mail .dkh-mrows .dkh-empty > .sk-pic.dkh-bigart{width:300px;height:286px;margin-top:-6px}
+  #friends .dkh-frrows .dkh-empty > .sk-pic.dkh-bigart{width:400px;height:188px}
+  #mail .dkh-mrows,#friends .dkh-frrows{background-size:62px auto,62px auto,auto 150px,auto 168px}
+  #mail .dkh-msic2{width:248px;height:184px}
+  #friends .dkh-globe.dkh-gpic{width:170px;height:164px}
+  #home .dkh-no{flex:0 0 62px}
+  #home .dkh-row .dkh-medal,#home .dkh-me .dkh-medal{width:54px;height:54px;font-size:25px}
+  #home .dkh-row .dkh-face,#home .dkh-me .dkh-face{flex-basis:52px;width:52px;height:52px}
+  #home .dkh-mile{flex:0 0 70px} #home .dkh-mbar{height:44px}
+  #news .dkh-wkic{flex:0 0 150px;height:150px}
+  #news .dkh-wkmain{background-size:auto 48px,auto 132px}
+}
 </style>

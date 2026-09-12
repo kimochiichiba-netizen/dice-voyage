@@ -685,10 +685,13 @@ function dkcItem(c, opt){
   return h + '</div>';
 }
 function dkcBottom(list, mode, fn){
+  /* お手本の帯は空きでも「絵の入った受け皿」が並ぶ。枚数が少ない時の縞の空き板を埋める（押せない飾り） */
+  var pad = '';
+  for(var pi = list.length; pi < 8; pi++) pad += '<i class="dkc-item dkc-empty2" aria-hidden="true"></i>';
   return '<div class="dkdark dkbottom dkc-bottom" data-fx="rise">'
     + '<span class="cnt dkc-cnt">所持<br>カード<br><b>' + dkcOwnedList().length + '/' + CARDPOOL.length + '</b></span>'
     + '<div class="dkc-strip"><div class="dkrow dkc-row" data-dkc-sk="c-' + mode + '" data-fx-step="30">'
-    + list.map(fn).join('')
+    + list.map(fn).join('') + pad
     + '</div><i class="dkc-fade dkc-fl"></i><i class="dkc-fade dkc-fr"></i></div></div>';
 }
 /* 能力値7本：名前は dkStatLabels（A は1本目が「孤立地域脱出成功」）、基本値＋装着中のサイコロの青い +N（J58・C05） */

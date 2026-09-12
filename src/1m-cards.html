@@ -1202,4 +1202,38 @@ html.fx-mob #cards .sk-spark,html.fx-mob #dice .sk-spark{display:none!important}
   #dice .dkc-dped > .dkc-pips{gap:10px}
   #dice .dkc-dped > .dkc-pips .dkc-pip{width:26px;height:26px}
 }
+
+/* ══════════════════════════════════════════════════════════════
+   第3回・お手本寄せ（採点係2人の指摘）
+   ① 能力バーを太く・数値をもっと太い袋文字に（お手本の大きな数字）
+   ② 中央カードの絵を枠のフチまで（まわりのクリーム色の余白を出さない）
+   ③ 右パネルの文章の帯に金の飾りを添える（帯ばかりで単調に見えないように）
+   足すのは「止まった絵」だけ。常時アニメは1つも増やさない。
+   ══════════════════════════════════════════════════════════════ */
+#cards .dkc-det .sk-bar2{height:30px;border-radius:15px}
+#cards .dkc-det .sk-barrow.big .vl,#dice .dkc-det .sk-barrow.big .vl{
+  font-size:29px;-webkit-text-stroke:5.5px #2E1C05;paint-order:stroke fill}
+#dice .dkc-det .sk-barrow.big .vl{font-size:26px}
+#dice .dkc-growbar .vl{font-size:29px}
+/* ② カードの絵は器いっぱいに（地のクリーム色が出ないように少し寄せて敷く） */
+#cards .dkc-art,.dkc-modal .dkc-art{background-size:cover,100% 100%;background-position:50% 44%,center;
+  background-color:#2A1C08}
+/* ③ 文章の帯の左に金の唐草（絵の無い帯を減らす） */
+#dice .dkc-dnote,#cards .dkc-det .dkc-line{padding-left:56px;
+  background-image:var(--sk-fleur,none);background-repeat:no-repeat;
+  background-position:left 12px center;background-size:34px auto}
+#dice .dkc-dbars .dkc-abhd{padding-left:46px;
+  background:var(--sk-badge,none) left 6px center/30px auto no-repeat}
+/* ④ 下の所持帯：空きも「絵の入った受け皿」で埋める（縞の空き板を出さない） */
+#cards .dkc-item.dkc-empty2,#dice .dkc-item.dkc-empty2{cursor:default;height:176px;opacity:.8;
+  border-color:rgba(200,149,47,.46);
+  background:var(--sk-crest,none) center/cover no-repeat,linear-gradient(180deg,#EFE2C8,#D2BD96);
+  background-blend-mode:multiply,normal;
+  box-shadow:inset 0 3px 0 rgba(255,255,255,.6),0 4px 0 rgba(92,58,10,.4)}
+#cards .dkc-item.dkc-empty2:hover,#dice .dkc-item.dkc-empty2:hover{transform:none;filter:none}
+@media (max-aspect-ratio:1/1){
+  #cards .dkc-item.dkc-empty2,#dice .dkc-item.dkc-empty2{height:150px}
+  #cards .dkc-det .sk-barrow.big .vl,#dice .dkc-det .sk-barrow.big .vl{font-size:26px}
+  #dice .dkc-dnote,#cards .dkc-det .dkc-line{padding-left:44px;background-size:26px auto}
+}
 </style>

@@ -1450,4 +1450,54 @@ html.fx-mob .dkp-drop > .dkp-dtint{filter:none}
       透かしを 0 に上げ、中身の側を 1 に持ち上げて重なりを正す */
 .dkp-swm{z-index:0}
 #pend .dkp-shelf > .dkp-shl,#pend .dkp-shelf > .dkp-sw,#pend .dkp-shelf > .dkp-mini{position:relative;z-index:1}
+
+/* ══════════════════════════════════════════════════════════════
+   第3回・お手本寄せ（採点係2人の指摘）
+   ① ペンダントの主役を画面幅の約28%（452px）へ。光の輪とビロードもそれに合わせる
+   ② キューブ：7枠のキューブの絵を枠いっぱいに・8枠目にも受け皿・宝箱の黒い余白を詰める
+   ③ キューブの左タブの下に空いた柱へ飾り皿（押せない・数には入らない）
+   足すのは「止まった絵」だけ。常時アニメは1つも増やさない。
+   ══════════════════════════════════════════════════════════════ */
+#pend .dkp-hero2 > .dkp-drop{width:452px;height:596px;translate:-50% -57%}
+#pend .dkp-hr1{width:372px;height:372px}
+#pend .dkp-hr2{width:520px;height:520px}
+#pend .dkp-hr3{width:672px;height:672px}
+#pend .dkp-hero2::before{width:720px;height:720px;margin:-360px 0 0 -360px}
+#pend .dkp-cush.img{width:620px;height:226px;margin-left:-310px;top:calc(50% + 52px)}
+/* ② キューブ */
+#cube .dkp-cchest{width:560px;height:412px;margin-left:-280px;bottom:-14px}
+#cube .dkp-cgrid{gap:11px}
+#cube .dkp-cslot{padding:5px}
+#cube .dkp-cico{width:132px;height:132px}
+#cube .dkp-cempty .dkp-cico{width:168px;height:168px;opacity:.74}
+/* 8つ目のマス：丸く抜いた封蝋 → 空き枠と同じ羊皮紙の受け皿（列の右下が抜けて見えないように） */
+#cube .dkp-cseal{opacity:.92;border:3px solid rgba(200,149,47,.62);
+  -webkit-mask:none;mask:none;
+  background:var(--sk-crest,none) center/cover no-repeat,linear-gradient(180deg,#F2E6CE,#D8C49E);
+  background-blend-mode:multiply,normal;
+  box-shadow:inset 0 3px 0 rgba(255,255,255,.66),inset 0 -8px 14px rgba(150,116,58,.22),
+             0 5px 0 rgba(92,58,10,.44),0 9px 16px rgba(40,24,4,.36)}
+/* ③ 左タブの下の空いた柱に飾り皿 */
+#cube .dktabs::after{content:"";display:block;flex:0 0 auto;height:196px;margin-top:4px;border-radius:16px;
+  border:3px solid rgba(200,149,47,.5);pointer-events:none;
+  background:var(--sk-crest,none) center/cover no-repeat,linear-gradient(180deg,#F0E3CA,#D2BE98);
+  background-blend-mode:multiply,normal;opacity:.84;
+  box-shadow:inset 0 3px 0 rgba(255,255,255,.6),0 5px 0 rgba(92,58,10,.4)}
+/* ④ 所持ペンダントの帯：空きも「絵の入った受け皿」で埋める（黒い空き帯を出さない） */
+.dkp-cell.dkp-shempty{cursor:default;border:3px solid rgba(200,149,47,.46);border-radius:14px;opacity:.82;
+  background:var(--sk-crest,none) center/cover no-repeat,linear-gradient(180deg,#EFE2C8,#D2BD96);
+  background-blend-mode:multiply,normal;
+  box-shadow:inset 0 3px 0 rgba(255,255,255,.6),inset 0 -7px 12px rgba(150,116,58,.2),0 4px 0 rgba(92,58,10,.38)}
+.dkp-cell.dkp-shempty:hover{transform:none;filter:none}
+@media (max-aspect-ratio:1/1){
+  #pend .dkp-hero2 > .dkp-drop{width:300px;height:396px}
+  #pend .dkp-hr1{width:246px;height:246px}
+  #pend .dkp-hr2{width:344px;height:344px}
+  #pend .dkp-hr3{width:444px;height:444px}
+  #pend .dkp-cush.img{width:408px;height:150px;margin-left:-204px}
+  #cube .dkp-cchest{width:400px;height:294px;margin-left:-200px}
+  #cube .dkp-cico{width:104px;height:104px}
+  #cube .dkp-cempty .dkp-cico{width:120px;height:120px}
+  #cube .dktabs::after{height:120px}
+}
 </style>

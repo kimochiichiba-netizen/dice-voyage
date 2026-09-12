@@ -919,4 +919,50 @@ html.fx-mob #quest .dks-chestbox .fx-rays,html.fx-mob .dks-mglow .fx-rays,html.f
   #quest .dktab{height:118px}
   #quest .dks-qside .dks-rib > b{font-size:22px}
 }
+
+/* ══════════════════════════════════════════════════════════════
+   第3回・お手本寄せ（採点係2人の指摘）— ショップ・ミッション・出席簿
+   ・出席簿：板を縮めて背景を見せる／マスの絵を大きく／内側を二段の彫りに
+   ・ショップ：札の絵を上半分より大きく／枠をもっと太く／購入ボタンを厚く
+   ・ミッション：宝箱を大きく・後光を箱の外まで・達成状況の数字を袋文字に
+   足すのは「止まった絵」だけ。常時アニメは1つも増やさない。
+   ※ 1w-skin.html は後ろに連結されるので、向こうで決めている所は
+      セレクタを1段深くして（#daily .dks-days .dks-day など）言い直す。
+   ══════════════════════════════════════════════════════════════ */
+/* ① 出席簿：板を 92% → 85% に縮めて、左右と下に机の小物と背景を出す */
+#daily .dks-dbody{left:116px;right:116px;top:118px;bottom:52px}
+#daily .dks-days{gap:8px 10px;padding:12px 2px 6px}
+/* マスの内側を二段の彫りに（上に明るい線・下に暗い線・外に金の細枠） */
+#daily .dks-days .dks-day{padding:32px 5px 7px;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.94),inset 0 -3px 0 rgba(150,116,58,.44),
+             inset 0 0 0 2px rgba(255,248,228,.55),0 5px 0 rgba(92,58,10,.5),0 9px 16px rgba(60,36,6,.34)}
+/* マスの絵を 46px → 60px（これ以上大きくすると金額と品名の字に絵がかぶる） */
+#daily .dks-days .dks-day .di .dks-a{--s:60px}
+#daily .dks-days .dks-day .di > .sk-pic{width:78px;height:68px}
+#daily .dks-days .dks-day .dv{font-size:25px}
+/* 紙が白茶けて見えたので、地を少し濃い蜜色に寄せる（お手本の彩度に近づける） */
+#daily .dks-days .dks-day{background:
+  radial-gradient(120% 70% at 50% 0%,rgba(255,255,255,.62),transparent 60%),
+  linear-gradient(180deg,#FFF3D2,#F0D9A4 58%,#D8BC84)}
+/* ② ショップ：札の絵を大きく・枠を太く・購入ボタンを厚く */
+#shop .dks-goods.n4{gap:12px}
+#shop .dks-good{padding:10px 10px 12px;gap:5px}
+#shop .dks-good.sk-frame2{--sk-fw2:34px}
+#shop .dks-good .pic{flex:0 0 58%;border:4px solid #8A6520}
+#shop .dks-good .ds{font-size:16px;line-height:1.28}
+#shop .dks-good > .dks-b{height:66px;font-size:28px}
+/* ③ ミッション：宝箱を大きく・後光を箱の外まで・数字を袋文字に */
+#quest .dks-chest{width:300px;height:258px}
+#quest .dks-chestbox{background:
+  radial-gradient(circle at 50% 50%,rgba(255,214,110,.44),rgba(255,190,70,.18) 42%,transparent 72%)}
+#quest .dks-chestbox .fx-rays{width:1100px;height:1100px;margin:-550px 0 0 -550px}
+#quest .dks-chprog > b{color:#FFF6E2;-webkit-text-stroke:4px #2E1C05;paint-order:stroke fill}
+@media (max-aspect-ratio:1/1){
+  #daily .dks-dbody{left:16px;right:16px;top:96px;bottom:16px}
+  #daily .dks-days .dks-day .di .dks-a{--s:56px}
+  #daily .dks-days .dks-day .di > .sk-pic{width:74px;height:64px}
+  #shop .dks-good.sk-frame2{--sk-fw2:22px}
+  #shop .dks-good > .dks-b{height:58px;font-size:24px}
+  #quest .dks-chest{width:220px;height:190px}
+}
 </style>
