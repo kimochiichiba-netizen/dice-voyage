@@ -25,8 +25,21 @@ var DKB_FCARD = {
   shield: { ic: '🛡', nm: 'シールドカード', ds: '相手の攻撃カードを1回だけ防ぎます' },
   escape: { ic: '🎫', nm: '脱出カード', ds: '閉じ込められた時、すぐに出られます' }
 };
-/* 建物の段の名前（日本版） */
-var DKB_LVNM = ['土地権利書', 'マンション', 'ビル', 'ホテル'];
+/* 建物の段の名前（日本版。4＝ランドマーク） */
+var DKB_LVNM = ['土地権利書', 'マンション', 'ビル', 'ホテル', 'ランドマーク'];
+/* ペンダントの発動の種類（C36）。古い p1〜p8 の既定。WP12a が足す物は it.eff で来る */
+var DKB_PEND_EFF = { p1: 'pull', p2: 'bind', p3: 'grow', p4: 'toStart', p5: 'jumpBest', p6: 'jumpMine', p7: 'steal', p8: 'double' };
+/* マス（都市以外）の短い説明（用語表の日本版の語） */
+var DKB_TYPE_DS = {
+  start: '通過しても止まっても給料がもらえます',
+  jail: 'サイコロダブルが出ると脱出できます',
+  olympic: '選んだ都市の通行料が上がります',
+  travel: '希望する都市へ移動できます',
+  card: 'フォーチュンカードを1枚引きます',
+  tax: '持っている資産におうじて税金を払います',
+  bonus: 'ボーナスゲームに挑戦できます',
+  minigame: 'ボーナスゲームに挑戦できます'
+};
 /* 移動のテンポ（本家の等速録画・kr G04。×SPEED は hop が掛ける） */
 /* cap＝ホップの合計の上限、all＝ホップ＋着地の間の上限。hop は rAF で1コマ（約10ms）ずつ遅れて終わるので、1.5秒に余白を残す */
 var DKB_MOVE = { short: 170, mid: 150, long: 130, pass: 320, cap: 1300, all: 1300 };
@@ -35,7 +48,8 @@ var DKB_S = {
   potShown: null, toll: null, lake: { lv: 0, t: 0 }, errs: {}, mq: 0, chipTok: 0, plateR: null,
   imp: null, bub: null, reach: null, deferT: -1, gid: 0,
   pnls: [], pfree: [], bandTok: 0, busy: null, busyPi: -1, emo: {}, emoSel: [], emoAt: 0, emoEcho: null,
-  tinfo: null, tdown: null, sal: null, mono: null, fc: null, stk: {}, alarmTok: 0, cutTok: 0
+  tinfo: null, tdown: null, sal: null, mono: null, fc: null, stk: {}, alarmTok: 0, cutTok: 0,
+  tiAt: null, tiTok: null, tiSize: null, tiCam: ''
 };
 
 /* ══════════ 金額の整形（日本版：「988万7500」「29万0536」「1000万」、1億から「20億1000万」） ══════════ */
@@ -245,6 +259,7 @@ function dkbHideTransient(){
     if(e) e.classList.remove('on', 'dkb-on', 'dkb-out');
   });
   DKB_S.busyPi = -1;
+  DKB_S.tiAt = null; DKB_S.tiTok = null;
   DKB_SEATS.forEach(function(seat){
     var b = DKB_S.band[seat]; if(b){ clearTimeout(b._t); b.classList.remove('on', 'dkb-fade'); }
     var eb = DKB_S.emo[seat]; if(eb){ eb.q = []; clearTimeout(eb.t); while(eb.el.firstChild) eb.el.removeChild(eb.el.firstChild); }
@@ -392,6 +407,8 @@ function dkbBuild(){
     world.addEventListener('pointerdown', function(){ DKB_S.tdown = { t: performance.now(), pick: dkbPicking() }; });
     world.addEventListener('click', function(ev){ try{ dkbTileClick(ev); }catch(e){ dkbErr('tinfo', e); } });
   }
+  /* マスの情報は、パネルの外を押すと閉じる（開いていない間は何もしない） */
+  document.addEventListener('pointerdown', function(ev){ try{ dkbTileOutside(ev); }catch(e){ dkbErr('tinfo-out', e); } }, true);
 }
 /* プレートの位置（ステージ座標）。浮き数字をよけるのに使う */
 function dkbPlateRect(){
@@ -1098,35 +1115,37 @@ async function pendFire(pi, trg, arg){
   addFx('ring', c.x, c.y, 700, rar.c);
   addFx('spark', c.x, c.y - 30, 900, rar.c);
 
-  /* ── 効果 ── */
-  if(it.id === 'p1'){                       // 稲妻放電器：同じ辺の相手を引き寄せる
+  /* ── 効果（C36：種類は it.eff で分ける。古い p1〜p8 は DKB_PEND_EFF が既定を当てる。
+        知らない種類は通知だけ出して盤は変えない＝新しいペンダントが増えても落ちない） ── */
+  var eff = it.eff || DKB_PEND_EFF[it.id] || '', amt;
+  if(eff === 'pull'){                       // 同じ辺の相手を自分のマスへ引き寄せる
     var side = Math.floor(p.pos / 8);
     for(var j = 0; j < G.players.length; j++){
       var q = G.players[j];
       if(j === pi || q.out || q.jail > 0) continue;
       if(Math.floor(q.pos / 8) === side){
-        await band('稲妻放電器！', G.players[j].name + ' を引き寄せました', 1300);
+        await band(it.nm + '！', G.players[j].name + ' を引き寄せました', 1300);
         await jumpTo(j, p.pos);
         break;
       }
     }
   }
-  if(it.id === 'p2' && arg && arg.tile !== undefined){   // シュプリューデル：束縛
+  if(eff === 'bind' && arg && arg.tile !== undefined){   // 束縛：次の移動でもう一度 通行料
     var t2 = G.tiles[arg.tile];
     if(t2) t2.bind = 1;
-    await band('シュプリューデル！', '次の移動でもう一度 通行料を取ります', 1300);
+    await band(it.nm + '！', '次の移動でもう一度 通行料を取ります', 1300);
   }
-  if(it.id === 'p3'){                       // 概要設計図面：別の街がもう1段
+  if(eff === 'grow'){                       // 自分の別の都市がもう1段
     var mine = G.tiles.map(function(t, i){ return { t: t, i: i }; })
       .filter(function(o){ return o.t.type === 'city' && o.t.owner === pi && o.t.lv < 3 && o.i !== (arg && arg.tile); });
     if(mine.length){
       var o = mine[(Math.random() * mine.length) | 0];
       o.t.lv++;
       await growAnim(o.i);
-      dkbPanel(pi, '📐', '設計図面', o.t.name + ' が1段育ちました', { ms: 2200 });
+      dkbPanel(pi, it.ic, it.nm, o.t.name + ' が1段育ちました', { ms: 2200 });
     }
   }
-  if(it.id === 'p4'){                       // 大家の建物基礎：スタートへ
+  if(eff === 'toStart'){                    // スタートへ移動して給料
     var n = G.tiles.filter(function(t){ return t.type === 'city' && t.owner === pi && t.lv > 0; }).length;
     if(n >= 3){
       var lp = p.laps;
@@ -1135,23 +1154,39 @@ async function pendFire(pi, trg, arg){
       salary(pi);
     }
   }
-  if(it.id === 'p5' && arg && arg.pick){    // 黄金フリーパス：即座に最適マスへ
+  if(eff === 'jumpBest' && arg && arg.pick){ // 選ばずに一番得なマスへ
     var d = aiPickTravel(pi);
     if(d >= 0){ await jumpTo(pi, d); return 'jumped'; }
   }
-  if(it.id === 'p6'){                       // 幸運のトランポリン：同じ辺の自分の街へ
+  if(eff === 'jumpMine'){                   // 同じ辺の自分の別の都市へ
     var side6 = Math.floor(p.pos / 8), same = [];
     for(var k = 0; k < 8; k++){ var i6 = side6 * 8 + k;
       if(i6 !== p.pos && G.tiles[i6].type === 'city' && G.tiles[i6].owner === pi) same.push(i6); }
     if(same.length){ await jumpTo(pi, same[(Math.random() * same.length) | 0]); return 'jumped'; }
   }
-  if(it.id === 'p7'){                       // 催眠の香水：所持金を奪う
+  if(eff === 'steal'){                      // 同じマスの相手のマーブルを奪う
     var other = G.players.findIndex(function(q2, j2){ return j2 !== pi && !q2.out && q2.pos === p.pos; });
     if(other >= 0){
-      var amt = Math.round(G.players[other].cash * 0.20);
+      amt = Math.round(G.players[other].cash * (it.v > 0 ? it.v : 0.20));
       if(amt > 0){ give(other, -amt); give(pi, amt);
-        await band('催眠の香水！', G.players[other].name + ' から ' + yen(amt) + ' を奪いました', 1400); }
+        await band(it.nm + '！', G.players[other].name + ' から ' + yen(amt) + ' を奪いました', 1400); }
     }
+  }
+  if(eff === 'cash'){                       // 臨時収入（開始マーブルの割合）
+    amt = Math.round((cfg.cash || 10000000) * (it.v > 0 ? it.v : 0.1));
+    dkbEnsureG(); G.pot = (G.pot || 0) + amt; give(pi, amt);
+    dkNotify(pi, it.ic, it.nm, yen(amt) + ' を受け取りました', { ms: 1800 });
+  }
+  if(eff === 'freeToll'){ p.freeToll = (p.freeToll | 0) + 1; dkNotify(pi, it.ic, it.nm, '次の通行料が1回だけ無料になります', { ms: 1800 }); }
+  if(eff === 'halfToll'){ p.halfToll = (p.halfToll | 0) + 1; dkNotify(pi, it.ic, it.nm, '次の通行料が1回だけ半額になります', { ms: 1800 }); }
+  if(eff === 'halfBuild'){ p.halfBuild = (p.halfBuild | 0) + 1; dkNotify(pi, it.ic, it.nm, '次の建設費用が半額になります', { ms: 1800 }); }
+  if(eff === 'halfBuyout'){ p.halfBuyout = (p.halfBuyout | 0) + 1; dkNotify(pi, it.ic, it.nm, '次の買収費用が半額になります', { ms: 1800 }); }
+  if(eff === 'tollUp'){ p.tollUp = (p.tollUp | 0) + 1; dkNotify(pi, it.ic, it.nm, '自分の都市の通行料が上がります', { ms: 1800 }); }
+  if(eff === 'gouge'){ p.gouge = (p.gouge | 0) + 1; dkNotify(pi, it.ic, it.nm, '次に受け取る通行料が2倍になります', { ms: 1800 }); }
+  if(eff === 'shield' || eff === 'escape' || eff === 'angel' || eff === 'coupon'){
+    var fc = eff === 'angel' ? 'angel' : eff === 'coupon' ? 'coupon' : eff;   // C08：持てるフォーチュンカードは1枚
+    if(!p.fcard){ p.fcard = fc; try{ dkbFcardSync(); }catch(e){} }
+    dkNotify(pi, it.ic, it.nm, (DKB_FCARD[fc] ? DKB_FCARD[fc].nm : 'フォーチュンカード') + ' を受け取りました', { ms: 1800 });
   }
   return true;
 }
@@ -2098,42 +2133,143 @@ function dkbTileClick(ev){
   if(!G || G.over || dkbPicking()) return;
   var mw = document.getElementById('modalWrap'); if(mw && mw.classList.contains('on')) return;
   var i = dkbTileAtEv(ev);
-  if(i < 0){ if(DKB_S.tinfo) DKB_S.tinfo.classList.remove('on'); return; }
+  if(i < 0 || i === DKB_S.tiAt){ dkbTileInfoClose(); return; }        // 盤の外・同じマスをもう一度 → 閉じる
   dkbTileInfo(i);
 }
+/* パネルの外を押したら閉じる（盤の上は dkbTileClick が別のマスへ付け替える） */
+function dkbTileOutside(ev){
+  if(DKB_S.tiAt === null || !DKB_S.tinfo) return;
+  var tg = ev && ev.target;
+  if(tg && (DKB_S.tinfo.contains(tg) || tg.id === 'world')) return;
+  dkbTileInfoClose();
+}
+function dkbTileInfoClose(){
+  DKB_S.tiAt = null; DKB_S.tiTok = null;
+  if(DKB_S.tinfo) DKB_S.tinfo.classList.remove('on');
+}
 function dkbTypeName(t){
-  var m = { start: 'スタート', jail: '無人島', olympic: '祭り', travel: '世界旅行', card: 'フォーチュンカード',
-    tax: '国税庁', bonus: 'ボーナスゲーム', minigame: 'ボーナスゲーム' };
+  var m = { start: 'スタート', jail: '無人島', olympic: 'ワールドフェスティバル', travel: '世界旅行',
+    card: 'フォーチュンカード', tax: '国税庁', bonus: 'ボーナスゲーム', minigame: 'ボーナスゲーム' };
   return m[t.type] || '特殊マス';
+}
+/* 段 k（0土地権利書・1マンション・2ビル・3ホテル・4ランドマーク）の通行料。
+   WP11 の表（dkrTollAdd）が無い版では、写したマスを tollOf に通して測る */
+function dkbTollAt(t, k){
+  try{
+    if(typeof dkrTollAdd === 'function'){
+      var v = 0;
+      for(var j = 0; j <= k; j++) v += (+dkrTollAdd(t, j) || 0);
+      return Math.round(v);
+    }
+    var c = {}, q;
+    for(q in t) c[q] = t[q];
+    c.owner = 0; c.frozen = 0; c.x2 = false; c.olym = 1; c.sand = 0; c.plague = 0; c.idx = -1;
+    c.bm = k >= 3 ? 7 : k >= 2 ? 3 : k >= 1 ? 1 : 0; c.lv = Math.min(3, k); c.landmark = k >= 4;
+    return Math.round(tollOf(c, null)) || 0;
+  }catch(e){ return 0; }
+}
+/* 段 k の値段（建設費用。0＝土地権利書の値段） */
+function dkbPriceAt(t, k){
+  try{ if(typeof dkrPrice === 'function') return Math.round(+dkrPrice(t, k)) || 0; }catch(e){}
+  return k === 0 ? (t.base | 0) : 0;
+}
+/* いま建っている段（0〜3、ランドマークは4） */
+function dkbLvOf(t){
+  if(t.landmark) return 4;
+  try{ if(typeof dkrTop === 'function') return dkrTop(t.bm | 0); }catch(e){}
+  return Math.max(0, Math.min(3, t.lv | 0));
+}
+/* 色グループ：同じ色の都市の数と、1つずつの持ち主の色の丸（押したマスは金の輪） */
+function dkbGroupHTML(t){
+  if(t.tour) return '<em class="dkb-tgr"><u style="background:' + (t.tour === 'pink' ? '#F6A9C9' : '#8FD8F8') + '"></u>観光地</em>';
+  var dots = '', n = 0;
+  for(var i = 0; i < 32; i++){
+    var q = G.tiles[i];
+    if(!q || q.type !== 'city' || q.tour || q.g !== t.g) continue;
+    n++;
+    dots += '<i' + (q === t ? ' class="dkb-tgme"' : '') + ' style="background:'
+      + (q.owner >= 0 ? PCOL[q.owner] : 'rgba(255,255,255,.22)') + '"></i>';
+  }
+  if(!n) return '';
+  return '<em class="dkb-tgr"><u style="background:' + ((typeof GCOL !== 'undefined' && GCOL[t.g]) || '#79CDBD') + '"></u>'
+    + '同じ色 ' + n + '都市' + dots + '</em>';
 }
 function dkbTileInfo(i){
   try{ dkbBuild(); }catch(e){ dkbErr('build', e); }
   var el = DKB_S.tinfo, t = G && G.tiles[i]; if(!el || !t) return;
-  var me = dkbMe(), mp = G.players[me], d = mp ? (i - mp.pos + 32) % 32 : 0, rows = [];
+  var me = dkbMe(), mp = G.players[me], d = mp ? (i - mp.pos + 32) % 32 : 0, rows = [], lvs = '', help = '', k;
   if(t.type === 'city'){
-    var own = (t.owner >= 0) ? G.players[t.owner] : null;
-    var lvn = t.landmark ? 'ランドマーク' : t.tour ? '観光地' : (DKB_LVNM[t.lv | 0] || '土地権利書');
+    var own = (t.owner >= 0) ? G.players[t.owner] : null, now = dkbLvOf(t);
     rows.push(['持ち主', own ? own.name : 'なし']);
-    rows.push(['建物', own ? lvn : '—']);
+    rows.push(['建物', own ? (DKB_LVNM[now] || '土地権利書') : '—']);
     var toll = '—';
-    try{ if(own) toll = yen(tollOf(t, G)); }catch(e){ toll = '—'; }
+    try{ if(own) toll = (t.frozen > 0) ? '0（停電中）' : yen(tollOf(t, G)); }catch(e){ toll = '—'; }
     rows.push(['現在の通行料', toll]);
     var bo = '—';
     if(own && (t.tour || t.landmark)) bo = '買収できません';
-    else if(own && t.owner !== me){
-      try{ bo = yen(typeof dkrBuyoutCost === 'function' ? dkrBuyoutCost(t, mp) : cityValue(t) * 2); }catch(e){ bo = '—'; }
+    else if(own && t.owner === me) bo = '自分の都市';
+    else if(own){
+      try{ bo = yen(typeof dkrBuyoutCost === 'function' ? dkrBuyoutCost(t, me) : cityValue(t) * 2); }catch(e){ bo = '—'; }
     }
     rows.push(['買収費用', bo]);
-  } else rows.push(['マス', dkbTypeName(t)]);
-  el.innerHTML = '<div class="dkb-tin"><b class="dkb-tnm">' + esc(t.name || '') + '</b>'
+    if(t.tour) help = '観光地は買収されません。全部そろえると観光地独占で勝ちです';
+    else {
+      lvs = '<p class="dkb-tlvh"><span>建物</span><u>建設</u><b>通行料</b></p>';
+      for(k = 0; k < 5; k++){
+        lvs += '<p class="dkb-tlv' + ((own && k === now) ? ' on' : '') + '"><span>' + esc(DKB_LVNM[k]) + '</span>'
+          + '<u>' + esc(yen(dkbPriceAt(t, k))) + '</u><b>' + esc(yen(dkbTollAt(t, k))) + '</b></p>';
+      }
+    }
+  } else {
+    rows.push(['マス', dkbTypeName(t)]);
+    help = DKB_TYPE_DS[t.type] || '';
+    try{
+      if(!help && typeof dkMapInfo === 'function'){
+        var mi = dkMapInfo((typeof dkTodayMap === 'function') ? dkTodayMap() : (cfg && cfg.mapId));
+        if(mi && mi.help) help = String(mi.help);
+      }
+    }catch(e){}
+  }
+  el.innerHTML = '<div class="dkb-tin"><div class="dkb-tihd"><b class="dkb-tnm">' + esc(t.name || '') + '</b>'
+    + (t.type === 'city' ? dkbGroupHTML(t) : '') + '</div>'
     + '<span class="dkb-tdist">' + (d === 0 ? 'いまここにいます' : 'ここまで<em>' + d + '</em>マス') + '</span>'
-    + rows.map(function(r){ return '<p><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></p>'; }).join('') + '</div>';
+    + rows.map(function(r){ return '<p><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></p>'; }).join('')
+    + (lvs ? '<div class="dkb-tlvs">' + lvs + '</div>' : '')
+    + (help ? '<span class="dkb-thelp">' + esc(help) + '</span>' : '')
+    + '<div class="dkb-tbtns"><button type="button" class="btn gold dkb-tclose" data-act="close">閉じる</button></div></div>';
+  var cb = el.querySelector('.dkb-tclose');
+  if(cb) cb.addEventListener('click', function(){ try{ SFX.click(); }catch(e){} dkbTileInfoClose(); });
   if(!el.classList.contains('on')) el.classList.add('on');
-  var w = tileCenter(i);
-  dkbFollow(el, function(){ return w; }, -34);
-  clearTimeout(el._t);
-  el._t = setTimeout(function(){ el.classList.remove('on'); }, 3200);
+  DKB_S.tiAt = i;
+  var box = el.firstChild;                                 // 開いた時に1回だけ寸法を読む（毎コマは読まない）
+  DKB_S.tiSize = { w: (box && box.offsetWidth) || 372, h: (box && box.offsetHeight) || 280 };
+  dkbTiFollow();
   try{ SFX.click(); }catch(e){}
+}
+/* 押したマスの上に置く。ステージ（1600×900）の外へはみ出さないように寄せ、上に入らない時は下へ回す */
+function dkbTiPlace(){
+  var el = DKB_S.tinfo, i = DKB_S.tiAt;
+  if(!el || i === null) return;
+  var w = tileCenter(i), s = dkbW2S(w.x, w.y), r = DKB_S.tiSize || { w: 372, h: 280 };
+  var x = Math.max(r.w / 2 + 10, Math.min(1590 - r.w / 2, s.x));
+  var top = s.y - 34 - r.h, below = false;                 // ふだんはマスの上（下端が s.y-34）
+  if(top < 8){ top = s.y + 30; below = true; }              // 上に入らないマスは下へ回す
+  /* ステージ（0〜900）から出さず、下の HUD（👍や名札を押せる所）にもかぶせない */
+  top = Math.max(8, Math.min(776 - r.h, top));
+  el.classList.toggle('dkb-tibelow', below);
+  /* 上に出す時の基準は下端（CSS bottom:0）、下に出す時は上端（.dkb-tibelow は top:0） */
+  el.style.transform = 'translate(' + x.toFixed(1) + 'px,' + (below ? top : top + r.h).toFixed(1) + 'px)';
+}
+/* カメラが動いた時だけ置き直す（止まっている間は何も書かない＝スマホで層を増やさない） */
+function dkbTiFollow(){
+  var tok = {}; DKB_S.tiTok = tok; DKB_S.tiCam = '';
+  var step = function(){
+    if(DKB_S.tiTok !== tok || DKB_S.tiAt === null) return;
+    var sig = cam.x.toFixed(1) + ',' + cam.y.toFixed(1) + ',' + cam.z.toFixed(3);
+    if(sig !== DKB_S.tiCam){ DKB_S.tiCam = sig; dkbTiPlace(); }
+    requestAnimationFrame(step);
+  };
+  step();
 }
 
 /* ══════════ 起動：代入ラッパと DOM ══════════ */
