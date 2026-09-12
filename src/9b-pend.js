@@ -117,6 +117,19 @@ var DKP_GEM = {
   star:   { img:'moon',   f:'hue-rotate(22deg) saturate(.8) brightness(1.22)' },
   sand:   { img:'sun',    f:'hue-rotate(-10deg) saturate(.62) brightness(1.12)' }
 };
+/* 主役の雫型ペンダント（hero-pend-drop）の石だけを、装備中の属性の色へ寄せる色変え。
+   元の絵の石は青（色相 約225度）。差の分だけ回す＝金の枠は丸窓のマスクの外なので金のまま。 */
+var DKP_DROPF = {
+  thunder:'hue-rotate(180deg) saturate(1.2)', water:'hue-rotate(-25deg)',
+  wind:'hue-rotate(-85deg) saturate(1.1)',    earth:'hue-rotate(165deg) saturate(.85)',
+  sun:'hue-rotate(170deg) saturate(1.25)',    bloom:'hue-rotate(110deg) saturate(1.05)',
+  moon:'hue-rotate(27deg) saturate(.95)',     flame:'hue-rotate(143deg) saturate(1.2)',
+  storm:'hue-rotate(9deg)',                   ice:'hue-rotate(-36deg) saturate(.8) brightness(1.1)',
+  lava:'hue-rotate(155deg) saturate(1.3)',    dark:'hue-rotate(30deg) saturate(.5) brightness(.8)',
+  light:'hue-rotate(180deg) saturate(.45) brightness(1.25)',
+  steel:'hue-rotate(-20deg) saturate(.22) brightness(1.15)',
+  star:'hue-rotate(42deg) saturate(.75) brightness(1.15)', sand:'hue-rotate(175deg) saturate(.6) brightness(1.1)'
+};
 /* 共通スキンの素材（window.DV_UI2）。無ければ空＝CSS だけで成り立つ */
 function dkpU2(k){ try{ return (window.DV_UI2 || {})[k] || ''; }catch(e){ return ''; } }
 /* 宝石の絵の URL は :root の変数に1回だけ入れる。
@@ -862,8 +875,12 @@ function showPend(tab){
     + '<div class="dkbody dkp-body dkp-t-' + S.tab + (tabIn ? ' dkp-tabin' : '') + '">' + body + '</div>');
   el.classList.add('dkp-scr');
   el.classList.toggle('dkp-busy', !!S.busy);
+  /* 回る光の輪は3重（.dkp-hr が3つ＝dkskHalo が3枚）。粒は2個。
+     この画面の常時アニメは 輪3＋粒2＋共通3（金の粒・ロゴの艶・タブの脈）＝8個で
+     「1画面8個」ちょうどに収まる（ロゴの艶は 1e-dk.html の持ち物なので数に入れる）。 */
   dkpSkin(el, { bg:'study', frame:'.dkp-par', frameDark:'.dkp-dark,.fx-panel', btns:false,
-                spark:2, sparkSel:'.dkp-hero2', sparkBox:{ x:26, y:14, w:48, h:56 } });
+                halo:'.dkp-hr', haloSize:'100%',
+                spark:2, sparkSel:'.dkp-hero2', sparkBox:{ x:20, y:8, w:60, h:62 } });
   dkWire(el, function(id){ var s = dkpS(); if(s.busy) return; s.tab = id; s.mixRes = null; showPend(); });
   el.onclick = dkpPendClick;
   var tabs = el.querySelector('.dktabs');
@@ -919,6 +936,15 @@ function dkpTrgWarn(){
   });
   return msg;
 }
+/* お手本（ca751494）の主役：鎖つき雫型の大きな宝石。石の所だけ丸くマスクを切って
+   属性の色へ回す＝金の枠と鎖は金のまま。素材が無ければ今までの丸メダルに戻る。 */
+function dkpHeroArt(p, dim){
+  var u = dkpU2('hero-pend-drop');
+  if(!u) return dkpMedal(p, { size:376, cls:'dkp-float' + (dim ? ' dkp-seen' : '') });
+  var f = DKP_DROPF[dkpElem(p.id).key] || '';
+  return '<i class="dkp-drop' + (dim ? ' dkp-ddim' : '') + '" aria-hidden="true" style="--dkp-drop:url(' + u + ')">'
+    + '<i class="dkp-dtint"' + (f ? ' style="--dkp-df:' + f + '"' : '') + '></i></i>';
+}
 /* お手本（ca751494）の並び：中央＝主役の宝石と装備の枠、右＝羊皮紙の詳細、下＝所持の帯 */
 function dkpBodyPend(){
   var S = dkpS(), own = dkpOwnList(S.sort);
@@ -936,7 +962,7 @@ function dkpBodyPend(){
     var lv = dkpLv(p.id);
     return '<div class="dkp-sk r' + p.rar + (p.id === S.sel ? ' on' : '') + (lock ? ' dkp-lock' : '') + '" data-dkp-act="sel" data-dkp-id="' + p.id + '" data-fx="riseL" id="dkpSlot' + i + '">'
       + '<span class="dkp-sno">' + (i + 1) + '</span>'
-      + dkpMedal(p, { size:76, plus:lv - 1 })
+      + dkpMedal(p, { size:66, plus:lv - 1 })
       + (lock ? '<span class="dkp-lkon">' + dkpLockSVG() + '</span>' : '')
       + '<b class="dkp-skn">' + esc(dkpShort(p)) + '</b>'
       + '<button class="dkbtn dkp-off" data-dkp-act="off" data-dkp-slot="' + i + '">解除</button></div>';
@@ -945,11 +971,13 @@ function dkpBodyPend(){
   var hint = warn || lockTx || '同じ系統のペンダントは、確率の高い方だけが発動します';
   /* お手本（ca751494）どおり、主役を大きく（画面幅の約15%→約27%）して、
      台をビロードの座布団の絵に差し替え、左に縦書きのキャッチを添える */
+  var hp = sel || PENDANTS[1], he = dkpElem(hp.id);
   var stage = '<section class="dkp-stage" data-fx="riseL">'
-    + '<div class="dkp-hero2" id="dkpHero"><i class="fx-halo dkp-halo"></i>'
+    + '<div class="dkp-hero2" id="dkpHero" style="--e1:' + he.c[0] + ';--e2:' + he.c[1] + ';--e3:' + he.c[2] + '">'
+    +   '<i class="dkp-hr dkp-hr1"></i><i class="dkp-hr dkp-hr2"></i><i class="dkp-hr dkp-hr3"></i>'
     +   '<i class="dkp-cush' + (dkpU2('deco-cushion') ? ' img' : '') + '"></i>'
     +   '<b class="dkp-catch">運命を<br>その胸に。</b>'
-    +   dkpMedal(sel || PENDANTS[1], { size:376, cls:(sel ? 'dkp-float' : 'dkp-float dkp-seen') })
+    +   dkpHeroArt(hp, !sel)
     +   '<div class="dkp-charwin"><span class="dkp-cwf"' + (face ? ' style="background-image:url(' + face + ')"' : '') + '>' + (face ? '' : dkpCrest()) + '</span>'
     +     '<b class="dkp-cwt">' + (card ? dkpRarNm(card.rar) + ' クラス装着中' : 'カード未装着') + '</b></div>'
     + '</div>'
@@ -970,6 +998,7 @@ function dkpBodyPend(){
       + '<b class="dkp-cnm">' + esc(dkpShort(p)) + '</b></div>';
   }).join('');
   var shelf = '<section class="dkp-dark dkp-shelf" data-fx="rise">'
+    + '<i class="sk-paper dkp-swm" aria-hidden="true"></i>'
     + '<div class="dkp-shl"><span class="dkp-own">所有 <b>' + own.length + '</b> / ' + PENDANTS.length + '</span>'
     +   '<div class="fx-seg dkp-seg" style="--si:' + si + '"><i class="thumb"></i>'
     +   seg.map(function(x){ return '<button aria-pressed="' + (x[0] === S.sort) + '" data-dkp-act="sort" data-dkp-v="' + x[0] + '">' + x[1] + '</button>'; }).join('')
@@ -987,12 +1016,17 @@ function dkpDetail(p){
   var same = SV.slots.map(pendById).filter(function(x){ return x && x.id !== p.id && x.trg === p.trg; })[0];
   var badge = (typeof dkskBadge === 'function') ? dkskBadge(dkpRarNm(p.rar))
                                                 : '<span class="dkp-rtag r' + p.rar + '">' + dkpRarNm(p.rar) + '</span>';
-  var bars = (typeof dkskBar === 'function')
+  /* お手本の能力バー：太いバー＋左に絵＋右に袋文字の大きな数字 */
+  var bico = function(k){ var u = dkpU2(k); return u ? '<i class="dkp-bic" style="background-image:url(' + u + ')"></i>' : ''; };
+  var bars = (typeof dkskBar2 === 'function')
+    ? dkskBar2(bico('ico-coins') + '発動率', dkpPct(now), 'gold', dkpPct(now) + '%')
+      + dkskBar2(bico('ico-gems') + '+7 にすると', dkpPct(max), 'green', dkpPct(max) + '%')
+    : (typeof dkskBar === 'function')
     ? dkskBar('発動率', dkpPct(now), 'gold', dkpPct(now) + '%') + dkskBar('+7 にすると', dkpPct(max), 'green', dkpPct(max) + '%')
     : '<div class="dkp-drate"><span class="dkp-dl">発動率</span>'
       + '<span class="dkp-bar"><i style="--w:' + dkpPct(now) + '%"></i><em style="--x:' + dkpPct(max) + '%"></em></span>'
       + '<b>' + dkpPct(now) + '%</b></div>';
-  return '<section class="dkp-par dkp-info r' + p.rar + '" data-fx="riseR">'
+  return '<section class="dkp-par dkp-info sk-frame2 r' + p.rar + '" data-fx="riseR">'
     + '<header class="dkp-ihd">' + badge
     +   '<span class="sk-ribbon blue dkp-irb">' + esc(p.nm) + '</span>'
     +   '<div class="dkp-ilv"><b>+' + (lv - 1) + '</b>' + (lv >= 8 ? '<em>MAX</em>' : '') + '</div></header>'
@@ -1953,31 +1987,37 @@ function dkpCubes(){
 }
 function dkpShowCube(){
   var S = dkpS(), list = dkpCubes(), res = S.cres, slots = '', i;
+  /* お手本に寄せる：空き枠は「暗い箱」をやめ、羊皮紙の受け皿にキューブの絵を薄く敷く */
+  var cubeU = dkpU2('art-cube');
+  var ghost = cubeU ? '<i class="dkp-cghost" style="background-image:url(' + cubeU + ')"></i>' : dkpCubeSVG('wood', true);
   for(i = 0; i < 7; i++){
     var c = list[i];
-    if(!c){ slots += '<div class="dkp-cslot dkp-cempty"><span class="dkp-cico">' + dkpCubeSVG('wood', true) + '</span><b>空き</b></div>'; continue; }
+    if(!c){ slots += '<div class="dkp-cslot dkp-cempty"><span class="dkp-cico">' + ghost + '</span><b>空き</b></div>'; continue; }
     slots += '<button class="dkp-cslot dkp-k-' + c.kind + '" data-dkp-act="copen" data-dkp-v="' + i + '" id="dkpCs' + i + '">'
       + '<span class="dkp-cico">' + dkpCubeSVG(c.kind) + '</span><b>' + esc(DKP_CUBEK[c.kind].s) + '</b><em>タップで開ける</em></button>';
   }
   var none = !list.length && !res, big = res ? res.kind : (list[0] ? list[0].kind : 'wood');
   /* お手本に寄せる：主役は描き込みの宝箱、見出しはリボン、下に金の大ボタン */
-  var chest = (typeof dkskPic === 'function') ? dkskPic('hero2-chest', 'dkp-cchest') : '';
+  var chest = (typeof dkskPic === 'function')
+    ? (dkskPic('art-chest', 'dkp-cchest') || dkskPic('hero2-chest', 'dkp-cchest')) : '';
   var coins = (typeof dkskU === 'function' && dkskU('ico-coins'))
     ? '<i class="sk-bico" aria-hidden="true" style="background-image:url(' + dkskU('ico-coins') + ')"></i>' : '';
   var cbtn = res ? ''
     : list.length
       ? '<button class="dkbtn gd fx-primary sk-big dkp-cbtn" data-dkp-act="copen" data-dkp-v="0">' + coins + 'キューブを開ける</button>'
       : '<button class="dkbtn gd fx-primary sk-big dkp-cbtn" data-dkp-act="cgacha">' + coins + 'ガチャへ</button>';
-  var stage = '<section class="fx-panel dkp-cstage' + (res ? ' dkp-cdone' : '') + '" data-fx="riseL"><i class="fx-edge"></i>'
+  var stage = '<section class="fx-panel dkp-cstage sk-frame2' + (res ? ' dkp-cdone' : '') + '" data-fx="riseL"><i class="fx-edge"></i>'
     + '<header class="dkp-ph"><span class="sk-ribbon dkp-crib2">キューブオープン</span><span class="dkp-note">待ち時間なし・すぐ開きます</span></header>'
-    + '<div class="dkp-cped" id="dkpCPed"><i class="fx-halo dkp-halo"></i><i class="dkp-cfloor"></i>' + chest
-    +   '<div class="dkp-cbig' + (none ? ' dkp-cnone' : '') + '" id="dkpCBig">' + dkpCubeSVG(big, none) + '</div></div>'
+    + '<div class="dkp-cped" id="dkpCPed"><i class="sk-paper dkp-cwm" aria-hidden="true"></i>'
+    +   '<i class="fx-halo dkp-halo"></i><i class="dkp-cfloor"></i>' + chest
+    +   '<div class="dkp-cbig dkp-kb-' + big + (none ? ' dkp-cnone' : '') + '" id="dkpCBig">'
+    +   (cubeU ? '<i class="dkp-cbimg" style="background-image:url(' + cubeU + ')"></i>' : dkpCubeSVG(big, none)) + '</div></div>'
     + (res ? dkpCubeResHTML(res) : '<p class="dkp-ctx">' + (list.length ? '右のキューブを押すと、その場で開きます' : 'キューブはプレイ後の結果報酬として獲得できます') + '</p>')
     + cbtn
     + '</section>';
-  var shelf = '<section class="fx-panel dkp-cshelf" data-fx="riseR"><i class="fx-edge"></i>'
+  var shelf = '<section class="fx-panel dkp-cshelf sk-frame2" data-fx="riseR"><i class="fx-edge"></i>'
     + '<header class="dkp-ph"><span class="sk-ribbon dkp-crib2">所持キューブ</span><span class="dkp-cnt"><b>' + list.length + '</b> / 7</span></header>'
-    + '<div class="dkp-cgrid">' + slots + '</div>'
+    + '<div class="dkp-cgrid">' + slots + '<i class="dkp-cseal sk-paper" aria-hidden="true"></i></div>'
     + '<ul class="dkp-rules"><li>最大7個まで持てます。8個目が届くと、いちばん古いキューブを自動で開けて中身を受け取ります</li>'
     +   '<li>ウッド＜シルバー＜ゴールド＜ダイヤの順に、良いアイテムが出やすくなります</li></ul></section>';
   var el = dkMake('cube', 'quest', dkHead('cube', { title:'キューブ' })
