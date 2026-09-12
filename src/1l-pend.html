@@ -756,6 +756,147 @@ html.fx-mob .dkp-elfx{width:170px;height:170px}
 html.fx-mob .dkp-medal::after{display:none}
 @media (prefers-reduced-motion:reduce){ .dkp-elfx,.dkp-gfl{display:none} }
 
+/* ══════════════════════════════════════════════════════════════
+   お手本（ca751494）に寄せる（社長のご要望 2026-09-12「安っぽいのでエフェクトを」）
+   ・器は共通スキン（1w-skin.html の .sk-／8b-skin.js の dkskApply）が当てる。
+   ・常時アニメは増やさない：光の輪は既にある .fx-halo を1つ使い回し、
+     きらめきは dkskSpark が「1画面8個」の残りを見て自分で数を減らす。
+   ・動かすのは transform と opacity だけ。彫り枠・艶・面取りは全部「止まった絵」。
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 宝石の写真（切り出した6種を16属性へ色替えで割り当て）──
+   URL は :root の変数に1回だけ入れてある（dkpGemVars）。メダルごとに data URI を
+   書くと図鑑16個で DOM が数百KB になるため。 */
+.dkp-medal > .dkp-gem{position:absolute;left:21.7%;top:29.2%;width:56.7%;height:52.3%;z-index:1;pointer-events:none;
+  background:var(--dkp-gm,none) center/cover no-repeat;filter:var(--gf,none);
+  clip-path:polygon(23.5% 0,76.5% 0,100% 23.5%,100% 76.5%,76.5% 100%,23.5% 100%,0 76.5%,0 23.5%)}
+.dkp-medal > svg:last-of-type{z-index:2}
+.dkp-gi-blue{--dkp-gm:var(--dkp-gm-blue)}
+.dkp-gi-green{--dkp-gm:var(--dkp-gm-green)}
+.dkp-gi-red{--dkp-gm:var(--dkp-gm-red)}
+.dkp-gi-moon{--dkp-gm:var(--dkp-gm-moon)}
+.dkp-gi-sakura{--dkp-gm:var(--dkp-gm-sakura)}
+.dkp-gi-sun{--dkp-gm:var(--dkp-gm-sun)}
+.dkp-medal.dkp-unseen > .dkp-gem{filter:brightness(0)}
+.dkp-medal.dkp-seen > .dkp-gem{filter:grayscale(1) brightness(.7)}
+
+/* ── ペンダントタブ：上（中央＋右）と下の帯 ── */
+#pend .dkp-body.dkp-t-pend{flex-direction:column;gap:14px}
+.dkp-ptop{flex:1 1 auto;min-height:0;display:flex;gap:16px}
+#pend .dkp-tabin > .dkp-ptop,#pend .dkp-tabin > .dkp-shelf{animation:dkpTabIn 380ms cubic-bezier(.16,1,.3,1) both}
+#pend .dkp-tabin > .dkp-shelf{animation-delay:60ms}
+#pend .dkp-ptop > .fx-panel{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:12px;padding:14px 18px 16px}
+
+/* 中央の台（主役の宝石・ビロードの座・装備の枠・装着中のカードの丸窓） */
+.dkp-stage{position:relative;flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:8px}
+.dkp-hero2{position:relative;flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center}
+.dkp-hero2 > .dkp-medal{position:relative;z-index:2}
+.dkp-hero2 .dkp-halo{z-index:0;width:420px;height:420px;margin:-210px 0 0 -210px}
+.dkp-cush{position:absolute;left:50%;bottom:3%;width:372px;height:96px;margin-left:-186px;z-index:1;pointer-events:none;
+  border-radius:50%;
+  background:radial-gradient(closest-side,rgba(255,232,170,.5),rgba(255,196,90,.12) 56%,transparent 78%),
+             radial-gradient(closest-side at 50% 42%,#2E8478,#155450 62%,#092E2C);
+  box-shadow:0 10px 26px rgba(0,0,0,.6),inset 0 2px 0 rgba(255,240,190,.42)}
+.dkp-cush::after{content:"";position:absolute;left:5%;right:5%;top:32%;height:3px;border-radius:2px;
+  background:linear-gradient(90deg,transparent,rgba(255,226,150,.8),transparent)}
+.dkp-charwin{position:absolute;left:2px;bottom:2px;z-index:3;display:flex;flex-direction:column;align-items:center;gap:5px;pointer-events:none}
+.dkp-cwf{width:104px;height:104px;border-radius:50%;overflow:hidden;flex:0 0 auto;
+  background:50% 20%/178% auto no-repeat #2A1C08;
+  border:4px solid #F4D169;box-shadow:0 4px 12px rgba(0,0,0,.65),inset 0 0 18px rgba(0,0,0,.55)}
+.dkp-cwf svg{width:100%;height:100%;display:block}
+.dkp-cwt{padding:3px 12px;border-radius:9px;white-space:nowrap;font-size:17px;font-weight:900;line-height:1.2;color:#3A2405;
+  background:linear-gradient(180deg,#FFF0BE,#E8B23A);border:2px solid #8A6206;box-shadow:0 2px 4px rgba(0,0,0,.5)}
+
+/* 装備の枠4つ */
+.dkp-eqrail{flex:0 0 auto;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.dkp-sk{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:2px;
+  height:158px;padding:8px 4px 6px;border-radius:14px;cursor:pointer;border:3px solid transparent;
+  background:var(--dkp-cellA) padding-box,var(--dkp-rimA) border-box;
+  box-shadow:0 5px 0 rgba(0,0,0,.42),inset 0 2px 0 rgba(255,230,170,.16);
+  transition:transform 160ms cubic-bezier(.16,1,.3,1)}
+.dkp-sk.rS{background:var(--dkp-cellS) padding-box,var(--dkp-rimS) border-box}
+.dkp-sk.rSS{background:var(--dkp-cellSS) padding-box,var(--dkp-rimSS) border-box}
+.dkp-sk:hover{transform:translateY(-3px)}
+.dkp-sk.on{border-color:#FFF0BE;box-shadow:0 5px 0 rgba(0,0,0,.42),0 0 20px 5px rgba(255,200,80,.6)}
+.dkp-sk.dkp-empty{cursor:default;justify-content:center;gap:8px;border:3px dashed rgba(200,149,47,.5);
+  background:repeating-linear-gradient(135deg,rgba(255,236,190,.04) 0 12px,transparent 12px 24px),linear-gradient(180deg,#2A1D0B,#160E05)}
+.dkp-sk.dkp-empty:hover{transform:none}
+.dkp-sk.dkp-lock{border-style:dashed;border-color:rgba(170,150,120,.55)}
+.dkp-sk.dkp-lock > .dkp-medal{filter:grayscale(.85) brightness(.6)}
+.dkp-sk .dkp-hole{width:70px;height:70px}
+.dkp-sk .dkp-hole.dkp-lk svg{width:36px;height:36px}
+.dkp-sk .dkp-lkon{left:auto;right:6px;top:8px;width:32px;height:32px}
+.dkp-skn{max-width:100%;font-family:var(--pop);font-size:19px;font-weight:400;line-height:1.15;color:#FFEFD0;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;-webkit-text-stroke:3px #1E1204;paint-order:stroke fill}
+.dkp-sk.dkp-empty .dkp-skn{color:#BFA475}
+.dkp-sk .dkp-off.dkbtn{height:40px;padding:0 15px;font-size:20px;-webkit-text-stroke-width:3px;margin-top:3px}
+.dkp-eqhint{margin:0;flex:0 0 auto;min-height:23px;font-size:16px;line-height:1.35;color:#D9C29A;text-align:center}
+.dkp-eqhint.warn{color:#FFB2A4;font-weight:900}
+
+/* 右の羊皮紙（金の彫り枠つき） */
+.dkp-info{position:relative;flex:0 0 648px;min-width:0;display:flex;flex-direction:column;gap:12px;
+  padding:16px 20px 18px;--sk-fw:28px;color:var(--sk-ink-d,#4B3415)}
+.dkp-ihd{display:flex;align-items:center;gap:12px;flex:0 0 auto;min-width:0}
+.dkp-ihd .sk-badge{width:92px;height:96px}
+.dkp-irb{flex:1 1 0;min-width:0;max-width:100%;font-size:25px;overflow:hidden;text-overflow:ellipsis}
+.dkp-ilv{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:104px;padding:5px 12px;border-radius:12px;
+  background:linear-gradient(180deg,#FFF7D6,#F4D169 38%,#DCA62E 72%,#9E6D15);border:3px solid #7C5406;
+  box-shadow:0 3px 0 rgba(0,0,0,.4),inset 0 2px 0 rgba(255,255,255,.5)}
+.dkp-ilv b{font-family:var(--pop);font-size:30px;font-weight:400;line-height:1;color:#FFF6E2;
+  -webkit-text-stroke:4px #5B3A05;paint-order:stroke fill}
+.dkp-ilv em{font-style:normal;font-size:17px;font-weight:900;line-height:1.2;color:#5B3A05;padding:1px 10px;border-radius:7px;
+  background:linear-gradient(180deg,#FFFDF0,#E8CE86);border:1px solid #8A6206}
+.dkp-ids{margin:0;flex:0 0 auto;font-size:19px;line-height:1.5;color:#4B3415}
+.dkp-eff{display:flex;align-items:center;gap:14px;flex:0 0 auto;padding:10px 12px;border-radius:12px;
+  background:linear-gradient(180deg,rgba(255,255,255,.44),rgba(255,246,224,.16));
+  border:2px solid rgba(150,114,58,.42);box-shadow:inset 0 2px 6px rgba(120,90,40,.2)}
+.dkp-effi{position:relative;width:92px;height:92px;flex:0 0 auto;border-radius:12px;display:grid;place-items:center;
+  background:radial-gradient(circle at 40% 28%,#7FC7FF,#2F86DA 44%,#0C2E5C 90%);
+  border:3px solid #F4D169;box-shadow:0 3px 0 rgba(0,0,0,.4),inset 0 0 18px rgba(0,0,0,.45)}
+.dkp-effi svg{width:56px;height:56px;display:block;overflow:visible;filter:drop-shadow(0 2px 3px rgba(0,0,0,.65))}
+.dkp-efft{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:3px}
+.dkp-efft b{font-family:var(--pop);font-size:23px;font-weight:400;line-height:1.2;color:#134B92;
+  -webkit-text-stroke:3px rgba(255,255,255,.88);paint-order:stroke fill;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dkp-efft p{margin:0;font-size:17px;line-height:1.4;color:#4B3415;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dkp-eff .dkp-elbtn.dkbtn{flex:0 0 auto;height:44px;padding:0 15px;font-size:20px}
+.dkp-bars{display:flex;flex-direction:column;gap:9px;flex:0 0 auto}
+.dkp-bars .sk-barrow .nm{min-width:124px}
+.dkp-info > .dkp-warn{margin:0}
+.dkp-info > .dkp-dbtns{margin-top:auto}
+.dkp-info .dkp-dbtns .dkbtn{height:68px;font-size:25px}
+
+/* 下の帯（所持ペンダント） */
+.dkp-shelf{flex:0 0 196px;display:flex;align-items:center;gap:14px;padding:10px 16px;min-width:0;--sk-fw:22px}
+.dkp-shl{flex:0 0 242px;display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.dkp-shl .dkp-own{margin:0;font-size:18px;color:#E4CFA4}
+.dkp-shl .dkp-own b{font-size:30px}
+.dkp-shelf .dkp-sw{flex:1 1 0;min-width:0}
+.dkp-shelf .dkp-strip{max-width:none;padding:10px 6px 8px}
+.dkp-shelf .dkp-seg.fx-seg{--x:calc(var(--si,0) * 76px)}
+.dkp-shelf .dkp-seg.fx-seg button{min-width:76px;width:76px;height:42px;font-size:20px}
+.dkp-shelf .dkp-seg.fx-seg i.thumb{width:76px}
+.dkp-shelf .dkp-mini.dkbtn{flex:0 0 auto;height:66px;font-size:21px;white-space:nowrap}
+.dkp-cell.dkp-sh{flex:0 0 118px;height:128px;padding:8px 4px 6px;scroll-snap-align:start}
+.dkp-cell.dkp-sh .dkp-cnm{font-size:17px}
+
+/* ── 強化・合成・図鑑：金の彫り枠を細めに当てる（中身の場所は変えない） ── */
+#pend .dkp-body:not(.dkp-t-pend) > .fx-panel{--sk-fw:20px;padding:10px 14px 12px}
+
+/* ── ガチャ・キューブ：彫り枠と主役の絵 ── */
+#gacha .dkp-tile{--sk-fw:22px;padding:6px 12px 12px}
+#gacha .dkp-gbar{--sk-fw:18px}
+#cube .dkp-body > .fx-panel{--sk-fw:22px;padding:10px 14px 12px}
+.dkp-tart2{position:absolute;left:50%;top:50%;width:96%;height:104%;transform:translate(-50%,-50%);z-index:1;pointer-events:none;
+  background:var(--sk-hero,none) center/contain no-repeat;filter:drop-shadow(0 10px 18px rgba(0,0,0,.55))}
+#gacha .dkp-tart.dkp-hasart > svg{visibility:hidden}
+#gacha .dkp-tile.dkp-c-special{box-shadow:0 10px 26px rgba(0,0,0,.6),inset 0 0 44px rgba(255,90,60,.22)}
+#gacha .dkp-tile.dkp-c-normal{box-shadow:0 10px 26px rgba(0,0,0,.6),inset 0 0 44px rgba(120,180,255,.2)}
+#gacha .dkp-tile.dkp-c-premium{box-shadow:0 10px 26px rgba(0,0,0,.6),inset 0 0 44px rgba(255,200,90,.26)}
+
+/* ── スマホ：画素のメモリを増やさない（座の光は控えめ・丸窓の影を軽く） ── */
+html.fx-mob .dkp-cush{box-shadow:none}
+html.fx-mob .dkp-tart2{filter:none}
+
 /* ══════════ 横長スマホ（高さ560px未満）：文字は本文22px・主要26px以上、押せる範囲は96px以上 ══════════ */
 @media (max-height:560px){
   #pend .dktab .tx,#gacha .dktab .tx{font-size:26px}
@@ -1001,4 +1142,117 @@ html.fx-mob .dkp-medal::after{display:none}
   #pend .dkp-rw .dkbtn{height:52px;font-size:26px}
   #pend .dkp-rwst{font-size:22px}
 }
+
+/* ══════════ 横長スマホ：お手本に寄せた並びの文字を大きくする ══════════
+   （画面の CSS の大きさは 1600×900 のままなので、箱は広げず文字だけ上げる） */
+@media (max-height:560px){
+  #pend .dkp-info{flex:0 0 596px;--sk-fw:22px;padding:12px 14px 14px;gap:9px}
+  #pend .dkp-ihd .sk-badge{width:76px;height:80px}
+  #pend .dkp-irb{font-size:23px;min-height:46px;padding:4px 24px}
+  #pend .dkp-ilv{min-width:92px;padding:3px 9px}
+  #pend .dkp-ilv b{font-size:28px}
+  #pend .dkp-ilv em{font-size:22px}
+  #pend .dkp-ids{font-size:22px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  #pend .dkp-effi{width:76px;height:76px}
+  #pend .dkp-effi svg{width:46px;height:46px}
+  #pend .dkp-efft b{font-size:26px}
+  #pend .dkp-efft p{font-size:22px}
+  #pend .dkp-eff .dkp-elbtn.dkbtn{height:54px;font-size:26px}
+  #pend .dkp-bars .sk-barrow .nm{min-width:112px;font-size:22px}
+  #pend .dkp-bars .sk-barrow .vl{font-size:26px;min-width:84px}
+  #pend .dkp-info .dkp-dbtns .dkbtn{height:72px;font-size:26px}
+  #pend .dkp-sk{height:156px}
+  #pend .dkp-sk .dkp-medal{--ms:66px!important}
+  #pend .dkp-skn{font-size:22px}
+  #pend .dkp-sk .dkp-off.dkbtn{height:48px;font-size:26px}
+  #pend .dkp-eqhint{font-size:22px;min-height:30px}
+  #pend .dkp-cwf{width:92px;height:92px}
+  #pend .dkp-cwt{font-size:22px}
+  #pend .dkp-hero2 > .dkp-medal{--ms:212px!important}
+  #pend .dkp-cush{width:290px;height:76px;margin-left:-145px}
+  #pend .dkp-shelf{flex:0 0 196px;--sk-fw:18px}
+  #pend .dkp-shl{flex:0 0 264px}
+  #pend .dkp-shl .dkp-own{font-size:22px}
+  #pend .dkp-shl .dkp-own b{font-size:30px}
+  #pend .dkp-shelf .dkp-seg.fx-seg{--x:calc(var(--si,0) * 84px)}
+  #pend .dkp-shelf .dkp-seg.fx-seg button{min-width:84px;width:84px;height:48px;font-size:26px}
+  #pend .dkp-shelf .dkp-seg.fx-seg i.thumb{width:84px}
+  #pend .dkp-shelf .dkp-mini.dkbtn{height:74px;font-size:26px}
+  #pend .dkp-cell.dkp-sh{flex:0 0 124px;height:132px}
+  #pend .dkp-cell.dkp-sh .dkp-medal{--ms:64px!important}
+  #pend .dkp-cell.dkp-sh .dkp-cnm{font-size:24px}
+}
+
+/* ══════════ お手本と見比べての直し（1回目） ══════════ */
+/* 帯が横いっぱいに伸びていなかった（縦に並べた器では、幅を自分で伸ばす） */
+.dkp-ptop,.dkp-shelf{align-self:stretch;width:100%}
+/* 羊皮紙：紙目の絵は縞に見えてしまうので、なめらかな地のままにする */
+.dkp-info{--sk-paper:none}
+/* リボンの名前は折り返さない */
+.dkp-irb{white-space:nowrap;padding:5px 28px;min-height:50px}
+/* 等級バッジはお手本のように大きく・読みやすく */
+.dkp-ihd .sk-badge{width:106px;height:110px}
+.dkp-ihd .sk-badge > b{font-size:46px}
+.dkp-ihd .sk-badge.s2 > b{font-size:38px}
+/* 効果の説明は2行まで（1行だと「…」で切れていた） */
+.dkp-efft p{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* 主役のまわりの光の輪。動きは今ある1つのままで、色だけお手本の青金にする */
+.dkp-hero2 .dkp-halo{
+  background:
+    conic-gradient(from 0deg,transparent 0 6%,rgba(150,226,255,.55) 13%,transparent 24% 50%,
+                   rgba(255,232,164,.5) 60%,transparent 72% 100%),
+    radial-gradient(circle,transparent 40%,rgba(255,214,110,.3) 44%,rgba(255,214,110,0) 52%);
+  -webkit-mask:radial-gradient(closest-side,transparent 52%,#000 60%,#000 90%,transparent 100%);
+          mask:radial-gradient(closest-side,transparent 52%,#000 60%,#000 90%,transparent 100%)}
+/* 装備の枠：名前と［解除］が重ならないように */
+.dkp-sk{justify-content:space-between}
+/* 書き割りの飾り（旗・燭台・天球儀）。本文より後ろに敷き、指は受けない */
+.dkp-deco{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.dkp-deco > i{position:absolute;display:block;background:center/contain no-repeat}
+.dkp-deco .d-ban,.dkp-deco .d-ban2{background-image:var(--dkp-ban)}
+.dkp-deco .d-cnd{background-image:var(--dkp-cnd)}
+.dkp-deco .d-glb{background-image:var(--dkp-glb)}
+/* 左のタブの裏だと見えないので、中央の台（地が透ける所）の後ろに置く */
+.dkp-deco .d-ban{left:250px;top:58px;width:104px;height:234px;opacity:.5}
+.dkp-deco .d-ban2{left:800px;top:48px;width:104px;height:234px;transform:scaleX(-1);opacity:.38}
+.dkp-deco .d-cnd{left:2px;bottom:-6px;width:176px;height:154px;opacity:.55}
+.dkp-deco .d-glb{left:742px;top:296px;width:130px;height:180px;opacity:.38}
+html.fx-mob .dkp-deco .d-ban2,html.fx-mob .dkp-deco .d-glb{display:none}
+
+/* ══════════ お手本と見比べての直し（2回目） ══════════ */
+/* 主役の宝石：紋と面取りの影が濃くて石が濁っていた。大きい時は紋を薄く・石を明るく */
+.dkp-hero2 .dkp-medal > svg:last-of-type g{opacity:.26}
+.dkp-hero2 .dkp-gem{filter:var(--gf) brightness(1.16) saturate(1.22)}
+.dkp-hero2 .dkp-medal > svg:last-of-type path[fill^="rgba(0,0,0"]{opacity:.45}
+/* 装備の枠：名前が「+7」の札に隠れていた */
+.dkp-sk .dkp-medal{margin-bottom:2px}
+.dkp-skn{position:relative;z-index:3}
+/* 下の帯：「着用中」の札と等級の飾り文字がぶつかっていた */
+.dkp-cell.dkp-sh{padding-top:14px}
+/* 「着用中」は本文なので 16px を下回らない（下回ると smoke の font に出る） */
+.dkp-cell.dkp-sh .dkp-eqtag{top:-2px;left:auto;right:4px;transform:none;font-size:17px;padding:1px 8px}
+.dkp-cell.dkp-sh .dkp-dup{right:4px;top:22px}
+.dkp-cell.dkp-sh .dkp-medal .dkp-rt{left:-2%;top:-8%}
+/* 強化・合成の帯が画面の外へ 1.7px はみ出していた。
+   金の彫り枠で中身の幅が減ったのに、帯の最大幅（756/792px）が元のままだったため。
+   入れ物いっぱいに合わせ、あふれたぶんは今までどおり横スクロールで見せる。 */
+#pend .dkp-sw{align-self:stretch;min-width:0;max-width:100%}
+#pend .dkp-strip{max-width:100%}
+
+/* 横長スマホの詰め直し（文字が大きいぶん、名前の行と能力バーの場所を広げる） */
+@media (max-height:560px){
+  #pend .dkp-info{padding:12px 18px 14px}
+  #pend .dkp-ids{font-size:20px}
+  #pend .dkp-bars .sk-barrow .nm{min-width:96px}
+  #pend .dkp-bars .sk-barrow .vl{min-width:72px}
+  #pend .dkp-shelf{flex:0 0 208px}
+  #pend .dkp-cell.dkp-sh{height:142px;padding-top:18px}
+  #pend .dkp-cell.dkp-sh .dkp-cnm{font-size:22px}
+  /* 強化・合成の帯：6つ目のマスの右端が画面の外へ 1.7px 出ていた。
+     マスと隙間を少し詰めて、見えているマスが必ず画面の内側で終わるようにする。 */
+  #pend .dkp-cell.dkp-sm{flex:0 0 110px}
+  #pend .dkp-strip{gap:10px}
+}
+/* 小さいマスでは「+7」の札をマスの内側に収める（外に 4% はみ出していた） */
+.dkp-cell.dkp-sm .dkp-medal .dkp-plus{right:0;bottom:0}
 </style>

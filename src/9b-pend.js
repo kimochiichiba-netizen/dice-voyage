@@ -96,6 +96,43 @@ var DKP_ADD = [
     ds:'建物を3棟以上持っているとき、スタートへ移動して給料を受け取る' }
 ];
 var DKP_ALIAS = { p9:'p8', p10:'p7', p11:'p1', p12:'p2', p13:'p6', p14:'p3', p15:'p5', p16:'p4' };
+/* 宝石の絵（お手本から切り出した6種）を16の属性へ割り当てる。
+   同じ絵でも色相・彩度を変えれば別の石に見える＝素材を増やさずに16種を見分けられる。
+   img＝assets/ui2 の gem2-*／f＝その絵にかける色変え（止まった絵。動かさない） */
+var DKP_GEM = {
+  thunder:{ img:'sun',    f:'hue-rotate(-6deg) saturate(1.15) brightness(1.06)' },
+  water:  { img:'blue',   f:'saturate(1.12) brightness(1.08)' },
+  wind:   { img:'green',  f:'saturate(1.12) brightness(1.08)' },
+  earth:  { img:'sun',    f:'hue-rotate(-24deg) saturate(.82) brightness(.92)' },
+  sun:    { img:'sun',    f:'hue-rotate(-20deg) saturate(1.3) brightness(1.04)' },
+  bloom:  { img:'sakura', f:'saturate(1.12) brightness(1.08)' },
+  moon:   { img:'moon',   f:'saturate(1.12) brightness(1.08)' },
+  flame:  { img:'red',    f:'saturate(1.12) brightness(1.08)' },
+  storm:  { img:'moon',   f:'hue-rotate(-28deg) saturate(.9)' },
+  ice:    { img:'blue',   f:'hue-rotate(26deg) saturate(.75) brightness(1.16)' },
+  lava:   { img:'red',    f:'hue-rotate(20deg) saturate(1.35) brightness(1.08)' },
+  dark:   { img:'moon',   f:'hue-rotate(12deg) saturate(.55) brightness(.7)' },
+  light:  { img:'sun',    f:'hue-rotate(8deg) saturate(.5) brightness(1.3)' },
+  steel:  { img:'blue',   f:'hue-rotate(10deg) saturate(.22) brightness(1.2)' },
+  star:   { img:'moon',   f:'hue-rotate(22deg) saturate(.8) brightness(1.22)' },
+  sand:   { img:'sun',    f:'hue-rotate(-10deg) saturate(.62) brightness(1.12)' }
+};
+/* 共通スキンの素材（window.DV_UI2）。無ければ空＝CSS だけで成り立つ */
+function dkpU2(k){ try{ return (window.DV_UI2 || {})[k] || ''; }catch(e){ return ''; } }
+/* 宝石の絵の URL は :root の変数に1回だけ入れる。
+   メダル1つずつに data URI を書くと、図鑑（16個）で DOM が数百KB に膨らむ */
+function dkpGemVars(){
+  try{
+    var r = document.documentElement, seen = {}, k, g, u;
+    for(k in DKP_GEM){
+      g = DKP_GEM[k].img;
+      if(seen[g]) continue;
+      seen[g] = 1;
+      u = dkpU2('gem2-' + g);
+      if(u) r.style.setProperty('--dkp-gm-' + g, 'url(' + u + ')');
+    }
+  }catch(e){}
+}
 
 /* 増やしたペンダントを PENDANTS へ足し、読み込みのときに落ちた分をセーブへ戻す。
    （5-meta.js の loadSave は 9b より前に走るので、その時点では新しい id が「知らない id」として捨てられている） */
@@ -392,8 +429,10 @@ function dkpEmblem(id){
     + '<path d="M12 7 H28 L20 20 Z" fill="#DCB463"/><path d="M20 20 L27 33 H13 Z" fill="#DCB463"/>';
   return '';
 }
-/* ペンダントの絵（金の縁・宝石・紋）。opt={size, plus, rt, cls, svg} */
-function dkpMedalSVG(p){
+/* ペンダントの絵（金の縁・宝石・紋）。opt={size, plus, rt, cls, svg}
+   part 省略＝1枚のSVG（タブの小さな絵はこれ）／1＝台（縁と地）／2＝面取りと紋
+   1と2の間に宝石の写真（.dkp-gem）をはさむと、お手本のような本物の石になる */
+function dkpMedalSVG(p, part){
   var n = ++DKP_N, id = 'dkpm' + n, el = dkpElem(p.id), c = el.c;
   /* 枠は等級（A＝銀・S＝金銀・S+＝金）。台座の粒は属性の色（等級と種類を一度に見分ける） */
   var rim = p.rar === 'SS' ? ['#FFF7D6', '#F5CC4E', '#A36F0B', '#4A2E02']
@@ -413,7 +452,7 @@ function dkpMedalSVG(p){
         + '" r="3" fill="' + (p.rar === 'S' ? c[1] : c[0]) + '" stroke="' + rim[3] + '" stroke-width="1"/>';
     }
   }
-  return '<svg viewBox="0 0 120 130" aria-hidden="true" focusable="false"><defs>'
+  var base = '<defs>'
     + '<radialGradient id="' + id + 'g" cx="36%" cy="30%" r="80%"><stop offset="0" stop-color="#FFFFFF"/>'
     +   '<stop offset=".16" stop-color="' + c[0] + '"/><stop offset=".55" stop-color="' + c[1] + '"/>'
     +   '<stop offset="1" stop-color="' + c[2] + '"/></radialGradient>'
@@ -426,25 +465,28 @@ function dkpMedalSVG(p){
     + '<circle cx="60" cy="72" r="46.5" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.4"/>'
     + dots
     + '<circle cx="60" cy="72" r="43" fill="' + rim[3] + '"/>'
-    + '<path d="M42 38 H78 L94 54 V90 L78 106 H42 L26 90 V54 Z" fill="url(#' + id + 'g)" stroke="rgba(255,255,255,.6)" stroke-width="2"/>'
-    + '<path d="M44 46 H76 L86 56 V88 L76 98 H44 L34 88 V56 Z" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.32)" stroke-width="1.2"/>'
+    + '<path d="M42 38 H78 L94 54 V90 L78 106 H42 L26 90 V54 Z" fill="url(#' + id + 'g)" stroke="rgba(255,255,255,.6)" stroke-width="2"/>';
+  var top = '<path d="M44 46 H76 L86 56 V88 L76 98 H44 L34 88 V56 Z" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.32)" stroke-width="1.2"/>'
     + '<path d="M42 38 H78 L70 50 H50 Z" fill="rgba(255,255,255,.42)"/>'
     + '<path d="M94 54 V90 L82 84 V60 Z" fill="rgba(0,0,0,.16)"/>'
     + '<path d="M42 106 H78 L70 94 H50 Z" fill="rgba(0,0,0,.22)"/>'
     + '<path d="M26 54 V90 L38 84 V60 Z" fill="rgba(255,255,255,.14)"/>'
-    + '<g transform="translate(40 52)">' + dkpEmblem(p.id) + '</g>'
-    + '<path d="M37 45 l2.2 6 6 2.2 -6 2.2 -2.2 6 -2.2 -6 -6 -2.2 6 -2.2z" fill="#FFFFFF" opacity=".92"/>'
-    + '</svg>';
+    + '<g transform="translate(40 52)" opacity=".6">' + dkpEmblem(p.id) + '</g>'
+    + '<path d="M37 45 l2.2 6 6 2.2 -6 2.2 -2.2 6 -2.2 -6 -6 -2.2 6 -2.2z" fill="#FFFFFF" opacity=".92"/>';
+  var o = '<svg viewBox="0 0 120 130" aria-hidden="true" focusable="false">';
+  if(part === 1) return o + base + '</svg>';
+  if(part === 2) return o + top + '</svg>';
+  return o + base + top + '</svg>';
 }
 function dkpMedal(p, opt){
   opt = opt || {};
   if(!p) return '';
-  var sz = opt.size || 96, e = dkpElem(p.id);
+  var sz = opt.size || 96, e = dkpElem(p.id), g = DKP_GEM[e.key] || DKP_GEM.water;
   var plus = (typeof opt.plus === 'number') ? '<b class="dkp-plus' + (opt.plus >= 7 ? ' mx' : '') + '">+' + opt.plus + '</b>' : '';
   var rt = opt.rt ? '<i class="dkp-rt r' + p.rar + '">' + dkpRarNm(p.rar) + '</i>' : '';
-  return '<span class="dkp-medal r' + p.rar + ' dkp-e-' + e.key + (opt.cls ? ' ' + opt.cls : '')
-    + '" style="--ms:' + sz + 'px;--e1:' + e.c[0] + ';--e2:' + e.c[1] + ';--e3:' + e.c[2] + '">'
-    + dkpMedalSVG(p) + rt + plus + '</span>';
+  return '<span class="dkp-medal r' + p.rar + ' dkp-e-' + e.key + ' dkp-gi-' + g.img + (opt.cls ? ' ' + opt.cls : '')
+    + '" style="--ms:' + sz + 'px;--e1:' + e.c[0] + ';--e2:' + e.c[1] + ';--e3:' + e.c[2] + ';--gf:' + g.f + '">'
+    + dkpMedalSVG(p, 1) + '<i class="dkp-gem"></i>' + dkpMedalSVG(p, 2) + rt + plus + '</span>';
 }
 /* 王冠とサイコロの紋章（カードの裏・見出しの飾り） */
 function dkpCrest(){
@@ -814,11 +856,14 @@ function showPend(tab){
   var tabIn = !!(S.prevTab && S.prevTab !== S.tab);
   S.prevTab = S.tab;
   var el = dkMake('pend', 'pend',
-      dkHead('pend', {})
+      dkpDecoHTML()
+    + dkHead('pend', {})
     + dkTabs(dkpTabs(), S.tab)
     + '<div class="dkbody dkp-body dkp-t-' + S.tab + (tabIn ? ' dkp-tabin' : '') + '">' + body + '</div>');
   el.classList.add('dkp-scr');
   el.classList.toggle('dkp-busy', !!S.busy);
+  dkpSkin(el, { bg:'study', frame:'.dkp-par', frameDark:'.dkp-dark,.fx-panel', btns:false,
+                spark:2, sparkSel:'.dkp-hero2', sparkBox:{ x:26, y:14, w:48, h:56 } });
   dkWire(el, function(id){ var s = dkpS(); if(s.busy) return; s.tab = id; s.mixRes = null; showPend(); });
   el.onclick = dkpPendClick;
   var tabs = el.querySelector('.dktabs');
@@ -834,6 +879,23 @@ function showPend(tab){
 function dkpFxTag(el){
   el.querySelectorAll('.dkhd > *').forEach(function(n){ n.setAttribute('data-fx', 'pop'); });
   el.querySelectorAll('.dktab').forEach(function(n){ n.setAttribute('data-fx', 'riseL'); });
+}
+/* 共通スキン（8b-skin.js の dkskApply）を当てる。
+   ボタンは各画面が色を決めているので当てない（当てると解除＝赤・売却＝茶が緑になる）。
+   きらめきは dkskSpark が「1画面8個」の残りを見て自分で数を減らす。 */
+/* 書き割りの飾り（旗・燭台・天球儀）。止まった絵で指も受けない＝常時アニメは増えない。
+   絵の URL は入れ物の変数に1回だけ置く（旗は左右で2回使うため） */
+function dkpDecoHTML(){
+  var b = dkpU2('deco-banner'), g = dkpU2('deco-globe'), c = dkpU2('deco-candle');
+  if(!b && !g && !c) return '';
+  return '<div class="dkp-deco fx-deco" aria-hidden="true" style="'
+    + (b ? '--dkp-ban:url(' + b + ');' : '') + (c ? '--dkp-cnd:url(' + c + ');' : '') + (g ? '--dkp-glb:url(' + g + ');' : '') + '">'
+    + (b ? '<i class="d-ban"></i><i class="d-ban2"></i>' : '')
+    + (c ? '<i class="d-cnd"></i>' : '') + (g ? '<i class="d-glb"></i>' : '') + '</div>';
+}
+function dkpSkin(el, opt){
+  try{ if(typeof dkskApply === 'function') dkskApply(el, opt || {}); }catch(e){ console.error('[WP16a]', e); }
+  return el;
 }
 function dkpEmptyInv(msg){
   var hero = dkU('hero-pend');
@@ -857,88 +919,93 @@ function dkpTrgWarn(){
   });
   return msg;
 }
+/* お手本（ca751494）の並び：中央＝主役の宝石と装備の枠、右＝羊皮紙の詳細、下＝所持の帯 */
 function dkpBodyPend(){
   var S = dkpS(), own = dkpOwnList(S.sort);
   if(S.sel && !dkpOwn(S.sel)) S.sel = null;
   if(!S.sel && own.length) S.sel = own[0].id;
   var open = dkpSlotsOpen(), card = cardById(SV.equip), face = card ? (dkCharImg('t' + card.id.slice(1)) || dkCharImg(card.id)) : '';
+  var sel = pendById(S.sel), lockTx = '';
   var slots = SV.slots.map(function(pid, i){
     var p = pendById(pid), lock = i >= open;
-    if(!p && lock) return '<div class="dkp-slot dkp-empty dkp-lock" data-fx="riseL"><span class="dkp-sno">' + (i + 1) + '</span>'
-      + '<span class="dkp-hole dkp-lk">' + dkpLockSVG() + '</span><div class="dkp-si"><b class="dkp-snm">ロック中</b>'
-      + '<p class="dkp-sds">' + esc(dkpLockTx(i)) + '</p></div></div>';
-    if(!p) return '<div class="dkp-slot dkp-empty" data-fx="riseL"><span class="dkp-sno">' + (i + 1) + '</span>'
-      + '<span class="dkp-hole"><i></i></span><div class="dkp-si"><b class="dkp-snm">空き枠</b>'
-      + '<p class="dkp-sds">右の一覧からえらんで［装着］</p></div></div>';
-    var lv = dkpLv(p.id);
-    return '<div class="dkp-slot r' + p.rar + (p.id === S.sel ? ' on' : '') + (lock ? ' dkp-lock' : '') + '" data-dkp-act="sel" data-dkp-id="' + p.id + '" data-fx="riseL" id="dkpSlot' + i + '">'
+    if(lock && !lockTx) lockTx = dkpLockTx(i);
+    if(!p) return '<div class="dkp-sk dkp-empty' + (lock ? ' dkp-lock' : '') + '" data-fx="riseL">'
       + '<span class="dkp-sno">' + (i + 1) + '</span>'
-      + dkpMedal(p, { size:92, plus:lv - 1 }) + (lock ? '<span class="dkp-lkon">' + dkpLockSVG() + '</span>' : '')
-      + '<div class="dkp-si"><div class="dkp-snr"><span class="dkp-rtag sm r' + p.rar + '">' + dkpRarNm(p.rar) + '</span><b class="dkp-snm">' + esc(p.nm) + '</b></div>'
-      +   '<p class="dkp-sds">' + esc(lock ? 'この枠は今のカードでは効果が出ません（' + dkpLockTx(i) + '）' : p.ds) + '</p>'
-      +   (lock ? '' : '<span class="dkp-sp"><i>' + esc(dkpTrg(p.trg)) + '</i>発動 <b>' + dkpPct(dkpEffP(p.id, lv)) + '%</b></span>') + '</div>'
-      + '<button class="dkbtn dkp-off" data-dkp-act="off" data-dkp-slot="' + i + '">解除</button>'
-      + '</div>';
+      + '<span class="dkp-hole' + (lock ? ' dkp-lk' : '') + '">' + (lock ? dkpLockSVG() : '<i></i>') + '</span>'
+      + '<b class="dkp-skn">' + (lock ? 'ロック中' : '空き枠') + '</b></div>';
+    var lv = dkpLv(p.id);
+    return '<div class="dkp-sk r' + p.rar + (p.id === S.sel ? ' on' : '') + (lock ? ' dkp-lock' : '') + '" data-dkp-act="sel" data-dkp-id="' + p.id + '" data-fx="riseL" id="dkpSlot' + i + '">'
+      + '<span class="dkp-sno">' + (i + 1) + '</span>'
+      + dkpMedal(p, { size:76, plus:lv - 1 })
+      + (lock ? '<span class="dkp-lkon">' + dkpLockSVG() + '</span>' : '')
+      + '<b class="dkp-skn">' + esc(dkpShort(p)) + '</b>'
+      + '<button class="dkbtn dkp-off" data-dkp-act="off" data-dkp-slot="' + i + '">解除</button></div>';
   }).join('');
   var warn = dkpTrgWarn();
-  var left = '<section class="fx-panel dkp-eqp" data-fx="riseL"><i class="fx-edge"></i>'
-    + '<header class="dkp-ph"><span class="dkp-eqf"' + (face ? ' style="background-image:url(' + face + ')"' : '') + '>' + (face ? '' : dkpCrest()) + '</span>'
-    +   '<b class="dkp-ttl">' + (card ? dkpRarNm(card.rar) + ' クラス装着中' : 'カード未装着') + '</b>'
-    +   '<span class="dkp-cnt">スロット <b>' + open + '</b>個開放</span></header>'
-    + '<div class="dkp-slots">' + slots + '</div>'
-    + (warn ? '<p class="dkp-warn">' + esc(warn) + '</p>'
-            : '<p class="dkp-hint">同じ系統のペンダントは、確率の高い方だけが発動します</p>')
+  var hint = warn || lockTx || '同じ系統のペンダントは、確率の高い方だけが発動します';
+  var stage = '<section class="dkp-stage" data-fx="riseL">'
+    + '<div class="dkp-hero2" id="dkpHero"><i class="fx-halo dkp-halo"></i><i class="dkp-cush"></i>'
+    +   dkpMedal(sel || PENDANTS[1], { size:272, cls:(sel ? 'dkp-float' : 'dkp-float dkp-seen') })
+    +   '<div class="dkp-charwin"><span class="dkp-cwf"' + (face ? ' style="background-image:url(' + face + ')"' : '') + '>' + (face ? '' : dkpCrest()) + '</span>'
+    +     '<b class="dkp-cwt">' + (card ? dkpRarNm(card.rar) + ' クラス装着中' : 'カード未装着') + '</b></div>'
+    + '</div>'
+    + '<div class="dkp-eqrail">' + slots + '</div>'
+    + '<p class="dkp-eqhint' + (warn ? ' warn' : '') + '">' + esc(hint) + '</p>'
     + '</section>';
-  if(!own.length) return left + dkpEmptyInv('ペンダントをまだ持っていません');
+  if(!own.length) return '<div class="dkp-ptop">' + stage + dkpEmptyInv('ペンダントをまだ持っていません') + '</div>';
 
   var seg = [['rar', '等級'], ['lv', '強化'], ['dup', '重なり']];
   var si = Math.max(0, seg.map(function(x){ return x[0]; }).indexOf(S.sort));
   var cells = own.map(function(p){
     var eq = SV.slots.indexOf(p.id) >= 0, d = dkpDup(p.id), lv = dkpLv(p.id);
-    return '<div class="dkp-cell r' + p.rar + (p.id === S.sel ? ' on' : '') + (eq ? ' eq' : '') + '" data-dkp-act="sel" data-dkp-id="' + p.id + '" data-fx="pop">'
+    return '<div class="dkp-cell dkp-sh r' + p.rar + (p.id === S.sel ? ' on' : '') + (eq ? ' eq' : '') + '" data-dkp-act="sel" data-dkp-id="' + p.id + '" data-fx="pop">'
       + (p.rar === 'SS' ? '<i class="dkp-gl"></i>' : '')
-      + dkpMedal(p, { size:84, plus:lv - 1, rt:true })
+      + dkpMedal(p, { size:74, plus:lv - 1, rt:true })
       + (d ? '<span class="dkp-dup">×' + d + '</span>' : '')
       + (eq ? '<span class="dkp-eqtag">着用中</span>' : '')
       + '<b class="dkp-cnm">' + esc(dkpShort(p)) + '</b></div>';
   }).join('');
-  var right = '<section class="fx-panel dkp-inv" data-fx="riseR"><i class="fx-edge"></i>'
-    + '<header class="dkp-ph"><div class="fx-seg dkp-seg" style="--si:' + si + '"><i class="thumb"></i>'
+  var shelf = '<section class="dkp-dark dkp-shelf" data-fx="rise">'
+    + '<div class="dkp-shl"><span class="dkp-own">所有 <b>' + own.length + '</b> / ' + PENDANTS.length + '</span>'
+    +   '<div class="fx-seg dkp-seg" style="--si:' + si + '"><i class="thumb"></i>'
     +   seg.map(function(x){ return '<button aria-pressed="' + (x[0] === S.sort) + '" data-dkp-act="sort" data-dkp-v="' + x[0] + '">' + x[1] + '</button>'; }).join('')
-    +   '</div><span class="dkp-own">所有 <b>' + own.length + '</b> / ' + PENDANTS.length + '</span>'
-    +   '<button class="dkbtn gd dkp-mini" data-dkp-act="pgacha">ペンダントガチャ</button></header>'
-    + '<div class="dkp-grid" data-fx-step="30">' + cells + '</div>'
-    + dkpDetail(pendById(S.sel))
+    +   '</div></div>'
+    + '<div class="dkp-sw"><div class="dkp-strip" data-dkp-wheel="1">' + cells + '</div></div>'
+    + '<button class="dkbtn gd dkp-mini" data-dkp-act="pgacha">ペンダントガチャ</button>'
     + '</section>';
-  return left + right;
+  return '<div class="dkp-ptop">' + stage + dkpDetail(sel) + '</div>' + shelf;
 }
+/* 右の羊皮紙：等級バッジ・リボンの名前・段の札・説明・効果ブロック・能力バー2本・大ボタン */
 function dkpDetail(p){
   if(!p) return '';
   var lv = dkpLv(p.id), slot = SV.slots.indexOf(p.id), now = dkpEffP(p.id, lv), max = dkpEffP(p.id, 8);
-  var d = dkpDup(p.id), price = dkpSellPrice(p.id);
+  var d = dkpDup(p.id), price = dkpSellPrice(p.id), e = dkpElem(p.id);
   var same = SV.slots.map(pendById).filter(function(x){ return x && x.id !== p.id && x.trg === p.trg; })[0];
-  return '<div class="dkp-det r' + p.rar + '" data-fx="rise">'
-    + '<div class="dkp-show"><i class="fx-halo dkp-halo"></i><i class="dkp-ped"></i>'
-    +   dkpMedal(p, { size:150, plus:lv - 1, cls:'dkp-float' }) + '</div>'
-    + '<div class="dkp-dinfo">'
-    +   '<div class="dkp-dhd"><span class="dkp-rtag r' + p.rar + '">' + dkpRarNm(p.rar) + '</span>'
-    +     '<b class="dkp-dnm">' + esc(p.nm) + '</b></div>'
-    +   '<p class="dkp-dds">' + esc(p.ds) + '</p>'
-    +   '<div class="dkp-drate"><span class="dkp-dl">発動率（+' + (lv - 1) + '）</span>'
-    +     '<span class="dkp-bar"><i style="--w:' + dkpPct(now) + '%"></i><em style="--x:' + dkpPct(max) + '%"></em></span>'
-    +     '<b>' + dkpPct(now) + '%</b></div>'
-    +   '<p class="dkp-dmax">+7 にすると <b>' + dkpPct(max) + '%</b>　・　' + esc(dkpTrg(p.trg)) + '　・　重なり ' + d + '</p>'
-    +   '<div class="dkp-elrow">' + dkpElChip(p, 'big')
-    +     '<span class="dkp-elds">' + esc(dkpElem(p.id).nm) + 'の力　' + esc(dkpTrg(p.trg)) + 'に発動します</span>'
-    +     '<button class="dkbtn dkp-wood dkp-elbtn" data-dkp-act="efx" data-dkp-id="' + p.id + '">発動演出</button></div>'
-    +   (same && slot < 0 ? '<p class="dkp-warn sm">装備中の' + esc(dkpShort(same)) + 'と同じ系統です（高い方だけ発動）</p>' : '')
-    +   '<div class="dkp-dbtns">'
-    +     (slot >= 0 ? '<button class="dkbtn dkp-off" data-dkp-act="off" data-dkp-slot="' + slot + '">解除</button>'
-                     : '<button class="dkbtn gr fx-primary green" data-dkp-act="eq" data-dkp-id="' + p.id + '">装着</button>')
-    +     '<button class="dkbtn gd" data-dkp-act="goup" data-dkp-id="' + p.id + '"' + (lv >= 8 ? ' disabled' : '') + '>' + (lv >= 8 ? '+7 最大' : '強化へ') + '</button>'
-    +     '<button class="dkbtn dkp-sell" data-dkp-act="sell" data-dkp-id="' + p.id + '">売却 <i class="dkcoin dkp-ci"></i>' + dkpFmt(price) + '</button>'
-    +   '</div>'
-    + '</div></div>';
+  var badge = (typeof dkskBadge === 'function') ? dkskBadge(dkpRarNm(p.rar))
+                                                : '<span class="dkp-rtag r' + p.rar + '">' + dkpRarNm(p.rar) + '</span>';
+  var bars = (typeof dkskBar === 'function')
+    ? dkskBar('発動率', dkpPct(now), 'gold', dkpPct(now) + '%') + dkskBar('+7 にすると', dkpPct(max), 'green', dkpPct(max) + '%')
+    : '<div class="dkp-drate"><span class="dkp-dl">発動率</span>'
+      + '<span class="dkp-bar"><i style="--w:' + dkpPct(now) + '%"></i><em style="--x:' + dkpPct(max) + '%"></em></span>'
+      + '<b>' + dkpPct(now) + '%</b></div>';
+  return '<section class="dkp-par dkp-info r' + p.rar + '" data-fx="riseR">'
+    + '<header class="dkp-ihd">' + badge
+    +   '<span class="sk-ribbon blue dkp-irb">' + esc(p.nm) + '</span>'
+    +   '<div class="dkp-ilv"><b>+' + (lv - 1) + '</b>' + (lv >= 8 ? '<em>MAX</em>' : '') + '</div></header>'
+    + '<p class="dkp-ids">' + esc(p.ds) + '</p>'
+    + '<div class="dkp-eff"><span class="dkp-effi" style="--e1:' + e.c[0] + ';--e2:' + e.c[1] + ';--e3:' + e.c[2] + '">'
+    +     '<svg viewBox="0 0 40 40" aria-hidden="true" focusable="false">' + dkpEmblem(p.id) + '</svg></span>'
+    +   '<div class="dkp-efft"><b>' + esc(dkpTrg(p.trg)) + '</b>'
+    +     '<p>' + esc(e.nm) + 'の力　' + esc(dkpTrg(p.trg)) + 'に発動します　・　重なり ' + d + '</p></div>'
+    +   '<button class="dkbtn dkp-wood dkp-elbtn" data-dkp-act="efx" data-dkp-id="' + p.id + '">発動演出</button></div>'
+    + '<div class="dkp-bars">' + bars + '</div>'
+    + (same && slot < 0 ? '<p class="dkp-warn sm">装備中の' + esc(dkpShort(same)) + 'と同じ系統です（高い方だけ発動）</p>' : '')
+    + '<div class="dkp-dbtns">'
+    +   (slot >= 0 ? '<button class="dkbtn dkp-off" data-dkp-act="off" data-dkp-slot="' + slot + '">解除</button>'
+                   : '<button class="dkbtn gr fx-primary sk-btn green" data-dkp-act="eq" data-dkp-id="' + p.id + '">装着</button>')
+    +   '<button class="dkbtn gd sk-btn gold" data-dkp-act="goup" data-dkp-id="' + p.id + '"' + (lv >= 8 ? ' disabled' : '') + '>' + (lv >= 8 ? '+7 最大' : '強化へ') + '</button>'
+    +   '<button class="dkbtn dkp-sell" data-dkp-act="sell" data-dkp-id="' + p.id + '">売却 <i class="dkcoin dkp-ci"></i>' + dkpFmt(price) + '</button>'
+    + '</div></section>';
 }
 
 /* ── 強化タブ ── */
@@ -1175,7 +1242,7 @@ function dkpPendClick(e){
   if(a === 'claim'){ dkpDoClaim(v, t); return; }
   if(a === 'efx'){
     var pe = pendById(id) || pendById(S.sel);
-    if(pe) dkpElemPlay(document.querySelector('#pend .dkp-show .dkp-medal') || t, pe.id);
+    if(pe) dkpElemPlay(document.querySelector('#pend .dkp-hero2 > .dkp-medal') || document.querySelector('#pend .dkp-show .dkp-medal') || t, pe.id);
     return;
   }
 }
@@ -1430,9 +1497,13 @@ function dkpTile(k){
   var rt = ['SS', 'S', 'A'].filter(function(r){ return (L.w[r] || 0) > 0; }).map(function(r){
     return '<span class="dkp-tr r' + r + '"><i>' + dkpRarNm(r) + '</i>' + dkpPct(L.w[r]) + '%</span>'; }).join('');
   var fp = (pl && L.feat) ? dkpFeatPend() : null;
+  /* 主役の大きな絵（お手本の商品）。素材が無ければ今までの SVG のまま */
+  var art = dkpU2(({ special:'hero2-card', normal:'good2-card', premium:'good2-gold',
+                     pspecial:'good2-gem', pnormal:'hero2-chest', ppremium:'good2-gold' })[k] || '');
   return '<section class="dkp-tile dkp-c-' + col + '" data-fx="deal">'
     + '<header class="dkp-tth"><b>' + esc(dkpLaneNm(k)) + '</b></header>'
-    + '<div class="dkp-tart"><i class="dkp-tglow"></i>' + (pl ? dkpChestSVG(col) : dkpPackSVG(col))
+    + '<div class="dkp-tart' + (art ? ' dkp-hasart' : '') + '"><i class="dkp-tglow"></i>'
+    +   (art ? '<span class="dkp-tart2" style="--sk-hero:url(' + art + ')"></span>' : '') + (pl ? dkpChestSVG(col) : dkpPackSVG(col))
     +   (fp ? '<span class="dkp-tfeat">' + dkpMedal(fp, { size:58 }) + '<em>注目</em></span>' : '')
     +   '<button class="dkp-oddsb dkp-toddsb" data-dkp-act="odds" data-dkp-v="' + k + '">提供割合</button></div>'
     + '<p class="dkp-tds">' + esc(pl ? L.ds : (DKP_LDS[k] || '')) + '</p>'
@@ -1488,6 +1559,7 @@ function showGacha(arg){
     + (tab === 'pend' ? dkpLuckyBar() : dkpCardBar()) + '<div class="dkp-rvst" id="gStage"></div></div>');
   el.classList.add('dkp-scr');
   el.classList.toggle('dkp-busy', !!S.busy);
+  dkpSkin(el, { bg:'hall', frame:false, frameDark:'.fx-panel,.dkp-tile,.dkp-gbar', btns:false });
   dkWire(el, function(id){ var s = dkpS(); if(s.busy) return; s.pull = null; s.gtab = (id === 'pend') ? 'pend' : 'card'; showGacha(); });
   el.onclick = dkpGachaClick;
   dkpLogo(el, 'ガチャ');
@@ -1900,6 +1972,8 @@ function dkpShowCube(){
     + '<div class="dkbody dkp-body dkp-cbody">' + stage + shelf + '</div>');
   el.classList.add('dkp-scr');
   el.classList.toggle('dkp-busy', !!S.busy);
+  dkpSkin(el, { bg:'page', frame:false, frameDark:'.fx-panel', btns:false,
+                spark:2, sparkSel:'.dkp-cped', sparkBox:{ x:30, y:18, w:40, h:44 } });
   dkWire(el, function(id){ var s = dkpS(); if(s.busy) return; if(id === 'gacha'){ s.cres = null; showGacha(); } });
   el.onclick = dkpCubeClick;
   dkpLogo(el, 'キューブ');
@@ -1986,6 +2060,7 @@ async function dkpCubeOpen(i, btn){
 
 /* ══════════ 起動 ══════════ */
 (function(){
+  try{ dkpGemVars(); }catch(e){ console.error('[WP16a]', e); }
   try{
     dkOn('screen', function(o){
       var S = dkpS();
