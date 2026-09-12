@@ -456,12 +456,13 @@ function fxCount(el, to, opt){
     if(from === to || !(dur > 0) || DKFX.reduced || !DKFX.shown(el)){ finish(); return; }
     el._fxRes = res;
     el.classList.add('fx-counting');
-    var t0 = performance.now(), lw = -1e9;
+    var t0 = performance.now(), lw = -1;
     var step = function(){
       if(el._fxTok !== tok) return;
-      var now = performance.now(), k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 4);
+      var now = performance.now(), k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 4), b = (now / (DKFX.mob ? 66 : 33)) | 0;
       if(k >= 1){ finish(); return; }
-      if(now - lw >= 33){ lw = now; el.textContent = fmt(from + (to - from) * e); }   // 数字の書き換えは30コマ/秒で十分
+      /* 数字の書き換えは30コマ/秒（スマホは15コマ/秒）。同じ枠でどの数字も書き換えると、並び直し（レイアウト）が1回にまとまる */
+      if(b !== lw){ lw = b; el.textContent = fmt(from + (to - from) * e); }
       requestAnimationFrame(step);
     };
     requestAnimationFrame(step);

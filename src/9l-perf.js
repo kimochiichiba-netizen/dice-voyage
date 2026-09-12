@@ -5,7 +5,8 @@ var DKK_S, DKK_B, DKK_O;
 function dkkS(){
   if(!DKK_S) DKK_S = { bgMs: 600000, g: null, bmode: '', ord: null, cy: null, h: { a: 0, b: 0 }, sa: 0, sb: 0, hs: { a: 0, b: 0 },
     stk: [], sbx: {}, stkDirty: true, stkDefer: false, lst: [], pool: [], rc: [], spr: {}, bdg: {}, tp: {}, fok: null, fokT: 0,
-    part: {}, pbox: {}, die: {}, dieId: '', pf: { last: 0, t0: 0, n: 0, sum: 0, bad: 0, done: false }, visT: 0, warm: {}, artGen: 0, n: { bg: 0, bd: 0 } };
+    part: {}, pbox: {}, die: {}, dieId: '', pf: { last: 0, t0: 0, n: 0, sum: 0, bad: 0, done: false }, visT: 0, warm: {}, artGen: 0,
+    tsig: null, chg: [], box: [], bm: [150, 340, 150, 90], pmax: 0.5, bdT: 0, cap: 0, dT: 0, n: { bg: 0, bd: 0, pat: 0, inv: 0, many: 0 } };
   return DKK_S;
 }
 /* 手の空いた時に（bg＝急がない仕事） */
@@ -37,6 +38,9 @@ function dkkGauge(S, now, dt){ var d = now - (S.gT || 0); if(!(d > 0 && d < 16 -
 /* ══ 描画ループ ══ */
 function frame(now){
   var S = DKK_S || dkkS();
+  /* スマホは 60 コマ/秒で足りる（画面が 120Hz・160Hz でも描き過ぎない。dt は次の回にまとめて渡る） */
+  if(S.cap && now - S.dT < S.cap){ requestAnimationFrame(frame); return; }
+  S.dT = now;
   var dt = Math.min(50, now - last); last = now;
   camStep(dt / 1000);
   dkkPerf(S, now);
@@ -58,7 +62,7 @@ function frame(now){
   ctx.translate(SW / 2 + ox, SH / 2 + oy); ctx.scale(cam.z, cam.z); ctx.translate(-cam.x, -cam.y);
   ctx.drawImage(bgL, BG_OX, BG_OY, BG_W, BG_H);
   if(G){
-    if(S.g !== G || bdKey === '' || (dkkSig(), S.h.a !== S.sa || S.h.b !== S.sb)) refreshBoard(now);
+    if(S.g !== G || bdKey === ''){ S.n.inv++; refreshBoard(now); } else dkkRedraw(now);
     dkkStacks(S, now);
     ctx.drawImage(bdL, BD_X, BD_Y, BD_W, BD_H);
     layoutTokens();
@@ -128,7 +132,8 @@ function refreshBoard(now){
   try{ for(i = 0; i < 32; i++){ t = G.tiles[ord[i]]; if(t && t.type === 'city' && t.owner >= 0) drawBuilding(bdC, G, ord[i], now); } }
   finally{ S.bmode = ''; }
   bdKey = boardSig(); S.sa = S.h.a; S.sb = S.h.b;
-  S.g = G; S.stkDirty = true; S.n.bd++;
+  S.g = G; S.stkDirty = true; S.n.bd++; S.bdT = now;
+  dkkScan();                                          // マスごとの印をそろえる（次からは変わった所だけ）
 }
 function dkkNum(v){
   if(v === undefined || v === null || v === false) return -7;
@@ -152,6 +157,96 @@ function dkkSig(){
   for(i = 0; i < P.length; i++) dkkH(H, (P[i].out ? 1 : 0) + (P[i].tollUp > 0 ? 2 : 0));
 }
 function boardSig(){ var H = (DKK_S || dkkS()).h; dkkSig(); return G.map.id + ':' + (H.a >>> 0).toString(36) + '.' + (H.b >>> 0).toString(36); }
+
+/* ══ 変わったマスだけ描き直す（32マス全部の描き直しは 40〜160ms の「長いタスク」になるため） ══ */
+function dkkTsig(t, g){                                // マス1つの見た目の印（C18 と同じ項目）
+  var h = g;
+  if(!t) return Math.imul(h ^ 7, 16777619);
+  h = Math.imul(h ^ dkkNum(t.owner), 16777619); h = Math.imul(h ^ dkkNum(t.lv), 16777619);
+  h = Math.imul(h ^ dkkNum(t.bm), 16777619); h = Math.imul(h ^ dkkNum(t.landmark), 16777619);
+  h = Math.imul(h ^ dkkNum(t.x2), 16777619); h = Math.imul(h ^ dkkNum(t.olym), 16777619);
+  h = Math.imul(h ^ dkkNum(t.frozen), 16777619); h = Math.imul(h ^ dkkNum(t.tour), 16777619);
+  h = Math.imul(h ^ dkkNum(t.visits), 16777619); h = Math.imul(h ^ dkkNum(t.ice), 16777619);
+  h = Math.imul(h ^ dkkNum(t.slide), 16777619); h = Math.imul(h ^ dkkNum(t.sand), 16777619);
+  h = Math.imul(h ^ dkkNum(t.plague), 16777619);
+  h = Math.imul(h ^ ((t.grow !== undefined && t.grow !== 1) ? 1 : 0), 16777619);
+  /* マスに書く数字そのもの（独占・ライン・観光地・イベント・インフレで変わる）＝ tollOf と同じ物を見る */
+  if(t.type === 'city' && t.owner >= 0 && typeof tollOf === 'function'){
+    try{ h = Math.imul(h ^ (tollOf(t, G) | 0), 16777619); }catch(e){}
+  }
+  return h;
+}
+/* 変わったマスを集める（1フレーム1回） */
+function dkkScan(){
+  var S = DKK_S, sg = S.tsig || (S.tsig = new Int32Array(32)), chg = S.chg, g = -2128831035, i, h;
+  g = Math.imul(g ^ dkkNum(G.infl || 1), 16777619);
+  g = Math.imul(g ^ dkkNum((G.ev && G.ev.tollX) || 1), 16777619);
+  g = Math.imul(g ^ dkkNum((G.ev && G.ev.monoX) || 1), 16777619);
+  chg.length = 0;
+  for(i = 0; i < 32; i++){ h = dkkTsig(G.tiles[i], g); if(sg[i] !== h){ sg[i] = h; chg.push(i); } }
+  return chg.length;
+}
+/* マスと建物が入る四角（盤の座標・広めに取る） */
+function dkkBox(i){
+  var S = DKK_S || dkkS(), B = S.box, m = S.bm, q, x0, y0, x1, y1, k;
+  if(B[i]) return B[i];
+  q = tileQuad(i); x0 = y0 = 1e9; x1 = y1 = -1e9;
+  for(k = 0; k < 4; k++){
+    if(q[k].x < x0) x0 = q[k].x; if(q[k].x > x1) x1 = q[k].x;
+    if(q[k].y < y0) y0 = q[k].y; if(q[k].y > y1) y1 = q[k].y;
+  }
+  return (B[i] = { x0: x0 - m[0], y0: y0 - m[1], x1: x1 + m[2], y1: y1 + m[3] });   // 建物は上へ最大 325px（ランドマーク）
+}
+function dkkRedraw(now){
+  var S = DKK_S, n = dkkScan();
+  if(!n) return;
+  /* 変わったマスが多い時だけ全部作り直す（広さの上限 S.pmax でも止まる） */
+  if(n > 16 || !dkkPatch(now)){ S.n.many++; refreshBoard(now); }
+}
+/* 変わったマスの周りだけ描き直す。絵は「最初に作った時刻」で描くので継ぎ目は出ない */
+function dkkPatch(now){
+  var S = DKK_S, chg = S.chg, ord = dkkOrder(), T = S.bdT, s = BD_S, lst = S.plst || (S.plst = []), i, k, b, t;
+  var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  if(!(T > 0) || !bdKey) return false;
+  for(i = 0; i < chg.length; i++){
+    b = dkkBox(chg[i]);
+    if(b.x0 < x0) x0 = b.x0; if(b.y0 < y0) y0 = b.y0; if(b.x1 > x1) x1 = b.x1; if(b.y1 > y1) y1 = b.y1;
+  }
+  if(x0 < BD_X) x0 = BD_X; if(y0 < BD_Y) y0 = BD_Y;
+  if(x1 > BD_X + BD_W) x1 = BD_X + BD_W; if(y1 > BD_Y + BD_H) y1 = BD_Y + BD_H;
+  if(!(x1 > x0 && y1 > y0)){ S.n.pat++; return true; }                       // 盤キャッシュの外＝直す所が無い
+  x0 = BD_X + Math.floor((x0 - BD_X) * s) / s; y0 = BD_Y + Math.floor((y0 - BD_Y) * s) / s;   // 画素の境目にそろえる
+  x1 = BD_X + Math.ceil((x1 - BD_X) * s) / s; y1 = BD_Y + Math.ceil((y1 - BD_Y) * s) / s;
+  if((x1 - x0) * (y1 - y0) > BD_W * BD_H * S.pmax) return false;             // 広すぎる時は全部作り直す方が速い
+  lst.length = 0;
+  for(i = 0; i < 32; i++){ k = ord[i]; b = dkkBox(k); if(b.x1 > x0 && b.x0 < x1 && b.y1 > y0 && b.y0 < y1) lst.push(k); }
+  bdC.save();
+  bdC.setTransform(s, 0, 0, s, -BD_X * s, -BD_Y * s);
+  bdC.beginPath(); bdC.rect(x0, y0, x1 - x0, y1 - y0); bdC.clip();
+  bdC.clearRect(x0, y0, x1 - x0, y1 - y0);
+  try{
+    drawLake(bdC, G.map, T); drawSlab(bdC, G.map, T);
+    for(i = 0; i < lst.length; i++) drawTile(bdC, G, lst[i], T);
+    S.bmode = 'cache';
+    for(i = 0; i < lst.length; i++){ t = G.tiles[lst[i]]; if(t && t.type === 'city' && t.owner >= 0) drawBuilding(bdC, G, lst[i], T); }
+  }catch(e){ S.bmode = ''; bdC.restore(); return false; }
+  S.bmode = '';
+  bdC.restore();
+  S.rect = { x0: x0, y0: y0, x1: x1, y1: y1, n: lst.length };
+  bdKey = boardSig(); S.sa = S.h.a; S.sb = S.h.b; S.n.pat++;
+  return true;
+}
+/* 見えているか（offsetParent を読まない＝レイアウトを起こさない。H12） */
+function dkkElOn(el){
+  var n = el, i = 0;
+  for(; n && n.nodeType === 1 && i < 40; n = n.parentElement, i++){
+    if(n.hidden) return false;
+    if(n.id === 'modalWrap') return n.classList.contains('on');
+    if(n.classList && n.classList.contains('screen')) return n.classList.contains('on');
+    if(n.id === 'stage') break;
+  }
+  return !(typeof DKFX === 'object' && DKFX && DKFX.worldOff);
+}
 
 /* ══ 札束（C16：盤は作り直さない。1人ずつ、色のある所だけの絵） ══ */
 function dkkStacksChanged(){ (DKK_S || dkkS()).stkDirty = true; }
@@ -482,7 +577,7 @@ function paintPortraits(T){
     o = portraits[i];
     if(!o.el.isConnected){ if(!o._dkkGone) o._dkkGone = T; else if(T - o._dkkGone > 5000) portraits.splice(i, 1); continue; }
     o._dkkGone = 0;
-    if(o._dkkVg !== vg){ o._dkkVg = vg; o._dkkV = !!o.el.offsetParent; }
+    if(o._dkkVg !== vg){ o._dkkVg = vg; o._dkkV = dkkElOn(o.el); }
     if(!o._dkkV) continue;
     var W = o.el.width, H = o.el.height, s = Math.min(W / 240, H / 340), c;
     im = null;
@@ -829,6 +924,7 @@ function dkkBgmAhead(list){ // 次の曲を先に録音
 (function(){
   try{
     dkkS(); dkkB();
+    DKK_S.cap = dkkMob() ? 15.5 : 0;                  // スマホは 60 コマ/秒で描く
     DKK_O = DKK_O || {};
     drawToken.dkkTags = true;
     if(typeof dvMusic2 === 'function' && !dvMusic2._dkk){ // 録音用は DKK_O.dvMusic2
