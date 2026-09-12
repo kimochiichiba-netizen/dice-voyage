@@ -1116,8 +1116,10 @@ async function pendFire(pi, trg, arg){
   addFx('spark', c.x, c.y - 30, 900, rar.c);
 
   /* ── 効果（C36：種類は it.eff で分ける。古い p1〜p8 は DKB_PEND_EFF が既定を当てる。
-        知らない種類は通知だけ出して盤は変えない＝新しいペンダントが増えても落ちない） ── */
-  var eff = it.eff || DKB_PEND_EFF[it.id] || '', amt;
+        知らない種類は通知だけ出して盤は変えない＝新しいペンダントが増えても落ちない）
+        eff が「借りているペンダントの id」（WP12a の p9〜p16 は eff:'p8' のように書く）の時は、
+        先に DKB_PEND_EFF で本当の種類へ直す。直さないと種類が見つからず通知だけで終わる ── */
+  var eff = DKB_PEND_EFF[it.eff] || it.eff || DKB_PEND_EFF[it.id] || '', amt;
   if(eff === 'pull'){                       // 同じ辺の相手を自分のマスへ引き寄せる
     var side = Math.floor(p.pos / 8);
     for(var j = 0; j < G.players.length; j++){
