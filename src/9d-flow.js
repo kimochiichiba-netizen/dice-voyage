@@ -20,9 +20,11 @@ var DKF_CLASSES = [
 ];
 var DKF_TK_NM = { biz:'ビジネス', first:'ファースト', dia:'ダイヤ' };
 /* 入場券の値段（J16）。ビジネス 550G・ファースト 3000G をゴールドで買う。
-   ダイヤモンドの券は売っていない（チュートリアル・ミッション・出席簿でもらう） */
+   ダイヤモンドの券だけはダイヤ 50（ショップの「ダイヤモンド入場券」と同じ値。
+   WP18 で入口をそろえた＝クラス選択でもショップでも同じ値段で買える） */
 var DKF_TK_G = { biz:550, first:3000 };
-var DKF_TK_GET = 'チュートリアルの完了・ミッション・出席簿でもらえます';
+var DKF_TK_D = { dia:50 };
+var DKF_TK_GET = 'ショップ・ミッション・チュートリアルでもらえます';
 /* マップの詳細（角4マスの役割・特殊マスの名前と働き） */
 var DKF_CORNER_DS = [
   'スタートを通ると 給料がもらえます',
@@ -336,7 +338,8 @@ function dkfPassHTML(c, cur){
   var play = c.id === 'dia' ? '1千万マーブルでゲームスタート' : c.n ? '1対1でプレイ' : 'ゲームプレイ';
   var note = c.tk
     ? (n > 0 ? '入場券 <em>' + n + '</em>枚'
-             : (DKF_TK_G[c.tk] ? '入場券 <em>' + dkfG(DKF_TK_G[c.tk]) + '</em>ゴールド' : '入場券は <em>ミッション</em>でもらう'))
+             : (DKF_TK_G[c.tk] ? '入場券 <em>' + dkfG(DKF_TK_G[c.tk]) + '</em>ゴールド'
+             : (DKF_TK_D[c.tk] ? '入場券 <em>' + DKF_TK_D[c.tk] + '</em>ダイヤ' : '入場券は <em>ミッション</em>でもらう')))
     : (c.id === 'easy' ? 'はじめての人むけ' : '入場券は いりません');
   var foot = c.tk ? '入場券1枚<br>消費' : '入場無料';
   return '<div class="dkf-pass dkf-t-' + c.id + (cur ? ' dkf-cur' : '') + (c.tk && !n ? ' dkf-notk' : '') + '"'
@@ -410,33 +413,35 @@ async function dkfPickClass(id, node){
   dkFlowMap();
   return true;
 }
-/* 入場券が無い時（J16）：ビジネス 550G・ファースト 3000G をその場で買う。
-   ダイヤモンドの券は売っていない（チュートリアル・ミッション・出席簿でもらう）。
+/* 入場券が無い時（J16）：ビジネス 550G・ファースト 3000G はゴールドで、
+   ダイヤモンドは 50ダイヤ（ショップと同じ値）で、その場で買う。
    足りない時は、理由をそえて止める（黙って遊ばせない） */
 function dkfTkPrice(c){ return (c && c.tk && DKF_TK_G[c.tk]) || 0; }
+function dkfTkGem(c){ return (c && c.tk && DKF_TK_D[c.tk]) || 0; }
 async function dkfBuyTicket(c, node){
-  var g = dkfTkPrice(c);
-  if(!g) return dkfNope(node, '💎', c.nm + 'の入場券がありません', 'ダイヤモンドの入場券は ' + DKF_TK_GET);
-  var have = dkfSvOk() ? (SV.gold | 0) : 0;
-  if(have < g) return dkfNope(node, '🪙', 'ゴールドが足りません',
-    c.nm + 'の入場券は ' + dkfG(g) + 'ゴールドです（いま ' + dkfG(have) + 'ゴールド）');
+  var g = dkfTkPrice(c), dm = dkfTkGem(c), gem = (!g && dm > 0), cost = gem ? dm : g;
+  if(!cost) return dkfNope(node, '💎', c.nm + 'の入場券がありません', c.nm + 'の入場券は ' + DKF_TK_GET);
+  var cur = gem ? 'ダイヤ' : 'ゴールド', ico = gem ? 'dkf-gemic' : 'dkf-coin';
+  var have = dkfSvOk() ? ((gem ? SV.gem : SV.gold) | 0) : 0;
+  if(have < cost) return dkfNope(node, gem ? '💎' : '🪙', cur + 'が足りません',
+    c.nm + 'の入場券は ' + dkfG(cost) + cur + 'です（いま ' + dkfG(have) + cur + '）');
   var r = await modal('<div class="modal dkf-mod"><div class="fx-panel fx-parch dkf-mod-in dkf-tkbuy-in">'
     + '<b class="dkf-mod-hd">' + c.nm + 'クラス入場</b>'
     + '<div class="dkf-tkbuy"><span class="dkf-tkbuy-art dkf-t-' + c.id + '">' + dkfSvg('ticket') + '</span>'
     +   '<p>' + c.nm + 'クラスの入場券を<br>1枚 購入しますか？<small>入場券は1枚で1試合 遊べます</small></p></div>'
     + '<div class="dkf-mod-ft"><button class="dkbtn dkf-btn-wood" data-act="no">やめる</button>'
     + '<button class="dkbtn gr dkf-btn-buy" data-act="get"><i class="dkf-ticon">' + dkfSvg('ticket') + '</i>購入'
-    +   '<span class="dkf-price"><i class="dkf-coin"></i><b>' + dkfG(g) + '</b></span></button></div>'
+    +   '<span class="dkf-price"><i class="' + ico + '"></i><b>' + dkfG(cost) + '</b></span></button></div>'
     + '</div></div>');
   if(r !== 'get') return false;
-  if(!dkfSvOk() || (SV.gold | 0) < g)
-    return dkfNope(node, '🪙', 'ゴールドが足りません', c.nm + 'の入場券は ' + dkfG(g) + 'ゴールドです');
-  SV.gold -= g;
+  if(!dkfSvOk() || ((gem ? SV.gem : SV.gold) | 0) < cost)
+    return dkfNope(node, gem ? '💎' : '🪙', cur + 'が足りません', c.nm + 'の入場券は ' + dkfG(cost) + cur + 'です');
+  if(gem) SV.gem -= cost; else SV.gold -= cost;
   dkfTk()[c.tk] += 1;
   try{ saveNow(); }catch(e){}
   try{ dkWallet(); }catch(e){}
   dkfSnd('buy');
-  dkfToast('🎫', c.nm + 'の入場券を1枚 買いました', 'ゴールド ' + dkfG(g) + ' を使いました', 2000);
+  dkfToast('🎫', c.nm + 'の入場券を1枚 買いました', cur + ' ' + dkfG(cost) + ' を使いました', 2000);
   return true;
 }
 function dkfOnline(){

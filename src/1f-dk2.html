@@ -294,6 +294,14 @@
   text-shadow:0 3px 0 #C98A12}
 .dklogo.dktext i{font-family:var(--caps);font-style:normal;font-size:13px;letter-spacing:.34em;
   color:#E8CFA0;margin-top:5px;text-shadow:0 1px 0 rgba(0,0,0,.7)}
+/* 縦画面（細い画面）だけ：字間は最後の1文字の後ろにも付くので、その1つぶんを右に戻す。
+   これが無いと画面の見出しが箱から 2px はみ出す（WP18。横画面の見た目は変えない） */
+@media (max-aspect-ratio:1/1) and (max-width:560px){
+  .dklogo.dktext b{margin-right:-.07em}
+  .dklogo.dktext i{margin-right:-.34em}
+  .dklogo.dkp-lg .dkp-lgw small{margin-right:-.1em}
+  .dklogo.dkp-lg .dkp-lgw b{margin-right:-.06em}
+}
 
 /* ── 報酬を受け取ったときに弾けるコイン ───────────── */
 .dkburst{position:absolute;left:0;top:0;width:34px;height:34px;z-index:400;pointer-events:none;

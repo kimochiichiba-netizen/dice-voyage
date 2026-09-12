@@ -115,7 +115,8 @@
 #cards .dkc-stats,#dice .dkc-dbars{display:flex;flex-direction:column;gap:6px}
 #cards .dkc-st,#dice .dkc-st{gap:10px}
 #cards .dkc-st .dkbar{height:20px}
-#cards .dkc-st .l,#dice .dkc-st .l{width:170px}
+/* 能力の名前は、縦画面（細い画面）で親から 14px を受け継がないように 16px を明記する（WP18） */
+#cards .dkc-st .l,#dice .dkc-st .l{width:170px;font-size:16px}
 #cards .dkc-det .btns,#dice .dkc-det .btns{margin-top:auto}
 #cards .dkc-bt,#dice .dkc-bt{height:66px;font-size:27px;flex:1}
 #cards .dkc-bt2,#dice .dkc-bt2,.dkc-modal .dkc-bt2{height:52px;font-size:21px;padding:0 18px;flex:0 0 auto}

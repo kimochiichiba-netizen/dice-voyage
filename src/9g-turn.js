@@ -524,9 +524,15 @@ function dktToggle(I, par){
 /* ［能力］の札：能力の説明だけ（J33。押しても盤は変わらない） */
 function dktSkillInfo(pi){
   var p = G && G.players[pi]; if(!p) return;
-  var c = (typeof cardById === 'function' && cardById(p.card)) || null, sk = p.skill || (c && c.sk) || null;
-  dkNotify(pi, '✨', ((c && c.nm) || p.name) + ' の能力',
-    sk ? (sk.nm + '：' + (sk.ds || '')) : '決まった時に確率で自動で発動します', { ms:2600 });
+  var c = (typeof cardById === 'function' && cardById(p.card)) || null;
+  /* 本当に使う能力はカード画面・図鑑と同じ dkcSkillOf（WP16a）から取る。無い版だけ古い書き方に戻す */
+  var s = null;
+  try{ if(typeof dkcSkillOf === 'function') s = dkcSkillOf(p.card); }catch(e){ s = null; }
+  var sk = p.skill || (c && c.sk) || null;
+  var body = s ? ((s.label || s.nm) + '：' + (s.ds || '') + (s.when ? '（' + s.when + '）' : ''))
+          : sk ? (sk.nm + '：' + (sk.ds || ''))
+               : '決まった時に確率で自動で発動します';
+  dkNotify(pi, (s && s.ic) || '✨', ((c && c.nm) || p.name) + ' の能力', body, { ms:2600 });
 }
 /* 止めた瞬間の手応え（当たりは金の粒と「ゲージインパクト！」。中央のプレートに重ならない高さ＝GO-3） */
 function dktStopFx(I, aim){

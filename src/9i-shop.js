@@ -32,12 +32,16 @@ var DKS_TABS = [
 ];
 var DKS_PED_TAB = { id:'peddler', ic:'🏮', nm:'行商人' };
 
-/* サイコロの二本立て（ダイヤで今すぐ／プレイヤーLvでゴールド） */
+/* サイコロの二本立て（ダイヤで今すぐ／プレイヤーLvでゴールド）
+   増やした3種（d5 桜花・d6 機巧・d7 星霜）も同じ二本立てで棚に並べる（WP18） */
 var DKS_DICE = [
   { id:'d1', gem:60,  lv:5,  gold:260000 },
   { id:'d2', gem:80,  lv:8,  gold:360000 },
   { id:'d3', gem:130, lv:11, gold:600000 },
-  { id:'d4', gem:160, lv:14, gold:750000 }
+  { id:'d4', gem:160, lv:14, gold:750000 },
+  { id:'d5', gem:190, lv:17, gold:900000 },
+  { id:'d6', gem:230, lv:20, gold:1100000 },
+  { id:'d7', gem:270, lv:23, gold:1300000 }
 ];
 /* カードのタブ */
 var DKS_CARDS = [

@@ -1112,8 +1112,11 @@ async function pendFire(pi, trg, arg){
   SFX.skill(); camShake(7);
   dkbPanel(pi, it.ic, rar.nm + 'ペンダント発動！', it.nm + '　' + pct + '%' + (add ? '（+' + add + '%）' : ''), { rar: rar.nm, ms: 2400 });
   var c = p.render || tileCenter(p.pos);
-  addFx('ring', c.x, c.y, 700, rar.c);
-  addFx('spark', c.x, c.y - 30, 900, rar.c);
+  /* 光の色は等級ではなく属性（WP16a の dkpElem。c=[明,中,暗]）。借りている id ではなく、そのペンダント自身（pid）で引く */
+  var ec = rar.c;
+  try{ if(typeof dkpElem === 'function'){ var el = dkpElem(it.pid || it.id); if(el && el.c && el.c[0]) ec = el.c[0]; } }catch(e){}
+  addFx('ring', c.x, c.y, 700, ec);
+  addFx('spark', c.x, c.y - 30, 900, ec);
 
   /* ── 効果（C36：種類は it.eff で分ける。古い p1〜p8 は DKB_PEND_EFF が既定を当てる。
         知らない種類は通知だけ出して盤は変えない＝新しいペンダントが増えても落ちない）
