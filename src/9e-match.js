@@ -13,7 +13,7 @@
      Web フォントが読めない端末でも形が変わらない（WP4#5）。
    ・見た目の乱数は DKFX.rnd()。順番と宝箱の中身だけはゲームの乱数（Math.random）。
    v10（WP15b）: 報酬のあと［確認］で約1.4秒のクロスフェードで同じ部屋へ（J31）、品物はプレゼントボックス（J54）、
-   参加報酬 1,000G×x＋キューブ、LOSE の専用ジングル・ガラスの音・短調の結果曲（G03）、［RPを守る］（G15）、
+   勝利報酬 1,400G×x＋参加報酬 1,000G×x＋キューブ、LOSE の専用ジングル・ガラスの音・短調の結果曲（G03）、［RPを守る］（G15）、
    お祭りの花火（G18）、応援モード（G23）、TIPS を日本版の言い回しに（C28）。
    ══════════════════════════════════════════════════════════════ */
 
@@ -22,6 +22,7 @@ const DKM_PICK_MS = 5000;                     // 順番カード：放置で自�
 const DKM_STREAK_MS = 18 * 3600 * 1000;       // 連勝認定時間 18時間
 const DKM_LOSE3_GOLD = 3000;                  // 3連敗の応援（韓国版の 3連敗ボーナスを当作の額に）
 const DKM_JOIN_GOLD = 1000;                   // 参加報酬 1,000G × クラス倍率 x
+const DKM_WIN_GOLD = 1400;                    // 勝利報酬 1,400G × x（9d-flow.js の DKF_WIN_G と同じ数。ダイヤは代わりに💎75）
 const DKM_CHEER_GOLD = 2000;                  // 応援モードで勝った時の「おうえんボーナス」
 const DKM_DIA_GEM = 75;                       // ダイヤモンドクラスの勝利報酬 💎75
 const DKM_GUARD_COST = 200;                   // ［RPを守る］の値段
@@ -977,6 +978,8 @@ async function dkOrderOnBoard(){
 
 /* ══════════ 対戦後の報酬（1試合1回だけ） ══════════
    参加報酬＝1,000G × クラス倍率 x（開始額÷200万。オンラインは×1）＋キューブ（dkGiveCube・ウッド以上）。
+   勝ちはさらに勝利報酬＝1,400G × x（マップ選択の下段の「勝利報酬」と同じ数＝9d-flow.js の DKF_WIN_G）。
+   ダイヤモンドクラスの勝ちだけは、そのゴールドの代わりに💎75（画面の表示も「勝利報酬 ダイヤ75個」）。
    ゴールドにサイコロの能力 dkDieAb(me).gold（%）を足す。ダイヤモンドクラスの勝ちは💎75。
    連勝：勝つと+1（前の勝ちから18時間を超えていたら1から）、負けると0。3連敗ごとに応援3,000G と、次の1試合は応援モード
    （SV.cheer=1。応援モードで勝つと おうえんボーナス +2,000G。試合が終わったら0に戻す）。勝った時の品物は宝箱（プレゼントボックス）。
@@ -990,10 +993,13 @@ function grantRewards(won){
   var online = dkmIsOnline(), me = dkmMe(), cl = dkmClassOf();
   var x = online ? 1 : cl.x;
   var dieP = Math.max(0, +dkmDieAb(me).gold || 0);
-  var join = Math.round(DKM_JOIN_GOLD * x), dieGold = Math.round(join * dieP / 100), exp = won ? 40 : 14;
+  var gem = (won && !online && cl.id === 'dia') ? DKM_DIA_GEM : 0;
+  /* 勝利報酬（マップ選択の下段の「勝利報酬」と同じ数）。ダイヤモンドクラスはゴールドの代わりに💎75 */
+  var winG = (won && !gem) ? Math.round(DKM_WIN_GOLD * x) : 0;
+  var join = Math.round(DKM_JOIN_GOLD * x);
+  var dieGold = Math.round((winG + join) * dieP / 100), exp = won ? 40 : 14;
   var cheerMatch = !online && !!(G.dkmCheer === undefined ? dkmCheerNow() : G.dkmCheer);
   var cheerBonus = (won && cheerMatch) ? DKM_CHEER_GOLD : 0;
-  var gem = (won && !online && cl.id === 'dia') ? DKM_DIA_GEM : 0;
   var lv0 = SV.lv;
   SV.exp += exp; SV.plays = (SV.plays | 0) + 1; if(won) SV.wins = (SV.wins | 0) + 1;
   try{
@@ -1014,7 +1020,7 @@ function grantRewards(won){
     if(SV.lstreak % 3 === 0){ lose3 = DKM_LOSE3_GOLD; nextCheer = !online; }
   }
   if(!online) SV.cheer = nextCheer ? 1 : 0;          // 応援モードは3連敗の次の1試合だけ
-  var gold = join + dieGold + cheerBonus + lose3;
+  var gold = winG + join + dieGold + cheerBonus + lose3;
   SV.gold += gold;
   if(gem) SV.gem = (+SV.gem || 0) + gem;
   var cubeKind = dkmCubeKind(online ? 'eco' : cl.id), cube = null;
@@ -1030,7 +1036,9 @@ function grantRewards(won){
   saveNow();
   if(up){ try{ jingle('levelup'); }catch(e){} }
   /* 行の順：RP（リーグ）→ 自分の行（キューブ・おうえん・ダイヤ・3連敗）→ ほかの班の行。最大4行 */
-  var mine = [{ ic:'cube:' + cubeKind, label:DKM_CUBE[cubeKind].nm, v:'+1' }];
+  var mine = [];
+  if(winG) mine.push({ ic:'🏅', label:'勝利報酬', v:'+' + dkmF(winG) });
+  mine.push({ ic:'cube:' + cubeKind, label:DKM_CUBE[cubeKind].nm, v:'+1' });
   if(cheerBonus) mine.push({ ic:'🎉', label:'おうえんボーナス', v:'+' + dkmF(cheerBonus) });
   if(gem) mine.push({ ic:'💎', label:'勝利報酬', v:'+' + gem });
   if(lose3) mine.push({ ic:'🎁', label:'3連敗の応援', v:'+' + dkmF(lose3) });
@@ -1038,7 +1046,7 @@ function grantRewards(won){
   for(var ci = 0; ci < ext.length; ci++){ if(dkmIsRpChip(ext[ci])){ rpI = ci; break; } }
   var rpChip = rpI >= 0 ? ext.splice(rpI, 1)[0] : null;
   var chips = (rpChip ? [rpChip] : []).concat(mine, ext).slice(0, 4);
-  var info = { won:won, me:me, gold:gold, join:join, dieGold:dieGold, dieP:dieP, exp:exp, lv:SV.lv, lv0:lv0, lvUp:up, x:x,
+  var info = { won:won, me:me, gold:gold, winG:winG, join:join, dieGold:dieGold, dieP:dieP, exp:exp, lv:SV.lv, lv0:lv0, lvUp:up, x:x,
     cls:cl.id, clsNm:online ? 'オンライン' : cl.nm, streak:SV.streak | 0, lstreak:SV.lstreak | 0,
     cheerMatch:cheerMatch, cheerBonus:cheerBonus, nextCheer:nextCheer, lose3:lose3, gem:gem,
     cube:{ kind:cubeKind, got:cube }, online:online, chips:chips, rpAt:rpChip ? 0 : -1 };
