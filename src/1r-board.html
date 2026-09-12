@@ -12,7 +12,7 @@
    ══════════════════════════════════════════════════════════════ */
 
 /* ══════════ 担当 keyframe（入場は transform だけ） ══════════ */
-@keyframes tickFade{0%{transform:translateY(8px) scale(.96)}10%,100%{transform:none}}
+@keyframes tickFade{from{transform:translateY(8px) scale(.96)}to{transform:none}}
 @keyframes pillIn{0%{transform:scale(1.32)}60%{transform:scale(.95)}100%{transform:scale(1)}}
 @keyframes bandIn{0%{transform:scaleY(.86)}100%{transform:none}}
 @keyframes chipPop{0%{transform:scale(1.62) rotate(-8deg)}52%{transform:scale(.92) rotate(2deg)}76%{transform:scale(1.04)}100%{transform:none}}
@@ -38,7 +38,6 @@
 @keyframes dkbBubIn{0%{transform:scale(1.4) translateY(-10px)}58%{transform:scale(.94)}100%{transform:none}}
 @keyframes dkbRaiseIn{0%{transform:scale(1.7) rotate(-6deg)}55%{transform:scale(.94) rotate(2deg)}100%{transform:scale(1) rotate(-2deg)}}
 @keyframes dkbShine{0%,62%{transform:translateX(-140%) skewX(-18deg)}100%{transform:translateX(420%) skewX(-18deg)}}
-@keyframes dkbGlow{0%,100%{opacity:.45}50%{opacity:1}}
 @keyframes dkbBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
 @keyframes dkbWarn{0%,100%{color:#FFB07A}50%{color:#FF4A2A}}
 
@@ -89,8 +88,10 @@
 /* 下の2席は、肖像の下の能力ボタンがステージの外へ出ないように持ち上げる */
 .dkb-BL .dkb-pwrap,.dkb-Bot .dkb-pwrap{margin-bottom:20px}
 .dkb-hud.dkb-myturn .dkb-por{box-shadow:0 4px 0 rgba(0,0,0,.5),0 0 0 3px #FFF1B0,0 0 26px 6px rgba(255,210,80,.72)}
+/* 手番の光は止まった輪にする（となりで「あなたの番」の札が揺れているので、光まで脈打たせない。
+   盤の常時アニメを1画面8個までに収めるため。肖像の .dkb-por 側にも金の光がある） */
 .dkb-hud.dkb-myturn .dkb-pwrap::before{content:"";position:absolute;inset:-10px;border-radius:20px;pointer-events:none;
-  box-shadow:0 0 22px 8px rgba(255,214,90,.55);animation:dkbGlow 1.4s ease-in-out infinite}
+  box-shadow:0 0 24px 9px rgba(255,214,90,.62)}
 
 /* 自分の席の「能力」札（#skillBtn は DOM の約束。押すと能力の説明を開くだけで盤は変わらない。J33・J47） */
 #skillBtn.dkb-skill{position:absolute;left:50%;bottom:-15px;transform:translateX(-50%);z-index:5;pointer-events:auto;
@@ -195,8 +196,10 @@
 #stage #ticker{border-top:2px solid #E0B040;border-bottom:2px solid #8A6314}
 #ticker::before{background:linear-gradient(90deg,rgba(6,3,0,.95),transparent)}
 #ticker::after{background:linear-gradient(270deg,rgba(6,3,0,.95),transparent)}
+/* 文字が変わった時だけ1回入場させる（4-game.js が 5.2秒ごとに文を差し替え、news() は dkbReplay で出し直す）。
+   ずっと繰り返すと、見た目は同じなのに常時アニメを1個使い続けてしまう */
 #ticker b{font-size:20px;font-weight:900;color:#FFE14A;-webkit-text-stroke:0;text-shadow:0 2px 0 rgba(0,0,0,.6);
-  animation:tickFade 5.2s cubic-bezier(.16,1,.3,1) infinite}
+  animation:tickFade .52s cubic-bezier(.16,1,.3,1)}
 
 /* ══════════ 出目（白い丸＋黒の極太数字／インパクトは金の太陽） ══════════ */
 /* 勝利の文字（canvas）の上にプレートを重ねない */
@@ -264,11 +267,13 @@
 .dkb-bin2::after{content:"";position:absolute;left:50%;bottom:-13px;margin-left:-10px;border:10px solid transparent;border-bottom:0;
   border-top:12px solid rgba(190,210,235,.75)}
 .dkb-bt{display:block;font-size:20px;font-weight:900;line-height:1.3;color:#FFFFFF;text-shadow:0 1px 2px rgba(0,0,0,.6)}
-.dkb-dots{display:flex;justify-content:center;gap:9px;margin-top:5px}
-.dkb-dots b{width:11px;height:11px;border-radius:50%;background:#FFFFFF;opacity:.3;animation:dkbDot 1.05s ease-in-out infinite}
-.dkb-dots b:nth-child(2){animation-delay:.35s}
-.dkb-dots b:nth-child(3){animation-delay:.7s}
-@keyframes dkbDot{0%,70%,100%{opacity:.3}35%{opacity:1}}
+.dkb-dots{position:relative;display:flex;justify-content:center;gap:9px;margin-top:5px}
+.dkb-dots b{width:11px;height:11px;border-radius:50%;background:#FFFFFF;opacity:.3}
+/* 光る点は1個だけを3つの点の上へ順に跳ばす（点ごとに光らせると常時アニメが3個になるため。見た目は同じ。J34）。
+   3つの点は 11px＋すき間 9px＝横 51px。左端は中央から 25.5px 左、跳ぶ先は 0→20→40px */
+.dkb-dots::after{content:"";position:absolute;left:50%;top:0;margin-left:-25.5px;width:11px;height:11px;border-radius:50%;
+  background:#FFFFFF;animation:dkbDotRun 1.05s steps(3) infinite}
+@keyframes dkbDotRun{from{transform:translateX(0)}to{transform:translateX(60px)}}
 /* マスの情報（押したマス。J59） */
 .dkb-tinfo{z-index:92}
 .dkb-tin{position:absolute;left:0;bottom:0;translate:-50% 0;min-width:250px;padding:10px 16px 11px;border-radius:14px;
@@ -695,19 +700,27 @@
 #stage.dk-scr-ch > .dkb-busy,#stage.dk-scr-ch > .dkb-tinfo,#stage.dk-scr-ch > .dkb-sal,#stage.dk-scr-ch > .dkb-mono,
 #stage.dk-scr-ch > .dkb-emo,#stage.dk-scr-ch > .dkb-fcard{display:none!important}
 
+/* ══════════ 画面がかぶさっている間、盤の飾りは動かさない ══════════
+   結果（#result）のように盤を透かして見せる画面は、1k-fx.html の dk-scr-op（不透明）に当てはまらないので
+   盤はそのまま残る。下でずっと動かす意味は無いため、画面が出ている間（dk-scr）は止める。
+   スマホは 1k-fx.html が盤ごと消す。これで「1画面の常時アニメ8個まで」に余裕を持たせる */
+#stage.dk-scr #plate .bd::after,#stage.dk-scr .dkb-hud.dkb-myturn .dkb-turn,#stage.dk-scr .dkb-dots::after{animation:none}
+
 /* ══════════ 控えめ・動きを減らす ══════════ */
 html.fx-lite #chip .dkb-rays,html.fx-lite #chip .dkb-rays2,html.fx-lite #plate .bd::after{animation:none}
-html.fx-lite .dkb-dots b{animation:none;opacity:.85}
+html.fx-lite .dkb-dots::after{display:none}
+html.fx-lite .dkb-dots b{opacity:.85}
 @media (prefers-reduced-motion:reduce){
-  #chip .dkb-rays,#chip .dkb-rays2,#plate .bd::after,.dkb-hud.dkb-myturn .dkb-turn,.dkb-hud.dkb-myturn .dkb-pwrap::before{animation:none!important}
-  .dkb-dots b{animation:none!important;opacity:.85}
+  #chip .dkb-rays,#chip .dkb-rays2,#plate .bd::after,.dkb-hud.dkb-myturn .dkb-turn{animation:none!important}
+  .dkb-dots::after{display:none!important}
+  .dkb-dots b{opacity:.85}
 }
-/* スマホ（html.fx-mob）：盤の上で動き続ける小物を止める（ティッカーの文字・総額の光・手番の札と光）。
+/* スマホ（html.fx-mob）：盤の上で動き続ける小物を止める（ティッカーの文字・総額の光・手番の札）。
    iPhone の WebKit では動く物が1つずつ別の層になり、盤の canvas に重なる HUD などの層もそこで分かれて増える
    （1k-fx.html の説明）。吹き出し・値上げの札は、常に別の層にする宣言（will-change）をやめる */
-html.fx-mob #stage #tickerText,html.fx-mob #plate .bd::after,html.fx-mob .dkb-hud.dkb-myturn .dkb-turn,
-html.fx-mob .dkb-hud.dkb-myturn .dkb-pwrap::before{animation:none!important}
+html.fx-mob #stage #tickerText,html.fx-mob #plate .bd::after,html.fx-mob .dkb-hud.dkb-myturn .dkb-turn{animation:none!important}
 html.fx-mob .dkb-bub,html.fx-mob #stage #raise{will-change:auto!important}
-/* スマホ：他の人が選ぶ間の3つの点は止まった点にする（小物の常時アニメは、上に重なる中身まで層にする） */
-html.fx-mob .dkb-dots b{animation:none!important;opacity:.85}
+/* スマホ：他の人が選ぶ間の点は、光る点を出さず止まった3つの点にする（小物の常時アニメは、上に重なる中身まで層にする） */
+html.fx-mob .dkb-dots::after{display:none!important}
+html.fx-mob .dkb-dots b{opacity:.85}
 </style>
