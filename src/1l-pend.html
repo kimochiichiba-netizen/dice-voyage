@@ -678,6 +678,84 @@
 }
 html.fx-lite .dkp-gl,html.fx-lite .dkp-bar > i::after,html.fx-lite #gacha .dkp-pcsh{display:none}
 
+/* ══════════════════════════════════════════════════════════════
+   属性（社長のご要望 2026-09-12）：16種のペンダントを「宝石の色・紋・発動の光と音」で見分ける。
+   等級は枠（A＝銀・S＝金銀・S+＝金）、属性は宝石と紋と発動の色。
+   ここで足すのは止まった絵と一度きりの演出だけ（常時アニメは1つも増やさない）。
+   ══════════════════════════════════════════════════════════════ */
+.dkp-medal::after{content:"";position:absolute;left:50%;top:55%;width:116%;height:116%;margin:0;transform:translate(-50%,-50%);
+  border-radius:50%;pointer-events:none;z-index:-1;opacity:.3;
+  background:radial-gradient(closest-side,var(--e2,#F2C230),transparent 72%)}
+.dkp-elc{position:relative;display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;height:30px;padding:0 11px 0 3px;border-radius:15px;
+  white-space:nowrap;background:linear-gradient(180deg,var(--e2,#8A72E2),var(--e3,#2A1B66));border:2px solid var(--e1,#ECE6FF);
+  box-shadow:0 2px 0 rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.35)}
+.dkp-elc .dkp-eli{width:22px;height:22px;flex:0 0 auto;line-height:0}
+.dkp-elc .dkp-eli svg{width:100%;height:100%;display:block;overflow:visible}
+.dkp-elc b{font-family:var(--pop);font-size:18px;font-weight:400;line-height:1;color:#FFFDF4;
+  -webkit-text-stroke:3px rgba(20,10,2,.75);paint-order:stroke fill}
+.dkp-elc.big{height:38px;padding:0 15px 0 4px;border-radius:19px}
+.dkp-elc.big .dkp-eli{width:30px;height:30px}
+.dkp-elc.big b{font-size:22px}
+.dkp-elc.bk{position:absolute;right:7px;top:7px;z-index:2;height:26px;padding:0 9px 0 2px}
+.dkp-elc.bk .dkp-eli{width:19px;height:19px}
+.dkp-elc.bk b{font-size:16px}
+.dkp-elrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.dkp-elds{flex:1 1 0;min-width:0;font-size:16px;line-height:1.35;color:#D9C29A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dkp-elbtn.dkbtn{flex:0 0 auto;height:44px;padding:0 16px;font-size:20px}
+/* 発動の光（一度きり。WAAPI が大きさと濃さを動かす。CSS のアニメは持たない） */
+.dkp-elfx{position:absolute;left:0;top:0;width:230px;height:230px;z-index:6;pointer-events:none;opacity:0;
+  transform:translate(-50%,-50%);border-radius:50%;
+  background:radial-gradient(closest-side,var(--e1) 0,var(--e2) 42%,transparent 74%)}
+.dkp-f-crack{background:conic-gradient(from 0deg,var(--e1) 0 5deg,transparent 5deg 40deg,var(--e2) 40deg 46deg,transparent 46deg 85deg,
+  var(--e1) 85deg 90deg,transparent 90deg 130deg,var(--e2) 130deg 136deg,transparent 136deg 175deg,var(--e1) 175deg 180deg,
+  transparent 180deg 220deg,var(--e2) 220deg 226deg,transparent 226deg 265deg,var(--e1) 265deg 270deg,transparent 270deg 310deg,
+  var(--e2) 310deg 316deg,transparent 316deg 360deg),radial-gradient(closest-side,var(--e1),transparent 46%)}
+.dkp-f-chime{background:repeating-conic-gradient(from 0deg,var(--e1) 0 2deg,transparent 2deg 15deg),
+  radial-gradient(closest-side,var(--e1) 0,var(--e2) 34%,transparent 62%)}
+.dkp-f-whoosh{border-radius:50%;background:conic-gradient(from 200deg,transparent 0 110deg,var(--e2) 190deg,var(--e1) 250deg,transparent 320deg),
+  radial-gradient(closest-side,transparent 40%,var(--e2) 62%,transparent 78%)}
+.dkp-f-thud{background:radial-gradient(closest-side,transparent 42%,var(--e1) 52%,var(--e2) 64%,transparent 76%)}
+.dkp-f-bell{background:radial-gradient(closest-side,#FFFFFF 0,var(--e1) 26%,var(--e2) 50%,transparent 74%),
+  repeating-conic-gradient(from 22deg,var(--e1) 0 1.6deg,transparent 1.6deg 22deg)}
+.dkp-f-soft{background:radial-gradient(22% 22% at 50% 18%,var(--e1),transparent 70%),
+  radial-gradient(22% 22% at 80% 42%,var(--e1),transparent 70%),radial-gradient(22% 22% at 68% 82%,var(--e1),transparent 70%),
+  radial-gradient(22% 22% at 32% 82%,var(--e1),transparent 70%),radial-gradient(22% 22% at 20% 42%,var(--e1),transparent 70%),
+  radial-gradient(closest-side,var(--e2) 0,transparent 52%)}
+.dkp-f-low{background:radial-gradient(closest-side,var(--e3) 0,var(--e3) 34%,var(--e2) 52%,var(--e1) 60%,transparent 72%)}
+.dkp-f-roar{background:conic-gradient(from 0deg,var(--e2) 0 24deg,var(--e1) 30deg,var(--e2) 44deg,transparent 70deg,
+  var(--e2) 110deg,var(--e1) 128deg,transparent 160deg,var(--e2) 210deg,var(--e1) 232deg,transparent 268deg,
+  var(--e2) 306deg,var(--e1) 330deg,var(--e2) 360deg),radial-gradient(closest-side,#FFFFFF 0,var(--e1) 30%,transparent 62%)}
+/* 等級・キューブの種類ごとの閃光（一度きり） */
+.dkp-gfl{position:absolute;inset:0;z-index:5;pointer-events:none;opacity:0;
+  background:radial-gradient(60% 60% at 50% 50%,var(--gc,#FFD24D),transparent 72%)}
+/* 図鑑：16種が1画面に収まる並び */
+#pend .dkp-bgrid{grid-template-columns:repeat(6,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));gap:10px}
+#pend .dkp-bk{gap:4px;padding:8px 6px}
+#pend .dkp-bk .dkp-medal{--ms:72px!important}
+#pend .dkp-bk .dkp-rtag{left:6px;top:6px;min-width:38px;height:26px;font-size:17px}
+#pend .dkp-bnm{font-size:19px}
+#pend .dkp-bmx,#pend .dkp-bno,#pend .dkp-bsrc{font-size:16px;line-height:1.25}
+#pend .dkp-bsrc{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* 図鑑の右：ごほうびが3段→5段になったので、主役の絵と数字を小さくして5段とも収める。
+   それでも入らない時は一覧だけが縦に動く（画面の外に文字が出ない・切れない） */
+#pend .dkp-bookr{gap:8px}
+#pend .dkp-hero.sm{height:196px}
+#pend .dkp-hero.sm .dkp-heroimg{width:220px;height:196px}
+#pend .dkp-hero.sm .dkp-halo{width:230px;height:230px;margin:-115px 0 0 -115px}
+#pend .dkp-bcnt b{font-size:44px}
+#pend .dkp-bcnt i{font-size:22px}
+#pend .dkp-rws{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;gap:7px;padding-right:2px;
+  scrollbar-width:thin;scrollbar-color:#C8952F #241708}
+#pend .dkp-rw{min-height:58px;padding:6px 10px;gap:8px}
+#pend .dkp-rwn{font-size:19px}
+#pend .dkp-rwv{font-size:16px}
+#pend .dkp-rw .dkbtn{height:44px;padding:0 12px;font-size:20px}
+#pend .dkp-rwst{font-size:17px}
+/* スマホ：画素のメモリを増やさない（発動の光は小さく、宝石のにじみは出さない） */
+html.fx-mob .dkp-elfx{width:170px;height:170px}
+html.fx-mob .dkp-medal::after{display:none}
+@media (prefers-reduced-motion:reduce){ .dkp-elfx,.dkp-gfl{display:none} }
+
 /* ══════════ 横長スマホ（高さ560px未満）：文字は本文22px・主要26px以上、押せる範囲は96px以上 ══════════ */
 @media (max-height:560px){
   #pend .dktab .tx,#gacha .dktab .tx{font-size:26px}
@@ -890,5 +968,37 @@ html.fx-lite .dkp-gl,html.fx-lite .dkp-bar > i::after,html.fx-lite #gacha .dkp-p
   .dkp-go.dkbtn::after{--gy:6px}
   .dkp-mrow .dkbtn::after{--gy:12px}
   .dkp-dbtns .dkbtn:disabled::after,.dkp-go.dkbtn:disabled::after{display:block;pointer-events:none}
+
+  /* 属性（16種の見分け） */
+  .dkp-elc{height:38px;padding:0 13px 0 4px;border-radius:19px}
+  .dkp-elc .dkp-eli{width:28px;height:28px}
+  .dkp-elc b{font-size:24px}
+  .dkp-elc.big{height:46px}
+  .dkp-elc.big .dkp-eli{width:34px;height:34px}
+  .dkp-elc.big b{font-size:28px}
+  .dkp-elc.bk{height:32px;padding:0 9px 0 2px;right:6px;top:6px}
+  .dkp-elc.bk .dkp-eli{width:22px;height:22px}
+  .dkp-elc.bk b{font-size:20px}
+  .dkp-elds{font-size:22px}
+  .dkp-elbtn.dkbtn{height:54px;font-size:26px}
+  .dkp-elbtn.dkbtn::after{--gy:22px}
+  #pend .dkp-bgrid{grid-template-columns:repeat(6,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));gap:8px}
+  #pend .dkp-bk .dkp-medal{--ms:64px!important}
+  #pend .dkp-bk .dkp-rtag{font-size:20px;height:28px;min-width:40px}
+  #pend .dkp-bnm{font-size:22px}
+  #pend .dkp-bmx,#pend .dkp-bno,#pend .dkp-bsrc{font-size:20px}
+  /* 図鑑の右：横長スマホでも5段のごほうびが切れない */
+  #pend .dkp-hero.sm{height:150px}
+  #pend .dkp-hero.sm .dkp-heroimg{width:170px;height:150px}
+  #pend .dkp-hero.sm .dkp-halo{width:180px;height:180px;margin:-90px 0 0 -90px}
+  #pend .dkp-bcnt{font-size:22px}
+  #pend .dkp-bcnt b{font-size:40px}
+  #pend .dkp-rws{gap:6px}
+  #pend .dkp-rw{min-height:64px;padding:5px 8px;flex-wrap:nowrap}
+  #pend .dkp-rwn{font-size:22px}
+  #pend .dkp-rwv{font-size:20px}
+  #pend .dkp-rwv b{font-size:22px}
+  #pend .dkp-rw .dkbtn{height:52px;font-size:26px}
+  #pend .dkp-rwst{font-size:22px}
 }
 </style>

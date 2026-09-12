@@ -39,6 +39,139 @@ var DKP_CUBEK = {
   gold:   { nm:'ゴールドキューブ', s:'ゴールド', c:['#FFF5C8', '#F0B92C', '#A56C06'], e:'#FFF6D0' },
   dia:    { nm:'ダイヤキューブ',   s:'ダイヤ',   c:['#EDFCFF', '#86DAF7', '#2A78BC'], e:'#F2FDFF' }
 };
+/* 等級ごとの閃光の色と音（ガチャの開封・キューブの開封で等級が一目で分かるように） */
+var DKP_RARFX = {
+  A:  { c:'#8FD2FF', nm:'A',  sfx:'coin',      burst:'star', n:10, pow:.7 },
+  S:  { c:'#C9A0F0', nm:'S',  sfx:'diceDouble', burst:'star', n:18, pow:1 },
+  SS: { c:'#FFD24D', nm:'S+', sfx:'gachaRare', burst:'conf', n:28, pow:1.3 }
+};
+
+/* ══════════════════════════════════════════════════════════════
+   属性（社長のご要望 2026-09-12）
+   ──────────────────────────────────────────────────────────────
+   ペンダントは「等級＝枠」「属性＝宝石の色・紋・発動の光と音」で見分ける。
+   DKP_EL  属性ごとの色・名前・紋・音の系統
+   DKP_PE  ペンダント id → 属性（p1〜p8 の色は今までと同じ値にそろえてある）
+   DKP_ADD 8種→16種に増やすぶん（PENDANTS へ足す。すでにある時は何もしない）
+   DKP_ALIAS 増やしたぶんの「効き目」を、既にある7つの仕掛けのどれに載せるか
+             （pendFire＝9h-board.js／WP14 は it.id で分岐するので、pendOf の戻り値の id だけ差し替える。
+              本当の id は pid に残す。WP14 が新しい id の分岐を足したら、この差し替えは外してよい）
+   ══════════════════════════════════════════════════════════════ */
+var DKP_EL = {
+  thunder:{ nm:'雷', c:['#FFF7B8','#FFC21F','#9A5A00'], s:'crack' },
+  water:  { nm:'水', c:['#DDF6FF','#35B0F0','#0A3F80'], s:'chime' },
+  wind:   { nm:'風', c:['#E2FFD6','#38C067','#0C4F24'], s:'whoosh' },
+  earth:  { nm:'地', c:['#FFE6C2','#C98636','#4E2A0C'], s:'thud' },
+  sun:    { nm:'陽', c:['#FFF0C0','#FF962A','#9A3404'], s:'bell' },
+  bloom:  { nm:'花', c:['#FFE4EF','#F07BAC','#84224F'], s:'soft' },
+  moon:   { nm:'月', c:['#ECE6FF','#8A72E2','#2A1B66'], s:'low' },
+  flame:  { nm:'炎', c:['#FFD6C6','#E6402A','#700B04'], s:'roar' },
+  storm:  { nm:'嵐', c:['#E8EEFF','#6C7BE0','#1B2470'], s:'crack' },
+  ice:    { nm:'氷', c:['#EAFEFF','#6FE0F0','#0B5E76'], s:'chime' },
+  lava:   { nm:'熔', c:['#FFE0B0','#FF6A18','#6B1A02'], s:'roar' },
+  dark:   { nm:'闇', c:['#D8D2E8','#5A4A86','#150E2A'], s:'low' },
+  light:  { nm:'光', c:['#FFFFFF','#FFE9A8','#A88A2A'], s:'bell' },
+  steel:  { nm:'鋼', c:['#F2F6FA','#9AAEC0','#3A4A5A'], s:'thud' },
+  star:   { nm:'星', c:['#FFF6FF','#C9A8FF','#4A2A8A'], s:'chime' },
+  sand:   { nm:'砂', c:['#FFF4D8','#DCB463','#7A5210'], s:'whoosh' }
+};
+var DKP_PE = { p1:'thunder', p2:'water', p3:'wind', p4:'earth', p5:'sun', p6:'bloom', p7:'moon', p8:'flame',
+               p9:'storm', p10:'ice', p11:'lava', p12:'dark', p13:'light', p14:'steel', p15:'star', p16:'sand' };
+var DKP_ADD = [
+  { id:'p9',  nm:'嵐雲のペンダント', ic:'🌪', rar:'SS', trg:'onRoll',     p:0.55,
+    ds:'サイコロを振るとき、ダブルが出る' },
+  { id:'p10', nm:'氷華のペンダント', ic:'❄️', rar:'SS', trg:'onSameTile', p:0.70,
+    ds:'相手と同じマスに止まったとき、相手のマーブルの20%を奪う' },
+  { id:'p11', nm:'熔岩のペンダント', ic:'🌋', rar:'S',  trg:'onLandmark', p:0.55,
+    ds:'ランドマークを建てたとき、同じ辺にいる相手を自分のマスへ引き寄せる' },
+  { id:'p12', nm:'常闇のペンダント', ic:'🌑', rar:'S',  trg:'onTollGet',  p:0.42,
+    ds:'相手が自分のランドマークに止まったとき束縛し、次の移動でもう一度 通行料を取る' },
+  { id:'p13', nm:'聖光のペンダント', ic:'🔆', rar:'S',  trg:'onOwnLand',  p:0.46,
+    ds:'自分の都市に止まったとき、同じ辺の自分の別の都市へ跳ぶ' },
+  { id:'p14', nm:'鋼鉄のペンダント', ic:'⚙️', rar:'A',  trg:'onBuild',    p:0.34,
+    ds:'建設したとき、自分の別の都市の建物がもう1段上がる' },
+  { id:'p15', nm:'星屑のペンダント', ic:'🌠', rar:'A',  trg:'onTravel',   p:0.36,
+    ds:'ワープのマスで、選ばずに一番得なマスへ即座に移動する' },
+  { id:'p16', nm:'砂嵐のペンダント', ic:'🏜', rar:'A',  trg:'onBuild',    p:0.28,
+    ds:'建物を3棟以上持っているとき、スタートへ移動して給料を受け取る' }
+];
+var DKP_ALIAS = { p9:'p8', p10:'p7', p11:'p1', p12:'p2', p13:'p6', p14:'p3', p15:'p5', p16:'p4' };
+
+/* 増やしたペンダントを PENDANTS へ足し、読み込みのときに落ちた分をセーブへ戻す。
+   （5-meta.js の loadSave は 9b より前に走るので、その時点では新しい id が「知らない id」として捨てられている） */
+function dkpAddPend(){
+  if(typeof PENDANTS === 'undefined' || !Array.isArray(PENDANTS)) return;
+  var added = 0;
+  DKP_ADD.forEach(function(o){
+    if(pendById(o.id)) return;
+    PENDANTS.push({ id:o.id, nm:o.nm, ic:o.ic, rar:o.rar, trg:o.trg, p:o.p, ds:o.ds });
+    added++;
+  });
+  if(!added) return;
+  var raw = (typeof DKP_RAW0 === 'string') ? DKP_RAW0 : null;
+  if(!raw) return;
+  var o = null;
+  try{ o = JSON.parse(raw); }catch(e){ o = null; }
+  if(!o || typeof o !== 'object') return;
+  var ok = function(id){ return typeof id === 'string' && DKP_ALIAS[id] && pendById(id); }, ch = false;
+  var src = (o.pendants && typeof o.pendants === 'object') ? o.pendants : {};
+  Object.keys(src).forEach(function(id){
+    if(!ok(id) || (SV.pendants && SV.pendants[id])) return;
+    var v = src[id] || {};
+    SV.pendants[id] = { lv:Math.max(1, Math.min(8, (+v.lv) | 0 || 1)), dup:Math.max(0, (+v.dup) | 0) };
+    ch = true;
+  });
+  var sl = Array.isArray(o.slots) ? o.slots : [];
+  for(var i = 0; i < 4; i++){
+    if(SV.slots[i] || !ok(sl[i]) || !SV.pendants[sl[i]] || SV.slots.indexOf(sl[i]) >= 0) continue;
+    SV.slots[i] = sl[i]; ch = true;
+  }
+  var bm = (o.book && o.book.pmax && typeof o.book.pmax === 'object') ? o.book.pmax : {};
+  Object.keys(bm).forEach(function(id){
+    if(!ok(id)) return;
+    if(!SV.book.pmax || typeof SV.book.pmax !== 'object') SV.book.pmax = {};
+    if(!(SV.book.pmax[id] >= 1)){ SV.book.pmax[id] = Math.max(1, Math.min(8, (+bm[id]) | 0 || 1)); ch = true; }
+  });
+  if(o.aim && ok(o.aim.pend) && !SV.aim.pend){ SV.aim.pend = o.aim.pend; ch = true; }
+  var fp = (o.fail && o.fail.pend && typeof o.fail.pend === 'object') ? o.fail.pend : {};
+  Object.keys(fp).forEach(function(id){
+    if(!ok(id) || SV.fail.pend[id] >= 0) return;
+    var v = (+fp[id]) | 0; if(v > 0){ SV.fail.pend[id] = v; ch = true; }
+  });
+  (Array.isArray(o.seen) ? o.seen : []).forEach(function(id){
+    if(ok(id) && SV.seen.indexOf(id) < 0){ SV.seen.push(id); ch = true; }
+  });
+  if(ch) saveNow();
+}
+/* pendOf のラッパ：増やしたペンダントの id を、pendFire（WP14）が知っている id に見せかける。
+   名前・絵文字・等級・確率は本物のまま（帯やパネルの表示は正しい）。本当の id は pid に残す */
+var DKP_pendOf0 = (typeof pendOf === 'function') ? pendOf : null;
+if(DKP_pendOf0){
+  pendOf = function(pi, trg){
+    var it = DKP_pendOf0.apply(this, arguments);
+    if(!it || !DKP_ALIAS[it.id]) return it;
+    var o = Object.assign({}, it);
+    o.pid = it.id; o.el = DKP_PE[it.id] || '';
+    o.id = DKP_ALIAS[it.id];
+    return o;
+  };
+}
+/* 読み込んだ直後のセーブの写し。9b（ペンダント）と 9c（サイコロ）の修理が、
+   おたがいの saveNow で相手の分を消してしまわないように、書き換える前に1回だけ取っておく */
+var DKP_RAW0 = (function(){ try{ return localStorage.getItem(SAVE_KEY); }catch(e){ return null; } })();
+try{ dkpAddPend(); }catch(e){ console.error('[WP16a]', e); }
+/* 属性（WP14 が発動の演出を属性ごとに変える時は typeof dkpElem === 'function' で確かめて呼ぶ）
+   → {key, nm, c:[明,中,暗], s:音の系統} ／ 知らない id は id の文字で散らして必ず何かを返す */
+function dkpElem(id){
+  var k = DKP_PE[id];
+  if(!k){
+    var ks = Object.keys(DKP_EL), n = 0, s = String(id || '');
+    for(var i = 0; i < s.length; i++) n = (n * 31 + s.charCodeAt(i)) >>> 0;
+    k = ks[n % ks.length];
+  }
+  var e = DKP_EL[k];
+  return { key:k, nm:e.nm, c:e.c.slice(), s:e.s };
+}
 
 function dkpS(){
   if(!DKP_S) DKP_S = { tab:'pend', sel:null, sort:'rar', prevTab:'', upTgt:null, mats:[],
@@ -63,6 +196,90 @@ function dkpSrc(r){
   if(r === 'S')  return 'ペンダントガチャ／Aの+7を2つ合成';
   return 'ペンダントガチャ／カードパックのおまけ';
 }
+/* ══════════ 属性の発動演出（すべて一度きり。常時アニメは1つも増やさない） ══════════ */
+var DKP_NZ = null;
+/* 属性ごとの音（今の効果音の音程とフィルタを変えた合成。音が止めてある時は黙る） */
+function dkpElemSnd(key){
+  try{
+    if(typeof soundOn !== 'undefined' && !soundOn) return;
+    var a = (typeof AC !== 'undefined') ? AC : null;
+    if(!a || !a.createOscillator || a.state === 'closed') return;
+    var t = a.currentTime + 0.01, out = a.createGain();
+    out.gain.value = (typeof sfxVol === 'number') ? sfxVol : 0.7;
+    out.connect(a.destination);
+    var tone = function(type, f, f2, dur, v, at){
+      var o = a.createOscillator(), gn = a.createGain(), t0 = t + (at || 0);
+      o.type = type; o.frequency.setValueAtTime(f, t0);
+      if(f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + dur);
+      gn.gain.setValueAtTime(0.0001, t0); gn.gain.exponentialRampToValueAtTime(v, t0 + 0.006); gn.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(gn); gn.connect(out); o.start(t0); o.stop(t0 + dur + 0.02);
+    };
+    var nz = function(f, q, dur, v, at){
+      var b = DKP_NZ;
+      if(!b || b.sampleRate !== a.sampleRate){
+        b = a.createBuffer(1, Math.floor(a.sampleRate * 0.6), a.sampleRate);
+        var ch = b.getChannelData(0);
+        for(var i = 0; i < ch.length; i++) ch[i] = DKFX.rnd() * 2 - 1;
+        DKP_NZ = b;
+      }
+      var s = a.createBufferSource(), fl = a.createBiquadFilter(), gn = a.createGain(), t0 = t + (at || 0);
+      s.buffer = b; fl.type = 'bandpass'; fl.frequency.value = f; fl.Q.value = q;
+      gn.gain.setValueAtTime(0.0001, t0); gn.gain.exponentialRampToValueAtTime(v, t0 + 0.004); gn.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      s.connect(fl); fl.connect(gn); gn.connect(out); s.start(t0); s.stop(t0 + dur + 0.02);
+    };
+    var s = (DKP_EL[key] || {}).s || 'bell';
+    if(s === 'crack'){ nz(2600, 0.9, 0.06, 0.16); tone('square', 180, 60, 0.22, 0.08, 0.02); nz(1200, 0.6, 0.2, 0.06, 0.04); }
+    else if(s === 'chime'){ tone('sine', 1568, 0, 0.5, 0.13); tone('sine', 2349, 0, 0.38, 0.07, 0.06); tone('sine', 3136, 0, 0.28, 0.04, 0.12); }
+    else if(s === 'whoosh'){ nz(900, 0.5, 0.34, 0.12); nz(2200, 0.8, 0.2, 0.07, 0.08); }
+    else if(s === 'thud'){ tone('sine', 110, 55, 0.34, 0.18); nz(300, 0.7, 0.09, 0.09); }
+    else if(s === 'bell'){ tone('triangle', 1046, 0, 0.6, 0.12); tone('sine', 1568, 0, 0.45, 0.06, 0.05); tone('sine', 2093, 0, 0.3, 0.03, 0.1); }
+    else if(s === 'soft'){ tone('sine', 784, 988, 0.34, 0.1); tone('sine', 1319, 0, 0.26, 0.05, 0.08); }
+    else if(s === 'low'){ tone('sine', 220, 82, 0.66, 0.13); tone('triangle', 110, 55, 0.7, 0.07); nz(420, 0.6, 0.4, 0.04); }
+    else { tone('sawtooth', 180, 90, 0.4, 0.1); nz(700, 0.5, 0.3, 0.08); tone('sine', 330, 140, 0.3, 0.05, 0.06); }
+    setTimeout(function(){ try{ out.disconnect(); }catch(e){} }, 1500);
+  }catch(e){}
+}
+/* 属性ごとの発動の見せ方（雷＝閃光、氷＝結晶、炎＝火の粉…）。粒と WAAPI の一度きりだけ */
+function dkpElemPlay(at, id){
+  var e = dkpElem(id), p = fxPt(at);
+  dkpElemSnd(e.key);
+  if(DKFX.reduced) return;
+  fxBurst(p, { kind:(e.s === 'chime' || e.s === 'bell') ? 'star' : 'conf',
+    n:(DKFX.mob ? 10 : 20), power:1.1, color:e.c[1] });
+  var d = document.createElement('i');
+  d.className = 'dkp-elfx dkp-f-' + e.s;
+  d.style.left = p.x.toFixed(1) + 'px'; d.style.top = p.y.toFixed(1) + 'px';
+  d.style.setProperty('--e1', e.c[0]); d.style.setProperty('--e2', e.c[1]); d.style.setProperty('--e3', e.c[2]);
+  DKFX.layer().appendChild(d);
+  var kill = function(){ if(d.parentNode) d.parentNode.removeChild(d); };
+  try{
+    var an = d.animate([{ transform:'translate(-50%,-50%) scale(.35) rotate(0deg)', opacity:0 },
+                        { transform:'translate(-50%,-50%) scale(1) rotate(10deg)', opacity:1, offset:.3 },
+                        { transform:'translate(-50%,-50%) scale(1.5) rotate(24deg)', opacity:0 }],
+                       { duration:(DKFX.skip ? 220 : 760), easing:'cubic-bezier(.2,.8,.4,1)', fill:'both' });
+    an.onfinish = kill;
+  }catch(err){}
+  setTimeout(kill, 1600);
+}
+/* 等級・キューブの種類ごとの閃光（一度きり。画面いっぱいの常時アニメは足さない） */
+function dkpFlashCol(hostId, col){
+  var st = document.getElementById(hostId);
+  if(!st || DKFX.reduced) return;
+  var f = st.querySelector(':scope > .dkp-gfl');
+  if(!f){ f = document.createElement('i'); f.className = 'dkp-gfl'; f.setAttribute('aria-hidden', 'true'); st.appendChild(f); }
+  f.style.setProperty('--gc', col);
+  try{ f.animate([{ opacity:0 }, { opacity:.9, offset:.16 }, { opacity:0 }], { duration:(DKFX.skip ? 140 : 420), easing:'ease-out' }); }catch(e){}
+}
+/* 属性の札（一覧・詳細・図鑑・開封で共通） */
+function dkpElChip(p, cls){
+  if(!p) return '';
+  var e = dkpElem(p.id);
+  return '<span class="dkp-elc dkp-e-' + e.key + (cls ? ' ' + cls : '')
+    + '" style="--e1:' + e.c[0] + ';--e2:' + e.c[1] + ';--e3:' + e.c[2] + '">'
+    + '<i class="dkp-eli"><svg viewBox="0 0 40 40" aria-hidden="true">' + dkpEmblem(p.id) + '</svg></i>'
+    + '<b>' + esc(e.nm) + '</b></span>';
+}
+
 /* 装着中のカードで開いている枠の数（C06 dkPendSlots。A2・S/S+4） */
 function dkpSlotsOpen(){
   var n = 4;
@@ -122,13 +339,8 @@ function dkpBusy(on){
 }
 
 /* ══════════ 絵（SVG で自作） ══════════ */
-function dkpGem(id){
-  var T = { p1:['#FFF7B8','#FFC21F','#9A5A00'], p2:['#DDF6FF','#35B0F0','#0A3F80'],
-            p3:['#E2FFD6','#38C067','#0C4F24'], p4:['#FFE6C2','#C98636','#4E2A0C'],
-            p5:['#FFF0C0','#FF962A','#9A3404'], p6:['#FFE4EF','#F07BAC','#84224F'],
-            p7:['#ECE6FF','#8A72E2','#2A1B66'], p8:['#FFD6C6','#E6402A','#700B04'] };
-  return T[id] || T.p3;
-}
+/* 宝石の色は属性で決まる（p1〜p8 は今までと同じ値） */
+function dkpGem(id){ return dkpElem(id).c; }
 function dkpStar(cx, cy, ro, ri, n){
   var s = '';
   for(var i = 0; i < n * 2; i++){
@@ -137,27 +349,53 @@ function dkpStar(cx, cy, ro, ri, n){
   }
   return s + 'Z';
 }
-/* ペンダントごとの紋（40×40 の枠） */
+/* 属性ごとの紋（40×40 の枠）。16種が一目で見分けられるように形を変える */
 function dkpEmblem(id){
   var st = ' fill="#FFFDF4" stroke="rgba(40,20,4,.55)" stroke-width="1.6" stroke-linejoin="round"';
-  if(id === 'p1') return '<path' + st + ' d="M24 2 L8 23 H18 L14 38 L33 14 H22 L27 2 Z"/>';
-  if(id === 'p2') return '<path' + st + ' d="M20 3 L35 18 L20 37 L5 18 Z"/>'
+  var k = dkpElem(id).key;
+  if(k === 'thunder') return '<path' + st + ' d="M24 2 L8 23 H18 L14 38 L33 14 H22 L27 2 Z"/>';
+  if(k === 'water') return '<path' + st + ' d="M20 3 L35 18 L20 37 L5 18 Z"/>'
     + '<path d="M5 18 H35 M20 3 L14 18 L20 37 L26 18 Z" fill="none" stroke="rgba(40,20,4,.45)" stroke-width="1.3"/>';
-  if(id === 'p3') return '<g' + st + '><circle cx="20" cy="11" r="8"/><circle cx="11" cy="23" r="8"/><circle cx="29" cy="23" r="8"/></g>'
+  if(k === 'wind') return '<g' + st + '><circle cx="20" cy="11" r="8"/><circle cx="11" cy="23" r="8"/><circle cx="29" cy="23" r="8"/></g>'
     + '<path d="M20 24 Q22 32 16 38" fill="none" stroke="#FFFDF4" stroke-width="3.2" stroke-linecap="round"/>';
-  if(id === 'p4') return '<path' + st + ' d="M2 34 L14 13 L20 22 L27 9 L38 34 Z"/><path d="M24 15 L27 9 L30 15 Z" fill="rgba(150,110,60,.7)"/>';
-  if(id === 'p5') return '<path' + st + ' d="' + dkpStar(20, 20, 19, 11, 8) + '"/>'
+  if(k === 'earth') return '<path' + st + ' d="M2 34 L14 13 L20 22 L27 9 L38 34 Z"/><path d="M24 15 L27 9 L30 15 Z" fill="rgba(150,110,60,.7)"/>';
+  if(k === 'sun') return '<path' + st + ' d="' + dkpStar(20, 20, 19, 11, 8) + '"/>'
     + '<circle cx="20" cy="20" r="7.5" fill="#FFC45A" stroke="rgba(40,20,4,.45)" stroke-width="1.3"/>';
-  if(id === 'p6') return '<g' + st + '>' + [0, 72, 144, 216, 288].map(function(a){
+  if(k === 'bloom') return '<g' + st + '>' + [0, 72, 144, 216, 288].map(function(a){
       return '<ellipse cx="20" cy="10.5" rx="6.6" ry="9.5" transform="rotate(' + a + ' 20 20)"/>'; }).join('')
     + '</g><circle cx="20" cy="20" r="4" fill="#FFD24D"/>';
-  if(id === 'p7') return '<path' + st + ' d="M25 3 A17 17 0 1 0 37 29 A13 13 0 1 1 25 3 Z"/>';
-  if(id === 'p8') return '<path' + st + ' d="M20 2 C24 11 34 16 31 27 C29 34 24 38 20 38 C13 38 8 33 9 25 C10 18 15 16 16 9 C19 13 18 18 21 20 C23 14 21 8 20 2 Z"/>';
+  if(k === 'moon') return '<path' + st + ' d="M25 3 A17 17 0 1 0 37 29 A13 13 0 1 1 25 3 Z"/>';
+  if(k === 'flame') return '<path' + st + ' d="M20 2 C24 11 34 16 31 27 C29 34 24 38 20 38 C13 38 8 33 9 25 C10 18 15 16 16 9 C19 13 18 18 21 20 C23 14 21 8 20 2 Z"/>';
+  /* ここから増やしたぶん（8種） */
+  if(k === 'storm') return '<path d="M6 14 Q6 6 14 6 Q18 1 24 3 Q33 3 34 11 Q39 13 38 19 Q37 24 31 24 H11 Q5 23 6 14 Z"' + st + '/>'
+    + '<path d="M22 22 L14 34 H20 L17 39 L28 27 H21 L24 22 Z" fill="#FFE9A8" stroke="rgba(40,20,4,.5)" stroke-width="1.3" stroke-linejoin="round"/>';
+  if(k === 'ice') return '<g fill="none" stroke="#FFFDF4" stroke-width="3" stroke-linecap="round">'
+    + [0, 60, 120].map(function(a){ return '<path d="M20 2 V38" transform="rotate(' + a + ' 20 20)"/>'; }).join('')
+    + [0, 60, 120, 180, 240, 300].map(function(a){ return '<path d="M20 8 l-5 5 M20 8 l5 5" transform="rotate(' + a + ' 20 20)"/>'; }).join('')
+    + '</g><circle cx="20" cy="20" r="3.6" fill="#FFFDF4"/>';
+  if(k === 'lava') return '<path' + st + ' d="M3 36 L15 15 L20 22 L26 11 L37 36 Z"/>'
+    + '<path d="M26 11 C29 16 24 18 26 23 C30 20 33 24 32 28" fill="none" stroke="#FF8A3A" stroke-width="2.6" stroke-linecap="round"/>'
+    + '<circle cx="26" cy="8" r="3.4" fill="#FFD24D" stroke="rgba(40,20,4,.5)" stroke-width="1.2"/>';
+  if(k === 'dark') return '<circle cx="20" cy="20" r="16" fill="#1A1228" stroke="#FFFDF4" stroke-width="2.4"/>'
+    + '<path d="M20 4 A16 16 0 0 1 20 36 A11 11 0 0 0 20 4 Z" fill="#FFFDF4" opacity=".9"/>'
+    + '<circle cx="20" cy="20" r="4.2" fill="#C8B8F0"/>';
+  if(k === 'light') return '<g fill="#FFFDF4" stroke="rgba(40,20,4,.45)" stroke-width="1.2">'
+    + [0, 45, 90, 135].map(function(a){ return '<rect x="18.4" y="1" width="3.2" height="38" rx="1.6" transform="rotate(' + a + ' 20 20)"/>'; }).join('')
+    + '</g><circle cx="20" cy="20" r="8.5" fill="#FFFDF4" stroke="rgba(40,20,4,.55)" stroke-width="1.6"/>'
+    + '<circle cx="20" cy="20" r="4" fill="#FFD24D"/>';
+  if(k === 'steel') return '<path' + st + ' d="' + dkpStar(20, 20, 19, 13.5, 8) + '"/>'
+    + '<circle cx="20" cy="20" r="8" fill="#2A3442" stroke="rgba(40,20,4,.5)" stroke-width="1.4"/>'
+    + '<circle cx="20" cy="20" r="3.4" fill="#CFDCE8"/>';
+  if(k === 'star') return '<path' + st + ' d="' + dkpStar(20, 19, 18, 7.5, 5) + '"/>'
+    + '<path d="M20 26 L20 38" fill="none" stroke="#FFFDF4" stroke-width="2.6" stroke-linecap="round" opacity=".75"/>';
+  if(k === 'sand') return '<path' + st + ' d="M8 3 H32 L22 20 L32 37 H8 L18 20 Z"/>'
+    + '<path d="M12 7 H28 L20 20 Z" fill="#DCB463"/><path d="M20 20 L27 33 H13 Z" fill="#DCB463"/>';
   return '';
 }
 /* ペンダントの絵（金の縁・宝石・紋）。opt={size, plus, rt, cls, svg} */
 function dkpMedalSVG(p){
-  var n = ++DKP_N, id = 'dkpm' + n, c = dkpGem(p.id);
+  var n = ++DKP_N, id = 'dkpm' + n, el = dkpElem(p.id), c = el.c;
+  /* 枠は等級（A＝銀・S＝金銀・S+＝金）。台座の粒は属性の色（等級と種類を一度に見分ける） */
   var rim = p.rar === 'SS' ? ['#FFF7D6', '#F5CC4E', '#A36F0B', '#4A2E02']
           : p.rar === 'S'  ? ['#FFF1C8', '#DDB04E', '#86591A', '#35230A']
           :                  ['#F4F8FF', '#B9CCE2', '#62809F', '#1E2C40'];
@@ -166,13 +404,13 @@ function dkpMedalSVG(p){
     for(i = 0; i < 8; i++){
       a = Math.PI * i / 4 + Math.PI / 8;
       dots += '<circle cx="' + (60 + 50 * Math.cos(a)).toFixed(1) + '" cy="' + (72 + 50 * Math.sin(a)).toFixed(1)
-        + '" r="3.6" fill="' + (i % 2 ? '#3FA0F0' : '#E8402A') + '" stroke="#FFF3C8" stroke-width="1.2"/>';
+        + '" r="3.6" fill="' + (i % 2 ? c[0] : c[1]) + '" stroke="#FFF3C8" stroke-width="1.2"/>';
     }
   } else {
     for(i = 0; i < 4; i++){
       a = Math.PI * i / 2 + Math.PI / 4;
       dots += '<circle cx="' + (60 + 50 * Math.cos(a)).toFixed(1) + '" cy="' + (72 + 50 * Math.sin(a)).toFixed(1)
-        + '" r="3" fill="' + (p.rar === 'S' ? '#B67CF0' : '#E6F0FA') + '" stroke="' + rim[3] + '" stroke-width="1"/>';
+        + '" r="3" fill="' + (p.rar === 'S' ? c[1] : c[0]) + '" stroke="' + rim[3] + '" stroke-width="1"/>';
     }
   }
   return '<svg viewBox="0 0 120 130" aria-hidden="true" focusable="false"><defs>'
@@ -201,10 +439,11 @@ function dkpMedalSVG(p){
 function dkpMedal(p, opt){
   opt = opt || {};
   if(!p) return '';
-  var sz = opt.size || 96;
+  var sz = opt.size || 96, e = dkpElem(p.id);
   var plus = (typeof opt.plus === 'number') ? '<b class="dkp-plus' + (opt.plus >= 7 ? ' mx' : '') + '">+' + opt.plus + '</b>' : '';
   var rt = opt.rt ? '<i class="dkp-rt r' + p.rar + '">' + dkpRarNm(p.rar) + '</i>' : '';
-  return '<span class="dkp-medal r' + p.rar + (opt.cls ? ' ' + opt.cls : '') + '" style="--ms:' + sz + 'px">'
+  return '<span class="dkp-medal r' + p.rar + ' dkp-e-' + e.key + (opt.cls ? ' ' + opt.cls : '')
+    + '" style="--ms:' + sz + 'px;--e1:' + e.c[0] + ';--e2:' + e.c[1] + ';--e3:' + e.c[2] + '">'
     + dkpMedalSVG(p) + rt + plus + '</span>';
 }
 /* 王冠とサイコロの紋章（カードの裏・見出しの飾り） */
@@ -533,9 +772,13 @@ function dkpBookHas(id){ return dkpOwn(id) || !!(SV.book && SV.book.pmax && SV.b
 function dkpBookCount(){ return PENDANTS.filter(function(p){ return dkpBookHas(p.id); }).length; }
 function dkpClaimed(k){ return !!(SV.book && SV.book.claim && SV.book.claim[k]); }
 function dkpRewards(){
-  return [ { k:'pb3', need:3, nm:'3種 登録', ic:'gold', v:'3,000G' },
-           { k:'pb5', need:5, nm:'5種 登録', ic:'gem',  v:'ダイヤ 8' },
-           { k:'pb8', need:8, nm:'8種 登録', ic:'up',   v:'強化費 −20%（ずっと）' } ];
+  var all = PENDANTS.length;
+  var L = [ { k:'pb3', need:3, nm:'3種 登録', ic:'gold', v:'3,000G' },
+            { k:'pb5', need:5, nm:'5種 登録', ic:'gem',  v:'ダイヤ 8' },
+            { k:'pb8', need:8, nm:'8種 登録', ic:'up',   v:'強化費 −20%（ずっと）' },
+            { k:'pb12', need:12, nm:'12種 登録', ic:'gem',  v:'ダイヤ 20' },
+            { k:'pb16', need:16, nm:'16種 登録', ic:'gold', v:'30,000G' } ];
+  return L.filter(function(r){ return r.need <= all; });
 }
 function dkpClaimReady(){
   var n = dkpBookCount();
@@ -549,6 +792,8 @@ function dkpClaim(k){
   SV.book.claim[k] = 1;
   if(k === 'pb3') SV.gold += 3000;
   if(k === 'pb5') SV.gem += 8;
+  if(k === 'pb12') SV.gem += 20;
+  if(k === 'pb16') SV.gold += 30000;
   saveNow();
   return true;
 }
@@ -683,6 +928,9 @@ function dkpDetail(p){
     +     '<span class="dkp-bar"><i style="--w:' + dkpPct(now) + '%"></i><em style="--x:' + dkpPct(max) + '%"></em></span>'
     +     '<b>' + dkpPct(now) + '%</b></div>'
     +   '<p class="dkp-dmax">+7 にすると <b>' + dkpPct(max) + '%</b>　・　' + esc(dkpTrg(p.trg)) + '　・　重なり ' + d + '</p>'
+    +   '<div class="dkp-elrow">' + dkpElChip(p, 'big')
+    +     '<span class="dkp-elds">' + esc(dkpElem(p.id).nm) + 'の力　' + esc(dkpTrg(p.trg)) + 'に発動します</span>'
+    +     '<button class="dkbtn dkp-wood dkp-elbtn" data-dkp-act="efx" data-dkp-id="' + p.id + '">発動演出</button></div>'
     +   (same && slot < 0 ? '<p class="dkp-warn sm">装備中の' + esc(dkpShort(same)) + 'と同じ系統です（高い方だけ発動）</p>' : '')
     +   '<div class="dkp-dbtns">'
     +     (slot >= 0 ? '<button class="dkbtn dkp-off" data-dkp-act="off" data-dkp-slot="' + slot + '">解除</button>'
@@ -842,6 +1090,7 @@ function dkpBodyBook(){
     return '<div class="dkp-bk ' + st + ' r' + p.rar + '" data-fx="pop">'
       + dkpMedal(p, { size:104, cls:(st === 'own' ? '' : 'dkp-' + st) })
       + '<span class="dkp-rtag r' + p.rar + '">' + dkpRarNm(p.rar) + '</span>'
+      + (st === 'unseen' ? '' : dkpElChip(p, 'bk'))
       + '<b class="dkp-bnm">' + (st === 'unseen' ? '？？？' : esc(dkpShort(p))) + '</b>'
       + (st === 'own'
         ? '<em class="dkp-bmx">最高 +' + (Math.max(1, Math.min(8, mx | 0)) - 1) + '</em>'
@@ -924,6 +1173,11 @@ function dkpPendClick(e){
     SV.aim.pend = (SV.aim.pend === id) ? null : id; saveNow(); showPend(); return; }
   if(a === 'mixgo'){ dkpMixRun(); return; }
   if(a === 'claim'){ dkpDoClaim(v, t); return; }
+  if(a === 'efx'){
+    var pe = pendById(id) || pendById(S.sel);
+    if(pe) dkpElemPlay(document.querySelector('#pend .dkp-show .dkp-medal') || t, pe.id);
+    return;
+  }
 }
 function dkpDoOff(slot, btn){
   var p = pendById(SV.slots[slot]); if(!p) return;
@@ -1146,12 +1400,13 @@ async function dkpMixRun(){
 }
 function dkpDoClaim(k, btn){
   var from = btn ? fxPt(btn) : { x:1200, y:600 };
+  var rw = dkpRewards().filter(function(x){ return x.k === k; })[0];
   if(!dkpClaim(k)) return;
   dkpSfx('coin');
   fxBurst(from, { kind:'conf', n:22 });
-  if(k === 'pb3') fxCoins(from, fxWalletEl('gold'), { kind:'coin', n:12 });
-  if(k === 'pb5') fxCoins(from, fxWalletEl('gem'), { kind:'gem', n:8 });
-  toast('R', '📖', '図鑑の報酬を受け取りました', k === 'pb8' ? 'これからずっと、ペンダントの強化費が −20%' : (k === 'pb3' ? '+3,000G' : 'ダイヤ +8'), 2400);
+  if(k === 'pb3' || k === 'pb16') fxCoins(from, fxWalletEl('gold'), { kind:'coin', n:12 });
+  if(k === 'pb5' || k === 'pb12') fxCoins(from, fxWalletEl('gem'), { kind:'gem', n:8 });
+  toast('R', '📖', '図鑑の報酬を受け取りました', rw ? rw.v : '', 2400);
   showPend();
   dkWallet();
 }
@@ -1502,18 +1757,15 @@ async function dkpReveal(P){
     P.flipped = i + 1; dkpRevSync();
     var card = dkpGEl('.dkp-ps[data-i="' + i + '"] .pullcard');
     if(card){
-      if(it.rar === 'SS'){
-        fxBurst(card, { kind:'conf', n:26, power:1.1 });
-        fxBurst(card, { kind:'star', n:14, power:.9 });
-        fxPopText(card, 'S+ 獲得！', { tone:'gold', size:54 });
-        dkpSfx('gachaRare');
-      } else if(it.rar === 'S'){
-        fxBurst(card, { kind:'star', n:16, power:.9, color:'#C9A0F0' });
-        dkpSfx('diceDouble');
-      } else {
-        fxBurst(card, { kind:'star', n:8, power:.6 });
-        dkpSfx('coin');
-      }
+      /* 等級で閃光の色と音を変える（A＝青・S＝紫・S+＝金） */
+      var R = DKP_RARFX[it.rar] || DKP_RARFX.A;
+      dkpFlashCol('gStage', R.c);
+      fxBurst(card, { kind:R.burst, n:R.n, power:R.pow, color:R.c });
+      if(it.rar === 'SS'){ fxBurst(card, { kind:'star', n:14, power:.9 }); fxPopText(card, 'S+ 獲得！', { tone:'gold', size:54 }); }
+      else if(it.rar === 'S') fxBurst(card, { kind:'star', n:10, power:.8 });
+      dkpSfx(R.sfx);
+      /* ペンダントは、そのうえで属性ごとの光と音（16種を見分ける） */
+      if(it.kind === 'pend' && it.p) dkpElemPlay(card, it.p.id);
     }
     await fxWait(380 + 140);
   }
@@ -1713,10 +1965,13 @@ async function dkpCubeOpen(i, btn){
         { transform:'rotate(-6deg) scale(.92)' }, { transform:'rotate(5deg) scale(.92)' }, { transform:'rotate(0) scale(1.1)' }], { duration:520, easing:'linear' }); }catch(e){}
       await fxWait(520);
     }
-    fxFlash();
-    fxBurst(big || { x:560, y:430 }, { kind:'star', n:26, power:1.3 });
-    if(c.kind === 'gold' || c.kind === 'dia'){ fxBurst(big || { x:560, y:430 }, { kind:'conf', n:30, power:1.2 }); dkpSfx('gachaRare'); }
-    else dkpSfx('coinBurst');
+    /* キューブの種類で閃光の色と音を変える（ウッド＜シルバー＜ゴールド＜ダイヤ） */
+    var CK = DKP_CUBEK[c.kind] || DKP_CUBEK.wood, hi = (c.kind === 'gold' || c.kind === 'dia');
+    dkpFlashCol('dkpCPed', CK.c[0]);
+    if(hi) fxFlash();
+    fxBurst(big || { x:560, y:430 }, { kind:'star', n:(hi ? 28 : 18), power:(hi ? 1.35 : 1.05) });
+    fxBurst(big || { x:560, y:430 }, { kind:'conf', n:(hi ? 30 : 14), power:1.2, color:CK.c[1] });
+    dkpSfx(hi ? 'gachaRare' : 'coinBurst');
   } catch(e){ console.error('[WP16a]', e); }
   finally {
     S.cres = { kind:c.kind, got:r };
