@@ -41,14 +41,126 @@ var DKC_CTABS = [
 var DKC_DTABS = [
   { id:'dice', nm:'サイコロ' }, { id:'up', nm:'強化' }, { id:'kiwami', nm:'極' }, { id:'book', nm:'図鑑' }
 ];
-/* サイコロの粒と着地音（G05）：黄金＝金貨・LED＝光の点・トランプ＝♠♥♦♣・亡者＝紫の鬼火・ふつう＝木くず */
-var DKC_DPART = { d0:{ k:'wood', nm:'木くず' }, d1:{ k:'coin', nm:'金貨' }, d2:{ k:'led', nm:'光の点' },
-                  d3:{ k:'suit', nm:'トランプの札' }, d4:{ k:'wisp', nm:'紫の鬼火' } };
+/* サイコロの粒・軌跡・着地音（G05）：種類ごとに形と音を変える。
+   tr＝軌跡（w＝太さの倍率／dash＝点線／add＝光を足す描き方） */
+var DKC_DPART = {
+  d0:{ k:'wood', nm:'木くず',       tr:{ w:0.8,  dash:false, add:false } },
+  d1:{ k:'coin', nm:'金貨',         tr:{ w:1.15, dash:false, add:true } },
+  d2:{ k:'led',  nm:'光の点',       tr:{ w:0.7,  dash:false, add:true } },
+  d3:{ k:'suit', nm:'トランプの札', tr:{ w:1,    dash:true,  add:false } },
+  d4:{ k:'wisp', nm:'紫の鬼火',     tr:{ w:1.3,  dash:false, add:true } }
+};
 /* サイコロの能力（J42）の Lv1値・MAX値。本物は WP12a の DKCORE_DIEAB（C05）。無い間だけこの表で見せる */
 var DKC_DAB = { d0:{}, d1:{ fortune:[5, 20], gauge:[6, 25] }, d2:{ build:[5, 20], gauge:[5, 20], gold:[5, 20] },
                 d3:{ mini:[8, 30], oddeven:[1, 1] }, d4:{ buyout:[6, 25], rp:[6, 25] } };
 var DKC_ABNM = { mini:['ミニゲーム勝利', 'p'], fortune:['黄金フォーチュン', 'p'], build:['建設費用割引', 'p'], gauge:['ゲージインパクト', 'p'],
                  buyout:['買収費用割引', 'p'], gold:['ゴールドボーナス', '%'], rp:['RPボーナス', '%'], oddeven:['偶数奇数', '回'] };
+/* ══════════════════════════════════════════════════════════════
+   増やしたぶん（社長のご要望 2026-09-12）
+   ──────────────────────────────────────────────────────────────
+   DKC_DADD  サイコロ 5種→8種（粒・軌跡・着地音・色・能力を1つずつ変える）
+   DKC_SKADD カードの能力 11種→20種（効き目は既にある仕掛け＝eff を使い回し、
+             強さ x と発動する時 when の組み合わせと名前を変える。新しい発動は足さない）
+   DKC_SKMAP カード24枚 → 能力の番号（20種を全部使い、4枚だけ同じ能力を分け合う）
+   ══════════════════════════════════════════════════════════════ */
+var DKC_DADD = [
+  { id:'d5', nm:'桜花のサイコロ', ic:'🌸', rar:'S',  col:'#FFB7D5', gauge:6,
+    ds:'黄金フォーチュンとミニゲームに強い。振ると桜が舞う。',
+    ab:{ fortune:[4, 16], mini:[6, 24] },
+    part:{ k:'petal', nm:'桜の花びら', tr:{ w:1, dash:false, add:false } }, tint:{ c:'#FF8FC0' } },
+  { id:'d6', nm:'機巧のサイコロ', ic:'⚙️', rar:'S+', col:'#C8D8E8', gauge:10,
+    ds:'建設費用を大きく削る。振ると歯車が回る。',
+    ab:{ build:[7, 28], gauge:[4, 16] },
+    part:{ k:'gear', nm:'歯車', tr:{ w:0.9, dash:true, add:false } }, tint:{ c:'#8FA8C0' } },
+  { id:'d7', nm:'星霜のサイコロ', ic:'🌟', rar:'S+', col:'#FFE27A', gauge:7,
+    ds:'ゴールドと RP のボーナスが大きい。振ると星の砂が散る。',
+    ab:{ gold:[7, 28], rp:[7, 28] },
+    part:{ k:'starp', nm:'星の砂', tr:{ w:1.2, dash:false, add:true } }, tint:{ c:'#FFD24D' } }
+];
+var DKC_SKADD = [
+  { when:'own',    eff:'tollUp',   x:1.30, ic:'📈', nm:'地脈の高騰',   txt:'所有している地域の通行料が30%値上げ' },
+  { when:'own',    eff:'tollUp',   x:1.50, ic:'🌋', nm:'暴騰の呪',     txt:'所有している地域の通行料が50%値上げ' },
+  { when:'build',  eff:'buildCut', x:0.70, ic:'🧱', nm:'堅実な普請',   txt:'建設費用が30%割引になります' },
+  { when:'build',  eff:'buildCut', x:0.25, ic:'🏗', nm:'神速の職人',   txt:'建設費用が75%割引になります' },
+  { when:'buyout', eff:'buyCut',   x:0.70, ic:'🤝', nm:'値切りの舌',   txt:'買収費用が30%割引になります' },
+  { when:'buyout', eff:'buyCut',   x:0.25, ic:'💼', nm:'強奪の商談',   txt:'買収費用が75%割引になります' },
+  { when:'arrive', eff:'steal',    x:0.25, ic:'🗝', nm:'大盗の手',     txt:'相手の所持マーブルの25%を奪います' },
+  { when:'salary', eff:'salary',   x:1.50, ic:'🌬', nm:'黄金の追い風', txt:'スタート地点を通過すると給料の150%を獲得' },
+  { when:'toll',   eff:'free',     x:0,    ic:'💠', nm:'絶対防壁',     txt:'通行料が免除されます' }
+];
+var DKC_SKMAP = { c01:12, c02:0,  c03:4,  c04:1,  c05:9,  c06:5,  c07:7,  c08:10,
+                  c09:13, c10:19, c11:2,  c12:6,  c13:17, c14:11, c15:1,  c16:10,
+                  c17:9,  c18:3,  c19:16, c20:2,  c21:15, c22:14, c23:8,  c24:18 };
+/* サイコロを DICE へ足し、読み込みのときに「知らない id」として落ちた分をセーブへ戻す
+   （5-meta.js の loadSave は 9c より前に走る） */
+function dkcAddDice(){
+  if(typeof DICE === 'undefined' || !Array.isArray(DICE)) return;
+  var added = 0;
+  DKC_DADD.forEach(function(o){
+    if(!DICE.some(function(x){ return x.id === o.id; })){
+      DICE.push({ id:o.id, nm:o.nm, ic:o.ic, rar:o.rar, col:o.col, ds:o.ds, gauge:o.gauge, dbl:0, big:0 });
+      added++;
+    }
+    if(!DKC_DPART[o.id]) DKC_DPART[o.id] = o.part;
+    if(!DKC_DTINT[o.id]) DKC_DTINT[o.id] = o.tint;
+    if(!DKC_DAB[o.id]) DKC_DAB[o.id] = o.ab;
+    /* 対戦の中の能力（C05）も同じ表で動くようにする。無い版では画面だけ DKC_DAB で出す */
+    try{ if(typeof DKCORE_DIEAB === 'object' && DKCORE_DIEAB && !DKCORE_DIEAB[o.id]) DKCORE_DIEAB[o.id] = o.ab; }catch(e){}
+  });
+  if(!added) return;
+  /* 9b が先にペンダントを直して saveNow する。その前の写し（DKP_RAW0）から読む */
+  var raw = (typeof DKP_RAW0 === 'string') ? DKP_RAW0 : null;
+  if(raw === null){ try{ raw = localStorage.getItem(SAVE_KEY); }catch(e){ raw = null; } }
+  if(!raw) return;
+  var s = null;
+  try{ s = JSON.parse(raw); }catch(e){ s = null; }
+  if(!s || typeof s !== 'object') return;
+  var ok = function(id){ return typeof id === 'string' && DKC_DADD.some(function(x){ return x.id === id; }); }, ch = false;
+  var sd = (s.dice && typeof s.dice === 'object') ? s.dice : {};
+  Object.keys(sd).forEach(function(id){
+    if(!ok(id) || SV.dice[id]) return;
+    var v = sd[id];
+    if(v && typeof v === 'object') v = v.lv;
+    SV.dice[id] = Math.max(1, Math.min(10, (+v) | 0 || 1)); ch = true;
+  });
+  if(ok(s.die) && SV.dice[s.die] && SV.die === 'd0'){ SV.die = s.die; ch = true; }
+  var kw = (s.kiwami && typeof s.kiwami === 'object') ? s.kiwami : {};
+  Object.keys(kw).forEach(function(id){
+    if(!ok(id) || SV.kiwami[id]) return;
+    if(kw[id] === 'atk' || kw[id] === 'def'){ SV.kiwami[id] = kw[id]; ch = true; }
+  });
+  (Array.isArray(s.seen) ? s.seen : []).forEach(function(id){
+    if(ok(id) && SV.seen.indexOf(id) < 0){ SV.seen.push(id); ch = true; }
+  });
+  if(ch) saveNow();
+}
+/* カードの能力を 11種→20種に。仕組み（DKCORE_SKILL・WP12a）が無い版では何もしない */
+function dkcAddSkills(){
+  var S = null;
+  try{ S = (typeof DKCORE_SKILL === 'object' && DKCORE_SKILL) ? DKCORE_SKILL : null; }catch(e){ S = null; }
+  if(!Array.isArray(S) || S.length < 11) return;
+  if(S.length === 11) DKC_SKADD.forEach(function(o){ S.push(o); });
+  if(S.length < 20) return;
+  CARDPOOL.forEach(function(c){
+    var k = DKC_SKMAP[c.id];
+    if(typeof k === 'number' && S[k]) c.kind = k;
+  });
+}
+/* そのカードが本当に使う能力（画面と対戦をそろえる）。仕組みが無い版は表の文をそのまま出す */
+function dkcSkillOf(id){
+  var c = dkcCard(id);
+  if(!c) return null;
+  var S = null;
+  try{ S = (typeof DKCORE_SKILL === 'object' && DKCORE_SKILL) ? DKCORE_SKILL[c.kind] : null; }catch(e){ S = null; }
+  var W = { toll:'通行料を払う時', own:'通行料を受け取る時', salary:'スタートを通過した時',
+            start:'手番のはじめ', arrive:'マスに止まった時', build:'建設する時', buyout:'買収する時' };
+  if(!S || !S.nm) return { nm:c.sk.nm, label:c.sk.nm, ds:c.sk.ds, ic:'✨', when:'対戦中' };
+  var jail = '孤立地域';
+  try{ if(G && G.map && G.map.corners && G.map.corners[1]) jail = G.map.corners[1]; }catch(e){}
+  return { nm:c.sk.nm, label:String(S.nm).replace('{jail}', jail),
+           ds:String(S.txt).replace('{jail}', jail).replace('{x}', String(S.x)),
+           ic:S.ic || '✨', when:(W[S.when] || '対戦中') };
+}
 var DKC_DP = [];                                   // 盤の上のサイコロの粒（転がる間 8個まで・着地 16個）
 var DKC_DFX = { anim:null, last:0, emit:0, land:false, burstN:0, sndN:0, maxRoll:0, spr:null, nz:null };
 /* 画面の状態（セーブには入れない） */
@@ -343,7 +455,8 @@ function dkcWhere(c){
    サイコロ：強化・極・図鑑の計算と、canvas で描くサイコロの絵
    ══════════════════════════════════════════════════════════════ */
 var DKC_DTINT = { d1:{ c:'#F2B21C' }, d2:{ c:'#23C2F0' }, d3:{ c:'#E8436A' }, d4:{ c:'#8A58F0', dark:0.42 } };
-var DKC_DBOOK = [ { n:3, key:'db3', nm:'3,000 ゴールド' }, { n:5, key:'db5', nm:'サイコロ強化費 −20%（ずっと）' } ];
+var DKC_DBOOK = [ { n:3, key:'db3', nm:'3,000 ゴールド' }, { n:5, key:'db5', nm:'サイコロ強化費 −20%（ずっと）' },
+                  { n:8, key:'db8', nm:'ダイヤ 30' } ];
 function dkcDie(id){ return DICE.filter(function(d){ return d.id === id; })[0] || null; }
 function dkcDieOwn(id){ return !!(SV.dice && SV.dice[id]); }
 function dkcDieLv(id){ return Math.max(1, Math.min(10, (SV.dice && SV.dice[id]) | 0 || 1)); }
@@ -574,8 +687,12 @@ function dkcTabOwn(){
     +   '<div class="dkc-exprow"><span class="dkc-expl">EXP</span>'
     +     '<span class="dkbar gd dkc-expb"><i style="width:' + (max ? 100 : Math.round((o.exp || 0) / need * 100)) + '%"></i></span>'
     +     '<b>' + (max ? 'MAX' : dkcFmt(o.exp || 0) + '/' + dkcFmt(need)) + '</b></div>'
-    +   '<div class="ef dkc-ef"><span class="ic">' + dkcSvg('mix') + '</span><div><b>' + esc(c.sk.nm) + '</b>'
-    +     '<p>' + esc(c.sk.ds) + '（1試合 ' + c.sk.uses + '回）</p></div></div>'
+    +   (function(){
+          var sk = dkcSkillOf(c.id) || { label:c.sk.nm, ds:c.sk.ds, when:'対戦中' };
+          return '<div class="ef dkc-ef dkc-skef"><span class="ic">' + dkcSvg('mix') + '</span><div>'
+            + '<b>' + esc(sk.label) + '</b><i class="dkc-skwhen">' + esc(sk.when) + '</i>'
+            + '<p>' + esc(sk.ds) + '</p></div></div>';
+        })()
     +   '<div class="line dkc-line">「' + esc(c.line) + '」</div>'
     +   dkcStatBars(c, o.lv)
     +   (Object.keys(dp).length && dd ? '<p class="dkc-plnote">青い <em>+N</em> は装着中の' + esc(dd.nm) + '（Lv.' + dkcDieLv(dd.id) + '）の上乗せ</p>' : '')
@@ -891,7 +1008,9 @@ function dkcTabBook(){
       + '<span class="lv' + (so ? '' : ' dkc-lvq') + '">' + (so ? 'Lv.' + so.lv + (so.dup ? ' ×' + so.dup : '') : '未所持') + '</span></div>'
       + '<div class="dkc-bookcard">' + dkcBigCard(sel, so ? so.lv : 1, { cls:'dkc-mid', state:ss }) + '</div>'
       + '<div class="dkc-booktx"><p><b>入手先</b>' + esc(dkcWhere(sel)) + '</p>'
-      + (so ? '<p><b>スキル</b>' + esc(sel.sk.nm) + '：' + esc(sel.sk.ds) + '</p>' : '<p>持つとスキルと能力値が見られます。</p>') + '</div>'
+      + (so ? (function(){ var sk = dkcSkillOf(sel.id) || { label:sel.sk.nm, ds:sel.sk.ds, when:'対戦中' };
+                return '<p><b>スキル</b>' + esc(sk.label) + '：' + esc(sk.ds) + '（' + esc(sk.when) + '）</p>'; })()
+            : '<p>持つとスキルと能力値が見られます。</p>') + '</div>'
       + (so ? '<div class="btns"><button class="dkbtn gd dkc-bt" id="dkcBookView">このカードを見る</button></div>' : '');
   }
   var html = '<div class="dkdark dkc-bookL" data-fx="rise">'
@@ -1529,6 +1648,7 @@ function dkcClaimDBook(key, btn){
   var from = fxPt(btn), old = { g:SV.gold, d:SV.gem };
   dkcSetClaim(key);
   if(key === 'db3') SV.gold += 3000;
+  if(key === 'db8') SV.gem += 30;
   saveNow(); dkcSfx('coin');
   showDice();
   dkcWalletFx(from, old);
@@ -1565,19 +1685,22 @@ function dkcDiceFx(ctx){
       if(!st || !st.d) break;
       pts.push(st.d.map(function(q){ return { x:X + q.x, y:Y + q.y - (q.z || 0) }; }));
     }
+    /* 軌跡もサイコロごとに変える（太さ・点線・光の足し方） */
+    var TR = part.tr || { w:1, dash:false, add:true };
     ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalCompositeOperation = TR.add ? 'lighter' : 'source-over';
     ctx.lineCap = 'round';
     for(var i = 0; i < 2; i++){
       for(var k2 = 1; k2 < pts.length; k2++){
+        if(TR.dash && (k2 % 2 === 0)) continue;
         var a0 = pts[k2 - 1][i], a1 = pts[k2][i];
         if(!a0 || !a1) continue;
         var f = 1 - k2 / pts.length;
         ctx.strokeStyle = dkcRgba(col, 0.6 * f);
-        ctx.lineWidth = (30 * f + 4) * wk;
+        ctx.lineWidth = (30 * f + 4) * wk * TR.w;
         ctx.beginPath(); ctx.moveTo(a0.x, a0.y); ctx.lineTo(a1.x, a1.y); ctx.stroke();
         ctx.strokeStyle = dkcRgba('#FFFFFF', 0.55 * f);
-        ctx.lineWidth = (9 * f + 1) * wk;
+        ctx.lineWidth = (9 * f + 1) * wk * TR.w;
         ctx.beginPath(); ctx.moveTo(a0.x, a0.y); ctx.lineTo(a1.x, a1.y); ctx.stroke();
       }
     }
@@ -1686,6 +1809,33 @@ function dkcDSpr(k, i){
     gr.addColorStop(0, '#FFFFFF'); gr.addColorStop(0.3, '#E9D6FF'); gr.addColorStop(0.65, 'rgba(138,88,240,.75)'); gr.addColorStop(1, 'rgba(138,88,240,0)');
     g.fillStyle = gr; g.beginPath(); g.moveTo(16, 1); g.bezierCurveTo(24, 10, 29, 16, 26, 23); g.bezierCurveTo(23, 30, 9, 30, 6, 23);
     g.bezierCurveTo(3, 16, 9, 10, 16, 1); g.fill();
+  } else if(k === 'petal'){
+    gr = g.createRadialGradient(13, 10, 1, 16, 16, 15);
+    gr.addColorStop(0, '#FFFFFF'); gr.addColorStop(0.35, '#FFD8EA'); gr.addColorStop(1, '#F27BAE');
+    g.fillStyle = gr; g.strokeStyle = '#C94F86'; g.lineWidth = 1.4;
+    g.beginPath(); g.moveTo(16, 2); g.bezierCurveTo(27, 8, 28, 22, 16, 30);
+    g.bezierCurveTo(4, 22, 5, 8, 16, 2); g.closePath(); g.fill(); g.stroke();
+    g.strokeStyle = 'rgba(201,79,134,.6)'; g.lineWidth = 1.2;
+    g.beginPath(); g.moveTo(16, 6); g.lineTo(16, 27); g.stroke();
+  } else if(k === 'gear'){
+    g.fillStyle = '#C8D8E8'; g.strokeStyle = '#41566B'; g.lineWidth = 1.8;
+    g.beginPath();
+    for(var t2 = 0; t2 < 16; t2++){
+      var an = Math.PI * t2 / 8, rr = (t2 % 2) ? 9.5 : 14;
+      var px = 16 + rr * Math.cos(an), py = 16 + rr * Math.sin(an);
+      if(t2) g.lineTo(px, py); else g.moveTo(px, py);
+    }
+    g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = '#41566B'; g.beginPath(); g.arc(16, 16, 4.2, 0, 6.2832); g.fill();
+  } else if(k === 'starp'){
+    gr = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+    gr.addColorStop(0, '#FFFFFF'); gr.addColorStop(0.3, '#FFF0B8'); gr.addColorStop(0.7, 'rgba(255,210,77,.6)'); gr.addColorStop(1, 'rgba(255,210,77,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 32, 32);
+    g.fillStyle = '#FFFDF0';
+    g.beginPath();
+    g.moveTo(16, 1); g.lineTo(18.4, 13.6); g.lineTo(31, 16); g.lineTo(18.4, 18.4); g.lineTo(16, 31);
+    g.lineTo(13.6, 18.4); g.lineTo(1, 16); g.lineTo(13.6, 13.6);
+    g.closePath(); g.fill();
   } else if(k === 'suit'){
     var j = (i | 0) % 4;
     g.fillStyle = '#FFFFFF'; g.strokeStyle = '#3A2405'; g.lineWidth = 2;
@@ -1735,6 +1885,9 @@ function dkcDieSnd(id){
     else if(id === 'd2'){ tone('square', 880, 1760, 0.09, 0.05); tone('sine', 2640, 0, 0.22, 0.08, 0.08); tone('triangle', 1320, 0, 0.2, 0.06, 0.12); }
     else if(id === 'd3'){ nz(3200, 1.2, 0.07, 0.12); tone('triangle', 660, 990, 0.14, 0.1, 0.05); nz(2400, 1.5, 0.06, 0.08, 0.12); }
     else if(id === 'd4'){ tone('sine', 330, 110, 0.6, 0.12); tone('triangle', 165, 82, 0.7, 0.08); nz(600, 0.8, 0.5, 0.05); }
+    else if(id === 'd5'){ tone('sine', 1175, 0, 0.42, 0.1); tone('sine', 1760, 0, 0.34, 0.06, 0.06); nz(3400, 2.2, 0.18, 0.04, 0.02); }
+    else if(id === 'd6'){ nz(1800, 3.5, 0.05, 0.14); nz(1100, 2.8, 0.05, 0.1, 0.07); tone('square', 220, 160, 0.1, 0.05, 0.13); }
+    else if(id === 'd7'){ tone('triangle', 2093, 0, 0.55, 0.1); tone('sine', 2637, 0, 0.4, 0.06, 0.07); tone('sine', 3136, 0, 0.3, 0.04, 0.14); }
     else { tone('triangle', 220, 120, 0.2, 0.14); nz(1400, 1.2, 0.04, 0.1); tone('sine', 440, 300, 0.12, 0.05, 0.05); }
     setTimeout(function(){ try{ out.disconnect(); }catch(e){} }, 1500);
   }catch(e){}
@@ -1784,6 +1937,10 @@ function dkcSeenMatch(){
 
 /* ══════════ 初期化 ══════════ */
 (function(){
+  try{
+    dkcAddDice();
+    dkcAddSkills();
+  }catch(e){ console.error('[WP16a]', e); }
   try{
     dkcDefs();
     if(typeof drawDice === 'function' && !drawDice._dkcWrap){
