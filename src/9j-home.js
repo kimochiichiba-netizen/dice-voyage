@@ -48,22 +48,26 @@ var DKH_WRW = [
   { g:8000,  d:3 },
   { g:3000,  d:0 }
 ];
-/* ホームの縦のボタン（本家ロビーの文言） */
+/* ホームの縦のボタン（本家ロビーの文言）。t＝艶タイルの色・ri＝タイルに入れる絵（assets/ui2） */
 var DKH_LEFT = [
-  { id:'cards', ic:'card', nm:'キャラクター<br>カード', m:'ruby'  },
-  { id:'dice',  ic:'dice', nm:'サイコロ',   m:'amber' },
-  { id:'pend',  ic:'pend', nm:'ペンダント', m:'emer'  },
-  { id:'cube',  ic:'cube', nm:'キューブ',   m:'sapph' },
-  { id:'gacha', ic:'shop', nm:'ガチャ<br>/ショップ', m:'amet' }
+  { id:'cards', ic:'card', nm:'キャラクター<br>カード', m:'ruby',  t:'orange', ri:'card' },
+  { id:'dice',  ic:'dice', nm:'サイコロ',   m:'amber', t:'blue',   ri:'dice' },
+  { id:'pend',  ic:'pend', nm:'ペンダント', m:'emer',  t:'green',  ri:'pend' },
+  { id:'cube',  ic:'cube', nm:'キューブ',   m:'sapph', t:'purple', ri:'cube' },
+  { id:'gacha', ic:'shop', nm:'ガチャ<br>/ショップ', m:'amet', t:'pink', ri:'shop' }
 ];
-/* 右の縦のボタンは5つ（お手本と同じ並び）。設定は上段の右端の⚙へ移した（行き先は同じ dkGo('settings')） */
+/* 右の縦のボタンは5つ（お手本と同じ並び）。設定は上段の右端の⚙へ移した（行き先は同じ dkGo('settings')）。
+   色は左右で段ごとにずらす（同じ高さに同じ色を並べない＝お手本の色分けが効く） */
 var DKH_RIGHT = [
-  { id:'quest',    ic:'scroll', nm:'ミッション', m:'amber' },
-  { id:'news',     ic:'horn',   nm:'イベント',   m:'ruby'  },
-  { id:'daily',    ic:'cal',    nm:'出席簿',     m:'sapph' },
-  { id:'friends',  ic:'duo',    nm:'友達',       m:'emer'  },
-  { id:'guide',    ic:'book',   nm:'ガイド',     m:'amet'  }
+  { id:'quest',    ic:'scroll', nm:'ミッション', m:'amber', t:'purple', ri:'mission' },
+  { id:'news',     ic:'horn',   nm:'イベント',   m:'ruby',  t:'orange', ri:'event' },
+  { id:'daily',    ic:'cal',    nm:'出席簿',     m:'sapph', t:'blue',   ri:'daily' },
+  { id:'friends',  ic:'duo',    nm:'友達',       m:'emer',  t:'green',  ri:'friend' },
+  { id:'guide',    ic:'book',   nm:'ガイド',     m:'amet',  t:'pink',   ri:'guide' }
 ];
+/* 週替わりイベントの絵（絵文字のかわり。assets/ui2 の名前。無ければ今までの絵文字が出る） */
+var DKH_WKPIC = { gold:'ico-coins', sale:'rail-icon-shop', toll:'gem2-red', luck:'rail-icon-card',
+                  mini:'deco-candle', dice:'ico-dice', mono:'ico-crown' };
 var DKH_NTABS = [
   { id:'week', ic:'horn',   nm:'今週' },
   { id:'info', ic:'scroll', nm:'お知らせ' },
@@ -169,15 +173,29 @@ function dkhUi2(k){ try{ return (window.DV_UI2 || {})[k] || ''; }catch(e){ retur
 function dkhU2(k){ var u = dkhUi2(k); return u ? 'url(' + u + ')' : 'none'; }
 /* レールのメダルに敷く宝石（お手本の「色分けした宝石アイコン」） */
 var DKH_GEMS = { ruby:'gem2-red', amber:'gem2-sun', emer:'gem2-green', sapph:'gem2-blue', amet:'gem2-moon', wood:'gem2-sakura' };
+/* 画面の空いた所を埋める描き絵（机の小物・旗・紙の透かし）。名前は assets/ui2 のファイル名 */
+var DKH_VARS = ['desk-props-l', 'desk-props-r', 'deco-banner', 'deco-globe', 'deco-cushion',
+                'art-mail', 'art-friends', 'art-chest', 'ico-coins', 'ico-scroll', 'ico-crown'];
 /* 素材を CSS 変数で1回だけ配る（data URI を HTML に何度も書かないため、置き場は <html>） */
 function dkhSkinVars(){
   try{
-    var r = document.documentElement, k;
+    var r = document.documentElement, k, i;
     if(!r || !r.style || r.style.getPropertyValue('--dkh-wood-img')) return;
     r.style.setProperty('--dkh-wood-img', dkhU2('wood'));
     r.style.setProperty('--dkh-candle-img', dkhU2('deco-candle'));
     for(k in DKH_GEMS) if(Object.prototype.hasOwnProperty.call(DKH_GEMS, k)) r.style.setProperty('--dkh-gem-' + k, dkhU2(DKH_GEMS[k]));
+    for(i = 0; i < DKH_VARS.length; i++) r.style.setProperty('--dkh-' + DKH_VARS[i], dkhU2(DKH_VARS[i]));
+    for(k in DKH_WKPIC) if(Object.prototype.hasOwnProperty.call(DKH_WKPIC, k)) r.style.setProperty('--dkh-wk-' + k, dkhU2(DKH_WKPIC[k]));
   }catch(e){}
+}
+/* 空いた所を埋める描き絵の器（止まった絵・押せない・文字なし。中身は 1t-home.html の背景で決める） */
+function dkhProps(cls){ return '<i class="dkh-props ' + cls + ' fx-deco" aria-hidden="true"></i>'; }
+/* 週替わりイベントの絵（絵文字のかわりに描き絵。素材が無い時は今までの絵文字のまま） */
+function dkhWkIc(w, cls){
+  var id = (w && w.id) || '', k = DKH_WKPIC[id] || '';
+  return (k && dkhUi2(k))
+    ? '<i class="' + cls + ' dkh-wkp" aria-hidden="true" style="--dkh-wp:var(--dkh-wk-' + id + ',none)"></i>'
+    : '<i class="' + cls + '">' + ((w && w.ic) || '') + '</i>';
 }
 /* 画面の器に共通スキンを当てる（地の絵だけ。枠・タブ・ボタンは 1t-home.html が --sk-* を読んで自分で描く） */
 function dkhSkin(el, bg){
@@ -578,11 +596,24 @@ function dkhRail(list, side){
       else if(t.id === 'gacha' && typeof freeLeft === 'function' && freeLeft() === 0) b = '!';
       else if(t.id === 'cube' && Array.isArray(SV.cubes) && SV.cubes.length) b = String(Math.min(7, SV.cubes.length));
     }catch(e){}
-    return '<div class="dkh-rb" data-dkgo="' + t.id + '" data-fx="' + (side === 'l' ? 'riseL' : 'riseR') + '" role="button">'
-      + '<i class="dkh-med ' + t.m + '">' + dkhIcon(t.ic) + '<i class="dkh-gl" aria-hidden="true"></i></i>'
-      + '<b class="dkh-rbt' + (t.nm.indexOf('<br>') > 0 ? ' two' : '') + '">' + t.nm + '</b>'
+    return '<div class="dkh-rb" data-dkgo="' + t.id + '" data-dkh-rail="' + t.t + ':' + t.ri + '"'
+      + ' data-fx="' + (side === 'l' ? 'riseL' : 'riseR') + '" role="button">'
+      + '<i class="ic dkh-med ' + t.m + '">' + dkhIcon(t.ic) + '<i class="dkh-gl" aria-hidden="true"></i></i>'
+      + '<b class="tx dkh-rbt' + (t.nm.indexOf('<br>') > 0 ? ' two' : '') + '">' + t.nm + '</b>'
       + (b ? '<em class="dkh-badge">' + b + '</em>' : '') + '</div>';
   }).join('') + '</div>';
+}
+/* レールを「色分けの艶タイル＋太い金枠＋大きな絵」にする（共通スキンの dkskRail）。
+   素材が無ければ何もしない＝今までの宝石メダルのまま崩れない */
+function dkhWireRails(el){
+  if(!el) return;
+  el.querySelectorAll('[data-dkh-rail]').forEach(function(n){
+    var v = String(n.getAttribute('data-dkh-rail') || '').split(':');
+    var tile = dkhUi2('rail-tile-' + v[0]), icon = dkhUi2('rail-icon-' + v[1]);
+    if(!tile && !icon) return;
+    try{ if(typeof dkskRail === 'function') dkskRail(n, v[0], v[1]); }catch(e){}
+    if(icon) n.classList.add('dkh-rion');
+  });
 }
 function dkhRowHTML(r, no, tab, i){
   var t = dkhTier(r.rp);
@@ -704,12 +735,24 @@ function showHome(){
     var e = document.getElementById('dkhLeft'), s = dkhWeekLeft();
     if(e && e.isConnected && e.textContent !== s) e.textContent = s;
   }, 20000);
-  dkhGlint(el, '.dkh-med > .dkh-gl, .dkh-pic > .dkh-gl, .dkh-ev > .dkh-gl', 'dkh-glint');
+  dkhGlint(el, '.dkh-rb > .ic > .dkh-gl, .dkh-pic > .dkh-gl, .dkh-ev > .dkh-gl', 'dkh-glint');
   if(SV.tierUp) setTimeout(dkhTierUpFx, 700);
   try{ bgm('lobby'); }catch(e){}
   return el;
 }
 function dkhWireHome(el){
+  dkhWireRails(el);
+  /* 中央のカードを銀＋金の留め金つき写真額に（お手本の中央カード）。留め金が出たら赤いひもは隠す */
+  try{
+    var card = el.querySelector('.dkh-card');
+    if(card && typeof dkskCardFrame === 'function'){
+      dkskCardFrame(card);
+      if(card.querySelector('.sk-clamp')){
+        var sp = el.querySelector('.dkh-strap');
+        if(sp) sp.classList.add('dkh-hid');
+      }
+    }
+  }catch(e){}
   var go = el.querySelector('#dkEnter');
   if(go) go.onclick = function(){
     if(go._busy) return; go._busy = 1;
@@ -936,11 +979,11 @@ function dkhNewsWeek(){
   for(var k = 0; k < 4; k++){
     var t0 = dkhWeekStart(k), wk = thisWeek(t0 + 3600000);
     sched += '<div class="dkh-sc' + (k === 0 ? ' now' : '') + '"><span class="dkh-scwhen">'
-      + ['今週', '来週', '再来週', '3週間後'][k] + '</span><i class="dkh-scic">' + wk.ic + '</i>'
+      + ['今週', '来週', '再来週', '3週間後'][k] + '</span>' + dkhWkIc(wk, 'dkh-scic')
       + '<b class="dkh-scnm">' + esc(wk.nm) + '</b><span class="dkh-scd">' + dkhMD(t0) + '〜</span></div>';
   }
   return '<div class="dkh-wkban" data-fx="pop"><span class="dkh-wkrib"><b>今週のイベント</b></span>'
-    + '<div class="dkh-wkmain"><i class="dkh-wkic">' + w.ic + '</i>'
+    + '<div class="dkh-wkmain">' + dkhWkIc(w, 'dkh-wkic')
     +   '<div class="dkh-wktx"><b class="dkh-wknm">' + esc(w.nm) + '</b><p class="dkh-wkds">' + esc(w.ds) + '</p></div></div>'
     + '<div class="dkh-wkleft"><span>のこり</span><b id="dkhWeekLeft">' + dkhWeekLeftTxt() + '</b>'
     +   '<em>毎週 月曜 朝5時に切り替わります</em></div></div>'
@@ -996,6 +1039,7 @@ function showNews(tab){
   var tabs = DKH_NTABS.map(function(t){ return { id:t.id, ic:dkhIcon(t.ic), nm:t.nm }; });
   var body = (T === 'info') ? dkhNewsInfo() : (T === 'tips') ? dkhNewsTips() : dkhNewsWeek();
   var el = dkhAmb(dkMake('news', 'quest', dkHead('news', { title:'イベント' }) + dkTabs(tabs, T)
+    + dkhProps('dkh-pnews')
     + '<div class="dkh-nbody" data-tab="' + T + '">' + body + '</div>'));
   el.classList.add('dkh-news');
   dkhSkin(el, 'hall');
@@ -1037,13 +1081,14 @@ function showMail(){
   var rows = list.map(dkhMailRow).join('');
   var el = dkhAmb(dkMake('mail', 'quest', dkHead('mail', { title:'プレゼントボックス' })
     + '<div class="dkh-mb">'
-    +   '<div class="dkh-mlist dkh-parch" data-fx="rise"><div class="dkh-lhd"><span class="sk-ribbon dkh-lrib">プレゼント</span><span>' + list.length + '件</span>'
+    +   '<div class="dkh-mlist dkh-parch sk-frame2" data-fx="rise"><div class="dkh-lhd"><span class="sk-ribbon dkh-lrib">プレゼント</span><span>' + list.length + '件</span>'
     +     '<em class="dkh-mwarn">プレゼントの保管期限は30日間です</em></div>'
-    +     '<div class="dkh-mrows" data-fx-step="40">' + (rows || ('<div class="dkh-empty sk-empty">'
-    +       (dkhPic2('hero2-chest') || '<i class="dkh-emptyic">' + dkhIcon('mail') + '</i>')
-    +       '<b>プレゼントは届いていません</b><span>ランキングの報酬や、対戦で獲得したアイテムはここに届きます</span></div>')) + '</div></div>'
-    +   '<div class="dkh-mside fx-panel" data-fx="riseR">'
-    +     (dkhPic2('good2-gold', 'dkh-msic2') || '<i class="dkh-msic">' + dkhIcon('mail') + '</i>')
+    +     '<div class="dkh-mrows dkh-crest" data-fx-step="40">' + (rows || ('<div class="dkh-empty sk-empty">'
+    +       (dkhPic2('art-mail', 'dkh-bigart') || '<i class="dkh-emptyic">' + dkhIcon('mail') + '</i>')
+    +       '<b>プレゼントは届いていません</b><span>ランキングの報酬や、対戦で獲得したアイテムはここに届きます</span>'
+    +       '</div>')) + '</div></div>'
+    +   '<div class="dkh-mside fx-panel sk-frame2" data-fx="riseR">'
+    +     (dkhPic2('art-chest', 'dkh-msic2') || '<i class="dkh-msic">' + dkhIcon('mail') + '</i>')
     +     '<b class="dkh-mst">受け取れる報酬</b>'
     +     '<div class="dkh-msum"><span><i class="dkh-coin"></i><b>' + dkhNum(sg) + '</b></span>'
     +       '<span><i class="dkh-gem"></i><b>' + dkhNum(sd) + '</b></span>'
@@ -1129,12 +1174,14 @@ function showFriends(){
   }).join('');
   var el = dkhAmb(dkMake('friends', 'home', dkHead('friends', { title:'友達' })
     + '<div class="dkh-fb">'
-    +   '<div class="dkh-frlist dkh-parch" data-fx="rise"><div class="dkh-lhd"><span class="sk-ribbon dkh-lrib">ゲーム友だち</span><span>' + fr.length + '人</span></div>'
-    +     '<div class="dkh-frrows" data-fx-step="40">' + (rows || ('<div class="dkh-empty sk-empty">'
-    +       (dkhPic2('ico-pawn', 'dkh-frbig') || '<i class="dkh-emptyic">' + dkhIcon('duo') + '</i>')
-    +       '<b>オンラインで遊んだ相手が、ここに並びます</b><span>名前・いっしょに遊んだ回数・最後に遊んだ日を覚えておきます</span></div>')) + '</div></div>'
-    +   '<div class="dkh-frside fx-panel" data-fx="riseR">'
-    +     '<div class="dkh-globe" aria-hidden="true"><i class="dkh-orbit"></i>' + dkhIcon('globe') + '</div>'
+    +   '<div class="dkh-frlist dkh-parch sk-frame2" data-fx="rise"><div class="dkh-lhd"><span class="sk-ribbon dkh-lrib">ゲーム友だち</span><span>' + fr.length + '人</span></div>'
+    +     '<div class="dkh-frrows dkh-crest" data-fx-step="40">' + (rows || ('<div class="dkh-empty sk-empty">'
+    +       (dkhPic2('art-friends', 'dkh-bigart') || '<i class="dkh-emptyic">' + dkhIcon('duo') + '</i>')
+    +       '<b>オンラインで遊んだ相手が、ここに並びます</b><span>名前・いっしょに遊んだ回数・最後に遊んだ日を覚えておきます</span>'
+    +       '</div>')) + '</div></div>'
+    +   '<div class="dkh-frside fx-panel sk-frame2" data-fx="riseR">'
+    +     '<div class="dkh-globe' + (dkhUi2('deco-globe') ? ' dkh-gpic' : '') + '" aria-hidden="true"><i class="dkh-orbit"></i>'
+    +       (dkhUi2('deco-globe') ? '' : dkhIcon('globe')) + '</div>'
     +     '<b class="dkh-frst">オンラインで遊ぶ</b>'
     +     '<ol class="dkh-steps"><li><i>1</i><span>「部屋をつくる」を押す</span></li>'
     +       '<li><i>2</i><span>出てきた4文字の あいことば を友だちに伝える</span></li>'
@@ -1179,7 +1226,7 @@ function dkhSetSpeed(v){
 function dkhSettings(){
   var bv = Math.round(((typeof bgmOn !== 'undefined' && !bgmOn) ? 0 : bgmVol) * 100), sv = Math.round(sfxVol * 100);
   var tt = (SV.rules && SV.rules.turnTimer) ? '1' : '0';
-  var p = modal('<div class="modal dkh-modal dkh-set"><div class="dkh-mhd"><b>設定</b></div><div class="dkh-srows">'
+  var p = modal('<div class="modal dkh-modal dkh-set sk-frame2"><div class="dkh-mhd"><b>設定</b></div><div class="dkh-srows dkh-crest">'
     + dkhSetRow('音楽', '<input type="range" class="dkh-range" id="dkhBgm" min="0" max="100" value="' + bv + '" aria-label="音楽の大きさ"><b class="dkh-rv" id="dkhBgmV">' + bv + '</b>')
     + dkhSetRow('効果音', '<input type="range" class="dkh-range" id="dkhSfx" min="0" max="100" value="' + sv + '" aria-label="効果音の大きさ"><b class="dkh-rv" id="dkhSfxV">' + sv + '</b>')
     + dkhSetRow('アニメの速さ', dkhSeg('speed', DKH_SPEEDS, cfg.speed))

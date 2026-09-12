@@ -948,4 +948,204 @@ html.fx-mob .dkh-logo::after,html.fx-mob .dkh-gl{display:none}
   /* 合流(Merge-r2): 漂う丸2つは止まった絵にする（常時アニメ1画面8個まで・H9）。
      ホーム 9→7、この画面を下に敷く運勢カードのモーダル（844）10→8。金の粒と光の筋はそのまま動かす */
   #home .fx-blob,#friends .fx-blob{animation:none}
+
+/* ══════════════════════════════════════════════════════════════
+   第2回・お手本寄せ（ホーム・イベント・郵便・友達・設定）
+   ──────────────────────────────────────────────────────────────
+   ・左右レール＝色分けの艶タイル＋太い金枠＋大きな絵（rail-tile-*／rail-icon-*）
+   ・中央カード＝銀＋金の留め金つき写真額（frame-card-silver／deco-clamp）
+   ・ランキング＝羊皮紙＋折り返しタブ＋行ごとの金枠
+   ・郵便／友達＝紙の透かし（paper-crest）＋大きな絵＋机の小物で空白を埋める
+   ・イベント＝赤帯を彫り枠のリボンに、予定のアイコンを描き絵に
+   足すのは「止まった絵」だけ。常時アニメは1つも増やさない（1画面8個まで）。
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── ① 左右のレール：色分けの艶タイル＋太い金枠＋大きな絵 ── */
+.dkh-rail{padding:10px 7px;gap:7px}
+.dkh-rail .dkh-rb.sk-rail,.dkh-rail.l .dkh-rb.sk-rail{
+  overflow:visible;justify-content:flex-end;gap:2px;padding:8px 5px 6px;border-radius:17px;
+  background:var(--sk-tile,linear-gradient(180deg,#72562A,#32220C 56%,#1A1004)) center/100% 100% no-repeat padding-box,
+             linear-gradient(180deg,#FFF3C8,#E3BE63 17%,#8A6206 52%,#C8952F 80%,#FFEFBE) border-box;
+  border:4px solid transparent;
+  box-shadow:0 5px 0 rgba(38,22,4,.85),0 9px 15px rgba(0,0,0,.5),
+             inset 0 2px 0 rgba(255,255,255,.4),inset 0 -11px 17px rgba(0,0,0,.3)}
+/* 角飾りつきの彫り枠を重ねる（絵がある時だけ出る。::after は小さい画面の当たり判定が使う） */
+.dkh-rail .dkh-rb.sk-rail::before{content:"";position:absolute;inset:-4px;z-index:3;pointer-events:none;
+  border:13px solid transparent;
+  border-image-source:var(--sk-f2,none);border-image-slice:36;border-image-width:13px;border-image-repeat:stretch}
+/* 絵（丸い宝石メダル → タイルいっぱいの描き絵） */
+.dkh-rail .dkh-rb.dkh-rion > .ic{width:100%;height:auto;flex:1 1 auto;min-height:38px;
+  border:0;border-radius:0;box-shadow:none;
+  background:var(--sk-ricon,none) center/contain no-repeat;
+  filter:drop-shadow(0 3px 5px rgba(0,0,0,.6))}
+.dkh-rail .dkh-rb.dkh-rion > .ic::before{display:none}
+.dkh-rail .dkh-rb.dkh-rion > .ic > svg{display:none}
+.dkh-rail .dkh-rb.sk-rail > .tx{flex:0 0 auto;font-size:21px;line-height:1.04;color:#FFF6E0;
+  -webkit-text-stroke:4.6px rgba(30,16,2,.94);paint-order:stroke fill}
+.dkh-rail .dkh-rb.sk-rail > .tx.two{font-size:19px;line-height:1.02}
+.dkh-rail .dkh-rb.sk-rail > .dkh-badge{z-index:5}
+
+/* ── ② 中央のキャラカード：銀＋金の留め金つき写真額 ── */
+.dkh-strap.dkh-hid{display:none}
+.dkh-badgewrap{padding-top:28px}
+/* 光の輪は ::before へ移す（::after は写真額の枠が使う） */
+.dkh-card::after,.dkh-card.rA::after,.dkh-card.rS::after{box-shadow:none}
+.dkh-card::before{content:"";position:absolute;inset:-5px;border-radius:27px;z-index:-1;pointer-events:none;
+  box-shadow:0 0 30px 8px rgba(255,200,80,.55);opacity:.5}
+.dkh-card.rA::before{box-shadow:0 0 28px 6px rgba(110,190,255,.5)}
+.dkh-card.rS::before{box-shadow:0 0 28px 6px rgba(190,140,255,.5)}
+.dk .dkh-card.sk-fcard::after{inset:-17px;z-index:7;border-radius:0;
+  border-width:42px;border-image-width:42px;border-image-slice:36;
+  filter:drop-shadow(0 7px 11px rgba(0,0,0,.6))}
+.dkh-badgewrap{padding-top:36px}
+.dkh-card.sk-fcard{padding:9px}
+.dkh-card .sk-clamp{width:126px;height:45px;top:-30px;z-index:8;
+  filter:drop-shadow(0 4px 6px rgba(0,0,0,.6)) saturate(1.55) brightness(1.14)}
+/* 等級の飾り文字は額縁より前に（お手本は枠の外・左上に大きく乗る） */
+.dkh-card .dkh-rar{z-index:9;left:8px;top:-14px;font-size:62px}
+/* 名札は金の縁に（お手本は枠つきの名札） */
+.dkh-card .dkh-plate{border-radius:0 0 14px 14px;
+  background:linear-gradient(180deg,#7C5C2A,#3C2811 58%,#1E1406);
+  box-shadow:inset 0 0 0 2px rgba(255,230,168,.45),inset 0 2px 0 rgba(255,255,255,.26),0 -2px 0 rgba(0,0,0,.42)}
+.dkh-card .dkh-ttl:not(.none){background:linear-gradient(180deg,#FFF6D2,#F0C64C 58%,#B8870E);border:2px solid #7A5206;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
+/* 称号が無い時は暗い地のまま（金地に薄い文字だと読みにくい） */
+.dkh-card .dkh-ttl.none{background:rgba(18,11,3,.6);border:2px solid rgba(232,200,120,.42);color:#E8D6B0}
+
+/* ── ③ ランキング：折り返しタブ・行ごとの金枠・太いマイレージ ── */
+.dkh-rkh{flex:0 0 62px;align-items:flex-end}
+.dkh-tab{height:56px;border-radius:17px 17px 0 0;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.75),0 3px 0 rgba(90,62,18,.3)}
+.dkh-tab.on{height:62px;box-shadow:inset 0 2px 0 rgba(255,255,255,.6),0 0 18px rgba(255,200,90,.6)}
+.dkh-list{gap:7px;padding:9px}
+.dkh-row{border:2px solid rgba(176,134,58,.78);border-radius:12px;
+  background:linear-gradient(180deg,#FFFDF3,#F4E8CD 58%,#E2D0AA);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.85),0 2px 0 rgba(120,86,26,.3)}
+.dkh-row.top1{background:linear-gradient(180deg,#FFF9D8,#F6D97A 62%,#E9BE4C);
+  border:3px solid #C8952F;box-shadow:inset 0 2px 0 rgba(255,255,255,.75),0 2px 0 rgba(120,86,26,.35),0 0 15px rgba(255,200,90,.45)}
+.dkh-me{border:3px solid #C8952F;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.8),0 3px 0 rgba(120,86,26,.38),0 0 18px rgba(255,200,90,.5)}
+.dkh-rpv{-webkit-text-stroke:4px rgba(255,252,236,.95);paint-order:stroke fill}
+.dkh-no{-webkit-text-stroke:3.4px rgba(255,252,236,.9);paint-order:stroke fill}
+.dkh-mile{flex:0 0 78px;gap:13px;padding:0 8px 0 12px}
+.dkh-mile::before{content:"";flex:0 0 46px;height:40px;pointer-events:none;
+  background:var(--dkh-ico-coins,none) center/contain no-repeat;
+  filter:drop-shadow(0 3px 4px rgba(0,0,0,.55))}
+.dkh-mbar{height:48px;border-radius:13px}
+.dkh-mbar em{font-size:21px;-webkit-text-stroke-width:4.4px;padding-left:16px}
+.dkh-mbtn{height:60px;font-size:24px}
+
+/* ── ④ 郵便・友達：紙の透かし＋大きな絵＋机の小物（空白を作らない） ── */
+.dkh-mb,.dkh-fb{gap:26px}
+.dkh-mside,.dkh-frside{flex:0 0 420px;gap:16px;padding:28px 24px}
+.dkh-crest{position:relative}
+/* 王冠の透かし＋四隅の金の飾り（紙の目。板の2割以上が無地にならないように） */
+.dkh-crest::before{content:"";position:absolute;inset:8px;z-index:0;pointer-events:none;opacity:.26;
+  background:
+    var(--dkh-ico-crown,none) center 44%/auto 26% no-repeat,
+    var(--sk-fleur,none) left 12px top 6px/72px auto no-repeat,
+    var(--sk-fleur,none) right 12px top 6px/72px auto no-repeat,
+    var(--sk-fleur,none) left 12px bottom 12px/72px auto no-repeat,
+    var(--sk-fleur,none) right 12px bottom 12px/72px auto no-repeat,
+    repeating-linear-gradient(42deg,rgba(150,112,48,.085) 0 2px,transparent 2px 12px)}
+.dkh-crest > *{position:relative;z-index:1}
+.dkh-empty{position:relative}
+.dkh-props{position:absolute;z-index:0;pointer-events:none;
+  background-repeat:no-repeat;filter:drop-shadow(0 6px 11px rgba(0,0,0,.5))}
+/* 面の下に机の小物を常に敷く（0件でも、行が少なくても下半分が無地にならない） */
+#mail .dkh-mrows,#friends .dkh-frrows{
+  background:var(--dkh-desk-props-l,none) left 4px bottom 2px/auto 142px no-repeat,
+             var(--dkh-desk-props-r,none) right 12px bottom 4px/auto 172px no-repeat}
+#mail .dkh-mrows .dkh-empty > .sk-pic.dkh-bigart{width:430px;height:410px;margin-top:-16px}
+#friends .dkh-frrows .dkh-empty > .sk-pic.dkh-bigart{width:572px;height:267px}
+.dkh-empty{gap:6px}
+.dkh-empty b{font-size:36px;color:#5A3E12;text-shadow:0 1px 0 rgba(255,255,255,.75)}
+.dkh-empty span{font-size:23px;color:#7A5E2E}
+.dkh-msic2{width:320px;height:236px}
+.dkh-globe.dkh-gpic{width:220px;height:212px;
+  background:var(--dkh-deco-globe,none) center/contain no-repeat;
+  filter:drop-shadow(0 8px 14px rgba(0,0,0,.6)) drop-shadow(0 0 22px rgba(120,200,255,.45))}
+.dkh-globe.dkh-gpic svg{display:none}
+.dkh-globe.dkh-gpic .dkh-orbit{inset:-6px}
+/* 内側の飾り枠（お手本の二重の罫）。羊皮紙の面が「ただの板」に見えないようにする */
+#mail .dkh-mlist::before,#friends .dkh-frlist::before{inset:14px;border-radius:11px;
+  border:2px solid rgba(150,112,48,.5);
+  box-shadow:inset 0 0 0 3px rgba(255,255,255,.55),inset 0 0 0 5px rgba(150,112,48,.26)}
+/* 見出しの下に金の罫（面の上と下を締める） */
+#mail .dkh-lhd,#friends .dkh-lhd{border-bottom:0;
+  box-shadow:0 2px 0 rgba(255,255,255,.6),0 4px 0 rgba(150,112,48,.45)}
+
+/* ── ⑤ イベント：赤帯を彫り枠のリボンに・予定を描き絵に ── */
+#news .dkh-wkban{flex:0 0 292px;padding:46px 40px 24px 38px;
+  background:
+    radial-gradient(62% 92% at 26% 4%,rgba(255,170,112,.34),transparent 62%),
+    radial-gradient(42% 72% at 86% 96%,rgba(255,122,70,.24),transparent 66%),
+    repeating-linear-gradient(38deg,rgba(255,255,255,.05) 0 3px,transparent 3px 14px),
+    var(--dkh-lacq) padding-box,var(--dkh-rimSS) border-box}
+#news .dkh-wkic{flex:0 0 176px;height:176px;border-width:6px}
+.dkh-wkic.dkh-wkp{background-size:80% auto,auto}
+#news .dkh-wktx{padding-left:6px}
+#news .dkh-wkban::after{content:"";position:absolute;inset:0;z-index:4;pointer-events:none;
+  border:32px solid transparent;
+  border-image-source:var(--sk-f2,var(--sk-frame,none));border-image-slice:36;
+  border-image-width:32px;border-image-repeat:stretch}
+#news .dkh-wkrib{z-index:5;height:56px;padding:0 74px;
+  background:linear-gradient(180deg,#FFF9E4 0 8%,#F8DA74 34%,#DCA62E 70%,#A6700F);
+  box-shadow:0 5px 12px rgba(0,0,0,.55)}
+#news .dkh-wkleft{flex:0 0 288px}
+/* 週の絵（絵文字 → 描き絵。金の台座の上に重ねる） */
+.dkh-wkic.dkh-wkp{font-size:0;
+  background-image:var(--dkh-wp,none),radial-gradient(circle at 38% 30%,#FFF6D2,#F2C230 45%,#8A5E06 88%);
+  background-size:74% auto,auto;background-position:center,center;background-repeat:no-repeat,no-repeat}
+.dkh-scic.dkh-wkp{width:48px;height:48px;font-size:0;
+  background:var(--dkh-wp,none) center/contain no-repeat;
+  filter:drop-shadow(0 3px 4px rgba(0,0,0,.55))}
+#news .dkh-sched{flex:0 0 420px;gap:12px;padding:20px 20px}
+#news .dkh-sched .dkh-sc{gap:14px;padding:0 16px}
+/* ガチャを引く＝金の大ボタン */
+.dkh-togacha{font-size:32px;padding:26px 30px;border-radius:18px}
+.dkh-togacha .sk-bico{width:54px;height:46px;margin-right:12px;vertical-align:-10px}
+/* 左タブの下の空いた木目に、旗と机の小物を置く */
+#news .dkh-pnews{left:10px;top:490px;width:200px;bottom:16px;z-index:2;
+  background-image:var(--dkh-deco-banner,none),var(--dkh-desk-props-l,none);
+  background-position:top 0 center,bottom 2px center;
+  background-size:auto 162px,196px auto;
+  filter:drop-shadow(0 6px 11px rgba(0,0,0,.6)) brightness(1.28) saturate(1.2)}
+
+/* ── ⑥ 設定：行を金枠に・紙の透かしを薄く敷く ── */
+.dkh-set .dkh-mhd{z-index:8}
+.dkh-set .dkh-crest::before{inset:0;opacity:.26;
+  background:var(--dkh-ico-crown,none) center 50%/auto 30% no-repeat}
+.dkh-srow{border:2px solid rgba(196,150,70,.6);
+  background:linear-gradient(180deg,rgba(90,66,30,.55),rgba(26,16,4,.62));
+  box-shadow:inset 0 1px 0 rgba(255,226,150,.26),0 2px 0 rgba(0,0,0,.32)}
+.dkh-sl{color:#FFF0CE;-webkit-text-stroke:3.4px rgba(30,16,2,.85);paint-order:stroke fill}
+
+/* ── ⑦ 横長スマホ（高さ560px未満）：文字の大きさと絵の大きさを戻す ── */
+@media (max-height:560px){
+  .dkh-rail .dkh-rb.sk-rail > .tx{font-size:26px;-webkit-text-stroke-width:5px}
+  .dkh-rail .dkh-rb.sk-rail > .tx.two{font-size:22px;line-height:1}
+  .dkh-rail .dkh-rb.dkh-rion > .ic{min-height:24px}
+  .dkh-rail .dkh-rb.sk-rail{padding:5px 4px 4px}
+  .dkh-rail .dkh-rb.sk-rail::before{border-width:10px;border-image-width:10px}
+  .dkh-card .sk-clamp{width:112px;height:40px;top:-20px}
+  .dk .dkh-card.sk-fcard::after{inset:-10px;border-width:25px;border-image-width:25px}
+  .dkh-mile::before{flex-basis:38px;height:34px}
+  .dkh-mbar{height:42px} .dkh-mbar em{font-size:22px}
+  .dkh-empty b{font-size:26px} .dkh-empty span{font-size:22px}
+  #mail .dkh-mrows .dkh-empty > .sk-pic.dkh-bigart{width:262px;height:250px;margin-top:-6px}
+  #friends .dkh-frrows .dkh-empty > .sk-pic.dkh-bigart{width:352px;height:164px}
+  #mail .dkh-mrows,#friends .dkh-frrows{background-size:auto 104px,auto 128px}
+  .dkh-msic2{width:236px;height:174px}
+  .dkh-globe.dkh-gpic{width:158px;height:152px}
+  #news .dkh-wkban{flex-basis:262px;padding:42px 32px 20px 30px}
+  #news .dkh-wkban::after{border-width:24px;border-image-width:24px}
+  #news .dkh-sched{flex-basis:380px}
+  .dkh-togacha{font-size:28px;padding:20px 22px}
+  #news .dkh-pnews{display:none}
+  .dkh-mside,.dkh-frside{flex-basis:430px}
+}
+
+/* ── ⑧ スマホ（html.fx-mob）：重ねる枠と絵は止まった絵なのでそのまま出す ── */
+html.fx-mob .dkh-rail .dkh-rb.sk-rail::before{border-width:10px;border-image-width:10px}
 </style>
