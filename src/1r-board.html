@@ -274,20 +274,44 @@
 .dkb-dots::after{content:"";position:absolute;left:50%;top:0;margin-left:-25.5px;width:11px;height:11px;border-radius:50%;
   background:#FFFFFF;animation:dkbDotRun 1.05s steps(3) infinite}
 @keyframes dkbDotRun{from{transform:translateX(0)}to{transform:translateX(60px)}}
-/* マスの情報（押したマス。J59） */
-.dkb-tinfo{z-index:92}
-.dkb-tin{position:absolute;left:0;bottom:0;translate:-50% 0;min-width:250px;padding:10px 16px 11px;border-radius:14px;
-  background:linear-gradient(180deg,rgba(40,30,16,.95),rgba(12,8,3,.96));border:2px solid #C9952F;
-  box-shadow:0 8px 20px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,226,150,.25);animation:dkbPopIn .26s cubic-bezier(.2,1.5,.4,1) both}
+/* マスの情報（押したマス。J59・社長のご要望②：サイコロを振る前でも見られる。［閉じる］か外のタップで閉じる） */
+.dkb-tinfo{z-index:97}
+/* 入場は押したマスの側（下の矢印の根元）から開く。中心から広げるとステージの外へふくらむ */
+.dkb-tin{position:absolute;left:0;bottom:0;translate:-50% 0;width:372px;padding:9px 14px 11px;border-radius:14px;pointer-events:auto;
+  transform-origin:50% 100%;
+  background:linear-gradient(180deg,rgba(40,30,16,.97),rgba(12,8,3,.98));border:2px solid #C9952F;
+  box-shadow:0 10px 24px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,226,150,.25);animation:dkbPopIn .26s cubic-bezier(.2,1.5,.4,1) both}
+.dkb-tibelow .dkb-tin{transform-origin:50% 0}
 .dkb-tin::after{content:"";position:absolute;left:50%;bottom:-14px;margin-left:-11px;border:11px solid transparent;border-bottom:0;
   border-top:13px solid #C9952F}
-.dkb-tnm{display:block;font-size:22px;font-weight:900;line-height:1.25;color:#FFD44A;text-align:center;white-space:nowrap}
+/* 上に入らないマス（盤の上のふち）は下へ回す＝矢印も上向きにする */
+.dkb-tibelow .dkb-tin{bottom:auto;top:0}
+.dkb-tibelow .dkb-tin::after{bottom:auto;top:-14px;border-top:0;border-bottom:13px solid #C9952F}
+.dkb-tihd{display:flex;flex-direction:column;align-items:center;gap:2px}
+.dkb-tnm{display:block;max-width:100%;font-size:22px;font-weight:900;line-height:1.25;color:#FFD44A;text-align:center;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dkb-tgr{display:flex;align-items:center;gap:5px;font-style:normal;font-size:16px;font-weight:700;color:#E8DCC0;white-space:nowrap}
+.dkb-tgr u{width:15px;height:15px;border-radius:5px;text-decoration:none;border:1px solid rgba(0,0,0,.45)}
+.dkb-tgr i{width:10px;height:10px;border-radius:50%;border:1px solid rgba(0,0,0,.5)}
+.dkb-tgr i.dkb-tgme{box-shadow:0 0 0 2px #FFD44A}
 .dkb-tdist{display:block;font-size:16px;font-weight:700;color:#E8DCC0;text-align:center;margin:1px 0 6px}
 .dkb-tdist em{font-style:normal;font-family:var(--pop);font-size:20px;color:#FFFFFF;margin:0 2px}
 .dkb-tin p{display:flex;justify-content:space-between;align-items:baseline;gap:18px;padding:3px 2px;border-top:1px solid rgba(201,149,47,.35);
   white-space:nowrap}
 .dkb-tin p span{font-size:16px;font-weight:900;color:#EBD8A8}
-.dkb-tin p b{font-family:var(--pop);font-size:19px;font-weight:400;color:#FFFFFF}
+.dkb-tin p b{min-width:0;overflow:hidden;text-overflow:ellipsis;font-family:var(--pop);font-size:19px;font-weight:400;color:#FFFFFF}
+/* 段ごとの「建設／通行料」の表（本家のマスの情報） */
+.dkb-tlvs{margin-top:7px;padding-top:3px;border-top:2px solid rgba(201,149,47,.55)}
+.dkb-tlvs p{display:grid;grid-template-columns:1fr 96px 96px;gap:6px;padding:2px 4px;border-top:0;border-radius:6px}
+.dkb-tlvs p span{overflow:hidden;text-overflow:ellipsis;font-size:16px;font-weight:900;color:#EBD8A8}
+.dkb-tlvs p u{font-family:var(--pop);font-size:17px;font-weight:400;color:#D8C8A8;text-align:right;text-decoration:none}
+.dkb-tlvs p b{font-family:var(--pop);font-size:17px;font-weight:400;color:#FFFFFF;text-align:right}
+.dkb-tlvh span,.dkb-tlvh u,.dkb-tlvh b{font-family:var(--jp)!important;font-size:16px!important;font-weight:900!important;color:#C9A44A!important}
+.dkb-tlv.on{background:rgba(242,194,48,.2);box-shadow:inset 0 0 0 1px rgba(242,194,48,.5)}
+.dkb-tlv.on span,.dkb-tlv.on b{color:#FFE9A8}
+.dkb-thelp{display:block;margin-top:7px;font-size:16px;font-weight:700;line-height:1.4;color:#D8C8A8;white-space:normal}
+.dkb-tbtns{display:flex;justify-content:center;margin-top:9px}
+.dkb-tin .btn.dkb-tclose{min-width:160px;width:auto;height:auto;padding:5px 20px 7px;font-size:22px}
 /* 給料の青い丸札（スタートの近く。J06） */
 .dkb-sal{z-index:92}
 .dkb-sal b{position:absolute;left:0;bottom:0;translate:-50% 0;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -614,11 +638,22 @@
   .dkb-bt{font-size:26px}
   .dkb-bin2{min-width:230px;padding:10px 24px 9px}
   .dkb-tnm{font-size:28px}
+  .dkb-tgr{font-size:22px}
+  .dkb-tgr u{width:18px;height:18px}
+  .dkb-tgr i{width:13px;height:13px}
   .dkb-tdist{font-size:22px}
   .dkb-tdist em{font-size:26px}
-  .dkb-tin{min-width:320px}
+  .dkb-tin{width:456px;padding:7px 12px 9px}
+  .dkb-tin p{padding:1px 2px}
   .dkb-tin p span{font-size:22px}
   .dkb-tin p b{font-size:24px}
+  .dkb-tlvs{margin-top:5px}
+  .dkb-tlvs p{grid-template-columns:1fr 110px 110px;padding:1px 4px}
+  .dkb-tlvs p span{font-size:22px}
+  .dkb-tlvs p u,.dkb-tlvs p b{font-size:23px}
+  .dkb-tlvh span,.dkb-tlvh u,.dkb-tlvh b{font-size:22px!important}
+  .dkb-thelp{font-size:22px}
+  .dkb-tin .btn.dkb-tclose{min-width:186px;font-size:26px}
   .dkb-sal b{width:136px;height:136px}
   .dkb-sal small{font-size:22px}
   .dkb-sal span{font-size:30px}
