@@ -8,13 +8,15 @@
    ・スマホ（html.fx-mob）の直し（dkfClearSetup・dkfFreeMapLater・小さな盤は CPU で描く）を引き継ぐ。常時アニメは各画面8個まで。
    ══════════════════════════════════════════════════════════════ */
 
-/* クラス（本家の数字。x＝開始額÷200万、n＝席の数を固定、tk＝入場券） */
+/* クラス（本家の数字。x＝開始額÷200万、n＝席の数を固定、tk＝入場券）
+   プレイヤーLv による鍵は付けない（最初からどのクラスでも選べる）。
+   入場券が無い時は、その場で無料で1枚おわたしする（遊べない状態を作らない） */
 var DKF_CLASSES = [
-  { id:'easy',  nm:'イージー',     rank:'入門',   en:'Easy Mode',      cash:2000000,  x:1,   lv:1, n:2, maxLv:5 },
+  { id:'easy',  nm:'イージー',     rank:'入門',   en:'Easy Mode',      cash:2000000,  x:1,   lv:1, n:2 },
   { id:'eco',   nm:'エコノミー',   rank:'初級',   en:'Economy Class',  cash:2000000,  x:1,   lv:1 },
-  { id:'biz',   nm:'ビジネス',     rank:'中級',   en:'Business Class', cash:5000000,  x:2.5, lv:1, tk:'biz',   buy:550 },
-  { id:'first', nm:'ファースト',   rank:'上級',   en:'First Class',    cash:10000000, x:5,   lv:1, tk:'first', buy:3000 },
-  { id:'dia',   nm:'ダイヤモンド', rank:'最上級', en:'Diamond Class',  cash:10000000, x:5,   lv:1, tk:'dia',   buy:0, n:2, gem:75 }
+  { id:'biz',   nm:'ビジネス',     rank:'中級',   en:'Business Class', cash:5000000,  x:2.5, lv:1, tk:'biz' },
+  { id:'first', nm:'ファースト',   rank:'上級',   en:'First Class',    cash:10000000, x:5,   lv:1, tk:'first' },
+  { id:'dia',   nm:'ダイヤモンド', rank:'最上級', en:'Diamond Class',  cash:10000000, x:5,   lv:1, tk:'dia', n:2, gem:75 }
 ];
 var DKF_TK_NM = { biz:'ビジネス', first:'ファースト', dia:'ダイヤ' };
 /* ルール（30ターン・25分が本家。12/20ターン・15/20分は短縮ルール＝当作） */
@@ -24,6 +26,9 @@ var DKF_AIS   = [[0,'よわい'], [1,'ふつう'], [2,'つよい']];
 var DKF_SHAKE = [[0,'なし'], [1,'あり']];
 var DKF_PRACTICE = [['EASY','よわい'], ['NORMAL','ふつう'], ['HARD','つよい']];
 var DKF_CPU_NM = ['ガル', 'リノ', 'ゼニ'];
+/* 人数（席の 🔒 と連動）と 開始マーブルの倍率（当作ルール。選んだクラスの額が基準） */
+var DKF_NS   = [[2,'2人'], [3,'3人'], [4,'4人']];
+var DKF_MULS = [[0.5,'×0.5'], [1,'×1'], [2,'×2'], [3,'×3']];
 /* おすすめアイテム（本家の3つ。値段はクラス別） */
 var DKF_TOP3 = [
   { id:'oe',  nm:'奇数/偶数アイテム', br:'奇数/偶数<br>アイテム', ds:'偶数か奇数、どちらかを選択できます（3回）' },
@@ -75,13 +80,12 @@ var DKF_ICO = {
 };
 /* 画面の状態（セーブしない） */
 var DKF_S = { busy:false, roomRes:null, roomWait:false, slots:null, mapSig:'', drag:null, tick:0, freeT:0,
-  ai:1, team:false, practice:false, lastPractice:false, picking:false, randBusy:false, today:'', uid:0,
-  tut:null, hintT:0, oneWas:false };
+  ai:1, mul:1, team:false, practice:false, lastPractice:false, picking:false, randBusy:false, today:'', uid:0,
+  tut:null, hintT:0 };
 
 /* ══════════ 小さな道具 ══════════ */
 function dkfEsc(s){ return (typeof esc === 'function') ? esc(s) : String(s); }
 function dkfSvOk(){ return typeof SV === 'object' && !!SV; }
-function dkfLv(){ return (dkfSvOk() && SV.lv) ? (SV.lv | 0) || 1 : 1; }
 function dkfMan(n){ return Math.round(n / 10000).toLocaleString() + '万'; }
 function dkfG(n){ return Math.round(+n || 0).toLocaleString(); }
 function dkfUid(){ DKF_S.uid = (DKF_S.uid + 1) % 1e9; return DKF_S.uid; }
@@ -140,6 +144,21 @@ function dkfCarry(){
   return c;
 }
 function dkfPrices(){ return DKF_PRICE[cfg.cls] || DKF_PRICE.eco; }
+
+/* ── 開始マーブル（部屋のルール欄。クラスの額 × 倍率）と 人数 ──
+   cfg.cash に入れるので、dkRate(key)＝round(cfg.cash×率) の割合計算がそのまま効く */
+function dkfNearMul(v){ return dkfNear(DKF_MULS, (v == null || !isFinite(+v)) ? 1 : +v); }
+function dkfMul(){ return dkfNearMul(DKF_S.mul); }
+function dkfCashOf(c){ return Math.max(10000, Math.round((c.cash * dkfMul()) / 10000) * 10000); }
+/* 1対1のクラスは2人、チーム戦は4人で固定。ほかは選んだ人数（既定4人） */
+function dkfNFixed(c){ return !!(c && c.n) || !!cfg.team; }
+function dkfWantN(c){
+  if(c && c.n) return c.n;
+  if(cfg.team) return 4;
+  var r = dkfRules();
+  return Math.max(2, Math.min(4, (r.n | 0) || 4));
+}
+function dkfCpuSeat(i){ return { name:'CPU ' + DKF_CPU_NM[(i + 2) % 3], kind:'cpu', ch:-1, cardId:null }; }
 
 /* ══════════ 絵（自作 SVG。絵文字に頼らない） ══════════ */
 function dkfSvg(kind){
@@ -219,10 +238,7 @@ function dkClassOf(id){
   for(var i = 0; i < L.length; i++) if(L[i].id === id) return Object.assign({}, L[i]);
   return Object.assign({}, L[1]);
 }
-function dkfClsOk(id){                 // イージーは Lv5 まで
-  var c = dkClassOf(id);
-  return (c.maxLv && dkfLv() > c.maxLv) ? 'eco' : c.id;
-}
+function dkfClsOk(id){ return dkClassOf(id).id; }      // Lv による鍵は無し（最初からどれでも選べる）
 /* v9 の既定（12ターン・20分）のままのセーブを、本家の既定（30ターン・25分）へ1回だけ直す（GO-7） */
 function dkfRulesV10(){
   if(!dkfSvOk()) return;
@@ -234,15 +250,24 @@ function dkfRulesV10(){
   try{ saveNow(); }catch(e){}
 }
 function dkfRules(){ return (dkfSvOk() && SV.rules && typeof SV.rules === 'object') ? SV.rules : {}; }
+/* v10 で足したキー（人数・開始マーブル）を整える。fixSave は知らないキーをそのまま残すので F5 のあとも生きる */
+function dkfNormRules(){
+  if(!dkfSvOk()) return null;
+  var r = (SV.rules && typeof SV.rules === 'object') ? SV.rules : (SV.rules = {});
+  r.n = Math.max(2, Math.min(4, (r.n | 0) || 4));
+  r.cashMul = dkfNearMul(r.cashMul);
+  return r;
+}
 /* 応援モード（C25 SV.cheer）＝CPU を1段やさしく。練習では使わない */
 function dkfCheerOn(){ return !!(dkfSvOk() && SV.cheer) && !DKF_S.practice; }
 function dkfEffAi(){ var a = DKF_S.ai | 0; return dkfCheerOn() ? Math.max(0, a - 1) : a; }
 function dkfSyncCfg(){
   if(!dkfSvOk() || typeof cfg !== 'object') return;
   dkfRulesV10();
+  var r = dkfNormRules() || {};
   var c = dkClassOf(dkfClsOk(SV.cls));
-  cfg.cls = c.id; cfg.cash = c.cash;
-  var r = dkfRules();
+  DKF_S.mul = dkfNearMul(r.cashMul);
+  cfg.cls = c.id; cfg.cash = dkfCashOf(c);
   cfg.turns = dkfNear(DKF_TURNS, r.turns == null ? 30 : r.turns);
   cfg.timeLimit = dkfNear(DKF_TIMES, r.timeLimit == null ? 1500 : r.timeLimit);
   DKF_S.ai = dkfNear(DKF_AIS, r.ai == null ? 1 : r.ai);
@@ -252,10 +277,17 @@ function dkfSyncCfg(){
   var m = dkfMap(SV.lastMap); if(m) cfg.mapId = m.id;
 }
 /* cfg → セーブ（CPU の強さは応援モードで下げる前の、選んだ値） */
-function dkfSaveMeta(){
+function dkfSaveRules(){
   if(!dkfSvOk()) return;
   SV.rules = Object.assign({}, SV.rules || {}, { turns:cfg.turns, timeLimit:cfg.timeLimit, ai:DKF_S.ai | 0,
-    team:!!DKF_S.team, shake:!!cfg.shake, v10:1 });
+    team:!!DKF_S.team, shake:!!cfg.shake, cashMul:dkfMul(), v10:1 });
+  /* 人数は「自分で選べる時」だけ覚える（1対1・チーム戦の固定値で上書きしない） */
+  if(!dkfNFixed(dkClassOf(cfg.cls))) SV.rules.n = Math.max(2, Math.min(4, cfg.n | 0));
+  try{ saveNow(); }catch(e){}
+}
+function dkfSaveMeta(){
+  if(!dkfSvOk()) return;
+  dkfSaveRules();
   SV.cls = cfg.cls || 'eco';
   SV.lastMap = cfg.mapId;
   try{ saveNow(); }catch(e){}
@@ -277,16 +309,16 @@ function dkfTop(opt){
     + '</div>';
 }
 function dkfHomeBtn(){ return '<div class="dkf-home" role="button" data-dkf-go="home" data-fx="pop" title="ホーム">' + dkfSvg('house') + '</div>'; }
-function dkfPassHTML(c, lv, cur){
-  var lock = !!(c.maxLv && lv > c.maxLv);
+function dkfPassHTML(c, cur){
   var n = c.tk ? (dkfTk()[c.tk] | 0) : 0;
   var amt = c.id === 'dia'
     ? '<div class="dkf-pp-amt dkf-pp-dia"><b>ダイヤモンド</b></div>'
     : '<div class="dkf-pp-amt"><b>' + dkfMan(c.cash) + '</b><small>マーブル</small></div>';
-  var play = c.id === 'dia' ? '1千万マーブルでゲームスタート' : c.id === 'easy' ? '1対1でプレイ' : 'ゲームプレイ';
-  var note = c.tk ? '入場券 <em>' + n + '</em>枚' : (c.id === 'easy' ? 'Lv5までのクラス' : '入場券は いりません');
-  var foot = c.tk ? '入場券1枚<br>消費' : (c.id === 'easy' ? 'Lv5以下の人だけ<br>入場無料' : '入場無料');
-  return '<div class="dkf-pass dkf-t-' + c.id + (lock ? ' dkf-lock' : '') + (cur ? ' dkf-cur' : '') + (c.tk && !n ? ' dkf-notk' : '') + '"'
+  var play = c.id === 'dia' ? '1千万マーブルでゲームスタート' : c.n ? '1対1でプレイ' : 'ゲームプレイ';
+  var note = c.tk ? (n > 0 ? '入場券 <em>' + n + '</em>枚' : '入場券は <em>無料</em>でおわたし')
+                  : (c.id === 'easy' ? 'はじめての人むけ' : '入場券は いりません');
+  var foot = c.tk ? '入場券1枚<br>消費' : '入場無料';
+  return '<div class="dkf-pass dkf-t-' + c.id + (cur ? ' dkf-cur' : '') + (c.tk && !n ? ' dkf-notk' : '') + '"'
     + ' role="button" data-dkf-cls="' + c.id + '" data-fx="deal">'
     + '<div class="dkf-pass-body">'
     + '<div class="dkf-pp">'
@@ -298,18 +330,16 @@ function dkfPassHTML(c, lv, cur){
     +   amt
     +   '<div class="dkf-pp-play">' + play + '</div>'
     +   '<div class="dkf-pp-tk">' + note + '</div>'
-    +   (cur && !lock ? '<i class="fx-gloss dkf-pp-gloss"></i>' : '')
+    +   (cur ? '<i class="fx-gloss dkf-pp-gloss"></i>' : '')
     + '</div>'
     + '<div class="dkf-pb"><span class="dkf-pb-ic">' + dkfSvg(c.tk ? 'ticket' : 'plane') + '</span><span class="dkf-pb-tx">' + foot + '</span></div>'
     + '</div>'
-    + (cur && !lock ? '<span class="dkf-pass-tag">前回</span>' : '')
-    + (lock ? '<div class="dkf-pass-lock"><span class="dkf-lockic">' + dkfSvg('lock') + '</span>'
-            + '<b>Lv5までのクラス</b><small>いまは Lv' + lv + '</small></div>' : '')
+    + (cur ? '<span class="dkf-pass-tag">前回</span>' : '')
     + '</div>';
 }
 function dkFlowClass(){
   DKF_S.picking = false;               // ポップアップが差し替えられても、クラスを選べなくならないように
-  var lv = dkfLv(), cur = dkfClsOk(dkfSvOk() ? SV.cls : 'eco'), tk = dkfTk();
+  var cur = dkfClsOk(dkfSvOk() ? SV.cls : 'eco'), tk = dkfTk();
   var el = dkMake('dkclass', 'quest',
       dkfTop({ back:'home', title:'<b>クラス選択</b>', right:dkfHomeBtn() })
     + '<div class="dkf-sub">'
@@ -325,7 +355,7 @@ function dkFlowClass(){
     +   '<div class="dkf-practice" role="button" id="dkfPractice" data-fx="riseR" data-fx-press><b>練習する</b><small>一人で遊ぶ</small></div>'
     + '</div>'
     + '<div class="dkf-passes" data-fx-step="60">'
-    +   DKF_CLASSES.map(function(c){ return dkfPassHTML(c, lv, c.id === cur); }).join('')
+    +   DKF_CLASSES.map(function(c){ return dkfPassHTML(c, c.id === cur); }).join('')
     + '</div>'
     + (typeof walletHTML === 'function' ? walletHTML() : ''));
   el.classList.add('dkf-scr', 'dkf-cls');
@@ -343,43 +373,37 @@ function dkFlowClass(){
 }
 async function dkfPickClass(id, node){
   if(DKF_S.picking || DKF_S.busy) return false;
-  var c = dkClassOf(id), lv = dkfLv();
-  if(c.maxLv && lv > c.maxLv) return dkfNope(node, '🔒', c.nm + 'は Lv' + c.maxLv + ' までのクラスです', 'いまは Lv' + lv + '。エコノミーから遊べます');
-  if(c.tk && dkfTk()[c.tk] <= 0){
-    if(!c.buy) return dkfNope(node, '🎫', c.nm + 'の入場券がありません', 'チュートリアル・ミッション・出席簿でもらえます');
-    if(SV.gold < c.buy) return dkfNope(node, '🪙', 'ゴールドが足りません',
-      c.nm + 'の入場券は ' + dkfG(c.buy) + 'ゴールドです（あと ' + dkfG(c.buy - SV.gold) + '）');
+  var c = dkClassOf(id);
+  if(c.tk && dkfTk()[c.tk] <= 0){        // 持っていなければ その場で無料で1枚配る（遊べない状態を作らない）
     DKF_S.picking = true;
     var ok = false;
-    try{ ok = await dkfBuyTicket(c); }catch(e){ console.error('[WP15a] ticket', e); }
+    try{ ok = await dkfGiveTicket(c); }catch(e){ console.error('[WP15a] ticket', e); }
     finally{ DKF_S.picking = false; }
     if(!ok) return false;
   }
   dkfSnd('click');
-  cfg.cls = c.id; cfg.cash = c.cash;
+  cfg.cls = c.id; cfg.cash = dkfCashOf(c);
   if(dkfSvOk()){ SV.cls = c.id; try{ saveNow(); }catch(e){} }
   try{ fxBurst(node, { kind:'star', n:16, power:0.9 }); }catch(e){}
   DKF_S.practice = false;
   dkFlowMap();
   return true;
 }
-/* 入場券が無い時は、その場でゴールドで1枚買う（本家の「クラス入場」ポップアップ） */
-async function dkfBuyTicket(c){
+/* 入場券が無い時は、その場で無料で1枚おわたしする（本家の「クラス入場」ポップアップ） */
+async function dkfGiveTicket(c){
   var r = await modal('<div class="modal dkf-mod"><div class="fx-panel parch dkf-mod-in dkf-tkbuy-in">'
     + '<b class="dkf-mod-hd">' + c.nm + 'クラス入場</b>'
     + '<div class="dkf-tkbuy"><span class="dkf-tkbuy-art dkf-t-' + c.id + '">' + dkfSvg('ticket') + '</span>'
-    +   '<p>' + c.nm + 'クラスの入場券が必要になります<br>購入しますか？<small>入場券は1枚で1試合遊べます</small></p></div>'
-    + '<div class="dkf-mod-ft"><button class="dkbtn dkf-btn-wood" data-act="no">キャンセル</button>'
-    + '<button class="dkbtn gr dkf-btn-buy" data-act="buy"><i class="dkf-coin"></i>1枚 ' + dkfG(c.buy) + '</button></div>'
+    +   '<p>' + c.nm + 'クラスの入場券を<br>1枚おわたしします<small>入場券は1枚で1試合遊べます（無料）</small></p></div>'
+    + '<div class="dkf-mod-ft"><button class="dkbtn dkf-btn-wood" data-act="no">やめる</button>'
+    + '<button class="dkbtn gr dkf-btn-buy" data-act="get"><i class="dkf-ticon">' + dkfSvg('ticket') + '</i>受け取って入場</button></div>'
     + '</div></div>');
-  if(r !== 'buy') return false;
-  if(SV.gold < c.buy){ dkfSnd('warn'); dkfToast('🪙', 'ゴールドが足りません', '入場券は ' + dkfG(c.buy) + 'ゴールドです', 2400); return false; }
-  SV.gold -= c.buy;
+  if(r !== 'get') return false;
   dkfTk()[c.tk] += 1;
   try{ saveNow(); }catch(e){}
   try{ dkWallet(); }catch(e){}
   dkfSnd('buy');
-  dkfToast('🎫', c.nm + 'の入場券を1枚買いました', '入場する時に1枚使います', 2000);
+  dkfToast('🎫', c.nm + 'の入場券を1枚もらいました', '入場する時に1枚使います', 2000);
   return true;
 }
 function dkfOnline(){
@@ -393,11 +417,12 @@ function dkfOnline(){
 async function dkfPractice(){
   if(DKF_S.busy || DKF_S.picking) return;
   dkfSnd('click');
-  var map = dkfMap(cfg.mapId), r0 = dkfRules();
+  var map = dkfMap(cfg.mapId), r0 = dkfNormRules() || {};
   var turns = dkfNear(DKF_TURNS, r0.turns == null ? 30 : r0.turns);
+  var n = Math.max(2, Math.min(4, (r0.n | 0) || 4));
   var r = await modal('<div class="modal dkf-mod"><div class="fx-panel parch dkf-mod-in dkf-prac-in">'
     + '<b class="dkf-mod-hd">一人で遊ぶ</b>'
-    + '<p class="dkf-mod-ds">CPU 3人とすぐに対戦します（' + dkfEsc(map ? map.name : '') + '・制限ターン ' + turns + '）</p>'
+    + '<p class="dkf-mod-ds">CPU ' + (n - 1) + '人とすぐに対戦します（' + dkfEsc(map ? map.name : '') + '・' + n + '人・制限ターン ' + turns + '）</p>'
     + '<div class="dkf-prac">' + DKF_PRACTICE.map(function(o, i){
         return '<button type="button" class="dkf-pbtn dkf-pbtn' + i + '" data-act="p' + i + '"><b>' + o[0] + '</b><small>CPU ' + o[1] + '</small></button>';
       }).join('') + '</div>'
@@ -410,17 +435,19 @@ function dkfQuick(ai){
   if(DKF_S.busy) return;
   try{ ac(); }catch(e){}
   dkfRulesV10();
-  var r = dkfRules();
+  var r = dkfNormRules() || {};
   cfg.turns = dkfNear(DKF_TURNS, r.turns == null ? 30 : r.turns);
   cfg.timeLimit = dkfNear(DKF_TIMES, r.timeLimit == null ? 1500 : r.timeLimit);
   cfg.ai = dkfNear(DKF_AIS, ai);
-  cfg.cls = 'eco'; cfg.cash = dkClassOf('eco').cash;
+  DKF_S.mul = dkfNearMul(r.cashMul);
+  cfg.cls = 'eco'; cfg.cash = dkfCashOf(dkClassOf('eco'));
   cfg.team = false; cfg.cheer = false;
   cfg.shake = !!r.shake;
-  cfg.n = 4;
-  cfg.seats = [{ name:dkfMyName(), kind:'you', ch:-1, cardId:null }].concat(DKF_CPU_NM.map(function(nm){
-    return { name:'CPU ' + nm, kind:'cpu', ch:-1, cardId:null };
-  }));
+  cfg.n = Math.max(2, Math.min(4, (r.n | 0) || 4));      // 選んだ人数で始める（既定は4人）
+  cfg.seats = [{ name:dkfMyName(), kind:'you', ch:-1, cardId:null }];
+  for(var i = 1; i < 4; i++){
+    cfg.seats.push(i < cfg.n ? dkfCpuSeat(i) : { name:'CPU', kind:'cpu', ch:-1, cardId:null, dkfLock:true });
+  }
   DKF_S.slots = null;
   DKF_S.practice = true;
   launch({ room:false, practice:true });
@@ -573,7 +600,7 @@ function dkfBuildMap(){
   try{ DKF_S.today = (typeof dkTodayMap === 'function') ? String(dkTodayMap() || '') : ''; }catch(e){ DKF_S.today = ''; }
   var el = dkMake('setup', 'quest',
       dkfTop({ back:'class',
-        title:'<b>' + c.nm + '</b><span class="dkf-plate">' + dkfMan(c.cash) + '</span>', right:dkfHomeBtn() })
+        title:'<b>' + c.nm + '</b><span class="dkf-plate">' + dkfMan(dkfCashOf(c)) + '</span>', right:dkfHomeBtn() })
     + '<div class="dkf-ticker" data-fx="rise"><span class="dkf-tk-ic">' + dkfSvg('megaphone') + '</span>'
     +   '<div class="dkf-tk-box"><b class="dkf-tk-tx">' + (w ? ('今週のイベント：' + dkfEsc(w.nm) + ' — ' + dkfEsc(w.ds)) : '') + '</b></div></div>'
     + '<div class="dkf-stagebox">'
@@ -813,21 +840,21 @@ async function pickPhase(){
 /* ══════════ ⑤ ゲームルーム #room（左ページ＝アイテムと装着／右ページ＝ルールと席） ══════════ */
 /* セーブのルールと cfg → 部屋の4席（1席目はあなた。空き席は 🔒。1対1のクラスは2席、チーム戦は4席） */
 function dkfRoomInit(){
-  var c = dkClassOf(cfg.cls), r = dkfRules();
+  var c = dkClassOf(cfg.cls), r = dkfNormRules() || dkfRules();
   DKF_S.practice = false;
   DKF_S.ai = dkfNear(DKF_AIS, r.ai == null ? DKF_S.ai : r.ai);
   DKF_S.team = !!r.team;
+  DKF_S.mul = dkfNearMul(r.cashMul);
   cfg.turns = dkfNear(DKF_TURNS, r.turns == null ? 30 : r.turns);
   cfg.timeLimit = dkfNear(DKF_TIMES, r.timeLimit == null ? 1500 : r.timeLimit);
   cfg.shake = !!r.shake;
-  cfg.cash = c.cash;
+  cfg.cash = dkfCashOf(c);
   cfg.team = DKF_S.team && !c.n;
   cfg.cheer = dkfCheerOn();
   cfg.ai = dkfEffAi();
-  var n = Math.max(1, Math.min(4, (cfg.n | 0) || 1));
   var you = null, rest = [];
-  (cfg.seats || []).slice(0, n).forEach(function(s){
-    if(!s) return;
+  (cfg.seats || []).forEach(function(s){             // 前の試合の席を引き継ぐ（詰め物の CPU は数えない）
+    if(!s || s.dkfLock) return;
     if(s.kind === 'you' && !you) you = s; else rest.push(s);
   });
   if(!you) you = { name:dkfMyName(), kind:'you', ch:-1, cardId:null };
@@ -838,21 +865,15 @@ function dkfRoomInit(){
     slots.push(s);
   });
   while(slots.length < 4) slots.push({ kind:'lock', name:'', ch:-1, cardId:null });
-  if(!c.n && DKF_S.oneWas){                         // 1対1のクラスから戻った時は3・4席目に CPU を戻す
-    [2, 3].forEach(function(i){ if(slots[i].kind === 'lock') slots[i] = { name:'', kind:'cpu', ch:-1, cardId:null }; });
+  var want = dkfWantN(c);                            // 人数（1対1は2・チーム戦は4・ほかは選んだ人数）
+  for(var i = 1; i < 4; i++){
+    if(i < want){ if(slots[i].kind === 'lock') slots[i] = dkfCpuSeat(i); }
+    else slots[i] = { kind:'lock', name:'', ch:-1, cardId:null };
   }
-  DKF_S.oneWas = !!c.n;
-  if(c.n){
-    if(slots[1].kind === 'lock') slots[1] = { name:'', kind:'cpu', ch:-1, cardId:null };
-    slots[2] = { kind:'lock', name:'', ch:-1, cardId:null };
-    slots[3] = { kind:'lock', name:'', ch:-1, cardId:null };
-  } else if(cfg.team){
-    slots.forEach(function(s, i){ if(s.kind === 'lock') slots[i] = { name:'', kind:'cpu', ch:-1, cardId:null }; });
-  }
-  slots.forEach(function(s, i){                     // CPU の顔ぶれは部屋を開くたびに引き直す
+  slots.forEach(function(s, k){                      // CPU の顔ぶれは部屋を開くたびに引き直す
     if(s.kind !== 'cpu') return;
     s.cardId = null;
-    if(!/^CPU/.test(s.name || '')) s.name = 'CPU ' + DKF_CPU_NM[(i + 2) % 3];
+    if(!/^CPU/.test(s.name || '')) s.name = 'CPU ' + DKF_CPU_NM[(k + 2) % 3];
   });
   DKF_S.slots = slots;
   dkfSyncSeats();
@@ -894,7 +915,7 @@ function dkfBuildRoom(){
     +   '<div class="dkf-rmap" role="button" data-dkf-go="map" data-fx="pop" title="マップを選びなおす">'
     +     '<span class="dkf-rmap-ic">' + dkfEmblem(map) + '</span><b>' + dkfEsc(map.name) + '</b></div>'
     +   dkfModeHTML(c)
-    +   '<div class="dkf-rcls" data-fx="pop"><b>' + c.nm + '</b><span class="dkf-plate">' + dkfMan(c.cash) + '</span></div>'
+    +   '<div class="dkf-rcls" data-fx="pop"><b>' + c.nm + '</b><span class="dkf-plate">' + dkfMan(cfg.cash) + '</span></div>'
     +   '<div class="dkf-rx" role="button" data-dkf-go="map" data-fx="pop" title="マップ選択へ"><i></i></div>'
     + '</div>'
     + '<div class="dkf-book">'
@@ -946,7 +967,6 @@ function dkfSetMode(team){
       if(i > 0 && s.kind === 'lock'){ DKF_S.slots[i] = { name:'CPU ' + DKF_CPU_NM[(i + 2) % 3], kind:'cpu', ch:-1, cardId:null }; }
     });
   }
-  if(dkfSvOk()){ SV.rules = Object.assign({}, SV.rules || {}, { team:team }); try{ saveNow(); }catch(e){} }
   var room = document.getElementById('room');
   var seg = room && room.querySelector('[data-dkf-mode]');
   if(seg){
@@ -955,6 +975,8 @@ function dkfSetMode(team){
   }
   dkfSyncSeats();
   renderSeats();
+  dkfRenderRules();              // 人数はチーム戦のあいだ4人で固定になる
+  dkfSaveRules();
   var box = room && room.querySelector('.dkf-seats');
   if(box) dkfPop(box);
 }
@@ -1205,12 +1227,12 @@ function dkfBuyAngel(node){
 }
 
 /* ── 右ページ：ルール（.fx-seg。短縮ルール・終盤インフレは札で分かるように） ── */
-function dkfSegHTML(key, label, list, cur){
+function dkfSegHTML(key, label, list, cur, off){
   var ci = Math.max(0, list.findIndex(function(o){ return o[0] === cur; }));
-  return '<div class="dkf-rule dkf-rule-' + key + '"><span class="dkf-rule-lb">' + label + '</span>' + dkfSegOnly(key, list, ci) + '</div>';
+  return '<div class="dkf-rule dkf-rule-' + key + '"><span class="dkf-rule-lb">' + label + '</span>' + dkfSegOnly(key, list, ci, off) + '</div>';
 }
-function dkfSegOnly(key, list, ci){
-  return '<div class="fx-seg dkf-seg" data-dkf-rule="' + key + '" style="--dkf-n:' + list.length + ';--dkf-i:' + ci + '">'
+function dkfSegOnly(key, list, ci, off){
+  return '<div class="fx-seg dkf-seg' + (off ? ' dkf-seg-off' : '') + '" data-dkf-rule="' + key + '" style="--dkf-n:' + list.length + ';--dkf-i:' + ci + '">'
     + '<i class="thumb"></i>'
     + list.map(function(o, i){
         return '<button type="button" data-dkf-v="' + o[0] + '" aria-pressed="' + (i === ci ? 'true' : 'false') + '">' + o[1] + '</button>';
@@ -1220,49 +1242,97 @@ function dkfSegOnly(key, list, ci){
 function dkfRuleChips(){
   var short = cfg.turns < 30 || cfg.timeLimit === 900 || cfg.timeLimit === 1200;
   return (short ? '<span class="dkf-rchip dkf-rchip-short">短縮ルール（当作）</span>' : '')
-    + (cfg.turns === 12 ? '<span class="dkf-rchip dkf-rchip-infl">終盤インフレ（当作ルール）</span>' : '');
+    + (cfg.turns === 12 ? '<span class="dkf-rchip dkf-rchip-infl">終盤インフレ（当作ルール）</span>' : '')
+    + (cfg.shake ? '<span class="dkf-rchip dkf-rchip-shake">揺らす（当作ルール）</span>' : '');
+}
+function dkfCheerHTML(){
+  if(!dkfCheerOn()) return '';
+  return '<span class="dkf-cheer"><i class="dkf-cheer-ic">' + dkfSvg('star') + '</i>'
+    + '<span class="dkf-cheer-tx"><b>応援モード</b><small>CPU が1段よわい</small></span></span>';
 }
 function dkfRenderRules(){
   var room = document.getElementById('room');
   var box = room && room.querySelector ? room.querySelector('.dkf-rules') : null;
   if(!box) return;
+  var nFix = dkfNFixed(dkClassOf(cfg.cls));
   box.innerHTML = '<div class="dkf-rules-hd"><span class="dkf-tab"><b>ルール</b></span><span class="dkf-rchips">' + dkfRuleChips() + '</span></div>'
     + '<div class="dkf-rules-row">'
     +   dkfSegHTML('turns', 'ターン数', DKF_TURNS, cfg.turns)
     +   dkfSegHTML('time', '制限時間（分）', DKF_TIMES, cfg.timeLimit)
     +   dkfSegHTML('ai', 'CPUの強さ', DKF_AIS, DKF_S.ai | 0)
     + '</div>'
-    + '<div class="dkf-rules-row2">'
-    +   '<span class="dkf-rule-lb2">揺らす（当作ルール）</span>' + dkfSegOnly('shake', DKF_SHAKE, cfg.shake ? 1 : 0)
-    +   (dkfCheerOn() ? '<span class="dkf-cheer"><i class="dkf-cheer-ic">' + dkfSvg('star') + '</i><b>応援モード</b><small>CPU が1段やさしくなります</small></span>' : '')
+    + '<div class="dkf-rules-row">'
+    +   dkfSegHTML('n', '人数', DKF_NS, Math.max(2, Math.min(4, cfg.n | 0)), nFix)
+    +   dkfSegHTML('cash', '開始マーブル（当作ルール）', DKF_MULS, dkfMul())
+    +   dkfSegHTML('shake', '揺らす', DKF_SHAKE, cfg.shake ? 1 : 0)
+    +   dkfCheerHTML()
     + '</div>';
   box.querySelectorAll('.dkf-seg button').forEach(function(b){
     b.onclick = function(){
       var seg = b.parentNode, key = seg.getAttribute('data-dkf-rule'), v = +b.getAttribute('data-dkf-v');
-      dkfSetRule(key, v);
+      if(dkfSetRule(key, v) === false) return;
       seg.querySelectorAll('button').forEach(function(x, i){
         var on = x === b; x.setAttribute('aria-pressed', on ? 'true' : 'false');
         if(on) seg.style.setProperty('--dkf-i', i);
       });
       var ch = box.querySelector('.dkf-rchips');
-      if(ch && (key === 'turns' || key === 'time')) ch.innerHTML = dkfRuleChips();
+      if(ch) ch.innerHTML = dkfRuleChips();
     };
   });
 }
+/* 人数（①）：席の 🔒 を開け閉めして cfg.n とそろえる */
+function dkfSetN(n){
+  var c = dkClassOf(cfg.cls);
+  if(dkfNFixed(c)){
+    dkfSnd('warn');
+    dkfToast('👥', c.n ? c.nm + 'は1対1のクラスです' : 'チーム戦は4人で遊びます', '人数はほかの遊び方で選べます', 2400);
+    return false;
+  }
+  var S = DKF_S.slots;
+  if(!S) return false;
+  n = Math.max(2, Math.min(4, n | 0));
+  for(var i = 1; i < 4; i++){
+    if(i < n){ if(S[i].kind === 'lock') S[i] = dkfCpuSeat(i); }
+    else S[i] = { kind:'lock', name:'', ch:-1, cardId:null };
+  }
+  dkfSyncSeats();
+  renderSeats();
+  var box = document.querySelector('#room .dkf-seats');
+  if(box) dkfPop(box);
+  return true;
+}
+/* 開始マーブル（③）：クラスの額 × 倍率を cfg.cash に入れ、上の札も書き換える */
+function dkfSetMul(v){
+  DKF_S.mul = dkfNearMul(v);
+  cfg.cash = dkfCashOf(dkClassOf(cfg.cls));
+  var pl = document.querySelector('#room .dkf-rcls .dkf-plate');
+  if(pl){ pl.textContent = dkfMan(cfg.cash); dkfPop(pl); }
+  var info = document.querySelector('#room .dkf-cinfo');
+  if(info) renderSeats();
+}
+/* 席を押して人数が変わった時に、人数の帯をそろえる */
+function dkfSyncNSeg(){
+  var seg = document.querySelector('#room .dkf-seg[data-dkf-rule="n"]');
+  if(!seg) return;
+  var n = Math.max(2, Math.min(4, cfg.n | 0)), ci = 0;
+  DKF_NS.forEach(function(o, i){ if(o[0] === n) ci = i; });
+  seg.style.setProperty('--dkf-i', ci);
+  seg.querySelectorAll('button').forEach(function(x, i){ x.setAttribute('aria-pressed', i === ci ? 'true' : 'false'); });
+}
 function dkfSetRule(key, v){
-  if(key === 'turns') cfg.turns = v;
+  if(key === 'n'){ if(dkfSetN(v) === false) return false; }
+  else if(key === 'cash') dkfSetMul(v);
+  else if(key === 'turns') cfg.turns = v;
   else if(key === 'time') cfg.timeLimit = v;
   else if(key === 'ai'){ DKF_S.ai = v; cfg.ai = dkfEffAi(); }
   else if(key === 'shake') cfg.shake = !!v;
-  if(dkfSvOk()){
-    SV.rules = Object.assign({}, SV.rules || {}, { turns:cfg.turns, timeLimit:cfg.timeLimit, ai:DKF_S.ai | 0, shake:!!cfg.shake, v10:1 });
-    try{ saveNow(); }catch(e){}
-  }
+  dkfSaveRules();
   dkfSnd('click');
   if(key === 'ai' && DKF_S.slots){
     DKF_S.slots.forEach(function(s){ if(s.kind === 'cpu') s.cardId = null; });
     dkfSyncSeats(); renderSeats();
   }
+  return true;
 }
 
 /* ── 右ページ：席（白い札＋左の色タグ。チーム戦は赤チーム2人・VS・青チーム2人） ── */
@@ -1294,7 +1364,7 @@ function dkfSeatHTML(s, i, tm){
 function dkfClassInfoHTML(c){
   var lines = c.id === 'dia'
     ? ['勝利ボーナスはダイヤモンド', '1対1でプレイ', '参加報酬は ゴールド／キューブ']
-    : ['Lv5までの人のための入門クラス', '1対1でプレイ', '200万マーブルでゲームスタート'];
+    : ['はじめての人むけの入門クラス', '1対1でプレイ', dkfMan(cfg.cash) + 'マーブルでゲームスタート'];
   return '<div class="dkf-cinfo dkf-t-' + c.id + '">'
     + '<div class="dkf-cinfo-hd"><i class="dkf-cinfo-star">' + dkfSvg('star') + '</i><b>' + c.nm + (c.id === 'dia' ? 'クラス' : '') + 'とは？</b>'
     +   (c.gem ? '<span class="dkf-cinfo-rw"><em>勝利報酬</em><i class="dkf-gemic"></i><b>' + c.gem + '</b></span>' : '') + '</div>'
@@ -1354,6 +1424,8 @@ function dkfCycleSeat(i){
   dkfSnd(s.kind === 'lock' ? 'click' : 'cardIn');
   dkfSyncSeats();
   renderSeats();
+  dkfSyncNSeg();                 // 席の 🔒 と「人数」を連動させる
+  dkfSaveRules();
   var room = document.getElementById('room');
   var p = room && room.querySelector('[data-dkf-seat="' + i + '"]');
   if(p) dkfPop(p);
