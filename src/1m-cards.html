@@ -1016,4 +1016,190 @@ html.fx-mob #cards .sk-spark,html.fx-mob #dice .sk-spark{display:none!important}
 @media (prefers-reduced-motion:reduce){
   #cards .sk-halo,#dice .sk-halo,#cards .sk-spark,#dice .sk-spark{animation:none!important}
 }
+
+/* ══════════════════════════════════════════════════════════════
+   お手本の絵に寄せる 第2回（社長 2026-09-12・T2）— 絵の密度を上げる
+   ──────────────────────────────────────────────────────────────
+   ① 大きいカード＝銀＋金の「留め金つき写真額」（frame-card-silver＋deco-clamp）
+   ② 等級バッジ＝枠の左上の角に食い込む大きさ（印章の台座 badge-base）
+   ③ 能力バー＝太いバー（.sk-bar2）＋袋文字の大きな数字
+   ④ 右パネル・帯＝角飾りつきの太い彫り枠（frame-thick＋deco-fleur）
+   ⑤ 帯の空いた所＝紙の透かし（paper-crest）で埋める＝黒い帯を出さない
+   ⑥ サイコロの主役＝まわりに光の輪（回る1個＋止まった2重）
+   ⑦ 育ち具合＝丸10個 → 太いバー（節目は刻み目）
+   足すのは「止まった絵」だけ。常時アニメは1つも増やさない。
+   絵（--sk-*・--dkc-*）が無い時は枠も飾りも出ないだけで崩れない。
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── ① 大きいカード：銀＋金の写真額と上の金具 ── */
+#cards .dkc-big > .dkc-frm,.dkc-modal .dkc-big > .dkc-frm{
+  position:absolute;inset:-11px;z-index:6;pointer-events:none;
+  border:var(--dkc-cfw,30px) solid transparent;
+  border-image:var(--sk-fcard,none) 36 / var(--dkc-cfw,30px) / 0 stretch;
+  filter:drop-shadow(0 8px 14px rgba(0,0,0,.5))}
+#cards .dkc-big.dkc-mid > .dkc-frm{--dkc-cfw:24px}
+#cards .dkc-big.dkc-sm > .dkc-frm,.dkc-modal .dkc-big.dkc-sm > .dkc-frm{--dkc-cfw:17px;inset:-8px}
+/* 上の金具は「主役が1枚だけ立つ」所持・強化の大きいカードだけに出す */
+#cards .dkc-clp,.dkc-modal .dkc-clp{display:none}
+#cards .dkc-stage > .dkc-big > .dkc-clp,#cards .dkc-upcard > .dkc-big > .dkc-clp{
+  display:block;position:absolute;left:50%;top:-21px;translate:-50% 0;width:140px;height:46px;z-index:8;
+  pointer-events:none;background:var(--dkc-clamp,none) center/contain no-repeat;
+  filter:drop-shadow(0 4px 5px rgba(0,0,0,.6)) sepia(.55) saturate(2.1) hue-rotate(-14deg) brightness(1.04)}
+#cards .dkc-big.dkc-seal > .dkc-clp{display:none}
+
+/* ── ② 等級バッジ：写真額の左上の角に食い込む印章 ── */
+#cards .dkc-cbg,.dkc-modal .dkc-cbg{position:absolute;left:-19px;top:-21px;z-index:9;pointer-events:none;line-height:0}
+#cards .dkc-cbg .dkc-rar,.dkc-modal .dkc-cbg .dkc-rar{
+  display:flex;align-items:center;justify-content:center;
+  width:var(--dkc-bw,98px);height:calc(var(--dkc-bw,98px) * 1.04);
+  font-size:calc(var(--dkc-bw,98px) * .42);
+  background:var(--sk-badge,none) center/contain no-repeat;
+  filter:drop-shadow(0 5px 7px rgba(0,0,0,.65))}
+#cards .dkc-big.dkc-mid .dkc-cbg{left:-15px;top:-17px}
+#cards .dkc-big.dkc-mid .dkc-cbg .dkc-rar{--dkc-bw:78px}
+#cards .dkc-big.dkc-sm .dkc-cbg,.dkc-modal .dkc-big.dkc-sm .dkc-cbg{left:-11px;top:-12px}
+#cards .dkc-big.dkc-sm .dkc-cbg .dkc-rar,.dkc-modal .dkc-big.dkc-sm .dkc-cbg .dkc-rar{--dkc-bw:58px}
+/* 見出しは名前だけになるので、バッジのぶん右へ寄せて中央に置く */
+#cards .dkc-bighd,.dkc-modal .dkc-bighd{padding-left:68px;justify-content:center}
+#cards .dkc-bignm,.dkc-modal .dkc-bignm{margin-left:0}
+#cards .dkc-big.dkc-mid .dkc-bighd{padding-left:54px}
+#cards .dkc-big.dkc-sm .dkc-bighd,.dkc-modal .dkc-big.dkc-sm .dkc-bighd{padding-left:42px}
+
+/* ── ③ 能力バー：太いバー＋袋文字の数字 ── */
+#cards .dkc-stats{gap:3px}
+#dice .dkc-dbars{gap:6px}
+#cards .dkc-det .sk-barrow.big,#dice .dkc-det .sk-barrow.big{gap:10px}
+#cards .dkc-det .sk-bar2{height:26px;border-radius:13px}
+#dice .dkc-det .sk-bar2{height:32px;border-radius:16px}
+#cards .dkc-det .sk-barrow.big .nm,#dice .dkc-det .sk-barrow.big .nm{
+  flex:0 0 auto;font-size:17px;font-weight:900;color:#F0DCA8;
+  text-shadow:0 2px 0 rgba(20,10,0,.8)}
+#cards .dkc-det .sk-barrow.big .nm{width:170px}
+#dice .dkc-det .sk-barrow.big .nm{width:236px;font-size:18px}
+#cards .dkc-det .sk-barrow.big .vl,#dice .dkc-det .sk-barrow.big .vl{
+  font-size:26px;color:#FFF6E2;-webkit-text-stroke:4px #2E1C05;paint-order:stroke fill}
+#cards .dkc-det .sk-barrow.big .vl{min-width:104px}
+#dice .dkc-det .sk-barrow.big .vl{min-width:136px;font-size:23px}
+/* 装着中のサイコロの青い上乗せ（太いバーの中に重ねる） */
+#cards .dkc-det .sk-bar2 > u.dkc-plb{z-index:1;border-radius:0 13px 13px 0;text-decoration:none}
+/* 右パネルの文章は「行を詰める」だけ（文字は小さくしない）＝7本の太いバーに場所を渡す。
+   ここを詰めないと、下の「強化する／装着」ボタンが器からはみ出す */
+#cards .dkc-det{gap:5px}
+#cards .dkc-det .hd{padding-bottom:6px}
+#cards .dkc-det .dkc-ef{padding:6px 12px;gap:10px}
+#cards .dkc-det .dkc-ef .ic{width:44px;height:44px}
+#cards .dkc-det .dkc-ef b{margin-bottom:1px}
+#cards .dkc-det .dkc-ef p{line-height:1.28}
+#cards .dkc-det .dkc-line{padding:3px 12px;margin:0;line-height:1.28}
+#cards .dkc-exprow .dkbar{height:16px}
+#cards .dkc-plnote{line-height:1.22}
+#cards .dkc-det .btns,#dice .dkc-det .btns{flex:0 0 auto;position:relative;z-index:3}
+
+/* ── ④ 右パネル・帯：角飾りつきの太い彫り枠 ── */
+#cards .dkc-det,#dice .dkc-det{padding:14px 30px;isolation:isolate}
+/* 器の空いた面に敷く紙の透かし（isolation で器の中に閉じこめ、中身より後ろに置く） */
+#cards .dkc-wmk,#dice .dkc-wmk{position:absolute;left:8%;right:8%;top:17%;bottom:11%;z-index:-1;
+  pointer-events:none;
+  background:var(--dkc-crest,none) center/contain no-repeat,
+             var(--dkc-paper,none) center/auto 100% repeat-x;
+  background-blend-mode:multiply,normal;opacity:.23}
+#cards .dkc-det::after,#dice .dkc-det::after{--dkc-fw:13px 27px;
+  border-image:var(--sk-f2,var(--sk-frame,none)) 36 / var(--dkc-fw) / 0 stretch}
+#cards .dkc-bottom::after,#dice .dkc-bottom::after{--dkc-fw:11px 18px;
+  border-image:var(--sk-f2,var(--sk-frame,none)) 36 / var(--dkc-fw) / 0 stretch}
+#cards .dkc-bookL::after{--dkc-fw:12px 18px;
+  border-image:var(--sk-f2,var(--sk-frame,none)) 36 / var(--dkc-fw) / 0 stretch}
+#dice .dkc-dbtop::after{--dkc-fw:11px 16px;
+  border-image:var(--sk-f2,var(--sk-frame,none)) 36 / var(--dkc-fw) / 0 stretch}
+#cards .dkc-orn,#dice .dkc-orn{position:absolute;width:48px;height:26px;z-index:7;pointer-events:none;
+  background:var(--dkc-fleur,none) center/contain no-repeat;
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,.65))}
+#cards .dkc-otl,#dice .dkc-otl{left:-7px;top:-8px}
+#cards .dkc-otr,#dice .dkc-otr{right:-7px;top:-8px;transform:scaleX(-1)}
+#cards .dkc-obl,#dice .dkc-obl{left:-7px;bottom:-8px;transform:scaleY(-1)}
+#cards .dkc-obr,#dice .dkc-obr{right:-7px;bottom:-8px;transform:scale(-1,-1)}
+/* 帯の中身は枠のぶん内側へ（装着中の札が飾りに隠れない） */
+#cards .dkc-row,#dice .dkc-row{padding:20px 24px 12px}
+
+/* ── ⑤ 帯の空いた所：紙の透かしで埋める（黒い帯を出さない） ── */
+#cards .dkc-strip::before,#dice .dkc-strip::before{
+  content:"";position:absolute;inset:9px 12px;z-index:0;pointer-events:none;border-radius:11px;
+  background:var(--dkc-crest,none) 56% 50%/auto 80% no-repeat,
+             var(--dkc-crest,none) 77% 50%/auto 58% no-repeat,
+             var(--dkc-crest,none) 94% 50%/auto 44% no-repeat,
+             var(--dkc-wood,none) center/auto 118% repeat-x,
+             var(--dkc-paper,none) center/auto 100% repeat-x;
+  background-blend-mode:multiply,multiply,multiply,soft-light,normal;opacity:.3}
+/* 帯の内側に彫りこみの線を1本（お手本の棚板のような見え方にして、平らな板に見せない） */
+#cards .dkc-strip::after,#dice .dkc-strip::after{
+  content:"";position:absolute;inset:9px 12px;z-index:0;pointer-events:none;border-radius:11px;
+  border:2px solid rgba(196,150,70,.32);
+  box-shadow:inset 0 5px 13px rgba(0,0,0,.5),inset 0 -3px 0 rgba(255,226,150,.13)}
+
+/* ── ⑥ サイコロの主役：まわりの光の輪（回る1個は共通スキン・外の2重は止まった絵） ── */
+#dice .dkc-hero{z-index:2}
+#dice .dkc-cap{z-index:5}
+/* 回る輪は主役の絵の「上」に出す（絵は下地まで描いてあるので、後ろに置くと見えない） */
+#dice .dkc-dst > .sk-halo{left:43%;top:41%;width:52%;z-index:3;opacity:1;
+  background:conic-gradient(from 0deg,transparent 0 4%,rgba(176,238,255,.9) 11%,transparent 21% 50%,
+             rgba(255,238,178,.85) 59%,transparent 69% 100%);
+  filter:drop-shadow(0 0 13px rgba(150,220,255,.6))}
+#dice .dkc-rings{position:absolute;left:43%;top:41%;width:50%;aspect-ratio:1;translate:-50% -50%;z-index:3;
+  pointer-events:none;border-radius:50%;border:4px solid rgba(182,240,255,.66);
+  box-shadow:0 0 30px rgba(120,200,255,.55),inset 0 0 34px rgba(255,232,164,.3);
+  transform:rotate(-17deg) scaleY(.42)}
+#dice .dkc-rings::before,#dice .dkc-rings::after{content:"";position:absolute;border-radius:50%}
+#dice .dkc-rings::before{inset:-15% -6%;border:4px solid rgba(255,232,164,.6);
+  box-shadow:0 0 20px rgba(255,206,110,.4)}
+#dice .dkc-rings::after{inset:-31% 7%;border:3px solid rgba(182,240,255,.48)}
+
+/* ── ⑦ 育ち具合：丸10個 → 太いバー（節目 Lv.5 / Lv.10 の刻み目つき） ── */
+#dice .dkc-growbar{gap:10px;margin-top:2px}
+#dice .dkc-growbar .sk-bar2{height:30px;border-radius:15px}
+#dice .dkc-growbar .vl{min-width:120px;font-size:26px;color:#FFF6E2;
+  -webkit-text-stroke:4px #2E1C05;paint-order:stroke fill}
+#dice .dkc-growbar .vl small{font-size:17px;opacity:.85;-webkit-text-stroke-width:3px}
+#dice .dkc-gmk{position:absolute;top:0;bottom:0;width:3px;z-index:2;text-decoration:none;
+  background:rgba(255,246,214,.8);box-shadow:0 0 5px rgba(0,0,0,.7)}
+#dice .dkc-gm5{left:50%}
+#dice .dkc-gm10{left:calc(100% - 3px)}
+
+/* ── ⑧ 小さいカードの枠を太く（帯・図鑑・アルバム） ── */
+#cards .dkc-item,#dice .dkc-item{border-width:4px;border-radius:15px}
+#cards .dkc-item::after,#dice .dkc-item::after{content:"";position:absolute;inset:2px;z-index:3;
+  pointer-events:none;border-radius:11px;border:2px solid rgba(255,226,150,.34)}
+
+/* ── ⑩ サイコロの強化：台座を大きく、節目の丸を太い金の刻みにする（空きを絵で埋める） ── */
+#dice .dkc-dped .dkc-ped{transform:scale(1.16);margin:6px 0 22px}
+#dice .dkc-dped > .dkc-pips{gap:14px}
+#dice .dkc-dped > .dkc-pips .dkc-pip{width:32px;height:32px;border-width:3px;
+  box-shadow:0 3px 0 rgba(0,0,0,.45),inset 0 2px 0 rgba(255,226,150,.2)}
+#dice .dkc-dped > .dkc-pips .dkc-pip.on{box-shadow:0 3px 0 rgba(0,0,0,.45),0 0 12px rgba(255,200,80,.75)}
+#dice .dkc-dped > .dkc-pips .dkc-pip.dkc-mk{transform:scale(1.3);border-color:#FFD44A}
+
+/* ── ⑨ 横長スマホ（高さ560px未満）：飾りを小さく・角飾りは出さない ── */
+@media (max-height:560px){
+  #cards .dkc-orn,#dice .dkc-orn{display:none}
+  #cards .dkc-det,#dice .dkc-det{padding:14px 24px}
+  #cards .dkc-big > .dkc-frm{--dkc-cfw:24px}
+  #cards .dkc-big.dkc-sm > .dkc-frm,.dkc-modal .dkc-big.dkc-sm > .dkc-frm{--dkc-cfw:15px}
+  #cards .dkc-cbg .dkc-rar{--dkc-bw:80px}
+  #cards .dkc-bighd{padding-left:58px}
+  #cards .dkc-stage > .dkc-big > .dkc-clp,#cards .dkc-upcard > .dkc-big > .dkc-clp{width:116px;height:38px;top:-17px}
+  #cards .dkc-det .sk-bar2,#dice .dkc-det .sk-bar2{height:32px}
+  #cards .dkc-det .sk-barrow.big .nm{width:200px;font-size:22px}
+  #dice .dkc-det .sk-barrow.big .nm{width:260px;font-size:22px}
+  #cards .dkc-det .sk-barrow.big .vl{min-width:124px;font-size:26px}
+  #dice .dkc-det .sk-barrow.big .vl{min-width:152px;font-size:26px}
+  #dice .dkc-growbar .vl{min-width:148px;font-size:28px}
+  #dice .dkc-growbar .vl small{font-size:22px}
+  #cards .dkc-row,#dice .dkc-row{padding:24px 20px 10px}
+  /* 細い画面は器の中がスクロールする作り。ボタンは下に貼りつけたままにする
+     （上の #cards .dkc-det .btns が position:relative で貼りつきを消してしまうため、ここで戻す） */
+  #cards .dkc-det .btns,#dice .dkc-det .btns{position:sticky;bottom:0}
+  /* 台座を大きくすると「演出を見る」が舞台からはみ出すので、細い画面では元の縮小に戻す */
+  #dice .dkc-dped .dkc-ped{transform:scale(.84);margin:-30px 0 -8px}
+  #dice .dkc-dped > .dkc-pips{gap:10px}
+  #dice .dkc-dped > .dkc-pips .dkc-pip{width:26px;height:26px}
+}
 </style>
