@@ -8,6 +8,9 @@
        キューブと品物 dkGiveCube/dkOpenCube/dkGrantItem・本日のマップ dkTodayMap・名札の枠 dkFrameOf）。
    ・5-meta.js の defaultSave / fixSave / grant / cardStats、4-game.js の dieOf / pendOf / timeUp、
      3-core.js の hasTriple / hasLine を宣言し直す（関数宣言は後勝ち。全JSが1つの script 要素なので全呼び出し元に効く）。
+   ・種類を増やす（DKCORE_ensureData）：ペンダント 8→16種（A7・S6・S+3）、サイコロ 5→8種。
+     キューブの中身は等級の表をカード用・ペンダント用で分ける（DKCORE_cubeRar・DKCORE_cubeOdds）。
+   ・社長専用リンク ?boss=kimochi（DKCORE_bossGift・SV.vip）。ふつうのリンクには何も起きない。
    ・注意：defaultSave / fixSave は 5-meta.js の読み込み中（loadSave）に呼ばれる。
      その時点ではこのファイルのトップレベル var はまだ undefined。
      だから両関数の中では、このファイルの変数を使わず、関数宣言と
@@ -37,6 +40,63 @@ function DKCORE_uid(pre){
 }
 function DKCORE_online(){ return !!(typeof window !== 'undefined' && window.DV_OL && window.DV_OL.started); }
 
+/* ══════════ 種類を増やす（ペンダント 16種・サイコロ 8種） ══════════
+   PENDANTS（5-meta.js）と DICE（3-core.js）は const だが、中身（配列の要素）は足せる。
+   defaultSave / fixSave は 5-meta.js の読み込み中に呼ばれるので、足すのはこの関数の中だけで行い、
+   両関数の先頭から呼ぶ（その時点ではこのファイルのトップレベル var はまだ undefined なので、表は関数の中に置く）。
+   ・ペンダントの効果は pendFire（9h-board.js）が id（p1〜p8）で分ける。新しいペンダントは eff に
+     既存の効果の id を持ち、pendOf が返す写しの id をその効果の id にする
+     （名前・絵・等級・確率・発動の種類は新しいペンダントのまま＝本家の「同じ系統で強さ違い」と同じ形）。
+   ・等級の配分は本家の幸運アイテムに寄せて A 7・S 6・S+ 3。同じ trg は実効確率が高い1つだけ発動する。 */
+function DKCORE_moreP(){
+  return [
+    { id:'p9',  nm:'颶風のペンダント', ic:'🌪', rar:'A',  trg:'onRoll',     p:0.28, eff:'p8',
+      ds:'サイコロを振るとき、ダブルが出る' },
+    { id:'p10', nm:'霧氷のペンダント', ic:'❄️', rar:'A',  trg:'onSameTile', p:0.30, eff:'p7',
+      ds:'相手と同じマスに止まったとき、相手のマーブルの20%を奪う' },
+    { id:'p11', nm:'羅針のペンダント', ic:'🧭', rar:'A',  trg:'onOwnLand',  p:0.30, eff:'p6',
+      ds:'自分の都市に止まったとき、同じ辺の自分の別の都市へ跳ぶ' },
+    { id:'p12', nm:'礎石のペンダント', ic:'🧱', rar:'A',  trg:'onBuild',    p:0.24, eff:'p4',
+      ds:'建物を3棟以上持っているとき、スタートへ移動して給料を受け取る' },
+    { id:'p13', nm:'隼のペンダント',   ic:'🪶', rar:'S',  trg:'onTravel',   p:0.42, eff:'p5',
+      ds:'ワープのマスで、選ばずに一番得なマスへ即座に移動する' },
+    { id:'p14', nm:'金環のペンダント', ic:'💍', rar:'S',  trg:'onOwnLand',  p:0.46, eff:'p6',
+      ds:'自分の都市に止まったとき、同じ辺の自分の別の都市へ跳ぶ' },
+    { id:'p15', nm:'呪縛のペンダント', ic:'🕸', rar:'S',  trg:'onTollGet',  p:0.40, eff:'p2',
+      ds:'相手が自分のランドマークに止まったとき束縛し、次の移動でもう一度通行料を取る' },
+    { id:'p16', nm:'天穹のペンダント', ic:'🌌', rar:'SS', trg:'onBuild',    p:0.72, eff:'p3',
+      ds:'建設したとき、自分の別の都市の建物がもう1段上がる' }
+  ];
+}
+/* サイコロ（J42）：ダブルの確率・大きい目の補正は本家に無いので dbl・big は 0。
+   能力の上乗せは DKCORE_DIEAB（下）で種類ごとに組み合わせを変える */
+function DKCORE_moreD(){
+  return [
+    { id:'d5', nm:'星降りのサイコロ', ic:'🌠', rar:'S',  col:'#9FC6FF',
+      ds:'ゲージインパクトと偶数奇数の回数が伸びる。', gauge:0, dbl:0, big:0 },
+    { id:'d6', nm:'商神のサイコロ',   ic:'⚖️', rar:'S',  col:'#FFC58A',
+      ds:'買収費用割引・ゴールドボーナス・RPボーナスが伸びる。', gauge:0, dbl:0, big:0 },
+    { id:'d7', nm:'匠のサイコロ',     ic:'🔨', rar:'S+', col:'#A8DFA0',
+      ds:'建設費用割引・ミニゲーム勝利・黄金フォーチュンが伸びる。', gauge:0, dbl:0, big:0 }
+  ];
+}
+/* 1回だけ足す（同じ id は足さないので、二重に呼ばれても増えない）。
+   PENDANTS・DICE は const（TDZ）なので、まだ作られていない時に触ると例外になる。
+   その時は done を立てず、次に呼ばれた時にもう一度試す */
+function DKCORE_ensureData(){
+  if(DKCORE_ensureData.done) return;
+  var okP = false, okD = false;
+  var add = function(list, more){
+    more.forEach(function(o){
+      for(var i = 0; i < list.length; i++) if(list[i] && list[i].id === o.id) return;
+      list.push(o);
+    });
+  };
+  try{ if(Array.isArray(PENDANTS)){ add(PENDANTS, DKCORE_moreP()); okP = true; } }catch(e){ okP = false; }
+  try{ if(Array.isArray(DICE)){ add(DICE, DKCORE_moreD()); okD = true; } }catch(e){ okD = false; }
+  if(okP && okD) DKCORE_ensureData.done = 1;
+}
+
 /* ── キューブ（J40）：ウッド＜シルバー＜ゴールド＜ダイヤ。最大7個 ── */
 function DKCORE_cubeKinds(){ return ['wood', 'silver', 'gold', 'dia']; }
 function DKCORE_cubeMax(){ return 7; }
@@ -48,14 +108,38 @@ function DKCORE_cubeInfo(kind){
   var o = T[kind] || T.wood;
   return { kind:(T[kind] ? kind : 'wood'), nm:o.nm, ic:o.ic, col:o.col };
 }
-/* 提供割合（合計100）。k＝gold（lo〜hi G）・gem（n 個）・card・pend（rar の中から同じ確率） */
+/* 提供割合（合計100）。k＝gold（lo〜hi G）・gem（n 個）・card・pend */
 function DKCORE_cubeRows(kind){
   var T = {
-    wood:   [ { k:'gold', w:70, lo:300,  hi:800 },  { k:'gem', w:20, n:1 },  { k:'card', w:10, rar:['A'] } ],
-    silver: [ { k:'gold', w:60, lo:800,  hi:2000 }, { k:'gem', w:20, n:2 },  { k:'card', w:15, rar:['A'] }, { k:'pend', w:5, rar:['A'] } ],
-    gold:   [ { k:'gold', w:45, lo:2000, hi:5000 }, { k:'gem', w:20, n:5 },  { k:'card', w:25, rar:['A', 'S'] }, { k:'pend', w:10, rar:['A', 'S'] } ],
-    dia:    [ { k:'gem',  w:30, n:10 },              { k:'card', w:50, rar:['S', 'SS'] }, { k:'pend', w:20, rar:['S', 'SS'] } ] };
+    wood:   [ { k:'gold', w:70, lo:300,  hi:800 },  { k:'gem', w:20, n:1 },  { k:'card', w:10 } ],
+    silver: [ { k:'gold', w:60, lo:800,  hi:2000 }, { k:'gem', w:20, n:2 },  { k:'card', w:15 }, { k:'pend', w:5 } ],
+    gold:   [ { k:'gold', w:45, lo:2000, hi:5000 }, { k:'gem', w:20, n:5 },  { k:'card', w:25 }, { k:'pend', w:10 } ],
+    dia:    [ { k:'gem',  w:30, n:10 },              { k:'card', w:50 }, { k:'pend', w:20 } ] };
   return (T[kind] || T.wood).map(function(r){ return Object.assign({}, r); });
+}
+/* 等級の割合（合計100）。カード用とペンダント用で別の表にする
+   （本家もキャラクターカードのほうが上の等級が出やすい）。what＝'card'|'pend' */
+function DKCORE_cubeRar(kind, what){
+  var C = { wood:{ A:100 }, silver:{ A:88, S:12 }, gold:{ A:60, S:34, SS:6 },  dia:{ S:70, SS:30 } };
+  var P = { wood:{ A:100 }, silver:{ A:100 },      gold:{ A:70, S:30 },        dia:{ S:80, SS:20 } };
+  var T = (what === 'pend') ? P : C;
+  var o = T[kind] || T.wood;
+  return Object.keys(o).map(function(r){ return { rar:r, w:o[r] }; });
+}
+/* 画面用（提供割合の表示）：キューブ kind の中身を [{k, nm, pct, rar?}] で返す */
+function DKCORE_cubeOdds(kind){
+  var ci = DKCORE_cubeInfo(kind), rows = DKCORE_cubeRows(ci.kind), tot = 0, out = [];
+  rows.forEach(function(r){ tot += r.w; });
+  if(!tot) tot = 1;
+  rows.forEach(function(r){
+    var pct = Math.round(r.w / tot * 1000) / 10;
+    if(r.k === 'gold'){ out.push({ k:'gold', nm:'ゴールド ' + r.lo.toLocaleString() + '〜' + r.hi.toLocaleString(), pct:pct }); return; }
+    if(r.k === 'gem'){ out.push({ k:'gem', nm:'ダイヤ ' + r.n, pct:pct }); return; }
+    out.push({ k:r.k, nm:(r.k === 'card' ? 'キャラクターカード' : 'ペンダント'), pct:pct,
+      rar: DKCORE_cubeRar(ci.kind, r.k).map(function(x){
+        return { rar:(x.rar === 'SS' ? 'S+' : x.rar), pct:Math.round(pct * x.w) / 100 }; }) });
+  });
+  return { kind:ci.kind, nm:ci.nm, rows:out };
 }
 /* セーブの cubes をそろえる：配列（文字列 'wood' か {id,kind,at}）か、数（その数のウッド）を受ける */
 function DKCORE_cubesNorm(v){
@@ -93,6 +177,7 @@ function DKCORE_ticketName(id){
 
 /* ══════════ 既定のセーブ（§3 のキー＋v10 の C21〜C26） ══════════ */
 function defaultSave(){
+  DKCORE_ensureData();
   return { gold: 3000, gem: 5, lv: 1, exp: 0, plays: 0, wins: 0,
     dailyAt: '', dailyN: 0, qdone: {}, freeAt: 0,
     cards: { c01:{lv:1,dup:0,exp:0}, c02:{lv:1,dup:0,exp:0} },
@@ -117,7 +202,7 @@ function defaultSave(){
     /* J12：既定は本家の30ターン・25分。team・shake・turnTimer は既定オフ（部屋・設定でオン） */
     rules: { turns:30, timeLimit:1500, ai:1, team:false, shake:false, turnTimer:false },
     carry: {}, tickets: { biz:0, first:0, dia:0 }, tutorial: 0,
-    cubes: [], luckyMile: 0, lmq: {}, frames: { own:[], eq:'' } };
+    cubes: [], luckyMile: 0, lmq: {}, frames: { own:[], eq:'' }, vip: 0 };
 }
 
 /* 郵便を1通、セーブ s に足す（fixSave の中からも使うので SV ではなく s を受ける）。
@@ -149,6 +234,7 @@ function DKCORE_mailTo(s, item){
    ・cubes は最大7。超えた分は捨てずに cube の品物としてプレゼントボックスへ。
    ・migV<1 の時だけ移行 v1、migV2<1 の時だけ移行 v2 を1回ずつ行う。                  */
 function fixSave(s){
+  DKCORE_ensureData();
   s = DKCORE_obj(s);
   var d = defaultSave();
   var num = DKCORE_num, obj = DKCORE_obj, str = DKCORE_str;
@@ -299,6 +385,7 @@ function fixSave(s){
   var tk = obj(s.tickets);
   s.tickets = Object.assign({}, tk, { biz: num(tk.biz, 0), first: num(tk.first, 0), dia: num(tk.dia, 0) });
   s.tutorial = num(s.tutorial, 0);
+  s.vip = (s.vip === true || num(s.vip, 0) > 0) ? 1 : 0;      /* 社長専用リンクで受け取り済みの印 */
   s.luckyMile = num(s.luckyMile, 0);
   s.cheer = (s.cheer === true || num(s.cheer, 0) > 0) ? 1 : 0;
   s.lmq = obj(s.lmq);
@@ -484,7 +571,10 @@ var DKCORE_DIEAB = {
   d1: { fortune:[5, 20], gauge:[6, 25] },                  /* 黄金のサイコロ：黄金フォーチュン・ゲージインパクト */
   d2: { build:[5, 20], gauge:[5, 20], gold:[5, 20] },      /* LEDサイコロ：建設費用割引・ゲージインパクト・ゴールドボーナス */
   d3: { mini:[8, 30], oddeven:[1, 1] },                    /* トランプサイコロ：ミニゲーム勝利・偶数奇数（回数+1） */
-  d4: { buyout:[6, 25], rp:[5, 20] }                       /* 亡者のサイコロ：買収費用割引・RPボーナス */
+  d4: { buyout:[6, 25], rp:[5, 20] },                      /* 亡者のサイコロ：買収費用割引・RPボーナス */
+  d5: { gauge:[6, 22], oddeven:[1, 1] },                   /* 星降りのサイコロ：ゲージインパクト・偶数奇数（回数+1） */
+  d6: { buyout:[5, 18], gold:[4, 16], rp:[4, 16] },        /* 商神のサイコロ：買収費用割引・ゴールドボーナス・RPボーナス */
+  d7: { build:[6, 22], mini:[6, 22], fortune:[4, 16] }     /* 匠のサイコロ：建設費用割引・ミニゲーム勝利・黄金フォーチュン */
 };
 function DKCORE_abZero(){ return { mini:0, fortune:0, build:0, gauge:0, buyout:0, gold:0, rp:0, oddeven:0 }; }
 /* 能力の名前と単位（画面用）：[[key, 名, 単位]] */
@@ -595,7 +685,9 @@ function DKCORE_pendLv(p, id){
 }
 /* 同じ trg の中で実効確率が最大の1つを返す（本家「同じ系統は高い方だけ発動」）。
    開いている枠（dkPendSlots）より後ろのペンダントは見ない（J38）。
-   PENDANTS の実体ではなくコピーを返す。id を残すので pendFire の分岐はそのまま動く */
+   PENDANTS の実体ではなくコピーを返す。pendFire（9h-board.js）は id で効果を分けるので、
+   写しの id は「効果の id」（eff があればそれ・無ければ自分の id）にし、本当の id は pid に残す。
+   こうすると、新しいペンダントも名前・絵・等級・確率は自分の物のまま、効果は既存の仕組みで動く */
 function pendOf(pi, trg){
   var p = G && G.players && G.players[pi];
   if(!p || !p.pend) return null;
@@ -606,7 +698,7 @@ function pendOf(pi, trg){
     if(!it || it.trg !== trg) continue;
     var lv = DKCORE_pendLv(p, it.id);
     var pr = Math.min(0.95, it.p * dkPendMul(lv));
-    if(pr > bp){ bp = pr; best = Object.assign({}, it, { p: pr, lv: lv }); }
+    if(pr > bp){ bp = pr; best = Object.assign({}, it, { p: pr, lv: lv, pid: it.id, id: (it.eff || it.id) }); }
   }
   return best;
 }
@@ -783,10 +875,20 @@ function grant(c){
   saveNow();
   return out;
 }
-/* 表 list（CARDPOOL・PENDANTS）から、等級 rars（'A'|'S'|'SS'）の中の1つを同じ確率で */
-function DKCORE_pick(list, rars){
-  var c = list.filter(function(x){ return rars.indexOf(dkNormRar(x.rar)) >= 0; });
-  return c.length ? c[(Math.random() * c.length) | 0] : null;
+/* 表 list（CARDPOOL・PENDANTS）から、キューブ kind の等級の割合（DKCORE_cubeRar）で1つ選ぶ。
+   what＝'card'|'pend'。その等級が1つも無い時は、その等級を抜いて選び直す */
+function DKCORE_pick(list, kind, what){
+  var rows = DKCORE_cubeRar(kind, what), tot = 0, i;
+  var have = rows.filter(function(r){
+    r.pool = list.filter(function(x){ return dkNormRar(x.rar) === r.rar; });
+    return r.pool.length > 0;
+  });
+  if(!have.length) return null;
+  have.forEach(function(r){ tot += r.w; });
+  if(!tot) tot = have.length;
+  var roll = Math.random() * tot, row = have[have.length - 1];
+  for(i = 0; i < have.length; i++){ roll -= have[i].w; if(roll < 0){ row = have[i]; break; } }
+  return row.pool[(Math.random() * row.pool.length) | 0];
 }
 
 /* ══════════ キューブ（C21・J40） ══════════ */
@@ -820,11 +922,11 @@ function DKCORE_openAt(at){
   var roll = Math.random() * tot, row = rows[rows.length - 1];
   for(var k = 0; k < rows.length; k++){ roll -= rows[k].w; if(roll < 0){ row = rows[k]; break; } }
   if(row.k === 'card'){
-    var cd = DKCORE_pick(CARDPOOL, row.rar);
+    var cd = DKCORE_pick(CARDPOOL, out.kind, 'card');
     if(cd) out.card = DKCORE_giveCard(cd.id);
     else row = { k:'gold', lo:1000, hi:1000 };
   } else if(row.k === 'pend'){
-    var pd = DKCORE_pick(PENDANTS, row.rar);
+    var pd = DKCORE_pick(PENDANTS, out.kind, 'pend');
     if(pd) out.pend = dkGivePend(pd.id);
     else row = { k:'gold', lo:1000, hi:1000 };
   }
@@ -1011,6 +1113,59 @@ if(DKCORE_checkWin0){
   };
 }
 
+/* ══════════ 社長専用リンク（?boss=kimochi） ══════════
+   このリンクで開いた時だけ、初回に1度だけゴールド 9,999,999・ダイヤ 9,999 を入れ、SV.vip=1 で覚える
+   （2回目からは足さない）。ふつうのリンクには何も起きない。仕掛けはこのファイルの中だけで完結する。 */
+function DKCORE_bossLink(){
+  try{
+    var q = (typeof location === 'object' && location) ? String(location.search || '') : '';
+    if(!q) return false;
+    var a = q.replace(/^\?/, '').split('&');
+    for(var i = 0; i < a.length; i++){
+      var kv = a[i].split('=');
+      if(decodeURIComponent(kv[0] || '') === 'boss' && decodeURIComponent(kv[1] || '') === 'kimochi') return true;
+    }
+  }catch(e){}
+  return false;
+}
+function DKCORE_bossGift(){
+  if(!(typeof SV === 'object' && SV) || SV.vip) return false;
+  if(!DKCORE_bossLink()) return false;
+  SV.vip = 1;
+  SV.gold = Math.max((+SV.gold || 0), 9999999);
+  SV.gem  = Math.max((+SV.gem  || 0), 9999);
+  saveNow();
+  try{ dkMail({ ic:'👑', nm:'VIP のお迎え（ゴールド 9,999,999・ダイヤ 9,999）' }); }catch(e){}
+  try{ dkWallet(); }catch(e){}
+  return true;
+}
+/* ホームの名札の横の小さな「VIP」（ホームの画面は WP16b。ここは印を1つ足すだけ）。
+   二重に足さない・見つからなければ何もしない */
+function DKCORE_vipMark(el){
+  if(!(typeof SV === 'object' && SV) || !SV.vip) return;
+  var root = (el && el.querySelector) ? el : (typeof document === 'object' ? document.getElementById('home') : null);
+  if(!root || !root.querySelector || root.querySelector('.dkcore-vip')) return;
+  var nm = root.querySelector('.dkh-pnm');
+  if(!nm || !nm.parentNode) return;
+  var b = document.createElement('span');
+  b.className = 'dkcore-vip';
+  b.textContent = 'VIP';
+  b.title = '社長専用リンクの特典（ゴールドとダイヤが最初から満タン）';
+  b.setAttribute('style', 'flex:0 0 auto;margin-left:6px;padding:0 7px;border-radius:7px;font-size:16px;font-weight:900;'
+    + 'line-height:1.3;color:#4A2E02;background:linear-gradient(180deg,#FFF3C4,#F5CC4E 55%,#D99C12);'
+    + 'border:1px solid rgba(74,46,2,.55);box-shadow:0 1px 0 rgba(255,255,255,.7) inset;letter-spacing:.03em;white-space:nowrap');
+  nm.parentNode.insertBefore(b, nm.nextSibling);
+}
+/* showHome のラッパ（宣言し直しではないので所有表に触らない） */
+var DKCORE_showHome0 = (typeof showHome === 'function') ? showHome : null;
+if(DKCORE_showHome0){
+  showHome = function(){
+    var r = DKCORE_showHome0.apply(this, arguments);
+    try{ DKCORE_vipMark(r); }catch(e){ console.error('[WP12a]', e); }
+    return r;
+  };
+}
+
 /* ══════════ 起動時 ══════════ */
 (function(){
   try{
@@ -1032,5 +1187,6 @@ if(DKCORE_checkWin0){
   /* 週替わり（'week:roll'）は、後ろのファイルの受け手がそろってから1回見る */
   setTimeout(function(){
     try{ if(typeof SV === 'object' && SV) DKCORE_week(); }catch(e){ console.error('[WP12a]', e); }
+    try{ DKCORE_bossGift(); }catch(e){ console.error('[WP12a]', e); }
   }, 0);
 })();
