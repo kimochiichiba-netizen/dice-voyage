@@ -704,7 +704,7 @@ function dkcStatBars(c, lv){
   return '<div class="dkc-stats">' + labs.map(function(kv){
     var v = Math.round(st[kv[0]] || 0), pl = plus[kv[0]] | 0, w = Math.min(100, v);
     return '<div class="st dkc-st sk-barrow big"><span class="l nm">' + esc(kv[1]) + '</span>'
-      + '<span class="sk-bar2' + (v >= 80 ? '' : v >= 60 ? ' green' : ' blue') + '"><i style="--sk-v:' + w + '%"></i>'
+      + '<span class="sk-bar2' + (v >= 100 ? '' : v >= 85 ? ' green' : ' blue') + '"><i style="--sk-v:' + w + '%"></i>'
       + (pl ? '<u class="dkc-plb" style="left:' + w + '%;width:' + Math.max(0, Math.min(100 - w, pl)) + '%"></u>' : '') + '</span>'
       + '<b class="vl">' + v + (pl ? '<em class="dkc-plus">+' + pl + '</em>' : '') + '</b></div>';
   }).join('') + '</div>';

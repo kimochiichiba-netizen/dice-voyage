@@ -423,3 +423,196 @@ html.fx-mob .sk-hero,html.fx-mob .sk-halo{will-change:auto!important}
   .sk-spark{opacity:.7}
 }
 </style>
+<style>
+/* ══════════════════════════════════════════════════════════════
+   第3回・お手本寄せ（最終）：採点2人の指摘を点の高い順に直す
+   ① 器からはみ出す／枠の桟に切られるボタンを器の中へ（カード・サイコロ・ショップ）
+   ② 締めの金ボタンをそろえる（出席簿・ミッション・郵便・イベント・キューブ・ガチャ）
+   ③ 空きタイルに絵と等級を入れる（ペンダント・カードの下段）
+   ④ 出席簿の28マスとミッションの行を大きく・枠を太く
+   ⑤ 左レールの下の空いた柱を飾り皿で埋める（ガチャ・イベント）
+   ⑥ 等級章を大きく・友達の丸メダルの下敷きを隠す
+   足すのは「止まった絵」だけ。常時アニメは1つも増やさない。
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── ① カード・サイコロ：右パネルの行を詰めて、ボタンを器の中に収める ──
+   実測（1600×900）：器の下端 672px に対してボタンの下端が 707px まで出ていて、
+   さらに下の帯（685px〜）が上からかぶさり「強化する／装着中」が半分隠れていた。
+   文字は小さくせず、行間・余白だけで 40px ほど取り返す。 */
+#cards .dkc-det,#dice .dkc-det{padding:8px 30px 12px}
+#cards .dkc-det{gap:3px}
+#cards .dkc-det .hd{padding-bottom:3px}
+#cards .dkc-det .dkc-ef{padding:4px 12px;gap:8px}
+#cards .dkc-stats{gap:3px}
+#cards .dkc-exprow .dkbar{height:14px}
+/* 彫り枠は z-index:6 で中身の上に重なるので、ボタンだけ枠より前に出す（枠に切られない） */
+#cards .dkc-det .btns,#dice .dkc-det .btns{z-index:7}
+/* 味の一言が木目に沈んで読めなかったので、暗い受け皿に乗せる（唐草の飾りはそのまま） */
+#cards .dkc-det .dkc-line{padding:2px 12px 3px;color:#F6E7C4;border-radius:9px;
+  background-color:rgba(18,11,3,.55);box-shadow:inset 0 0 0 1px rgba(200,152,70,.36)}
+
+/* ── ② ショップ：購入ボタンが札の彫り枠の桟に切られていたので、枠より前に出して余白も足す ── */
+#shop .dks-good{padding-bottom:22px}
+#shop .dks-good > .dks-b,#shop .dks-good > .dks-sold{z-index:7}
+
+/* ── ③ 締めの金ボタン：面取り＋艶の帯＋袋文字（お手本の分厚い金ボタン）──
+   1つの見た目で 6画面ぶんの「締め」を作る。 */
+#daily .dks-dget,#quest .dks-all,#mail .dkh-all,#news .dkh-togacha,#cube .dkp-cbtn{
+  height:86px;font-size:34px;border-radius:18px;border:3px solid #6B4606;
+  color:#FFF8E4;-webkit-text-stroke:5px rgba(56,30,2,.92);paint-order:stroke fill;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.62) 0 6%,rgba(255,255,255,.2) 36%,rgba(255,255,255,0) 44%),
+    linear-gradient(180deg,#FFF7D8 0 8%,#FADD86 26%,#EDB63A 54%,#C6870F 78%,#8A5905);
+  box-shadow:0 9px 0 #6B4606,0 13px 0 rgba(0,0,0,.32),0 18px 26px rgba(0,0,0,.42),
+             inset 0 3px 0 rgba(255,255,255,.9),inset 0 -9px 15px rgba(116,70,4,.5)}
+#news .dkh-togacha{padding:0 34px}
+#daily .dks-dget:active,#quest .dks-all:active,#mail .dkh-all:active,
+#news .dkh-togacha:active,#cube .dkp-cbtn:active{
+  box-shadow:0 2px 0 #6B4606,inset 0 3px 0 rgba(255,255,255,.9),inset 0 -9px 15px rgba(116,70,4,.5)}
+/* ガチャの値段ボタンも同じ金に（淡い砂色の平たい板をやめる） */
+#gacha .dkp-tbtns .dkbtn.gd{border:3px solid #6B4606;color:#FFF8E4;
+  -webkit-text-stroke:4px rgba(56,30,2,.9);paint-order:stroke fill;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.58) 0 6%,rgba(255,255,255,.18) 36%,rgba(255,255,255,0) 44%),
+    linear-gradient(180deg,#FFF7D8 0 8%,#FADD86 26%,#EDB63A 54%,#C6870F 78%,#8A5905);
+  box-shadow:0 7px 0 #6B4606,0 11px 0 rgba(0,0,0,.3),0 14px 20px rgba(0,0,0,.4),
+             inset 0 3px 0 rgba(255,255,255,.88),inset 0 -8px 13px rgba(116,70,4,.48)}
+/* ペンダントの3つのボタンを背高く。赤の「解除」はお手本に無い色なので青銅に寄せる */
+#pend .dkp-dbtns .dkbtn{height:76px;font-size:24px}
+#pend .dkp-dbtns .dkp-off.dkbtn{color:#FFF3E0;-webkit-text-stroke:4px rgba(44,26,4,.9);
+  background:linear-gradient(180deg,#E4BE86 0 8%,#B0813C 36%,#79541A 74%,#4C3208);border:3px solid #3A2408}
+
+/* ── ④ 空きタイルに「絵＋等級」を入れる（お手本は全枠に絵と等級が入る）── */
+/* ペンダントの下段：しずく形の宝石のシルエットと等級の「？」 */
+.dkp-cell.dkp-shempty{border-width:4px;border-color:rgba(184,132,40,.82)}
+.dkp-cell.dkp-shempty::before{content:"";position:absolute;left:50%;top:11%;width:50%;height:47%;
+  transform:translateX(-50%);z-index:0;pointer-events:none;opacity:.74;
+  clip-path:polygon(50% 0,88% 38%,50% 100%,12% 38%);
+  background:linear-gradient(160deg,#CDB183,#8E7145 46%,#5E4726);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.4)}
+.dkp-cell.dkp-shempty::after{content:"？";position:absolute;inset:auto 0 7px 0;z-index:1;
+  opacity:.92;text-align:center;font-family:var(--caps);font-size:19px;line-height:1;
+  color:#FFF3D6;-webkit-text-stroke:3px rgba(70,46,10,.92);paint-order:stroke fill;
+  box-shadow:none;border-radius:0;pointer-events:none}
+/* カード・サイコロの下段：札形のシルエットと等級の「？」 */
+#cards .dkc-item.dkc-empty2::before,#dice .dkc-item.dkc-empty2::before{
+  content:"";position:absolute;left:50%;top:10%;width:54%;height:56%;transform:translateX(-50%);
+  border-radius:8px;opacity:.72;pointer-events:none;
+  background:linear-gradient(160deg,#CDB183,#8E7145 48%,#5E4726);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.42),inset 0 0 0 2px rgba(94,71,38,.66)}
+#cards .dkc-item.dkc-empty2::after,#dice .dkc-item.dkc-empty2::after{
+  content:"？";position:absolute;left:0;right:0;bottom:9px;text-align:center;pointer-events:none;
+  font-family:var(--caps);font-size:22px;line-height:1;color:#FFF3D6;
+  -webkit-text-stroke:3px rgba(70,46,10,.92);paint-order:stroke fill;opacity:.92}
+
+/* ── ⑤ 出席簿の28マス：太い金枠・報酬の絵を大きく・節目の日をさらに光らせる ── */
+#daily .dks-days{gap:7px 9px}
+#daily .dks-days .dks-day{padding:30px 5px 7px;border:4px solid #A9761A;
+  box-shadow:inset 0 3px 0 rgba(255,255,255,.9),inset 0 0 0 2px rgba(255,240,200,.5),
+             0 4px 0 rgba(92,58,10,.5),0 8px 14px rgba(80,50,10,.3)}
+#daily .dks-days .dks-day .di .dks-a{--s:60px}
+#daily .dks-days .dks-day .di > .sk-pic{width:78px;height:68px}
+#daily .dks-days .dks-day .dv{font-size:29px;-webkit-text-stroke:5px #FFF6E2}
+#daily .dks-days .dks-day.d7 .di .dks-a{--s:68px}
+#daily .dks-days .dks-day.d7{box-shadow:inset 0 3px 0 rgba(255,255,255,.95),inset 0 0 30px rgba(255,196,70,.5),
+  0 0 0 3px rgba(255,222,126,.72),0 0 30px 8px rgba(255,200,80,.6),0 6px 12px rgba(80,50,10,.35)}
+
+/* ── ⑥ ミッションの行：絵タイルを大きく・バーを太く・報酬の札を大きく ── */
+#quest .dks-q .ic{width:84px;height:84px}
+#quest .dks-q .ic > span{font-size:40px}
+#quest .dks-q .prog .dkbar{height:30px}
+#quest .dks-q .prog > b{font-size:26px;min-width:88px;color:#FFF6E2;
+  -webkit-text-stroke:4px #3A2405;paint-order:stroke fill}
+#quest .dks-q .rw .c{font-size:23px;padding:7px 12px;border-width:3px}
+#quest .dks-q .rw .dks-a{--s:34px}
+
+/* ── ⑦ 左レールの下にできた空いた柱を飾り皿で埋める（ガチャ2タブ・イベント3タブ）── */
+#gacha .dktabs::after,#news .dktabs::after{content:"";display:block;flex:0 0 auto;margin-top:6px;
+  border-radius:16px;border:3px solid rgba(200,149,47,.62);pointer-events:none;
+  background:var(--sk-crest,none) center/auto 62% no-repeat,
+             var(--sk-fleur,none) center bottom 12px/62px auto no-repeat,
+             linear-gradient(180deg,#5A4220,#33230D 56%,#1E1206);
+  background-blend-mode:soft-light,normal,normal;
+  box-shadow:inset 0 2px 0 rgba(255,224,154,.26),inset 0 0 0 2px rgba(200,152,70,.22),
+             inset 0 0 34px rgba(0,0,0,.5),0 5px 0 rgba(0,0,0,.4)}
+#gacha .dktabs::after{height:240px}
+#news .dktabs::after{height:190px}
+
+/* ── ⑧ 郵便・友達：広いクリームの無地を金の罫で割る（お手本はこの広さを必ず割る）──
+   上の隅の唐草が帯に切られて見えていたので、少し下げる。 */
+#mail .dkh-mrows,#friends .dkh-frrows{
+  background:
+    repeating-linear-gradient(180deg,transparent 0 64px,rgba(150,112,48,.28) 64px 66px,
+                              rgba(255,255,255,.55) 66px 68px,transparent 68px 132px),
+    var(--sk-fleur,none) left 10px top 16px/88px auto no-repeat,
+    var(--sk-fleur,none) right 10px top 16px/88px auto no-repeat,
+    var(--dkh-desk-props-l,none) left 2px bottom -8px/auto 244px no-repeat,
+    var(--dkh-desk-props-r,none) right 6px bottom -6px/auto 268px no-repeat}
+
+/* ── ⑨ 友達：3枚の肖像の後ろから出ていた四角い下敷きを隠す（丸だけを見せる）──
+   丸の中心と半径は art-friends.webp の金の輪を実測して出した値。 */
+#friends .dkh-frrows .dkh-empty > .sk-pic.dkh-bigart{
+  -webkit-mask-image:
+    radial-gradient(ellipse 18.9% 40.4% at 19.4% 55.7%,#000 94%,transparent 100%),
+    radial-gradient(ellipse 21.2% 45.4% at 51.5% 48.1%,#000 94%,transparent 100%),
+    radial-gradient(ellipse 19.1% 41.0% at 81.6% 56.8%,#000 94%,transparent 100%);
+  mask-image:
+    radial-gradient(ellipse 18.9% 40.4% at 19.4% 55.7%,#000 94%,transparent 100%),
+    radial-gradient(ellipse 21.2% 45.4% at 51.5% 48.1%,#000 94%,transparent 100%),
+    radial-gradient(ellipse 19.1% 41.0% at 81.6% 56.8%,#000 94%,transparent 100%)}
+
+/* ── ⑩ 等級章を大きく（お手本は等級が主役の次に目立つ）── */
+#cards .dkc-det .hd .dkc-rar,#dice .dkc-det .hd .dkc-rar{width:84px;height:87px;font-size:38px}
+#pend .dkp-ihd .sk-badge{width:112px;height:117px}
+
+/* ── 横長スマホ（高さ560px未満）：上で足した大きさを小さい画面ぶんに言い直す ── */
+@media (max-height:560px){
+  #daily .dks-dget,#quest .dks-all,#mail .dkh-all,#news .dkh-togacha,#cube .dkp-cbtn{height:78px;font-size:30px}
+  #quest .dks-q .ic{width:86px;height:86px}
+  #quest .dks-q .ic > span{font-size:40px}
+  #quest .dks-q .rw .c{font-size:22px;padding:6px 11px}
+  #daily .dks-days .dks-day .di .dks-a{--s:58px}
+  #daily .dks-days .dks-day .di > .sk-pic{width:76px;height:66px}
+  #daily .dks-days .dks-day .dv{font-size:26px}
+  #daily .dks-days .dks-day.d7 .di .dks-a{--s:64px}
+  #gacha .dktabs::after{height:120px}
+  #news .dktabs::after{height:96px}
+  #cards .dkc-det .hd .dkc-rar,#dice .dkc-det .hd .dkc-rar{width:80px;height:83px;font-size:36px}
+  #pend .dkp-ihd .sk-badge{width:92px;height:96px}
+  #mail .dkh-mrows,#friends .dkh-frrows{background-size:auto,62px auto,62px auto,auto 150px,auto 168px}
+}
+@media (max-aspect-ratio:1/1){
+  #gacha .dktabs::after{height:130px}
+  #news .dktabs::after{height:104px}
+}
+
+/* ── ⑧ カードの右パネル：7本のバーをお手本の 26px にそろえる。
+   これで「強化する／装着中」が器の中に収まる（実測 576px → 520px、器の中身 536px）。 */
+#cards .dkc-stats .sk-bar2{height:28px;border-radius:14px}
+#cards .dkc-stats .sk-bar2 > i{border-radius:11px}
+@media (max-height:560px){
+  #cards .dkc-stats .sk-bar2{height:24px;border-radius:12px}
+}
+
+/* ⑧ ペンダント中央の「空き枠」：暗い箱をやめて羊皮紙の受け皿に（黒い余白を出さない）*/
+#pend .dkp-sk.dkp-empty{border:3px solid rgba(184,132,40,.72);
+  background:var(--sk-crest,none) center/cover no-repeat,linear-gradient(180deg,#EFE2C8,#D2BD96);
+  background-blend-mode:multiply,normal;
+  box-shadow:inset 0 3px 0 rgba(255,255,255,.6),inset 0 -7px 12px rgba(150,116,58,.2),0 4px 0 rgba(92,58,10,.38)}
+#pend .dkp-sk.dkp-empty .dkp-skn{color:#7A5E2E}
+#pend .dkp-sk.dkp-empty .dkp-hole{border-color:rgba(122,94,46,.5);
+  background:radial-gradient(circle at 50% 45%,rgba(120,92,44,.22),rgba(120,92,44,.06) 70%)}
+#pend .dkp-sk.dkp-empty .dkp-hole i::before,#pend .dkp-sk.dkp-empty .dkp-hole i::after{background:rgba(122,94,46,.62)}
+
+/* ⑨ 最後の仕上げ（実測で原因を特定してから直す）
+   ・カード：1行 41px の正体はバー（25px）ではなく、数字（29px・line-height:normal）の行箱だった。
+     line-height:1 にすると 7行で 84px 戻り、「強化する／装着中」が器の中に収まる（577px → 497px、器 528px）。
+   ・ミッション：上の金ボタンを 86px にしたせいで一覧が 22px 狭くなり、5行目がボタンの下に入った。
+     高さを元の 76px（本体+余白）に戻す。金の面取りと袋文字は残す。 */
+#cards .dkc-stats .sk-barrow.big .vl{line-height:1}
+#cards .dkc-stats .sk-barrow.big .nm{line-height:1.15}
+#quest .dks-all{height:68px;font-size:30px;margin-top:8px}
+@media (max-height:560px){
+  #quest .dks-all{height:72px;font-size:28px;margin-top:6px}
+}
+</style>
