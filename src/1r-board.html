@@ -723,4 +723,7 @@ html.fx-mob .dkb-bub,html.fx-mob #stage #raise{will-change:auto!important}
 /* スマホ：他の人が選ぶ間の点は、光る点を出さず止まった3つの点にする（小物の常時アニメは、上に重なる中身まで層にする） */
 html.fx-mob .dkb-dots::after{display:none!important}
 html.fx-mob .dkb-dots b{opacity:.85}
+
+  /* 合流(Merge-r2): 帯は読ませるだけの飾りなので、下の「押す」を塞がない（smoke covered: #push を #bandT が覆う） */
+  #stage #band{pointer-events:none}
 </style>
