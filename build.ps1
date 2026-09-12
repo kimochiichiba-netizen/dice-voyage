@@ -32,10 +32,11 @@ $parts = @("1-style.html","1b-ui.html","1c-meta.html","1d-polish.html","1e-dk.ht
            "1h-board.html","1i-title.html","1j-fast.html",
            "1k-fx.html","1l-pend.html","1m-cards.html","1n-flow.html","1o-match.html","1p-tiles.html",
            "1q-turn.html","1r-board.html","1s-shop.html","1t-home.html",
-           "1u-maps.html","1v-perf.html",
+           "1u-maps.html","1v-perf.html","1w-skin.html",
            "2-body.html",
            "3-core.js","3b-art.js","3e-style.js",
            "6-audio.js","6b-bgm.js","6c-bgm2.js","6d-jingle.js","4-game.js","7-online.js","5-meta.js","8-dk.js",
+           "8b-skin.js",
            "9-fx.js","9a-core.js","9b-pend.js","9c-cards.js","9d-flow.js","9e-match.js","9f-tiles.js",
            "9g-turn.js","9h-board.js","9i-shop.js","9j-home.js",
            "9k-maps.js","9l-perf.js",
@@ -440,12 +441,39 @@ function UiBlock($map){
 if($urel.Count -gt 0){
   Write-Output ("画面素材: " + $urel.Count + " 点  (合計 " + [math]::Round($utotal/1MB,2) + " MB)")
 }
+# 2b 共通スキンの素材：assets/ui2/ の画像（お手本の絵から切り出した背景・金の彫り枠・主役の絵）
+#   window.DV_UI2 に「名前 -> URL」で入る。当て方は src/1w-skin.html（.sk-）と src/8b-skin.js（dkskApply）
+#   index.html は相対パス、game.html(Artifact) は外部ファイルを読めないので data URI
+$u2rel = @{}; $u2dat = @{}; $u2total = 0
+$u2dir = "$d/assets/ui2"
+if(Test-Path $u2dir){
+  foreach($f in (Get-ChildItem $u2dir -File)){
+    if($f.Extension -notmatch "^[.](png|webp|jpg|jpeg)$"){ continue }
+    $n = $f.BaseName
+    $u2rel[$n] = "assets/ui2/" + $f.Name
+    $ub2 = [System.IO.File]::ReadAllBytes($f.FullName)
+    $u2total += $ub2.Length
+    $u2mime = switch($f.Extension){ ".png"{"image/png"} ".webp"{"image/webp"} default{"image/jpeg"} }
+    $u2dat[$n] = "data:$u2mime;base64," + [Convert]::ToBase64String($ub2)
+  }
+}
+function Ui2Block($map){
+  if($map.Count -eq 0){ return "" }
+  $pairs = ($map.GetEnumerator() | ForEach-Object { '"' + $_.Key + '":"' + $_.Value + '"' }) -join ","
+  return "<script>window.DV_UI2={$pairs};</script>`n"
+}
+if($u2rel.Count -gt 0){
+  Write-Output ("共通スキンの素材: " + $u2rel.Count + " 点  (合計 " + [math]::Round($u2total/1KB) + " KB)")
+  if($u2total -gt 1.5MB){
+    Write-Warning ("assets/ui2 の合計が 1.5MB を超えています（" + [math]::Round($u2total/1MB,2) + " MB）。game.html は素材を data URI で埋め込むので、絵を小さく（または品質を下げて）ください。")
+  }
+}
 Write-Output ("連結: " + $used.Count + " ファイル（" + ($used -join ", ") + "）")
-[System.IO.File]::WriteAllText("$d\game.html",  (BgmBlock $dat) + (CharBlock $cdatUse) + (UiBlock $udat) + $body, $enc)
+[System.IO.File]::WriteAllText("$d\game.html",  (BgmBlock $dat) + (CharBlock $cdatUse) + (UiBlock $udat) + (Ui2Block $u2dat) + $body, $enc)
 $head = "<!doctype html>`n<html lang=`"ja`">`n<head>`n<meta charset=`"utf-8`">`n" +
         "<meta name=`"viewport`" content=`"width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no`">`n" +
         "<meta name=`"description`" content=`"ダイスボヤージュ — 横画面で遊ぶボードゲーム`">`n"
-$full = $head + (BgmBlock $rel) + (CharBlock $crel) + (UiBlock $urel) + $body + "`n</html>"
+$full = $head + (BgmBlock $rel) + (CharBlock $crel) + (UiBlock $urel) + (Ui2Block $u2rel) + $body + "`n</html>"
 $full = $full -replace '(?s)^(.*?)(<div id="viewport">)', '$1</head><body>$2'
 [System.IO.File]::WriteAllText("$d\index.html", $full, $enc)
 Write-Output ("game.html  = " + [math]::Round((Get-Item "$d\game.html").Length/1024) + " KB")

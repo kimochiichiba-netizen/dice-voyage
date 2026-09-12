@@ -1,0 +1,212 @@
+<style>
+/* ══════════════════════════════════════════════════════════════
+   共通スキン（1w-skin.html）— お手本の絵の見た目を .sk- で配る
+   ──────────────────────────────────────────────────────────────
+   ・絵は window.DV_UI2（build.ps1 が assets/ui2 から入れる）。
+     絵が無くても CSS のグラデーションだけで成り立つ（素材が無い時に崩れない）。
+   ・当てるのは 8b-skin.js の dkskApply()。各班はそれを呼ぶだけでよい。
+   ・動かすのは transform と opacity だけ。常時アニメは .sk-halo（1個）と
+     .sk-spark（既定4個・最大8個）だけにしてある。ボタンの艶とバーの光は
+     止まった絵にして、押した時・変わった時だけ transition で動かす。
+   ・html.fx-mob（スマホ）では光の輪と粒を止める。背景は静止の1枚だけ
+     （画面いっぱいの動く層を作らない＝iPhone の画素のメモリを増やさない）。
+   ══════════════════════════════════════════════════════════════ */
+:root{
+  --sk-g1:#FFF7D6; --sk-g2:#F4D169; --sk-g3:#DCA62E; --sk-g4:#9E6D15; --sk-g5:#5C3A06;
+  --sk-n1:#B9EE88; --sk-n2:#64C63D; --sk-n3:#3C901E; --sk-n4:#22600D;
+  --sk-p1:#F8EEDA; --sk-p2:#ECDBBC; --sk-p3:#D4BA8F; --sk-p4:#B2966A;
+  --sk-ink:#FFF6E2; --sk-ink-sh:#2E1C05; --sk-ink-d:#4B3415;
+  --sk-fw:34px;                     /* 金枠の太さ（border-image の幅） */
+}
+
+/* ══════ 画面の地：静止の絵を1枚だけ敷く ══════ */
+.sk-bg{
+  background-color:#0A0704!important;
+  background-image:var(--sk-bg,none)!important;
+  background-size:cover!important;
+  background-position:center center!important;
+  background-repeat:no-repeat!important}
+/* 絵の上の薄い焼き込み（動かさない。ロウソクの色味だけ足す） */
+.sk-bg::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(64% 46% at 50% 6%,rgba(255,198,104,.16),transparent 72%),
+    linear-gradient(180deg,rgba(0,0,0,.28),transparent 26% 74%,rgba(0,0,0,.42))}
+
+/* ══════ 金の彫り枠（9分割で伸縮） ══════ */
+.sk-frame{position:relative;
+  border-style:solid;border-width:var(--sk-fw);border-color:var(--sk-g4);
+  border-image-source:var(--sk-frame,none);
+  border-image-slice:80;
+  border-image-width:var(--sk-fw);
+  border-image-repeat:stretch;
+  border-radius:16px;
+  background:
+    radial-gradient(120% 88% at 50% 0%,rgba(255,255,255,.5),transparent 60%),
+    linear-gradient(180deg,var(--sk-p1),var(--sk-p2) 48%,var(--sk-p3));
+  box-shadow:0 10px 26px rgba(0,0,0,.6),inset 0 0 0 2px rgba(255,255,255,.34)}
+/* 羊皮紙の紙目（絵があれば重ねる。無ければグラデーションのまま） */
+.sk-frame.paper{background-image:var(--sk-paper,none),
+    radial-gradient(120% 88% at 50% 0%,rgba(255,255,255,.42),transparent 60%),
+    linear-gradient(180deg,var(--sk-p1),var(--sk-p2) 48%,var(--sk-p3));
+  background-size:auto 100%,auto,auto;background-repeat:repeat-x,no-repeat,no-repeat;
+  background-blend-mode:multiply,normal,normal}
+/* 暗い面（お手本の右パネルの下地） */
+.sk-frame.dark{background:
+    linear-gradient(180deg,rgba(52,36,16,.95),rgba(17,10,3,.97));
+  box-shadow:0 10px 26px rgba(0,0,0,.62),inset 0 2px 0 rgba(255,222,152,.2),inset 0 0 44px rgba(0,0,0,.6)}
+.sk-frame.dark > .sk-ttl{color:var(--sk-ink)}
+/* 内側の細い罫（お手本の枠の内側にある1本線） */
+.sk-frame::before{content:"";position:absolute;inset:2px;border-radius:9px;pointer-events:none;
+  border:1px solid rgba(150,114,58,.42)}
+.sk-frame.dark::before{border-color:rgba(198,152,72,.34)}
+.sk-frame > *{position:relative}
+
+/* ══════ リボンの見出し ══════ */
+.sk-ribbon{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  min-height:54px;padding:6px 34px;
+  font-family:var(--pop);font-size:26px;line-height:1.1;color:var(--sk-ink);
+  -webkit-text-stroke:4px var(--sk-ink-sh);paint-order:stroke fill;letter-spacing:.04em;
+  background:linear-gradient(180deg,#8E2530 0 10%,#6E1720 44%,#4C0E15);
+  border-top:3px solid var(--sk-g3);border-bottom:3px solid var(--sk-g5);
+  clip-path:polygon(0 0,100% 0,calc(100% - 22px) 50%,100% 100%,0 100%,22px 50%);
+  box-shadow:0 5px 14px rgba(0,0,0,.5)}
+.sk-ribbon.gold{background:linear-gradient(180deg,var(--sk-g1) 0 10%,var(--sk-g2) 38%,var(--sk-g3) 74%,var(--sk-g4));
+  color:#5B3A05;-webkit-text-stroke:4px rgba(255,248,220,.85)}
+.sk-ribbon.blue{background:linear-gradient(180deg,#7FC7FF 0 10%,#2F86DA 40%,#154F97 78%,#0C2E5C)}
+/* 左右の金の飾り（絵があれば出す） */
+.sk-ribbon::before,.sk-ribbon::after{content:"";width:30px;height:16px;flex:0 0 auto;
+  background:var(--sk-fleur,none) center/contain no-repeat;opacity:.95}
+.sk-ribbon::after{transform:scaleX(-1)}
+
+/* ══════ タブ（左の縦／上の横） ══════ */
+.sk-tabs{display:flex;flex-direction:column;gap:11px}
+.sk-tabs.row{flex-direction:row;gap:12px}
+.sk-tab{position:relative;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  min-height:104px;border-radius:15px;
+  background:linear-gradient(180deg,#4E3919,#2B1D09 58%,#180F04);
+  border:3px solid #7E5D24;
+  box-shadow:0 4px 0 rgba(0,0,0,.5),inset 0 2px 0 rgba(255,222,152,.2);
+  transition:transform .14s,filter .14s,box-shadow .16s}
+.sk-tabs.row .sk-tab{flex-direction:row;gap:9px;min-height:62px;padding:0 22px}
+.sk-tab .ic{font-size:40px;line-height:1;filter:drop-shadow(0 3px 3px rgba(0,0,0,.6))}
+.sk-tabs.row .sk-tab .ic{font-size:28px}
+.sk-tab .tx{font-size:20px;font-weight:900;color:#F5E4BE;
+  -webkit-text-stroke:3.4px #231503;paint-order:stroke fill;letter-spacing:.04em}
+.sk-tab:hover{filter:brightness(1.14);transform:translateX(3px)}
+.sk-tabs.row .sk-tab:hover{transform:translateY(-3px)}
+.sk-tab.on{background:linear-gradient(180deg,#8FD2FF 0 6%,#2E8BE0 20%,#1656A8 64%,#0B2C5E);
+  border-color:var(--sk-g2);
+  box-shadow:0 4px 0 rgba(0,0,0,.5),inset 0 3px 0 rgba(255,255,255,.4),
+             0 0 0 2px rgba(255,226,142,.4),0 0 22px 4px rgba(92,182,255,.5)}
+
+/* ══════ ボタン（金＝強化/一括受取、緑＝装備/購入） ══════ */
+.sk-btn{position:relative;border:none;cursor:pointer;border-radius:13px;overflow:hidden;
+  font-family:var(--pop);font-size:26px;line-height:1;color:#fff;
+  -webkit-text-stroke:4px rgba(28,17,3,.86);paint-order:stroke fill;
+  padding:15px 28px;
+  box-shadow:0 6px 0 rgba(0,0,0,.44),inset 0 2px 0 rgba(255,255,255,.48);
+  transition:transform .1s,filter .12s,box-shadow .1s}
+/* 艶（止まった斜めの光。動かさない＝常時アニメを増やさない） */
+.sk-btn::after{content:"";position:absolute;left:-10%;top:0;bottom:0;width:42%;pointer-events:none;
+  background:linear-gradient(104deg,transparent,rgba(255,255,255,.42),transparent);
+  transform:translateX(0);transition:transform .5s ease}
+.sk-btn:hover{filter:brightness(1.09)}
+.sk-btn:hover::after{transform:translateX(320%)}
+.sk-btn:active{transform:translateY(5px);box-shadow:0 1px 0 rgba(0,0,0,.44)}
+.sk-btn.gold{background:linear-gradient(180deg,var(--sk-g1) 0 8%,var(--sk-g2) 30%,var(--sk-g3) 70%,var(--sk-g4));
+  border:3px solid #7C5406;color:#5A3A04;-webkit-text-stroke:4px rgba(255,248,220,.82)}
+.sk-btn.green{background:linear-gradient(180deg,var(--sk-n1) 0 8%,var(--sk-n2) 30%,var(--sk-n3) 72%,var(--sk-n4));
+  border:3px solid #1F5B0C}
+.sk-btn.gray{background:linear-gradient(180deg,#A99E94,#776D64 46%,#4F473F);
+  border:3px solid #3A332C;color:#E5DDD3;cursor:default}
+.sk-btn.gray::after{display:none}
+.sk-btn.gray:active{transform:none}
+.sk-btn:disabled{filter:grayscale(.7) brightness(.78);cursor:default}
+.sk-btn:disabled::after{display:none}
+
+/* ══════ 能力バー（金と緑・数値は袋文字） ══════ */
+.sk-barrow{display:flex;align-items:center;gap:10px}
+.sk-barrow .nm{font-size:19px;font-weight:900;color:var(--sk-ink-d);flex:0 0 auto}
+.sk-barrow .vl{font-family:var(--pop);font-size:22px;color:var(--sk-ink);
+  -webkit-text-stroke:3.6px var(--sk-ink-sh);paint-order:stroke fill;
+  font-variant-numeric:tabular-nums;flex:0 0 auto;min-width:74px;text-align:right}
+.sk-bar{position:relative;flex:1 1 auto;height:26px;border-radius:13px;overflow:hidden;
+  background:linear-gradient(180deg,#2B2218,#463B2F);
+  border:2px solid #2A2118;box-shadow:inset 0 3px 6px rgba(0,0,0,.6)}
+.sk-bar > i{position:absolute;left:0;top:0;bottom:0;display:block;border-radius:11px;
+  width:var(--sk-v,0%);
+  background:linear-gradient(180deg,#FFEFB6 0 26%,#F3C433 52%,#C18B0E);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.5);
+  transition:width .7s cubic-bezier(.2,1,.3,1)}
+.sk-bar.green > i{background:linear-gradient(180deg,#B8F08C 0 26%,#62C339 52%,#3B8D1D)}
+.sk-bar.blue  > i{background:linear-gradient(180deg,#A9DDFF 0 26%,#3F9CED 52%,#1C64B9)}
+/* 止まった斜めの光（動かさない） */
+.sk-bar > i::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(104deg,transparent 34%,rgba(255,255,255,.4) 50%,transparent 66%)}
+
+/* ══════ 等級バッジ（台座は絵・文字は CSS で重ねる） ══════ */
+.sk-badge{position:relative;display:inline-flex;align-items:center;justify-content:center;
+  width:96px;height:100px;flex:0 0 auto;
+  background:var(--sk-badge,none) center/contain no-repeat;
+  filter:drop-shadow(0 4px 6px rgba(0,0,0,.6))}
+/* 絵が無い時の台座（金の輪） */
+.sk-badge::before{content:"";position:absolute;inset:6%;border-radius:22%;
+  background:linear-gradient(180deg,var(--sk-g1),var(--sk-g3) 54%,var(--sk-g4));
+  box-shadow:inset 0 0 0 3px rgba(92,58,6,.55);z-index:-1}
+.sk-badge[style*="--sk-badge"]::before{display:none}
+.sk-badge > b{font-family:var(--caps);font-weight:900;font-size:40px;line-height:1;
+  background:linear-gradient(180deg,#FFF9DC,#F3C433 52%,#B8800F);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  -webkit-text-stroke:5px #3B2506;paint-order:stroke fill;
+  transform:translateY(-2px)}
+.sk-badge.s2 > b{font-size:33px}
+.sk-badge.silver > b{background:linear-gradient(180deg,#FFFFFF,#D7DEE6 52%,#8B97A4);
+  -webkit-background-clip:text;background-clip:text}
+.sk-badge.silver{filter:drop-shadow(0 4px 6px rgba(0,0,0,.6)) saturate(.18) brightness(1.1)}
+.sk-badge.bronze{filter:drop-shadow(0 4px 6px rgba(0,0,0,.6)) hue-rotate(-18deg) saturate(1.25) brightness(.9)}
+
+/* ══════ 主役の絵 ══════ */
+.sk-hero{position:relative;display:block;pointer-events:none;
+  background:var(--sk-hero,none) center/contain no-repeat;
+  filter:drop-shadow(0 12px 24px rgba(0,0,0,.55))}
+/* 回る光の輪（常時アニメ 1個。スマホでは止める） */
+.sk-halo{position:absolute;left:50%;top:50%;pointer-events:none;
+  width:var(--sk-halo-w,120%);aspect-ratio:1;max-width:100%;
+  margin:0;translate:-50% -50%;
+  border-radius:50%;
+  background:
+    conic-gradient(from 0deg,transparent 0 6%,rgba(150,226,255,.5) 12%,transparent 22% 52%,
+                   rgba(255,232,164,.45) 60%,transparent 70% 100%);
+  -webkit-mask:radial-gradient(closest-side,transparent 62%,#000 70%,#000 92%,transparent 100%);
+          mask:radial-gradient(closest-side,transparent 62%,#000 70%,#000 92%,transparent 100%);
+  opacity:.85;
+  animation:skHalo 18s linear infinite}
+@keyframes skHalo{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+/* きらめきの粒（既定4個・最大8個。スマホでは出さない） */
+.sk-spark{position:absolute;width:10px;height:10px;pointer-events:none;
+  background:radial-gradient(circle,#FFFDF2 0 22%,rgba(255,232,152,.85) 46%,transparent 72%);
+  animation:skSpark 2.6s ease-in-out infinite}
+@keyframes skSpark{0%,100%{opacity:0;transform:scale(.3)}
+                   42%{opacity:1;transform:scale(1.22)}72%{opacity:.2;transform:scale(.68)}}
+
+/* ══════ 小さな画面 ══════ */
+@media (max-aspect-ratio:1/1){
+  :root{--sk-fw:26px}
+  .sk-tab{min-height:88px} .sk-tab .ic{font-size:32px} .sk-tab .tx{font-size:17px}
+  .sk-btn{font-size:22px;padding:12px 20px}
+  .sk-ribbon{font-size:21px;min-height:44px;padding:5px 26px}
+  .sk-badge{width:74px;height:78px} .sk-badge > b{font-size:31px}
+}
+
+/* ══════ スマホ（html.fx-mob）：光の輪と粒を止める ══════
+   画面いっぱい・大きな要素の常時アニメは iPhone で合成レイヤーを増やすため。
+   背景（.sk-bg）は静止の1枚なので、そのまま出してよい。 */
+html.fx-mob .sk-halo{animation:none!important;opacity:.55}
+html.fx-mob .sk-spark{display:none!important}
+html.fx-mob .sk-hero,html.fx-mob .sk-halo{will-change:auto!important}
+@media (prefers-reduced-motion:reduce){
+  .sk-halo,.sk-spark{animation:none!important}
+  .sk-spark{opacity:.7}
+}
+</style>
