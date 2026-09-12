@@ -52,6 +52,23 @@ function dkskAdd(root, sel, cls){
   dkskAll(root, sel).forEach(function(n){ try{ n.classList.add.apply(n.classList, cls.split(' ')); }catch(e){} });
 }
 
+/* ── 絵を1枚置く（名前は DV_UI2 のキー。無ければ空文字＝何も出ない） ── */
+function dkskPic(key, cls, style){
+  var u = dkskU(key);
+  if(!u) return '';
+  return '<i class="sk-pic' + (cls ? ' ' + cls : '') + '" aria-hidden="true" style="background-image:url('
+    + u + ')' + (style ? ';' + style : '') + '"></i>';
+}
+/* ── 画面の外（レターボックスの帯）にも木目を敷く。1回だけ ── */
+function dkskRootVars(){
+  try{
+    var r = document.documentElement;
+    if(!r || !r.style || r.style.getPropertyValue('--sk-wood')) return;
+    var w = dkskUrl('wood');
+    if(w) r.style.setProperty('--sk-wood', w);
+  }catch(e){}
+}
+
 /* ── 主役の絵を置く（名前は DV_UI2 のキー。無ければ何もしない） ── */
 function dkskHero(el, key){
   if(!el) return el;
@@ -111,7 +128,12 @@ function dkskBar(name, pct, tone, value){
 function dkskBadge(rank){
   var r = String(rank || '').toUpperCase();
   var tone = r === 'B' ? ' bronze' : (r === 'A' ? ' silver' : '');
-  return '<span class="sk-badge' + (r.length > 1 ? ' s2' : '') + tone + '"><b>' + r + '</b></span>';
+  /* 台座の絵は「その要素の style」に入れる。1w-skin.html の
+     .sk-badge[style*="--sk-badge"]::before{display:none} が効いて、
+     絵が無い時だけ金の角丸（代わりの台座）が出る＝お手本の印章が四角に負けない */
+  var u = dkskUrl('badge-base');
+  return '<span class="sk-badge' + (r.length > 1 ? ' s2' : '') + tone + '"'
+       + (u ? ' style="--sk-badge:' + u + '"' : '') + '><b>' + r + '</b></span>';
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -141,6 +163,10 @@ function dkskApply(el, opt){
     dkskSet(el, '--sk-paper', dkskUrl('paper'));
     dkskSet(el, '--sk-badge', dkskUrl('badge-base'));
     dkskSet(el, '--sk-fleur', dkskUrl('deco-fleur'));
+    dkskSet(el, '--sk-cush', dkskUrl('deco-cushion'));
+    dkskSet(el, '--sk-coins', dkskUrl('ico-coins'));
+    dkskSet(el, '--sk-gems', dkskUrl('ico-gems'));
+    dkskRootVars();
     /* 3. 既存の器に見た目を当てる（作りは壊さず class を足すだけ） */
     if(opt.frame !== false){
       dkskAdd(el, opt.frame || '.dkpar', 'sk-frame paper');

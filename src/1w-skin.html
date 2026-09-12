@@ -190,6 +190,147 @@
 @keyframes skSpark{0%,100%{opacity:0;transform:scale(.3)}
                    42%{opacity:1;transform:scale(1.22)}72%{opacity:.2;transform:scale(.68)}}
 
+/* ══════════════════════════════════════════════════════════════
+   お手本に寄せる直し（第1回・採点係2人の指摘をまとめて効かせる）
+   ① 金の彫り枠を全部のパネルに「重ねる」（絶対配置なので中身の位置は動かない）
+   ② ボタンに艶（上の白い帯）と厚み（下の濃い縁）と外の縁取り
+   ③ 能力バーを太く・溝に金の口金・数値を袋文字
+   ④ 絵を置く器（.sk-pic）と、空っぽの画面の飾り
+   ここで足すのは「止まった絵」だけ。常時アニメは1つも増やさない。
+   ══════════════════════════════════════════════════════════════ */
+:root{
+  --sk-ow:26px;                       /* 重ねる彫り枠の太さ */
+  --sk-gloss:linear-gradient(180deg,rgba(255,255,255,.72) 0 5%,rgba(255,255,255,.34) 30%,
+             rgba(255,255,255,.05) 47%,rgba(0,0,0,.14) 80%,rgba(0,0,0,.3));
+  --sk-edge:0 7px 0 rgba(46,28,4,.92),0 11px 18px rgba(0,0,0,.5),
+            inset 0 2px 0 rgba(255,255,255,.6),inset 0 -13px 20px rgba(0,0,0,.26),
+            0 0 0 2px rgba(18,10,2,.8);
+}
+/* ── ① 彫り枠（.sk-frame を当てている物と、自前の .dks-orn がある物は除く） ── */
+.dk .dkpar:not(.sk-frame)::after,.dk .dkdark:not(.sk-frame)::after,
+.dk .dkh-parch::after,.dk .fx-panel:not(.sk-frame)::after,.sk-orn{
+  content:"";position:absolute;inset:-9px;z-index:4;pointer-events:none;
+  border:var(--sk-ow) solid transparent;
+  border-image-source:var(--sk-frame,none);border-image-slice:80;
+  border-image-width:var(--sk-ow);border-image-repeat:stretch}
+/* 枠の中の細い罫（お手本の二重縁） */
+.dk .dkh-parch::before{inset:9px}
+
+/* ── ② ボタン：艶・厚み・縁取り ── */
+.dk .dkbtn{box-shadow:var(--sk-edge)}
+.dk .dkbtn.gr{background-image:var(--sk-gloss),
+  linear-gradient(180deg,var(--dk-n1) 0 8%,var(--dk-n2) 30%,var(--dk-n3) 72%,var(--dk-n4))}
+.dk .dkbtn.gd{background-image:var(--sk-gloss),
+  linear-gradient(180deg,var(--dk-g1) 0 8%,var(--dk-g2) 30%,var(--dk-g3) 70%,var(--dk-g4))}
+.dk .dkbtn.gy{background-image:var(--sk-gloss),linear-gradient(180deg,#A79C92,#766C63 46%,#4E463F)}
+.dk .dkbtn:active{transform:translateY(6px);
+  box-shadow:0 1px 0 rgba(46,28,4,.92),0 0 0 2px rgba(18,10,2,.8),inset 0 2px 0 rgba(255,255,255,.5)}
+.dk .dkbtn:disabled{box-shadow:0 4px 0 rgba(46,28,4,.8),0 0 0 2px rgba(18,10,2,.7),inset 0 2px 0 rgba(255,255,255,.3)}
+/* 画面で一番目立つ「受け取る」系は、押せない時も灰色の板にしない（金のまま少し沈める） */
+.dk .dks-all:disabled,.dk .dkh-all:disabled,.dk .dks-dget:disabled{filter:saturate(.82) brightness(.9)}
+/* 一番押してほしいボタンは、厚みの上に光を足す（お手本の金・緑の大ボタン） */
+.dk .dkbtn.fx-primary{box-shadow:var(--sk-edge),0 0 24px 6px rgba(255,206,110,.5)}
+.dk .dkbtn.gr.fx-primary,.dk .dkbtn.fx-primary.green{box-shadow:var(--sk-edge),0 0 24px 6px rgba(140,230,90,.55)}
+/* 大きな「受け取る」系の金ボタンには絵を添える（お手本の月桂樹つき一括受取） */
+.sk-bico{width:44px;height:38px;flex:0 0 auto;margin-right:10px;display:inline-block;vertical-align:-8px;
+  background:center/contain no-repeat;filter:drop-shadow(0 3px 4px rgba(0,0,0,.45))}
+.dk .dkbtn.sk-big{display:inline-flex;align-items:center;justify-content:center;gap:2px}
+
+/* ── ③ 能力バー：太く・金の口金・数値は袋文字 ── */
+.dk .dkbar,#quest .dks-q .prog .dkbar,#quest .dks-chprog .dkbar,#shop .dks-meter .dkbar{height:30px;border-radius:15px}
+.dk .dkbar{box-shadow:inset 0 3px 7px rgba(0,0,0,.68),0 0 0 2px rgba(190,146,66,.62),0 2px 0 rgba(0,0,0,.35)}
+.dk .dkbar::before{content:"";position:absolute;inset:0;z-index:2;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.26),rgba(255,255,255,0) 46%)}
+.dk .dkbar > i{box-shadow:inset 0 2px 0 rgba(255,255,255,.62),inset 0 -6px 10px rgba(0,0,0,.3)}
+#quest .dks-q .prog > b,#daily .dks-day .dv,.dk .dkq .prog b{
+  -webkit-text-stroke:4px #FFF8E6;paint-order:stroke fill;color:#523408}
+.sk-num{font-family:var(--pop);color:var(--sk-ink);
+  -webkit-text-stroke:4px var(--sk-ink-sh);paint-order:stroke fill;font-variant-numeric:tabular-nums}
+
+/* ── ④ 絵を置く器 ── */
+.sk-pic{display:block;background:center/contain no-repeat;pointer-events:none;
+  filter:drop-shadow(0 10px 16px rgba(0,0,0,.55))}
+/* ミッションの行・出席簿のマスの絵（金枠のタイルに入れる） */
+#quest .dks-q .ic.sk-tile{border-radius:15px;background:
+  radial-gradient(circle at 50% 34%,rgba(255,222,150,.3),transparent 62%),
+  linear-gradient(180deg,#3E2C12,#170E04);
+  border:3px solid #C8952F;box-shadow:0 3px 0 rgba(0,0,0,.4),inset 0 2px 0 rgba(255,230,170,.3)}
+#quest .dks-q .ic.sk-tile > .sk-pic{width:100%;height:100%}
+#quest .dks-q .ic.sk-tile > span{display:none}
+#daily .dks-day .di > .sk-pic{width:74px;height:66px}
+/* 空っぽの画面（郵便・友達）：羊皮紙の上に大きな絵とリボンの見出し */
+.sk-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+.sk-empty > .sk-pic{width:300px;height:210px;flex:0 0 auto}
+/* 木目（画面の外の帯にも同じ地を敷く＝黒い帯を消す） */
+#viewport{background-color:#0B0703;
+  background-image:var(--sk-wood,none),radial-gradient(80% 60% at 50% 0%,rgba(120,74,24,.5),transparent 70%);
+  background-size:auto 92px,auto;background-repeat:repeat,no-repeat}
+
+/* ── ⑤ 画面ごとの直し（郵便・友達・ミッション・出席簿・ホーム） ── */
+/* 郵便と友達：空っぽでも描き込みの絵と布のリボンを置く */
+#mail .dkh-empty > .sk-pic{width:340px;height:238px}
+#friends .dkh-empty > .sk-pic{width:268px;height:268px}
+.dkh-msic2{width:296px;height:222px;flex:0 0 auto;
+  filter:drop-shadow(0 8px 14px rgba(0,0,0,.55)) drop-shadow(0 0 24px rgba(255,200,80,.4))}
+.dkh-lhd{align-items:center}
+/* 見出しのリボンは .dkh-lhd span（茶色の小さい文字）に負けるので、同じ強さで上書きする */
+.dkh-lhd span.dkh-lrib{font-size:25px;min-height:48px;padding:5px 32px;color:var(--sk-ink);font-weight:400}
+#friends .dkh-steps li{background:linear-gradient(180deg,rgba(78,56,24,.92),rgba(30,19,6,.96));
+  border:2px solid rgba(212,166,80,.7);box-shadow:0 3px 0 rgba(0,0,0,.42),inset 0 1px 0 rgba(255,226,150,.28)}
+#friends .dkh-steps li i{background:linear-gradient(180deg,#FFF3C8,#E7BC4C 58%,#A9761A);border:2px solid #7A5206;
+  color:#4A3416;-webkit-text-stroke:3px rgba(255,250,228,.85);paint-order:stroke fill}
+/* 見出しのリボンは折り返さない（キューブの「キューブオープン」が2行になっていた）。
+   名前を出すリボン（ペンダント等）は伸び縮みが要るので、見出しの所だけに効かせる */
+#cube .dkp-ph > .sk-ribbon,.dkh-lhd span.dkh-lrib{white-space:nowrap;flex:0 0 auto}
+#cube .dkp-ph{gap:10px}
+#cube .dkp-note{min-width:0}
+/* ペンダントの空き枠：茶色い縞の箱 → 金で縁どった彫りこみの受け皿（画面の一等地なので） */
+#pend .dkp-sk.dkp-empty{border:3px solid rgba(200,149,47,.6);
+  background:radial-gradient(circle at 50% 32%,rgba(255,222,150,.13),transparent 62%),linear-gradient(180deg,#2E2110,#150D04);
+  box-shadow:inset 0 4px 12px rgba(0,0,0,.66),inset 0 -2px 0 rgba(255,226,150,.14),0 4px 0 rgba(0,0,0,.4)}
+#pend .dkp-sk.dkp-empty .dkp-hole{border-color:rgba(212,166,80,.5);
+  background:radial-gradient(circle at 50% 30%,rgba(255,226,150,.16),rgba(0,0,0,.42))}
+/* 今週のイベントの帯：平らな赤い板 → 彫り枠つき（帯は overflow:hidden なので内側に入れる） */
+.dk .dkh-wkban::after{content:"";position:absolute;inset:0;z-index:4;pointer-events:none;
+  border:var(--sk-ow) solid transparent;
+  border-image-source:var(--sk-frame,none);border-image-slice:80;
+  border-image-width:var(--sk-ow);border-image-repeat:stretch}
+/* ショップのタブ：細くて平らな板 → 厚みと艶のある押し出しの強いタブ（お手本の3枚に寄せる） */
+#shop .dks-tabs{height:76px}
+#shop .dks-tab{height:76px;font-size:24px;
+  background-image:var(--sk-gloss),linear-gradient(180deg,#5A4220,#2E1F0B 60%,#1A1004);
+  box-shadow:0 6px 0 rgba(46,28,4,.85),0 9px 14px rgba(0,0,0,.45),
+             inset 0 2px 0 rgba(255,220,150,.3),0 0 0 2px rgba(18,10,2,.72)}
+#shop .dks-tab.on{background-image:var(--sk-gloss),
+  linear-gradient(180deg,#FFF3C8 0 8%,#F5D36B 34%,#E0AE3A 70%,#A9761A);
+  box-shadow:0 6px 0 rgba(46,28,4,.85),0 0 0 2px rgba(255,222,124,.5),0 0 26px rgba(255,200,80,.55)}
+#shop .dks-tab:active{transform:translateY(5px) scale(.99)}
+/* イベントの予定：素の茶色い行 → 金枠の板 */
+#news .dkh-sched .dkh-sc{border-radius:12px;
+  background:linear-gradient(180deg,rgba(78,56,24,.92),rgba(30,19,6,.96));
+  border:2px solid rgba(212,166,80,.6);box-shadow:0 3px 0 rgba(0,0,0,.4),inset 0 1px 0 rgba(255,226,150,.22)}
+/* ミッション：報酬の絵を大きく */
+#quest .dks-q .rw .sk-rwi,#quest .dks-chrw .sk-rwi{width:38px;height:34px;flex:0 0 auto}
+/* 出席簿：マスの厚みと金の縁 */
+#daily .dks-day{box-shadow:inset 0 2px 0 rgba(255,255,255,.85),0 5px 0 rgba(92,58,10,.5),0 9px 16px rgba(60,36,6,.34)}
+#daily .dks-day.d7{border-color:#F5D36B}
+/* ホームの順位：小さな丸 → 印章の台座（月桂樹）に飾り文字 */
+.dkh-no{flex:0 0 62px}
+.dkh-medal,#home .dkh-medal{width:58px;height:58px;font-size:27px;border-radius:0;
+  background:var(--sk-badge,radial-gradient(circle at 35% 30%,#FFF6C8,#F2C230 50%,#A8740A)) center/contain no-repeat;
+  color:#FFF8E4;-webkit-text-stroke:4px #46290A;paint-order:stroke fill;
+  box-shadow:none;filter:drop-shadow(0 4px 6px rgba(0,0,0,.6))}
+.dkh-medal.m2{filter:drop-shadow(0 4px 6px rgba(0,0,0,.6)) saturate(.2) brightness(1.14)}
+.dkh-medal.m3{filter:drop-shadow(0 4px 6px rgba(0,0,0,.6)) hue-rotate(-18deg) saturate(1.25) brightness(.92)}
+/* 溝が真っ黒だと死んで見えるので、少し明るい溝にする */
+.dk .dkbar{background:linear-gradient(180deg,#352B1F,#574737)}
+
+/* ── スマホ：重ねる枠は残す（止まった絵）／小さい画面は枠を細く ── */
+@media (max-aspect-ratio:1/1){
+  :root{--sk-ow:19px}
+  .sk-empty > .sk-pic{width:220px;height:154px}
+}
+
 /* ══════ 小さな画面 ══════ */
 @media (max-aspect-ratio:1/1){
   :root{--sk-fw:26px}

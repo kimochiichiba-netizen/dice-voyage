@@ -555,8 +555,10 @@ function dksSkin(el, bg){
   return el;
 }
 /* 金の彫り枠を縁に重ねる（絶対配置なのでレイアウトは変わらない。素材が無ければ透明） */
+/* お手本の枠は「彫刻のある厚い金枠」。細い金線に見えていたので 1.7 倍に太らせる（絵は同じ frame-gold） */
 function dksOrn(w){
-  return '<i class="dks-orn" aria-hidden="true"' + (w ? ' style="--dks-ow:' + w + 'px"' : '') + '></i>';
+  var ow = w ? Math.round(w * 1.7) : 0;
+  return '<i class="dks-orn" aria-hidden="true"' + (ow ? ' style="--dks-ow:' + ow + 'px"' : '') + '></i>';
 }
 /* 主役の品の光の輪（1個）ときらめき（2個）。スマホと常時アニメ8個超では 8b-skin.js が作らない */
 function dksHot(el){
@@ -638,14 +640,17 @@ function dksPic(g, crop){
     + '<em class="dks-tkl fx-deco">' + ({ biz:'BUSINESS', first:'FIRST', dia:'DIAMOND' })[g.tk] + '</em>'
     + (g.n > 1 ? '<em class="dks-pb">×' + g.n + '</em>' : '') + '</div>';
   var map = { card:'goods-card', cardS:'goods-card', gem:'goods-gem', gold:'goods-gold' };
-  var m2  = { card:'good2-card', cardS:'hero2-card', gem:'good2-gem', gold:'good2-gold' };
+  /* お手本の「描き込まれた商品の絵」。ペンダントの小箱にも本物のペンダントの絵を出す。
+     枚数（×3・×10）は札で見せるので、複数枚でも絵は1枚でよい＝ベクタの扇をやめる */
+  var m2  = { card:'good2-card', cardS:'hero2-card', gem:'good2-gem', gold:'good2-gold',
+              pend:'hero2-pend', die:'good2-gem' };
   var n = g.act === 'card3' ? 3 : g.act === 'card5' ? 5 : g.act === 'card10' ? 10 : 0;
   var u = (!n && map[g.art]) ? dkU(map[g.art]) : '';
   var badge = (g.art === 'cardS') ? '<em class="dks-pb s">S以上</em>'
             : n ? '<em class="dks-pb">×' + n + '</em>'
             : g.act === 'gem3' ? '<em class="dks-pb">×3</em>' : '';
   /* お手本の商品画（assets/ui2・透過）をビロードの台に乗せる。枚数は札で見せるので絵は1つでよい */
-  var u2 = (typeof dkskU === 'function' && !n && m2[g.art]) ? dkskU(m2[g.art]) : '';
+  var u2 = (typeof dkskU === 'function' && m2[g.art]) ? dkskU(m2[g.art]) : '';
   if(u2) return '<div class="pic art velvet2' + (g.art === 'cardS' ? ' saura' : '') + '">'
     + '<i class="dks-h2" aria-hidden="true" style="background-image:url(' + u2 + ')"></i>' + badge + '</div>';
   if(u) return '<div class="pic' + (crop ? ' crop' : '') + (g.art === 'cardS' ? ' saura' : '') + '" style="background-image:url(' + u + ')">' + badge + '</div>';
@@ -1147,11 +1152,34 @@ function dksGuide(q){
 /* 報酬の小さな札（ゴールド・ダイヤ・ペンダント・入場券・名札の枠） */
 function dksRwHTML(rw){
   rw = rw || {};
-  return (rw.g ? '<span class="c">' + dksArt('coin') + '<b>' + dksN(rw.g) + '</b></span>' : '')
-    + (rw.d ? '<span class="c">' + dksArt('gem') + '<b>' + rw.d + '</b></span>' : '')
+  return (rw.g ? '<span class="c">' + dksRwArt('coin') + '<b>' + dksN(rw.g) + '</b></span>' : '')
+    + (rw.d ? '<span class="c">' + dksRwArt('gem') + '<b>' + rw.d + '</b></span>' : '')
     + (rw.pend ? '<span class="c">' + dksArt('pend', { c:'#F2C230', ic:'✦' }) + '<b>S+</b></span>' : '')
     + (rw.tk ? '<span class="c" title="' + dkhTkNm(rw.tk) + '">' + dksArt('tk', { c:DKS_TKCOL[rw.tk] }) + '<b>券</b></span>' : '')
     + (rw.fr ? '<span class="c" title="' + dkhFrNm(rw.fr) + '">' + dksArt('frame', { c:DKS_FRCOL[rw.fr] }) + '<b>枠</b></span>' : '');
+}
+/* お手本のミッションの行：小さな丸のベクタ絵ではなく「金枠タイルに入った描き込みの絵」。
+   絵は assets/ui2 の ico-*（文字の無い所だけを切り出した物）。素材が無ければ今までの絵文字のまま */
+function dksQIco(q){
+  var s = String(q.id || '') + ' ' + String(q.nm || '') + ' ' + String(q.ds || ''), k = '';
+  if(/勝|1位|順位|フレンド|友/.test(s)) k = 'ico-pawn';
+  else if(/サイコロ|ダイス|振/.test(s)) k = 'ico-dice2';
+  else if(/対戦|プレイ|遊/.test(s)) k = 'ico-dice';
+  else if(/買|ショップ|交換|ゴールド|両替/.test(s)) k = 'ico-coins';
+  else if(/強化|合成|ガチャ|カード|ペンダント|ログイン|出席/.test(s)) k = 'ico-scroll';
+  var pic = (k && typeof dkskPic === 'function') ? dkskPic(k) : '';
+  return '<div class="ic' + (pic ? ' sk-tile' : '') + '" aria-hidden="true">' + pic + '<span>' + q.ic + '</span></div>';
+}
+/* ボタンに添える絵（一括受け取りなど。お手本の「贈り物つきの金ボタン」） */
+function dksBico(k){
+  var u = (typeof dkskU === 'function') ? dkskU(k) : '';
+  return u ? '<i class="sk-bico" aria-hidden="true" style="background-image:url(' + u + ')"></i>' : '';
+}
+/* 報酬の札の絵：ベクタの王冠コイン → 積み上がった金貨・青い宝石の絵 */
+function dksRwArt(kind){
+  var k = kind === 'coin' ? 'ico-coins' : kind === 'gem' ? 'ico-gems' : '';
+  var u = (k && typeof dkskU === 'function') ? dkskU(k) : '';
+  return u ? '<i class="sk-pic sk-rwi" aria-hidden="true" style="background-image:url(' + u + ')"></i>' : dksArt(kind);
 }
 function dksQRow(q){
   var rw = dksRwHTML(q.rw);
@@ -1167,7 +1195,7 @@ function dksQRow(q){
           : '<button class="dkbtn dks-b dks-wip" data-dks-guide="' + q.id + '"><i class="dks-sh"></i><b>進行中</b><small>' + dksLeftTx(q) + '</small></button>';
   var num = (q.unit === '段') ? '+' + q.cur + '/+' + q.need : q.cur + '/' + q.need;
   return '<div class="dks-q ' + st + '" data-q="' + q.id + '" data-fx="riseR">'
-    + '<div class="ic" aria-hidden="true"><span>' + q.ic + '</span></div>'
+    + dksQIco(q)
     + '<div class="mid"><div class="nm">' + esc(q.nm) + '</div><div class="ds">' + esc(q.ds) + '</div>'
     +   '<div class="prog"><span class="dkbar' + (q.ok ? '' : ' bl') + '"><i style="width:' + (q.cur / q.need * 100).toFixed(1) + '%"></i></span>'
     +   '<b>' + num + '</b></div></div>'
@@ -1209,8 +1237,8 @@ function showQuest(tab){
     +   '<div class="dkpar dks-qbox">' + dksOrn(18)
     +     '<div class="dks-qhd"><div class="dks-rib"><b>' + head[0] + '</b></div><span class="c">' + head[1] + '</span></div>'
     +     '<div class="dks-qlist" data-fx-step="50">' + list.map(dksQRow).join('') + '</div>'
-    +     '<button class="dkbtn gd dks-b dks-all' + (any ? ' fx-primary' : '') + '" id="dkAll"' + (any ? '' : ' disabled') + '>'
-    +       '<i class="dks-sh"></i>一括受け取り</button>'
+    +     '<button class="dkbtn gd dks-b sk-big dks-all' + (any ? ' fx-primary' : '') + '" id="dkAll"' + (any ? '' : ' disabled') + '>'
+    +       '<i class="dks-sh"></i>' + dksBico('ico-coins') + '一括受け取り</button>'
     +   '</div>'
     +   side
     + '</div>'));
@@ -1265,6 +1293,12 @@ function dksDailyView(){
 }
 function dksDailySig(){ return todayKey() + '|' + canDaily(); }
 var DKS_dsig = '';
+/* 出席簿のマスの報酬：ゴールドとダイヤはお手本の描き込みの絵に差し替える（他は今までの絵） */
+function dksD28Pic(d){
+  var k = d.k === 'g' ? 'ico-coins' : d.k === 'd' ? 'ico-gems' : '';
+  var u = (k && typeof dkskU === 'function') ? dkskU(k) : '';
+  return u ? '<i class="sk-pic" aria-hidden="true" style="background-image:url(' + u + ')"></i>' : dksD28Art(d);
+}
 function showDaily(){
   var v = dksDailyView(), gold = -1;
   for(var j = v.day; j < 28 && gold < 0; j++) if((j + 1) % 7 === 0) gold = j;      // 次の豪華な日だけ光を回す
@@ -1274,7 +1308,7 @@ function showDaily(){
       + (big ? '<div class="dks-d7rays fx-deco' + (i === gold && !v.full ? ' spin' : '') + '" aria-hidden="true"><div class="fx-rays"></div></div>' : '')
       + ((big || now) ? '<i class="dks-gl" aria-hidden="true"></i>' : '')
       + '<div class="dd"><b>' + (i + 1) + '日目</b></div>'
-      + '<div class="di">' + dksD28Art(d) + '</div>'
+      + '<div class="di">' + dksD28Pic(d) + '</div>'
       + '<div class="dv">' + (d.k === 'g' ? dksN(d.v) : '×' + d.v) + '</div>'
       + '<div class="dn">' + esc(dksD28Nm(d)) + '</div>'
       + (got ? '<i class="dks-stamp">済</i>' : '')
@@ -1291,7 +1325,7 @@ function showDaily(){
     +     '<div class="dks-dhd"><div class="dks-rib"><b>毎日ログインで28日ぶんの報酬</b></div><span class="c">7日ごとに豪華・' + info + '</span></div>'
     +     '<div class="dks-days" data-fx="rise">' + cells + '</div>'
     +     (v.can
-        ? '<button class="dkbtn gd dks-b fx-primary dks-dget" id="dGet"><i class="dks-sh"></i>今日のぶんを受け取る</button>'
+        ? '<button class="dkbtn gd dks-b sk-big fx-primary dks-dget" id="dGet"><i class="dks-sh"></i>' + dksBico('ico-coins') + '今日のぶんを受け取る</button>'
         : '<div class="dks-dnext"><i class="dks-stamp">済</i><b>今日は受け取りました</b>' + dksWait(dksNextMidnight(), false, '次の報酬まで') + '</div>')
     +   '</div>'
     + '</div>'));

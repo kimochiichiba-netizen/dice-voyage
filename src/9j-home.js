@@ -185,6 +185,16 @@ function dkhSkin(el, bg){
   try{ if(typeof dkskApply === 'function') dkskApply(el, { bg:bg || 'study', frame:false, tabs:false, btns:false }); }catch(e){}
   return el;
 }
+/* お手本の描き絵を1枚置く（assets/ui2）。素材が無ければ空文字＝今までの絵のまま */
+function dkhPic2(k, cls){
+  var u = dkhUi2(k);
+  return u ? '<i class="sk-pic' + (cls ? ' ' + cls : '') + '" aria-hidden="true" style="background-image:url(' + u + ')"></i>' : '';
+}
+/* ボタンに添える小さな絵 */
+function dkhBico(k){
+  var u = dkhUi2(k);
+  return u ? '<i class="sk-bico" aria-hidden="true" style="background-image:url(' + u + ')"></i>' : '';
+}
 function dkhFace(id){
   var u = dkhImg(id);
   return '<span class="dkh-face"' + (u ? ' style="background-image:url(' + u + ')"' : '') + '>'
@@ -938,7 +948,8 @@ function dkhNewsWeek(){
     +   '<div class="dkh-feats">'
     +     dkhFeatCard(f, '今週の注目', 'ガチャで出やすさ ×2', 'now')
     +     dkhFeatCard(f2, '来週の注目', dkhMD(nt) + ' から ×2', 'next')
-    +     '<button type="button" class="dkbtn gd dkh-togacha fx-primary" data-dkgo="gacha" data-fx="pop">ガチャを引く</button>'
+    +     '<button type="button" class="dkbtn gd dkh-togacha sk-big fx-primary" data-dkgo="gacha" data-fx="pop">'
+    +       dkhBico('ico-gems') + 'ガチャを引く</button>'
     +   '</div>'
     +   '<div class="dkh-sched fx-panel" data-fx="riseR"><b class="dkh-schd">イベントの予定</b>' + sched + '</div>'
     + '</div>';
@@ -1026,17 +1037,20 @@ function showMail(){
   var rows = list.map(dkhMailRow).join('');
   var el = dkhAmb(dkMake('mail', 'quest', dkHead('mail', { title:'プレゼントボックス' })
     + '<div class="dkh-mb">'
-    +   '<div class="dkh-mlist dkh-parch" data-fx="rise"><div class="dkh-lhd"><b>プレゼント</b><span>' + list.length + '件</span>'
+    +   '<div class="dkh-mlist dkh-parch" data-fx="rise"><div class="dkh-lhd"><span class="sk-ribbon dkh-lrib">プレゼント</span><span>' + list.length + '件</span>'
     +     '<em class="dkh-mwarn">プレゼントの保管期限は30日間です</em></div>'
-    +     '<div class="dkh-mrows" data-fx-step="40">' + (rows || ('<div class="dkh-empty"><i class="dkh-emptyic">' + dkhIcon('mail') + '</i>'
+    +     '<div class="dkh-mrows" data-fx-step="40">' + (rows || ('<div class="dkh-empty sk-empty">'
+    +       (dkhPic2('hero2-chest') || '<i class="dkh-emptyic">' + dkhIcon('mail') + '</i>')
     +       '<b>プレゼントは届いていません</b><span>ランキングの報酬や、対戦で獲得したアイテムはここに届きます</span></div>')) + '</div></div>'
-    +   '<div class="dkh-mside fx-panel" data-fx="riseR"><i class="dkh-msic">' + dkhIcon('mail') + '</i>'
+    +   '<div class="dkh-mside fx-panel" data-fx="riseR">'
+    +     (dkhPic2('good2-gold', 'dkh-msic2') || '<i class="dkh-msic">' + dkhIcon('mail') + '</i>')
     +     '<b class="dkh-mst">受け取れる報酬</b>'
     +     '<div class="dkh-msum"><span><i class="dkh-coin"></i><b>' + dkhNum(sg) + '</b></span>'
     +       '<span><i class="dkh-gem"></i><b>' + dkhNum(sd) + '</b></span>'
     +       (ni ? '<span class="dkh-msit">アイテム ' + ni + '個</span>' : '') + '</div>'
     +     (soon ? '<span class="dkh-msoon">もうすぐ期限が切れるプレゼント ' + soon + '件</span>' : '')
-    +     '<button type="button" class="dkbtn gd dkh-all fx-primary" id="dkhAll"' + (list.length ? '' : ' disabled') + '>すべて受け取る</button>'
+    +     '<button type="button" class="dkbtn gd dkh-all sk-big fx-primary" id="dkhAll"' + (list.length ? '' : ' disabled') + '>'
+    +       dkhBico('ico-coins') + 'すべて受け取る</button>'
     +     '<p class="dkh-mnote">獲得したアイテムはここから受け取れます</p></div>'
     + '</div>'));
   el.classList.add('dkh-mail');
@@ -1115,8 +1129,9 @@ function showFriends(){
   }).join('');
   var el = dkhAmb(dkMake('friends', 'home', dkHead('friends', { title:'友達' })
     + '<div class="dkh-fb">'
-    +   '<div class="dkh-frlist dkh-parch" data-fx="rise"><div class="dkh-lhd"><b>ゲーム友だち</b><span>' + fr.length + '人</span></div>'
-    +     '<div class="dkh-frrows" data-fx-step="40">' + (rows || ('<div class="dkh-empty"><i class="dkh-emptyic">' + dkhIcon('duo') + '</i>'
+    +   '<div class="dkh-frlist dkh-parch" data-fx="rise"><div class="dkh-lhd"><span class="sk-ribbon dkh-lrib">ゲーム友だち</span><span>' + fr.length + '人</span></div>'
+    +     '<div class="dkh-frrows" data-fx-step="40">' + (rows || ('<div class="dkh-empty sk-empty">'
+    +       (dkhPic2('ico-pawn', 'dkh-frbig') || '<i class="dkh-emptyic">' + dkhIcon('duo') + '</i>')
     +       '<b>オンラインで遊んだ相手が、ここに並びます</b><span>名前・いっしょに遊んだ回数・最後に遊んだ日を覚えておきます</span></div>')) + '</div></div>'
     +   '<div class="dkh-frside fx-panel" data-fx="riseR">'
     +     '<div class="dkh-globe" aria-hidden="true"><i class="dkh-orbit"></i>' + dkhIcon('globe') + '</div>'
