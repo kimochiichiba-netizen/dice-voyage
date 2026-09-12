@@ -15733,7 +15733,7 @@ var orb = res
 ? '<div class="dkp-orb dkp-got r' + res.rar + '" id="dkpOrb"><i class="fx-halo dkp-halo"></i>' + dkpMedal(res, { size:150, plus:0, rt:true, cls:'dkp-float' })
 + '<b class="dkp-cnm">' + esc(dkpShort(res)) + '</b>' + (S.mixRes.fresh ? '<span class="fx-new">NEW!</span>' : '') + '</div>'
 : '<div class="dkp-orb' + (up ? ' r' + up : '') + '" id="dkpOrb"><i class="fx-halo dkp-halo"></i><span class="dkp-q">?</span>'
-+ '<b class="dkp-orbl">' + (up ? dkpRarNm(up) + ' が生まれる' : '1段上の等級') + '</b></div>';
++ '<b class="dkp-orbl">' + (up ? dkpRarNm(up) + 'クラスが生まれる' : '1段上の等級') + '</b></div>';
 var left = '<section class="fx-panel dkp-alt" data-fx="riseL"><i class="fx-edge"></i>'
 + '<header class="dkp-ph"><b class="dkp-ttl">合成</b><span class="dkp-note">+7 の同じ等級を2つ → 1段上を1つ</span>'
 + '<button class="dkp-oddsb" data-dkp-act="odds" data-dkp-v="pmix">提供割合</button></header>'
@@ -15748,7 +15748,7 @@ var left = '<section class="fx-panel dkp-alt" data-fx="riseL"><i class="fx-edge"
 var cands = dkpOwnList('rar').filter(function(p){ return dkpLv(p.id) >= 8 && p.rar !== 'SS'; });
 var row = function(r){
 var L = cands.filter(function(p){ return p.rar === r; });
-if(!L.length) return '<p class="dkp-hint">' + dkpRarNm(r) + ' の +7 はまだありません</p>';
+if(!L.length) return '<p class="dkp-hint">' + dkpRarNm(r) + 'クラスの +7 はまだありません</p>';
 return '<div class="dkp-sw"><div class="dkp-strip" data-dkp-wheel="1">' + L.map(function(p){
 var on = (p.id === S.mixA || p.id === S.mixB);
 return '<div class="dkp-cell dkp-sm r' + p.rar + (on ? ' on' : '') + '" data-dkp-act="mixpick" data-dkp-id="' + p.id + '">'
@@ -16083,7 +16083,7 @@ if(dkpOnScr('pend')) showPend();
 if(res && !res.why){
 var p = pendById(res.id);
 var o2 = document.getElementById('dkpOrb');
-if(o2) fxPopText(o2, dkpRarNm(res.rar) + ' 誕生！', { tone:'gold', size:52 });
+if(o2) fxPopText(o2, dkpRarNm(res.rar) + 'クラス 誕生！', { tone:'gold', size:52 });
 toast('R', '⚗️', p.nm + ' が生まれました', (res.aimHit ? '狙いどおり！　' : '') + '+0 から育てられます', 2600);
 }
 }
@@ -16531,7 +16531,7 @@ var L = dkpLaneOf(P.lane) || LANES.normal, isGem = L.cur === '💎';
 again = '<button class="dkbtn gd fx-primary dkp-again" data-dkp-act="again">もう1回 ' + (isGem ? '<i class="dkgem dkp-ci"></i>' : '<i class="dkcoin dkp-ci"></i>')
 + dkpFmt(P.n === 1 ? L.one : L.five) + '</button>';
 }
-var head = P.best === 'SS' ? 'S+ 獲得！' : P.lucky ? 'ラッキーマイレージ' : (dkpLaneNm(P.lane) + (P.pl ? ' 獲得' : ' 開封'));
+var head = P.best === 'SS' ? 'S+クラス 獲得！' : P.lucky ? 'ラッキーマイレージ' : (dkpLaneNm(P.lane) + (P.pl ? ' 獲得' : ' 開封'));
 return '<div class="dkp-rvhd"><div class="fx-ribbon ' + (P.best === 'SS' ? 'red' : 'gold') + '"><b>' + esc(head) + '</b></div></div>'
 + '<div class="dkp-row">' + cards + '</div>'
 + '<div class="dkp-rvft"><span class="dkp-sum">NEW <b>' + nNew + '</b>　重なり <b>' + nDup + '</b></span>' + again
@@ -16931,8 +16931,8 @@ var c = dkcCard(tid), o = dkcOwn(tid);
 var p = { ok:false, reason:'', n:0, base:0, cost:0, res:{} };
 if(!c || !o){ p.reason = 'このカードを持っていません'; return p; }
 var cap = dkcCap(c);
-if(o.lv >= cap){ p.reason = o.lv > cap ? ('Lv.' + o.lv + ' は ' + dkcRarNm(c.rar) + ' の上限 Lv.' + cap + ' をこえています。これ以上は強化できません')
-: ('Lv.' + cap + '（' + dkcRarNm(c.rar) + ' の上限）です。合成で上の等級をめざせます'); p.max = true; return p; }
+if(o.lv >= cap){ p.reason = o.lv > cap ? ('Lv.' + o.lv + ' は ' + dkcRarNm(c.rar) + 'クラスの上限 Lv.' + cap + ' をこえています。これ以上は強化できません')
+: ('Lv.' + cap + '（' + dkcRarNm(c.rar) + 'クラスの上限）です。合成で上の等級をめざせます'); p.max = true; return p; }
 Object.keys(DKC_S.mats).forEach(function(k){
 var n = DKC_S.mats[k] | 0; if(n <= 0) return;
 p.n += n; p.base += dkcMatExp(tid, k) * n; p.cost += dkcMatCost(tid, k) * n;
@@ -17557,7 +17557,7 @@ saveNow();
 dkMarkSeen(c2.id);
 dkEmit('card:remix', { first:c1.id, second:c2.id, pick:pick.id, cost:cost, pity:(SV.pity.card | 0) });
 if(dkcScreenOn('cards')){ DKC_S.sel = pick.id; DKC_S.tab = 'own'; showCards(); }
-try{ toast('R', '🎴', esc(pick.nm), dkcRarNm(pick.rar) + ' を Lv.1 で手に入れました', 2000); }catch(e){}
+try{ toast('R', '🎴', esc(pick.nm), dkcRarNm(pick.rar) + 'クラスを Lv.1 で手に入れました', 2000); }catch(e){}
 return pick.id;
 }
 function dkcTabBook(){
@@ -17749,7 +17749,7 @@ var c = dkcCard(res.id), p = res.cmax && res.cmax.pend; if(!c || !p) return;
 var dup = res.cmax.got && !res.cmax.got.fresh;
 modal('<div class="modal dkc-modal"><div class="dkc-mbox">'
 + '<div class="fx-ribbon gold"><b>上限 Lv 到達！</b></div>'
-+ '<p class="dkc-mp">' + esc(c.nm) + ' が ' + dkcRarNm(c.rar) + ' の上限 Lv.' + res.to + ' に届きました。ごほうびのペンダントです。</p>'
++ '<p class="dkc-mp">' + esc(c.nm) + ' が ' + dkcRarNm(c.rar) + 'クラスの上限 Lv.' + res.to + ' に届きました。ごほうびのペンダントです。</p>'
 + '<div class="dkc-rwbig">' + dkcMedal(p) + '<div><b>' + esc(p.nm) + '</b><span>' + dkcRarNm(p.rar) + (dup ? ' ・ 重なり＋1' : ' ・ NEW') + '</span></div></div>'
 + '<div class="btnrow dkc-mbtns"><button class="dkbtn gd dkc-bt" data-act="ok">受け取る</button></div></div></div>');
 setTimeout(function(){ var m = document.querySelector('#modalWrap .dkc-rwbig'); if(m){ fxBurst(m, { kind:'star', n:18 }); } }, 260);
@@ -17803,7 +17803,7 @@ var cost = res.rar === 'SS' ? 40 : 20, can = SV.gem >= cost;
 var act = await modal('<div class="modal dkc-modal"><div class="dkc-mbox">'
 + '<div class="fx-ribbon ' + (res.rar === 'SS' ? 'gold' : 'blue') + '"><b>合成成功！</b></div>'
 + '<div class="dkc-mcard">' + dkcBigCard(c, 1, { cls:'dkc-sm' }) + '</div>'
-+ '<p class="dkc-mp">' + dkcRarNm(c.rar) + '「' + esc(c.nm) + '」を Lv.1 で手に入れました' + (res.fresh ? '（NEW）' : '（重なり＋1）') + '</p>'
++ '<p class="dkc-mp">' + dkcRarNm(c.rar) + 'クラス「' + esc(c.nm) + '」を Lv.1 で手に入れました' + (res.fresh ? '（NEW）' : '（重なり＋1）') + '</p>'
 + aimTx
 + '<div class="btnrow dkc-mbtns"><button class="dkbtn gr dkc-bt" data-act="view">カードを見る</button>'
 + '<button class="dkbtn dkc-bt dkc-remix" data-act="remix"' + (can ? '' : ' disabled') + '>再合成 ' + dkcGemI() + cost + '</button>'

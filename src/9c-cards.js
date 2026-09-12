@@ -314,8 +314,8 @@ function dkcUpPlan(tid){
   var p = { ok:false, reason:'', n:0, base:0, cost:0, res:{} };
   if(!c || !o){ p.reason = 'このカードを持っていません'; return p; }
   var cap = dkcCap(c);
-  if(o.lv >= cap){ p.reason = o.lv > cap ? ('Lv.' + o.lv + ' は ' + dkcRarNm(c.rar) + ' の上限 Lv.' + cap + ' をこえています。これ以上は強化できません')
-                                         : ('Lv.' + cap + '（' + dkcRarNm(c.rar) + ' の上限）です。合成で上の等級をめざせます'); p.max = true; return p; }
+  if(o.lv >= cap){ p.reason = o.lv > cap ? ('Lv.' + o.lv + ' は ' + dkcRarNm(c.rar) + 'クラスの上限 Lv.' + cap + ' をこえています。これ以上は強化できません')
+                                         : ('Lv.' + cap + '（' + dkcRarNm(c.rar) + 'クラスの上限）です。合成で上の等級をめざせます'); p.max = true; return p; }
   Object.keys(DKC_S.mats).forEach(function(k){
     var n = DKC_S.mats[k] | 0; if(n <= 0) return;
     p.n += n; p.base += dkcMatExp(tid, k) * n; p.cost += dkcMatCost(tid, k) * n;
@@ -976,7 +976,7 @@ async function dkcRemix(res, cost){
   dkMarkSeen(c2.id);
   dkEmit('card:remix', { first:c1.id, second:c2.id, pick:pick.id, cost:cost, pity:(SV.pity.card | 0) });
   if(dkcScreenOn('cards')){ DKC_S.sel = pick.id; DKC_S.tab = 'own'; showCards(); }
-  try{ toast('R', '🎴', esc(pick.nm), dkcRarNm(pick.rar) + ' を Lv.1 で手に入れました', 2000); }catch(e){}
+  try{ toast('R', '🎴', esc(pick.nm), dkcRarNm(pick.rar) + 'クラスを Lv.1 で手に入れました', 2000); }catch(e){}
   return pick.id;
 }
 
@@ -1178,7 +1178,7 @@ function dkcCmaxModal(res){
   var dup = res.cmax.got && !res.cmax.got.fresh;
   modal('<div class="modal dkc-modal"><div class="dkc-mbox">'
     + '<div class="fx-ribbon gold"><b>上限 Lv 到達！</b></div>'
-    + '<p class="dkc-mp">' + esc(c.nm) + ' が ' + dkcRarNm(c.rar) + ' の上限 Lv.' + res.to + ' に届きました。ごほうびのペンダントです。</p>'
+    + '<p class="dkc-mp">' + esc(c.nm) + ' が ' + dkcRarNm(c.rar) + 'クラスの上限 Lv.' + res.to + ' に届きました。ごほうびのペンダントです。</p>'
     + '<div class="dkc-rwbig">' + dkcMedal(p) + '<div><b>' + esc(p.nm) + '</b><span>' + dkcRarNm(p.rar) + (dup ? ' ・ 重なり＋1' : ' ・ NEW') + '</span></div></div>'
     + '<div class="btnrow dkc-mbtns"><button class="dkbtn gd dkc-bt" data-act="ok">受け取る</button></div></div></div>');
   setTimeout(function(){ var m = document.querySelector('#modalWrap .dkc-rwbig'); if(m){ fxBurst(m, { kind:'star', n:18 }); } }, 260);
@@ -1232,7 +1232,7 @@ async function dkcMixModal(res){
   var act = await modal('<div class="modal dkc-modal"><div class="dkc-mbox">'
     + '<div class="fx-ribbon ' + (res.rar === 'SS' ? 'gold' : 'blue') + '"><b>合成成功！</b></div>'
     + '<div class="dkc-mcard">' + dkcBigCard(c, 1, { cls:'dkc-sm' }) + '</div>'
-    + '<p class="dkc-mp">' + dkcRarNm(c.rar) + '「' + esc(c.nm) + '」を Lv.1 で手に入れました' + (res.fresh ? '（NEW）' : '（重なり＋1）') + '</p>'
+    + '<p class="dkc-mp">' + dkcRarNm(c.rar) + 'クラス「' + esc(c.nm) + '」を Lv.1 で手に入れました' + (res.fresh ? '（NEW）' : '（重なり＋1）') + '</p>'
     + aimTx
     + '<div class="btnrow dkc-mbtns"><button class="dkbtn gr dkc-bt" data-act="view">カードを見る</button>'
     + '<button class="dkbtn dkc-bt dkc-remix" data-act="remix"' + (can ? '' : ' disabled') + '>再合成 ' + dkcGemI() + cost + '</button>'

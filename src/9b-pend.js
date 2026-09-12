@@ -1034,7 +1034,7 @@ function dkpBodyMix(){
     ? '<div class="dkp-orb dkp-got r' + res.rar + '" id="dkpOrb"><i class="fx-halo dkp-halo"></i>' + dkpMedal(res, { size:150, plus:0, rt:true, cls:'dkp-float' })
       + '<b class="dkp-cnm">' + esc(dkpShort(res)) + '</b>' + (S.mixRes.fresh ? '<span class="fx-new">NEW!</span>' : '') + '</div>'
     : '<div class="dkp-orb' + (up ? ' r' + up : '') + '" id="dkpOrb"><i class="fx-halo dkp-halo"></i><span class="dkp-q">?</span>'
-      + '<b class="dkp-orbl">' + (up ? dkpRarNm(up) + ' が生まれる' : '1段上の等級') + '</b></div>';
+      + '<b class="dkp-orbl">' + (up ? dkpRarNm(up) + 'クラスが生まれる' : '1段上の等級') + '</b></div>';
   var left = '<section class="fx-panel dkp-alt" data-fx="riseL"><i class="fx-edge"></i>'
     + '<header class="dkp-ph"><b class="dkp-ttl">合成</b><span class="dkp-note">+7 の同じ等級を2つ → 1段上を1つ</span>'
     +   '<button class="dkp-oddsb" data-dkp-act="odds" data-dkp-v="pmix">提供割合</button></header>'
@@ -1050,7 +1050,7 @@ function dkpBodyMix(){
   var cands = dkpOwnList('rar').filter(function(p){ return dkpLv(p.id) >= 8 && p.rar !== 'SS'; });
   var row = function(r){
     var L = cands.filter(function(p){ return p.rar === r; });
-    if(!L.length) return '<p class="dkp-hint">' + dkpRarNm(r) + ' の +7 はまだありません</p>';
+    if(!L.length) return '<p class="dkp-hint">' + dkpRarNm(r) + 'クラスの +7 はまだありません</p>';
     return '<div class="dkp-sw"><div class="dkp-strip" data-dkp-wheel="1">' + L.map(function(p){
       var on = (p.id === S.mixA || p.id === S.mixB);
       return '<div class="dkp-cell dkp-sm r' + p.rar + (on ? ' on' : '') + '" data-dkp-act="mixpick" data-dkp-id="' + p.id + '">'
@@ -1394,7 +1394,7 @@ async function dkpMixRun(){
   if(res && !res.why){
     var p = pendById(res.id);
     var o2 = document.getElementById('dkpOrb');
-    if(o2) fxPopText(o2, dkpRarNm(res.rar) + ' 誕生！', { tone:'gold', size:52 });
+    if(o2) fxPopText(o2, dkpRarNm(res.rar) + 'クラス 誕生！', { tone:'gold', size:52 });
     toast('R', '⚗️', p.nm + ' が生まれました', (res.aimHit ? '狙いどおり！　' : '') + '+0 から育てられます', 2600);
   }
 }
@@ -1858,7 +1858,7 @@ function dkpRevHTML(P){
     again = '<button class="dkbtn gd fx-primary dkp-again" data-dkp-act="again">もう1回 ' + (isGem ? '<i class="dkgem dkp-ci"></i>' : '<i class="dkcoin dkp-ci"></i>')
       + dkpFmt(P.n === 1 ? L.one : L.five) + '</button>';
   }
-  var head = P.best === 'SS' ? 'S+ 獲得！' : P.lucky ? 'ラッキーマイレージ' : (dkpLaneNm(P.lane) + (P.pl ? ' 獲得' : ' 開封'));
+  var head = P.best === 'SS' ? 'S+クラス 獲得！' : P.lucky ? 'ラッキーマイレージ' : (dkpLaneNm(P.lane) + (P.pl ? ' 獲得' : ' 開封'));
   return '<div class="dkp-rvhd"><div class="fx-ribbon ' + (P.best === 'SS' ? 'red' : 'gold') + '"><b>' + esc(head) + '</b></div></div>'
     + '<div class="dkp-row">' + cards + '</div>'
     + '<div class="dkp-rvft"><span class="dkp-sum">NEW <b>' + nNew + '</b>　重なり <b>' + nDup + '</b></span>' + again
