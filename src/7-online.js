@@ -37,6 +37,9 @@ function dvOnlineBoot(){
   var SKIP_P = { render:1, hopY:1, squash:1, offx:1, offy:1, face:1, stats:1, skill:1, pend:1, pendLv:1, ch:1 };
   var SKIP_G = { map:1, tiles:1, players:1, phase:1, running:1, dktLoop:1, dkbInit:1, dkbLikes:1,
                  lastTick:1, clock:1, alarm:1, olLikes:1 };
+  /* 差分で「この項目は消えた」を伝える印（文字コード2。コード1は「中身は JSON」の印）。
+     ふつうの文字とぶつからないように、この2つで始まる文字は flatVal で逃がす */
+  var DELMARK   = '\u0002';
   /* 期限切れ・抜けた時に host が代わりに出す答え（CPU の弱い判断。null/false は「やめる」） */
   var FALLBACK = { tile:-1, build:[], buyout:false, mini:{ c:'stop' }, jam:false, jail:'dbl', travel:false,
                    fortune:'ok', angel:true, coupon:true, guard:true, oebuy:false,
@@ -721,7 +724,9 @@ function dvOnlineBoot(){
     OL.dataN++;
     for(var k in OL.doQ) if(+k < OL.dataN) delete OL.doQ[k];
     if(a.f) OL.mir = a.f;
-    else if(a.d && OL.mir){ for(var key in a.d) OL.mir[key] = a.d[key]; }
+    else if(a.d && OL.mir){
+      for(var key in a.d){ if(a.d[key] === DELMARK) delete OL.mir[key]; else OL.mir[key] = a.d[key]; }
+    }
     if(!OL.host && a.h !== undefined && a.h !== hashState()) heal(a);
     reseed(a.seq);                                        // ここで全端末の乱数がそろう
     finishW(w, a);
@@ -941,7 +946,9 @@ function dvOnlineBoot(){
     if(v === null) return null;
     var ty = typeof v;
     if(ty === 'number') return isFinite(v) ? v : 0;
-    if(ty === 'string' || ty === 'boolean') return v;
+    if(ty === 'boolean') return v;
+    /* 先頭が印の文字（コード1＝JSON・コード2＝消えた）なら JSON にして逃がす（unflat で元に戻る） */
+    if(ty === 'string') return (v.charCodeAt(0) === 1 || v.charCodeAt(0) === 2) ? '\u0001' + JSON.stringify(v) : v;
     if(ty !== 'object') return undefined;
     if(v.nodeType || v === window) return undefined;
     try{ return '\u0001' + JSON.stringify(v); }catch(e){ return undefined; }
@@ -960,8 +967,12 @@ function dvOnlineBoot(){
     return o;
   }
   function diffFlat(a, b){
-    var d = null;
-    for(var k in b){ if(b[k] !== a[k]){ if(!d) d = {}; d[k] = b[k]; } }
+    var d = null, k;
+    for(k in b){ if(b[k] !== a[k]){ if(!d) d = {}; d[k] = b[k]; } }
+    /* 消えた項目（氷が溶けた時の delete t.ice など）も伝える。
+       伝えないと host の写し（OL.mir）に古い値が残り、合わせ直し（heal）で
+       消したはずの氷が盤に戻ってしまう */
+    for(k in a){ if(!(k in b)){ if(!d) d = {}; d[k] = DELMARK; } }
     return d;
   }
   function restoreFlat(f){
@@ -974,6 +985,7 @@ function dvOnlineBoot(){
       else if(m[1] === 'p'){ if(SKIP_P[key]) continue; obj = G.players[+m[2]]; }
       else { if(SKIP_G[key]) continue; obj = G; }
       if(!obj) continue;
+      if(f[k] === DELMARK){ delete obj[key]; continue; }        // host で消えた項目
       try{ v = unflat(f[k]); }catch(e){ continue; }
       obj[key] = v;
     }
@@ -1645,7 +1657,7 @@ function dvOnlineBoot(){
   window.DV_OL = OL;
   window.DV_OL_API = {
     open:openOnline, host:startHost, join:startGuest, begin:beginGame,
-    apply:enqueue, hash:hashState, snap:flatten, restore:restoreFlat,
+    apply:enqueue, hash:hashState, snap:flatten, restore:restoreFlat, diff:diffFlat,
     seed:function(s, q){ OL.seed = s; reseed(q||0); },
     rng:function(){ return OL.rng; }, mkCode:mkCode, cleanCode:cleanCode, leave:leave,
     profile:myProfile, onData:onData, reset:resetSeq, gone:gone,
