@@ -1283,4 +1283,171 @@ html.fx-mob .dkp-deco .d-ban2,html.fx-mob .dkp-deco .d-glb{display:none}
 }
 /* 小さいマスでは「+7」の札をマスの内側に収める（外に 4% はみ出していた） */
 .dkp-cell.dkp-sm .dkp-medal .dkp-plus{right:0;bottom:0}
+
+/* ══════════════════════════════════════════════════════════════
+   お手本と見比べての直し（3回目・絵の密度を上げる）
+   ① 主役を「鎖つき雫型の大きな宝石」に（丸メダルは装備枠・所持帯・図鑑の小さい表示に残す）
+   ② 回る光の輪を3重（実体は dkskHalo が入れる .sk-halo。スマホでは 1w-skin.html が止める）
+   ③ 右の羊皮紙は角飾りつきの太い彫り枠（.sk-frame2）・能力バーは太く（.sk-bar2）
+   ④ キューブ：暗い空き箱をやめ、宝箱とキューブの絵・紙の透かしで空白を埋める
+   足すのは止まった絵だけ。常時アニメは 輪3＋粒3＝6 で「1画面8個」に収める。
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 主役の置き場を作る：下の段を少しずつ詰める ── */
+#pend .dkp-stage{gap:6px}
+#pend .dkp-sk{height:136px;padding:6px 4px 5px}
+#pend .dkp-sk .dkp-hole{width:58px;height:58px}
+#pend .dkp-sk .dkp-off.dkbtn{height:36px;font-size:20px;padding:0 13px}
+#pend .dkp-eqhint{min-height:18px}
+#pend .dkp-shelf{flex:0 0 176px}
+#pend .dkp-cell.dkp-sh{height:118px}
+
+/* ── ① 鎖つき雫型の主役（高さ500px・画面幅の約24%）。絵が無い時は今までの丸メダル ── */
+#pend .dkp-hero2 > .dkp-drop{position:absolute;left:50%;top:50%;z-index:2;pointer-events:none;
+  width:380px;height:500px;translate:-50% -58%;
+  background:var(--dkp-drop,none) center 31%/cover no-repeat;
+  filter:drop-shadow(0 18px 26px rgba(0,0,0,.62))}
+/* 石の所だけ丸く切り抜いて属性の色へ回す（金の枠と鎖はマスクの外＝金のまま） */
+#pend .dkp-drop > .dkp-dtint{position:absolute;inset:0;pointer-events:none;
+  background:var(--dkp-drop,none) center 31%/cover no-repeat;filter:var(--dkp-df,none);
+  -webkit-mask:radial-gradient(24% 23% at 50% 66%,#000 56%,transparent 100%);
+          mask:radial-gradient(24% 23% at 50% 66%,#000 56%,transparent 100%)}
+#pend .dkp-drop.dkp-ddim{filter:grayscale(.72) brightness(.66)}
+/* 主役の後ろの発光と、ビロードの座布団を石の高さに合わせる */
+#pend .dkp-hero2::before{top:60%;width:600px;height:600px;margin:-300px 0 0 -300px}
+#pend .dkp-cush.img{width:520px;height:190px;margin-left:-260px;left:50%;top:auto;bottom:-30px}
+
+/* ── ② 回る光の輪を3重（器だけ置き、輪そのものは dkskHalo が入れる）── */
+#pend .dkp-hr{position:absolute;left:50%;top:60%;z-index:1;pointer-events:none;translate:-50% -50%}
+#pend .dkp-hr1{width:310px;height:310px}
+#pend .dkp-hr2{width:436px;height:436px}
+#pend .dkp-hr3{width:566px;height:566px}
+/* 輪の色は装備中の宝石の色（--e1/--e2 は主役の属性。速さと向きを変えて3重に見せる） */
+#pend .dkp-hr > .sk-halo{width:100%;opacity:.5;
+  background:conic-gradient(from 0deg,transparent 0 6%,var(--e1,#DDF6FF) 13%,transparent 24% 52%,
+             var(--e2,#F4D169) 61%,transparent 71% 100%)}
+#pend .dkp-hr2 > .sk-halo{animation-duration:27s;animation-direction:reverse;opacity:.36}
+#pend .dkp-hr3 > .sk-halo{animation-duration:35s;opacity:.26}
+/* きらめきの粒も宝石の色に寄せる */
+#pend .dkp-hero2 > .sk-spark{width:14px;height:14px;z-index:3;
+  background:radial-gradient(circle,#FFFDF2 0 24%,var(--e1,#FFE898) 48%,transparent 74%)}
+
+/* ── ③ 右の羊皮紙：角飾りつきの太い彫り枠＋太い能力バー ── */
+#pend .dkp-info.sk-frame2{--sk-fw:12px;--sk-fw2:30px;padding:15px 20px 17px}
+#pend .dkp-bars{gap:12px}
+#pend .dkp-bars .sk-barrow .nm{min-width:172px;display:flex;align-items:center;gap:9px}
+.dkp-bic{width:36px;height:34px;flex:0 0 auto;display:inline-block;
+  background:center/contain no-repeat;filter:drop-shadow(0 2px 3px rgba(0,0,0,.45))}
+
+/* ── ガチャの3レーン：太い枠は2通り試して両方だめだったので元の細い縁のままにする ──
+      ・frame-thick（.sk-frame2）＝3枚並べると枠が縦の柱に見え、隣のレーンとぶつかる
+      ・.sk-orn＝枠が内側へ9px食い込み、「10%お得」の札と1回ボタンが重なって covered 9件
+      ガチャは dkskApply に frame:false を渡していて .sk-frame が付かない作りなので、
+      枠を太くするには器の作りごと変える必要がある（T1の範囲を越えるので申し送り） */
+
+/* ── ④ キューブ：宝箱とキューブの絵を主役に・空白は紙の透かしで埋める ── */
+#cube .dkp-cbody{gap:26px}
+#cube .dkp-cstage.sk-frame2,#cube .dkp-cshelf.sk-frame2{--sk-fw2:28px;isolation:isolate}
+#cube .dkp-cwm{position:absolute;left:16px;right:16px;top:16px;bottom:16px;z-index:-1;pointer-events:none;
+  opacity:.17;border-radius:12px;
+  -webkit-mask:radial-gradient(closest-side,#000 34%,transparent 94%);
+          mask:radial-gradient(closest-side,#000 34%,transparent 94%)}
+#cube .dkp-cchest{width:524px;height:386px;margin-left:-262px;bottom:0}
+#cube .dkp-cbig{width:250px;height:250px}
+#cube .dkp-cbimg{display:block;width:100%;height:100%;background:center/contain no-repeat}
+#cube .dkp-kb-wood .dkp-cbimg{filter:hue-rotate(78deg) saturate(.5) brightness(.88)}
+#cube .dkp-kb-silver .dkp-cbimg{filter:saturate(.16) brightness(1.16)}
+#cube .dkp-kb-gold .dkp-cbimg{filter:hue-rotate(-92deg) saturate(1.35) brightness(1.06)}
+#cube .dkp-kb-dia .dkp-cbimg{filter:hue-rotate(-56deg) saturate(.92) brightness(1.14)}
+/* 空き枠：暗い箱 → 羊皮紙の受け皿（紙の透かしつき）にキューブの絵を薄く敷く */
+#cube .dkp-cslot.dkp-cempty{border:3px solid rgba(206,160,64,.9);
+  background:var(--sk-crest,none) center/cover no-repeat,linear-gradient(180deg,#F6EBD3,#DBC8A2);
+  background-blend-mode:multiply,normal;
+  box-shadow:inset 0 3px 0 rgba(255,255,255,.72),inset 0 -9px 15px rgba(150,116,58,.22),
+             0 5px 0 rgba(92,58,10,.5),0 9px 16px rgba(40,24,4,.42)}
+#cube .dkp-cempty .dkp-cico{width:96px;height:96px;opacity:.6}
+#cube .dkp-cghost{display:block;width:100%;height:100%;background:center/contain no-repeat}
+#cube .dkp-cempty b{color:#6B4F22;-webkit-text-stroke:3px rgba(255,250,232,.92)}
+
+/* ── スマホ：主役を小さく・紙の透かしは薄いまま（動く層は増やさない）── */
+@media (max-aspect-ratio:1/1){
+  #pend .dkp-hero2 > .dkp-drop{width:270px;height:352px}
+  #pend .dkp-hr1{width:224px;height:224px}
+  #pend .dkp-hr2{width:310px;height:310px}
+  #pend .dkp-hr3{width:398px;height:398px}
+  #pend .dkp-cush.img{width:376px;height:138px;margin-left:-188px}
+  #cube .dkp-cchest{width:380px;height:280px;margin-left:-190px}
+  #cube .dkp-cbig{width:186px;height:186px}
+}
+html.fx-mob .dkp-drop > .dkp-dtint{filter:none}
+
+/* ══════════ お手本と見比べての直し（4回目・1回撮って気づいた分） ══════════ */
+/* ① 石の色替えが下半分にしか届いていなかった（丸窓が小さく・中心が上すぎた） */
+#pend .dkp-drop > .dkp-dtint{
+  -webkit-mask:radial-gradient(29% 27% at 50% 68%,#000 74%,transparent 100%);
+          mask:radial-gradient(29% 27% at 50% 68%,#000 74%,transparent 100%)}
+/* ② ビロードの座布団が主役の後ろに沈んでいた。主役の足元へ置き直して明るくする */
+#pend .dkp-cush.img{left:50%;top:calc(50% + 118px);bottom:auto;width:560px;height:205px;
+  margin:0;translate:-50% -50%;
+  background:var(--sk-cush,none) center/contain no-repeat;
+  filter:brightness(1.12) saturate(1.08) drop-shadow(0 14px 20px rgba(0,0,0,.6))}
+/* ③ 回る光の輪がお手本より薄かった */
+#pend .dkp-hr > .sk-halo{opacity:.62}
+#pend .dkp-hr2 > .sk-halo{opacity:.46}
+#pend .dkp-hr3 > .sk-halo{opacity:.34}
+/* ④ 所持ペンダントの帯：持っている数が少ないと右が素の板になるので紙の透かしを敷く */
+#pend .dkp-shelf{position:relative;isolation:isolate}
+.dkp-swm{position:absolute;left:250px;right:196px;top:14px;bottom:14px;z-index:-1;pointer-events:none;
+  opacity:.22;border-radius:12px;
+  -webkit-mask:radial-gradient(closest-side,#000 28%,transparent 92%);
+          mask:radial-gradient(closest-side,#000 28%,transparent 92%)}
+
+/* ⑤ キューブ：紙の透かしが暗くて見えなかった・空き枠の絵が小さかった */
+#cube .dkp-cwm{opacity:.34}
+#cube .dkp-cempty .dkp-cico{width:146px;height:146px;opacity:.56}
+#cube .dkp-cslot b{margin-top:5px}
+/* 8つ目のマスが空いていたので、紙の透かしの飾り皿を置く（押せない・数には入らない）。
+   地が無いと灰色のしみに見えたので、金の封蝋の地に紋を重ねる */
+#cube .dkp-cseal{display:block;border-radius:16px;opacity:.62;pointer-events:none;
+  background:var(--sk-crest,none) center/cover no-repeat,
+             radial-gradient(circle at 50% 42%,#F6DFA4,#C79A3C 54%,#7A5410);
+  background-blend-mode:multiply,normal;
+  -webkit-mask:radial-gradient(closest-side,#000 48%,transparent 94%);
+          mask:radial-gradient(closest-side,#000 48%,transparent 94%)}
+/* 紙の透かしはパネルの地に沈んで見えなかった。宝箱の後ろ（台座の中）へ移して濃くする */
+/* 中央だけを残すマスクだと、ちょうど宝箱の裏に隠れて見えなかった。
+   マスクをやめて台座いっぱいに広げ、空いている上と左右へ紋が出るようにする */
+#cube .dkp-cped > .dkp-cwm{left:-8px;right:-8px;top:-34px;bottom:-6px;z-index:0;opacity:.3;
+  background-size:auto 116%;background-position:center 18%;
+  -webkit-mask:none;mask:none}
+
+/* ══════════ お手本と見比べての直し（5回目・2回撮って気づいた分） ══════════ */
+/* ① 座布団が主役の絵の裏に完全に隠れていた（主役の絵は地ごと切り出してあるため、
+      重なった所は透けない）。主役より左右へ大きくはみ出させ、足元の高さに置く */
+/* 絵（deco-cushion）だけに頼ると、素材が読めていない時に「背景なし」で完全に消える
+   （.dkp-cush.img は地を var(--sk-cush,none) に差し替え、box-shadow も消すため）。
+   ビロードの地をCSSで下に敷き、絵はその上に重ねる＝どちらでも必ず座布団が見える */
+#pend .dkp-cush.img{left:50%;top:calc(50% + 101px);bottom:auto;width:640px;height:200px;
+  margin:0;translate:-50% -50%;border-radius:50% / 40%;
+  background:var(--sk-cush,none) center/contain no-repeat,
+             radial-gradient(closest-side at 50% 50%,#3AAE99,#176A64 56%,#06302E 100%);
+  box-shadow:0 18px 32px rgba(0,0,0,.62),inset 0 4px 0 rgba(255,242,196,.4);
+  filter:brightness(1.1) saturate(1.1)}
+/* 座布団の金の縁取り（お手本の縁の飾り線） */
+#pend .dkp-cush.img::after{display:block;content:"";position:absolute;left:7%;right:7%;top:26%;height:3px;
+  border-radius:2px;background:linear-gradient(90deg,transparent,rgba(255,232,160,.85),transparent)}
+/* ② 石の色替えが上から4分の1に届かず、てっぺんだけ青いままだった */
+#pend .dkp-drop > .dkp-dtint{
+  -webkit-mask:radial-gradient(30% 30% at 50% 65%,#000 78%,transparent 100%);
+          mask:radial-gradient(30% 30% at 50% 65%,#000 78%,transparent 100%)}
+/* ③ 回る光の輪がまだ薄く、お手本のように石をまたぐ弧に見えなかった */
+#pend .dkp-hr > .sk-halo{opacity:.8;
+  background:conic-gradient(from 0deg,transparent 0 5%,var(--e1,#DDF6FF) 12%,transparent 23% 51%,
+             var(--e2,#F4D169) 60%,transparent 72% 100%)}
+#pend .dkp-hr2 > .sk-halo{opacity:.58}
+#pend .dkp-hr3 > .sk-halo{opacity:.42}
+/* ④ 帯の紙の透かしが地に沈んで出ていなかった（z-index:-1 は器の地より後ろに回る）。
+      透かしを 0 に上げ、中身の側を 1 に持ち上げて重なりを正す */
+.dkp-swm{z-index:0}
+#pend .dkp-shelf > .dkp-shl,#pend .dkp-shelf > .dkp-sw,#pend .dkp-shelf > .dkp-mini{position:relative;z-index:1}
 </style>
