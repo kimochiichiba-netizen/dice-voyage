@@ -56,13 +56,13 @@ var DKH_LEFT = [
   { id:'cube',  ic:'cube', nm:'キューブ',   m:'sapph' },
   { id:'gacha', ic:'shop', nm:'ガチャ<br>/ショップ', m:'amet' }
 ];
+/* 右の縦のボタンは5つ（お手本と同じ並び）。設定は上段の右端の⚙へ移した（行き先は同じ dkGo('settings')） */
 var DKH_RIGHT = [
   { id:'quest',    ic:'scroll', nm:'ミッション', m:'amber' },
   { id:'news',     ic:'horn',   nm:'イベント',   m:'ruby'  },
   { id:'daily',    ic:'cal',    nm:'出席簿',     m:'sapph' },
   { id:'friends',  ic:'duo',    nm:'友達',       m:'emer'  },
-  { id:'guide',    ic:'book',   nm:'ガイド',     m:'amet'  },
-  { id:'settings', ic:'gear',   nm:'設定',       m:'wood'  }
+  { id:'guide',    ic:'book',   nm:'ガイド',     m:'amet'  }
 ];
 var DKH_NTABS = [
   { id:'week', ic:'horn',   nm:'今週' },
@@ -164,6 +164,27 @@ function dkhEmblem(t, cls){
 function dkhNum(v){ return (Math.round(+v || 0)).toLocaleString(); }
 function dkhImg(id){ try{ return (window.DV_CHARIMG || {})[id] || ''; }catch(e){ return ''; } }
 function dkhUi(k){ try{ return (window.DV_UI || {})[k] || ''; }catch(e){ return ''; } }
+/* 共通スキンの素材（window.DV_UI2）。無ければ none を返す＝CSS のグラデーションだけで成り立つ */
+function dkhUi2(k){ try{ return (window.DV_UI2 || {})[k] || ''; }catch(e){ return ''; } }
+function dkhU2(k){ var u = dkhUi2(k); return u ? 'url(' + u + ')' : 'none'; }
+/* レールのメダルに敷く宝石（お手本の「色分けした宝石アイコン」） */
+var DKH_GEMS = { ruby:'gem2-red', amber:'gem2-sun', emer:'gem2-green', sapph:'gem2-blue', amet:'gem2-moon', wood:'gem2-sakura' };
+/* 素材を CSS 変数で1回だけ配る（data URI を HTML に何度も書かないため、置き場は <html>） */
+function dkhSkinVars(){
+  try{
+    var r = document.documentElement, k;
+    if(!r || !r.style || r.style.getPropertyValue('--dkh-wood-img')) return;
+    r.style.setProperty('--dkh-wood-img', dkhU2('wood'));
+    r.style.setProperty('--dkh-candle-img', dkhU2('deco-candle'));
+    for(k in DKH_GEMS) if(Object.prototype.hasOwnProperty.call(DKH_GEMS, k)) r.style.setProperty('--dkh-gem-' + k, dkhU2(DKH_GEMS[k]));
+  }catch(e){}
+}
+/* 画面の器に共通スキンを当てる（地の絵だけ。枠・タブ・ボタンは 1t-home.html が --sk-* を読んで自分で描く） */
+function dkhSkin(el, bg){
+  dkhSkinVars();
+  try{ if(typeof dkskApply === 'function') dkskApply(el, { bg:bg || 'study', frame:false, tabs:false, btns:false }); }catch(e){}
+  return el;
+}
 function dkhFace(id){
   var u = dkhImg(id);
   return '<span class="dkh-face"' + (u ? ' style="background-image:url(' + u + ')"' : '') + '>'
@@ -612,6 +633,8 @@ function showHome(){
     +     '<div class="dkh-oshi" data-dkgo="info" data-fx="pop" role="button"><i>!</i><b>お知らせ</b></div>'
     +     '<div class="dkh-ic" data-dkgo="mail" data-fx="pop" role="button" aria-label="プレゼントボックス">' + dkhIcon('mail')
     +       '<b class="dkh-ict">メール</b>' + (mails ? '<em class="dkh-dot">' + Math.min(99, mails) + '</em>' : '') + '</div>'
+    +     '<div class="dkh-ic dkh-gear" data-dkgo="settings" data-fx="pop" role="button" aria-label="設定">' + dkhIcon('gear')
+    +       '<b class="dkh-ict">設定</b></div>'
     +   '</div>'
     + '</div>'
     + dkhRail(DKH_LEFT, 'l') + dkhRail(DKH_RIGHT, 'r')
@@ -634,7 +657,7 @@ function showHome(){
     +         '<span class="dkh-sw" data-dkgo="cards" role="button" aria-label="カードを替える">' + dkhIcon('swap') + '</span></div>'
     +     '</div>'
     +   '</div>'
-    +   '<button type="button" class="dkh-enter fx-primary green" id="dkEnter" data-fx="popBig">'
+    +   '<button type="button" class="dkh-enter fx-primary" id="dkEnter" data-fx="popBig">'
     +     '<span class="dkh-entx">入場する</span><i class="dkh-chev" aria-hidden="true"><b></b><b></b></i></button>'
     + '</div>'
 
@@ -660,9 +683,12 @@ function showHome(){
   el.classList.add('dkh-home');
   if(pd) el.classList.add('dkh-hasped');
   el.setAttribute('data-fx-step', '40');
+  dkhSkin(el, 'hall');
   dkWire(el);
   dkhWireHome(el);
   screenTo('home');
+  /* 主役の絵のまわりのきらめき（2個だけ。スマホでは作らない＝iPhone の画素のメモリを増やさない） */
+  try{ if(typeof dkskSpark === 'function') dkskSpark(el.querySelector('.dkh-pic'), 2, { x:10, y:8, w:76, h:54 }); }catch(e){}
   /* タイマーは screenTo のあと（画面が変わる時に DKFX.stopTimers が前の画面のタイマーを止めるため） */
   dkEvery('dkh-left', function(){
     var e = document.getElementById('dkhLeft'), s = dkhWeekLeft();
@@ -961,6 +987,7 @@ function showNews(tab){
   var el = dkhAmb(dkMake('news', 'quest', dkHead('news', { title:'イベント' }) + dkTabs(tabs, T)
     + '<div class="dkh-nbody" data-tab="' + T + '">' + body + '</div>'));
   el.classList.add('dkh-news');
+  dkhSkin(el, 'hall');
   dkWire(el, function(id){ showNews(id); });
   el.querySelectorAll('[data-dkh-ntab]').forEach(function(b){
     b.onclick = function(){ try{ SFX.click(); }catch(e){} showNews(b.getAttribute('data-dkh-ntab')); };
@@ -1013,6 +1040,7 @@ function showMail(){
     +     '<p class="dkh-mnote">獲得したアイテムはここから受け取れます</p></div>'
     + '</div>'));
   el.classList.add('dkh-mail');
+  dkhSkin(el, 'page');
   dkWire(el);
   el.querySelectorAll('[data-dkh-take]').forEach(function(b){
     b.onclick = function(){ dkhClaim(b.getAttribute('data-dkh-take'), b); };
@@ -1102,6 +1130,7 @@ function showFriends(){
                                                          : 'ネットにつながると、オンライン対戦が使えます')) + '</p></div>'
     + '</div>'));
   el.classList.add('dkh-friends');
+  dkhSkin(el, 'study');
   dkWire(el);
   screenTo('friends');
   return el;
@@ -1251,6 +1280,7 @@ function dkhOnScreen(p){
 (function(){
   try{
     DKH_boot = Date.now();
+    dkhSkinVars();
     /* アニメの速さ（F5 のあとも残す） */
     try{
       var sp = parseFloat(localStorage.getItem('dv_speed'));

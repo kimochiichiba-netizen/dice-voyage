@@ -686,6 +686,180 @@ html,body{background-color:#140C05}
 #olroom.dkh-online div[style*="margin-top:22px"] > span{font-size:22px!important;color:#F4E3BD!important;font-weight:900}
 
 /* ══════════════════════════════════════════════════════════════
+   お手本の絵に寄せる仕上げ（書き割りの地・金の彫り枠・宝石のメダル・金の大ボタン・
+   羊皮紙のランキング・木目の常設バー）
+   ──────────────────────────────────────────────────────────────
+   ・地は静止の絵1枚（8b-skin.js の dkskApply が .sk-bg で敷く）。動く層は増やさない。
+   ・金の彫り枠は素材 frame-gold の9分割＝--sk-frame（dkskApply が配る）。
+     羊皮紙 --sk-paper・等級の台座 --sk-badge・金の飾り --sk-fleur も同じ。
+     木目と宝石は 9j-home.js の dkhSkinVars が配る --dkh-wood-img / --dkh-candle-img / --dkh-gem-*。
+   ・素材が無くても崩れない：絵はどれも第1レイヤーで、下に必ずグラデーションの下地を置く。
+   ・足した常時アニメは主役のまわりのきらめき2個だけ（1画面8個まで）。
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 地：書き割りを見せる（焼き込みは四隅だけにする） ── */
+#home.dkh-home::before{opacity:1;
+  background:
+    radial-gradient(66% 46% at 50% 2%,rgba(255,200,110,.26),transparent 74%),
+    radial-gradient(88% 84% at 50% 42%,rgba(0,0,0,0) 44%,rgba(10,5,0,.5) 100%),
+    linear-gradient(180deg,rgba(0,0,0,.22),rgba(0,0,0,0) 15%,rgba(0,0,0,0) 79%,rgba(0,0,0,.4))}
+
+/* ── 上段：告知帯・✉・⚙（お手本の右上は大きな金枠の四角が2つ） ── */
+.dkh-ev{right:414px;padding-right:52px;border-radius:16px;border:4px solid transparent;
+  background:radial-gradient(92% 150% at 18% 0%,rgba(255,152,92,.34),transparent 62%) padding-box,
+             var(--dkh-lacq) padding-box,var(--dkh-rimSS) border-box;
+  box-shadow:0 6px 0 rgba(0,0,0,.42),0 12px 24px rgba(0,0,0,.5),inset 0 2px 0 rgba(255,200,160,.38)}
+.dkh-home.dkh-hasped .dkh-ev{right:652px}
+.dkh-ped{right:414px}
+/* 右端の「＞」（お手本の告知帯の右にある山形） */
+.dkh-ev::after{content:"";position:absolute;right:16px;top:50%;width:20px;height:28px;margin-top:-14px;z-index:3;pointer-events:none;
+  background:#FFE9A8;clip-path:polygon(0 0,52% 0,100% 50%,52% 100%,0 100%,48% 50%);
+  filter:drop-shadow(0 2px 0 rgba(58,8,6,.75))}
+.dkh-tr{right:12px;top:7px;gap:14px}
+.dkh-oshi{border:3px solid #FFE9A8;
+  box-shadow:0 5px 0 rgba(0,0,0,.45),0 0 0 2px rgba(122,60,6,.5),inset 0 2px 0 rgba(255,255,255,.42)}
+.dkh-ic{width:100px;height:86px;border-radius:18px;border:4px solid transparent;
+  background:linear-gradient(180deg,#96733A,#4E3816 50%,#2A1C08) padding-box,var(--dkh-rimSS) border-box;
+  box-shadow:0 6px 0 rgba(0,0,0,.45),0 10px 20px rgba(0,0,0,.42),inset 0 2px 0 rgba(255,236,180,.45)}
+.dkh-ic svg{width:48px;height:48px}
+
+/* ── 左右の縦レール：木目と金の縁の柱（頭に金の飾り・足もとにロウソク） ── */
+.dkh-rail{top:100px;bottom:88px;width:176px;padding:12px 8px;gap:8px;border-radius:22px;
+  border:4px solid transparent;
+  background:
+    linear-gradient(180deg,rgba(255,228,164,.14),rgba(0,0,0,.34)) padding-box,
+    var(--dkh-wood-img,none) top left/100% auto repeat-y padding-box,
+    var(--dkh-wood) padding-box,
+    var(--dkh-rimSS) border-box;
+  box-shadow:0 14px 28px rgba(0,0,0,.55),inset 0 2px 0 rgba(255,226,160,.22),inset 0 -14px 22px rgba(0,0,0,.4)}
+.dkh-rail.l{left:8px} .dkh-rail.r{right:8px}
+.dkh-rail::before{content:"";position:absolute;left:50%;top:-15px;width:78px;height:34px;margin-left:-39px;z-index:2;pointer-events:none;
+  background:var(--sk-fleur,none) center/contain no-repeat;filter:drop-shadow(0 3px 4px rgba(0,0,0,.65))}
+.dkh-rail::after{content:"";flex:0 0 66px;min-height:0;pointer-events:none;
+  background:var(--dkh-candle-img,none) center/contain no-repeat;
+  filter:drop-shadow(0 0 16px rgba(255,172,64,.6)) drop-shadow(0 4px 8px rgba(0,0,0,.6))}
+.dkh-rb,.dkh-rail.l .dkh-rb{flex:1 1 0;height:auto;min-height:0;border-radius:16px;
+  background:linear-gradient(180deg,#72562A,#32220C 56%,#1A1004) padding-box,
+             linear-gradient(180deg,#F0CE72,#8A5E06 46%,#C8952F) border-box;
+  border:3px solid transparent;
+  box-shadow:0 4px 0 rgba(0,0,0,.5),0 8px 14px rgba(0,0,0,.4),inset 0 2px 0 rgba(255,226,160,.28),inset 0 -12px 18px rgba(0,0,0,.4)}
+/* 色分けした宝石のメダル（絵の明るさだけを重ねる＝色はそのまま・絵が無ければグラデーションだけ） */
+.dkh-rb .dkh-med{width:76px;height:76px;isolation:isolate;
+  background-size:cover,auto;background-position:center,center;background-repeat:no-repeat,no-repeat;
+  background-blend-mode:luminosity,normal;
+  border:3px solid #FFE9A8;
+  box-shadow:0 0 0 3px #4A2E06,0 5px 9px rgba(0,0,0,.65),inset 0 -9px 15px rgba(0,0,0,.42),inset 0 7px 12px rgba(255,255,255,.42)}
+.dkh-med.ruby {background-image:var(--dkh-gem-ruby,none),radial-gradient(circle at 38% 30%,#FF9A86,#E0402E 45%,#8E1410 85%)}
+.dkh-med.amber{background-image:var(--dkh-gem-amber,none),radial-gradient(circle at 38% 30%,#FFE9A0,#F2A81C 45%,#9A5A04 85%)}
+.dkh-med.emer {background-image:var(--dkh-gem-emer,none),radial-gradient(circle at 38% 30%,#C6F59A,#4FB43A 45%,#1C5E10 85%)}
+.dkh-med.sapph{background-image:var(--dkh-gem-sapph,none),radial-gradient(circle at 38% 30%,#BFE8FF,#2E8BE0 45%,#0B2C5E 85%)}
+.dkh-med.amet {background-image:var(--dkh-gem-amet,none),radial-gradient(circle at 38% 30%,#FFB0C8,#C23B6A 45%,#5E0A2C 85%)}
+.dkh-med.wood {background-image:var(--dkh-gem-wood,none),radial-gradient(circle at 38% 30%,#FFF1CC,#C8A064 45%,#5A3E18 85%)}
+.dkh-rb .dkh-med svg{width:52px;height:52px}
+.dkh-rbt{font-size:21px;-webkit-text-stroke-width:4.6px;color:#FFF6E0}
+
+/* ── 中央の大きなキャラカード（等級バッジ・金の彫り枠・金のLv） ── */
+.dkh-card{padding:7px;border-radius:24px}
+.dkh-chd{flex:0 0 64px;justify-content:center;padding:0 18px 0 104px;overflow:visible;
+  background:linear-gradient(180deg,#3E2A11,#160D04)}
+.dkh-cnm{margin-left:0;flex:1;text-align:center;font-size:28px}
+/* 等級は大きな飾り文字（お手本は台座なしの立体文字。焼き込みの文字は使わない） */
+.dkh-card .dkh-rar{position:absolute;left:10px;top:-8px;z-index:7;font-size:60px;line-height:1;
+  -webkit-text-stroke:7px #3A2405;filter:drop-shadow(0 5px 7px rgba(0,0,0,.75))}
+/* 主役は胸から上を大きく見せる（お手本の切り取り） */
+.dkh-art{background-size:162% auto;background-position:50% 54%}
+.dkh-pic::after{content:"";position:absolute;inset:0;z-index:4;pointer-events:none;
+  border:19px solid transparent;
+  border-image-source:var(--sk-frame,none);border-image-slice:80;border-image-width:19px;border-image-repeat:stretch}
+.dkh-role{left:22px;bottom:20px;z-index:5}
+.dkh-lv{right:20px;bottom:18px;z-index:5;width:92px;height:100px;font-size:40px;color:#FFFCF0;-webkit-text-stroke:5px #5A3A04;
+  background:linear-gradient(180deg,#FFF9E4 0 8%,#F8DA74 30%,#DCA62E 68%,#A6700F);
+  filter:drop-shadow(0 4px 6px rgba(0,0,0,.6))}
+.dkh-lv i{-webkit-text-stroke:3px #5A3A04}
+.dkh-plate{flex:0 0 78px;background:linear-gradient(180deg,#6B4F22,#30200B 62%,#1C1205);
+  box-shadow:inset 0 0 0 2px rgba(255,226,160,.32)}
+
+/* ── 入場する（お手本は金の大ボタン） ── */
+.dkh-enter{flex:0 0 108px;border:6px solid transparent;
+  background:linear-gradient(180deg,#FFF9E4 0 7%,#F8DA74 26%,#E3AE31 58%,#A6700F 88%,#7A4E06 100%) padding-box,
+             var(--dkh-rimSS) border-box;
+  box-shadow:0 8px 0 rgba(0,0,0,.42),0 14px 26px rgba(0,0,0,.5),inset 0 3px 0 rgba(255,255,255,.6),0 0 26px rgba(255,200,80,.34)}
+.dkh-entx{color:#FFFDF4;-webkit-text-stroke:9px #6B4406;text-shadow:0 5px 0 rgba(90,58,6,.45)}
+.dkh-chev b{background:#FFF9E4;filter:drop-shadow(0 2px 0 #6B4406)}
+
+/* ── 右：ランキング（お手本は羊皮紙の面に金の彫り枠） ── */
+.dkh-side{padding:6px 8px 8px;gap:8px;border-radius:0;
+  border:26px solid #8A6206;
+  border-image-source:var(--sk-frame,none);border-image-slice:80;border-image-width:26px;border-image-repeat:stretch;
+  background:
+    var(--sk-paper,none) top left/auto 100% repeat-x,
+    radial-gradient(130% 78% at 50% 0%,rgba(255,255,255,.5),transparent 56%),
+    linear-gradient(180deg,#F8EEDA,#ECDBBC 48%,#D4BA8F);
+  background-blend-mode:multiply,normal,normal;
+  box-shadow:0 14px 32px rgba(0,0,0,.6)}
+.dkh-tab{color:#6B4E1C;-webkit-text-stroke:4px rgba(255,250,232,.92);border-radius:15px 15px 6px 6px;
+  background:linear-gradient(180deg,#FCF4E0,#E7D6B4 52%,#C9B187) padding-box,
+             linear-gradient(180deg,#E3BE63,#8A6206 52%,#C8952F) border-box;
+  border:3px solid transparent;
+  box-shadow:0 3px 0 rgba(90,62,18,.35),inset 0 2px 0 rgba(255,255,255,.7)}
+.dkh-tab.on{color:#5A3A04;-webkit-text-stroke-color:rgba(255,252,236,.95);
+  background:linear-gradient(180deg,#FFF9E4 0 10%,#F8DA74 36%,#DCA62E 74%,#A6700F) padding-box,var(--dkh-rimSS) border-box;
+  box-shadow:0 3px 0 rgba(90,62,18,.4),inset 0 2px 0 rgba(255,255,255,.6),0 0 18px rgba(255,200,90,.6)}
+.dkh-q{color:#5A3A04;-webkit-text-stroke:4px rgba(255,250,230,.9);
+  background:radial-gradient(circle at 38% 28%,#FFF9E4,#F3C433 52%,#A6700F) padding-box,var(--dkh-rimSS) border-box;
+  box-shadow:0 4px 0 rgba(90,62,18,.45),inset 0 2px 0 rgba(255,255,255,.6)}
+.dkh-left{color:#4E3610;background:linear-gradient(180deg,#E8DABA,#D2C099);
+  border:2px solid #A9761A;box-shadow:inset 0 2px 5px rgba(90,62,18,.4)}
+.dkh-list{border:3px solid #9A7526;box-shadow:inset 0 3px 9px rgba(90,62,18,.32),inset 0 0 0 2px rgba(255,255,255,.5)}
+/* 行は面いっぱいに伸ばす（お手本は4〜5行で右の面が埋まる） */
+.dkh-row{flex:1 1 0;min-height:62px;background:linear-gradient(180deg,rgba(255,255,255,.68),rgba(255,255,255,.14));
+  border:1px solid rgba(140,106,54,.45);box-shadow:0 1px 0 rgba(255,255,255,.5)}
+.dkh-row.top1{background:linear-gradient(180deg,#FFF9D8,#F6D97A 62%,#E9BE4C);border:2px solid #C8952F;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.7),0 0 14px rgba(255,200,90,.4)}
+.dkh-me{flex:1.2 1 0;min-height:76px;background:linear-gradient(180deg,#FFFBE2,#F8DA74 62%,#E9BE4C);border:3px solid #C8952F}
+/* 月桂冠のかわりに、1〜3位のメダルに小さな冠をのせる（お手本の順位メダル） */
+.dkh-medal{position:relative;width:46px;height:46px;font-size:24px;overflow:visible}
+.dkh-medal::after{content:"";position:absolute;left:50%;top:-13px;width:28px;height:15px;margin-left:-14px;
+  background:linear-gradient(180deg,#FFF6C8,#F2C230 58%,#A9761A);
+  clip-path:polygon(0 100%,0 32%,22% 62%,50% 0,78% 62%,100% 32%,100% 100%);
+  filter:drop-shadow(0 1px 0 rgba(60,38,4,.6))}
+.dkh-medal.m2::after{background:linear-gradient(180deg,#FFFFFF,#C9D3DE 58%,#7A8796)}
+.dkh-medal.m3::after{background:linear-gradient(180deg,#FFE0C0,#D08A4E 58%,#7A4418)}
+.dkh-list .dkh-face{flex-basis:54px;width:54px;height:54px;border:2px solid #7A5A22;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.6),0 2px 3px rgba(0,0,0,.3)}
+.dkh-list .dkh-nm{font-size:24px}
+.dkh-rpv{font-size:30px;color:#4E3610}
+.dkh-cup{width:24px;height:26px}
+.dkh-lg{background:linear-gradient(180deg,#4A3516,#1E1206);border:2px solid #A9761A;
+  box-shadow:inset 0 2px 0 rgba(255,226,160,.22),0 2px 0 rgba(90,62,18,.3)}
+
+/* ── マイレージ（金の縁の帯＋緑の塗り） ── */
+.dkh-mile{flex:0 0 70px;border-radius:16px;border:3px solid transparent;
+  background:linear-gradient(180deg,#3E2C12,#180F04) padding-box,var(--dkh-rimSS) border-box;
+  box-shadow:inset 0 3px 8px rgba(0,0,0,.65),0 3px 0 rgba(90,62,18,.3)}
+.dkh-mbar{border:2px solid #5A4420;box-shadow:inset 0 3px 7px rgba(0,0,0,.72)}
+.dkh-mfill{background:linear-gradient(180deg,#CBF8A2 0 24%,#68CC3E 52%,#2F8215)}
+.dkh-mfill::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(104deg,transparent 32%,rgba(255,255,255,.42) 50%,transparent 68%)}
+
+/* ── 常設バー（木目の下地＋金の縁） ── */
+.wallet.dkh-wallet{padding:8px 26px 0;
+  background:
+    linear-gradient(180deg,#FFEFC0 0 3px,#B8821C 3px 6px,#6B4A1C 6px 9px,transparent 9px 100%) padding-box,
+    linear-gradient(180deg,rgba(255,232,172,.09),rgba(0,0,0,.42)) padding-box,
+    var(--dkh-wood-img,none) top left/100% auto repeat-y padding-box,
+    linear-gradient(180deg,#5E441C,#32210B 62%,#1A1004) padding-box}
+.dkh-wi{border:3px solid transparent;border-radius:15px;
+  background:linear-gradient(180deg,#160E05,#2C1C08 58%,#180F04) padding-box,var(--dkh-rimSS) border-box;
+  box-shadow:inset 0 3px 7px rgba(0,0,0,.72),0 2px 0 rgba(255,226,160,.18)}
+.dkh-lvb{background:linear-gradient(180deg,#FFF9E4,#F3C433 50%,#A6700F);border:2px solid #5A3A04;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.7),0 2px 0 rgba(0,0,0,.35)}
+.dkh-plus{border:2px solid transparent;
+  background:linear-gradient(180deg,#FFF7DC,#E0C68E 56%,#A98F62) padding-box,
+             linear-gradient(180deg,#E3BE63,#7A5514) border-box;
+  box-shadow:0 3px 0 rgba(0,0,0,.45),inset 0 2px 0 rgba(255,255,255,.7)}
+
+/* ══════════════════════════════════════════════════════════════
    横長スマホ（高さ560px未満）：主要な文字 26px・本文 22px、押せる範囲 96px
    ══════════════════════════════════════════════════════════════ */
 @media (max-height:560px){
